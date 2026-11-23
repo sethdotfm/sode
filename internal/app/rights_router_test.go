@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -138,5 +139,42 @@ func TestHiddenRightsMatchRouterAndNumber(t *testing.T) {
 	h := viewGet(t, a, key, "/api/v1/history")["entries"].([]any)
 	if len(h) != 1 || h[0].(map[string]any)["router"] != rightsUIDA {
 		t.Errorf("history %v, want the entry on A only", h)
+	}
+}
+
+// A Rights level limit on router A does not limit router B. B has 3 levels; the limit on A allows level 1 only.
+func TestRightsLevelsMatchTheirRouter(t *testing.T) {
+	a, fa, key := takerApp(t, func(c *config.Config) {
+		c.UID = rightsUIDA
+		rb := moreRouter("B", "Second", "10.0.0.9:8910", 3)
+		rb.UID = rightsUIDB
+		c.MoreRouters = []config.Router{rb}
+		c.APIClients[0].Rights = config.Rights{Levels: config.RouterLevels{rightsUIDA: {1}}}
+	})
+	fb, _ := addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	fa.seed(5, 1, 0, 1, 2)
+	fb.seed(5, 1, 0, 1, 2)
+	take := func(uid string, levels string) *httptest.ResponseRecorder {
+		body := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":%q,"n":5},"levels":%s}]}`, uid, uid, levels)
+		return apiPost(a, "/api/v1/takes", key, body, nil)
+	}
+	if rec := take(rightsUIDB, "[2,3]"); rec.Code != http.StatusOK {
+		t.Errorf("levels 2 and 3 on B: %d %s", rec.Code, rec.Body)
+	}
+	if rec := take(rightsUIDA, "[2]"); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "level 2") {
+		t.Errorf("level 2 on A: %d %s", rec.Code, rec.Body)
+	}
+	if rec := take(rightsUIDA, "[1]"); rec.Code != http.StatusOK {
+		t.Errorf("level 1 on A: %d %s", rec.Code, rec.Body)
+	}
+
+	// A Protect covers every level of its router: refused on A, where level 2 is outside, allowed on B.
+	on := true
+	rt := config.Rights{Levels: config.RouterLevels{rightsUIDA: {1}}, Protect: &on}
+	if err := protectRights(a.r(), rt, rightsUIDA, 5); err == nil || !strings.Contains(err.Error(), "level 2") {
+		t.Errorf("Protect on A: %v", err)
+	}
+	if err := protectRights(a.r(), rt, rightsUIDB, 5); err != nil {
+		t.Errorf("Protect on B: %v", err)
 	}
 }

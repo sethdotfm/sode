@@ -20,18 +20,21 @@ func writeStore(t *testing.T, dir, name, text string) {
 	}
 }
 
-// A panel file reads no bare router number: a cell, Grid edge or fixed destination with no router skips the panel
-// and says why. The same panel with its routers loads.
+// A panel file reads no bare router number. A cell, Grid edge, fixed destination or level list with no router
+// skips the panel and says why. The same panel with its routers loads.
 func TestPanelFileWithNoRouterIsSkipped(t *testing.T) {
 	cases := map[string]string{
-		"source cell":       "pages:\n  - id: a\n    cells: [{r: 1, c: 1, kind: source, n: 1}]\n",
-		"destination cell":  "pages:\n  - id: a\n    cells: [{r: 1, c: 1, kind: destination, n: 2}]\n",
-		"fixed destination": "settings: {fixedDests: [2]}\npages:\n  - id: a\n    cells: []\n",
-		"fixed no router":   "settings: {fixedDests: [{n: 2}]}\npages:\n  - id: a\n    cells: []\n",
-		"grid member":       "type: grid\nsources: {members: [{n: 1}]}\ndestinations: {members: all}\n",
-		"grid hide":         "type: grid\nsources: {members: all, hide: [{n: 1}]}\ndestinations: {members: all}\n",
-		"grid item":         "type: grid\nsources: {members: all, items: [{n: 1, pinned: true}]}\ndestinations: {members: all}\n",
-		"grid plain number": "type: grid\nsources: {members: [1]}\ndestinations: {members: all}\n",
+		"source cell":        "pages:\n  - id: a\n    cells: [{r: 1, c: 1, kind: source, n: 1}]\n",
+		"destination cell":   "pages:\n  - id: a\n    cells: [{r: 1, c: 1, kind: destination, n: 2}]\n",
+		"fixed destination":  "settings: {fixedDests: [2]}\npages:\n  - id: a\n    cells: []\n",
+		"fixed no router":    "settings: {fixedDests: [{n: 2}]}\npages:\n  - id: a\n    cells: []\n",
+		"grid member":        "type: grid\nsources: {members: [{n: 1}]}\ndestinations: {members: all}\n",
+		"grid hide":          "type: grid\nsources: {members: all, hide: [{n: 1}]}\ndestinations: {members: all}\n",
+		"grid item":          "type: grid\nsources: {members: all, items: [{n: 1, pinned: true}]}\ndestinations: {members: all}\n",
+		"grid plain number":  "type: grid\nsources: {members: [1]}\ndestinations: {members: all}\n",
+		"panel levels":       "settings: {levels: [1, 2]}\npages:\n  - id: a\n    cells: []\n",
+		"panel levels blank": "settings: {levels: {'': [1]}}\npages:\n  - id: a\n    cells: []\n",
+		"cell levels":        "pages:\n  - id: a\n    cells: [{r: 1, c: 1, kind: destination, levels: [1]}]\n",
 	}
 	for name, body := range cases {
 		dir := t.TempDir()
@@ -46,8 +49,8 @@ func TestPanelFileWithNoRouterIsSkipped(t *testing.T) {
 	}
 	dir := t.TempDir()
 	r := "router: " + testUID + ", "
-	writeStore(t, dir, "panels/p-0000000b.yaml", "id: p-0000000b\nname: Good\nsettings: {fixedDests: [{"+r+"n: 2}]}\n"+
-		"pages:\n  - id: a\n    cells: [{r: 1, c: 1, kind: source, "+r+"n: 1}, {r: 1, c: 2, kind: take}]\n")
+	writeStore(t, dir, "panels/p-0000000b.yaml", "id: p-0000000b\nname: Good\nsettings: {fixedDests: [{"+r+"n: 2}], levels: {\""+testUID+"\": [1]}}\n"+
+		"pages:\n  - id: a\n    cells: [{r: 1, c: 1, kind: source, "+r+"n: 1, levels: [2]}, {r: 1, c: 2, kind: take}]\n")
 	writeStore(t, dir, "panels/p-0000000c.yaml", "id: p-0000000c\nname: Grid\ntype: grid\n"+
 		"sources: {members: all, hide: [{"+r+"n: 1}], items: [{"+r+"n: 2, pinned: true}]}\ndestinations: {members: [{"+r+"n: 3}]}\n")
 	s := loadPanels(filepath.Join(dir, "config.yaml"))

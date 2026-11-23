@@ -7,6 +7,7 @@ export const SIGN_IN_ENDED = 'Sign-in ended. Reload to sign in.';
 import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
 import { itemPlain } from './presetref.js';
+import { levelsOn } from './routerlevels.js';
 
 export const KINDS = [
   'source',
@@ -71,7 +72,11 @@ export function sessionNote(step, err = '') {
 // rights is the caller's own Rights from GET /panels/<id>: an unset list allows everything, an empty one nothing.
 // Keep in step with config.Rights and outsideRights (internal/app/rights.go).
 // List entries are router references {router, n, name} (refN in rightsrules.js); presets are ids.
-export const rightsAllow = (rights, list, v) => !Array.isArray(rights?.[list]) || rights[list].some((x) => (x && typeof x === 'object' ? x.n : x) === v);
+// router: for 'levels', the UID of the router the level is on (envFrom's env.router).
+export const rightsAllow = (rights, list, v, router) => {
+  const l = list === 'levels' ? levelsOn(rights?.levels, router) : rights?.[list];
+  return !Array.isArray(l) || l.some((x) => (x && typeof x === 'object' ? x.n : x) === v);
+};
 
 export function envFrom(tally, protectedReply, presetsReply = {}, rights = null) {
   const rows = new Map();
@@ -80,6 +85,8 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
     rows.get(r.dst).set(r.level, r.src);
   }
   return {
+    // router: the UID Rights levels and the panel's level subset name these levels by.
+    router: tally.router || '',
     levels: (tally.levels || []).map((l) => l.level),
     tally: rows,
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),

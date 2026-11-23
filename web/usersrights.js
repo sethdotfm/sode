@@ -33,7 +33,8 @@ export function makeRightsTab({ users, clients, touched }) {
   const node = el('div', null, el('div', 'sode__rights-pick', selectField('rights-pick', 'Rights for', pickSel)), body);
 
   const entryOf = (key) => {
-    if (!entries.has(key)) entries.set(key, newEntry(undefined, off(), key.startsWith('user:') ? { noAutoLock: !!S.cfg?.newUserDefaults?.noAutoLock } : {}));
+    if (!entries.has(key))
+      entries.set(key, newEntry(undefined, off(), key.startsWith('user:') ? { noAutoLock: !!S.cfg?.newUserDefaults?.noAutoLock } : {}, [], S.routerUid));
     return entries.get(key);
   };
   const keys = () => entryKeys(users(), clients());
@@ -154,13 +155,13 @@ export function makeRightsTab({ users, clients, touched }) {
       if (pick === `user:${rid}`) draw();
     },
     adoptUser(rid, u) {
-      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, [...presets(), ...(u.presets || [])]));
+      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, [...presets(), ...(u.presets || [])], S.routerUid));
     },
     adoptClient(rid, c) {
-      entries.set(`client:${rid}`, newEntry(c.rights || {}, off(), {}, presets()));
+      entries.set(`client:${rid}`, newEntry(c.rights || {}, off(), {}, presets(), S.routerUid));
     },
     adoptGuest(rights) {
-      entries.set('guest', newEntry(rights || {}, off(), {}, presets()));
+      entries.set('guest', newEntry(rights || {}, off(), {}, presets(), S.routerUid));
     },
     read: () => entries,
   };

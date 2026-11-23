@@ -113,9 +113,16 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 		case !rt.AllowsDst(config.Ref{Router: uid, N: it.Dst}):
 			return kind("destination", it.Dst)
 		}
-		for _, ui := range it.Levels {
-			if !rt.AllowsLevel(ui) {
-				return fmt.Sprintf("level %s is outside your rights", r.cfg.LevelLabel(ui))
+		// Levels are matched on the route's router, as planRoute reads them. A limit on one router does not limit
+		// another. On a router with one level, any typed level is that level.
+		lv := r.levelsOf(uid)
+		uis := it.Levels
+		if t, err := lv.typed(uis); err == nil {
+			uis = t
+		}
+		for _, ui := range uis {
+			if !rt.AllowsLevel(uid, ui) {
+				return fmt.Sprintf("level %s is outside your rights", lv.label(ui))
 			}
 		}
 		if !rt.AllowsSource(config.Ref{Router: uid, N: it.Src}) && !a.undoMatches(it) {

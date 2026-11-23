@@ -1,0 +1,1 @@
+- Rights `levels` and the level subset of a panel name their router: `{"<router uid>": [1, 2]}`. A level limit on one router does not limit another router. A request can still send a plain list, which names the one router. A cell's levels belong to the router of the cell. `GET /tally` carries `router`, the UID of its levels.

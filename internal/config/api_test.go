@@ -72,7 +72,7 @@ func TestRightsRoundTrip(t *testing.T) {
 
 func TestRightsAllow(t *testing.T) {
 	r := Rights{Sources: nums(4), Presets: &[]string{"Cam"}}
-	if !r.AllowsSource(Ref{N: 4}) || r.AllowsSource(Ref{N: 5}) || !r.AllowsDst(Ref{N: 9}) || !r.AllowsLevel(1) {
+	if !r.AllowsSource(Ref{N: 4}) || r.AllowsSource(Ref{N: 5}) || !r.AllowsDst(Ref{N: 9}) || !r.AllowsLevel("u", 1) {
 		t.Error("source list or unset lists wrong")
 	}
 	if !r.AllowsPreset("Cam") || r.AllowsPreset("Other") {
@@ -102,7 +102,7 @@ func TestAPIValidation(t *testing.T) {
 		"bad scope":          func(c *Config) { c.GuestAPIScopes = []string{"root"} },
 		"client no name":     func(c *Config) { c.APIClients = []APIClient{{}} },
 		"duplicate client":   func(c *Config) { c.APIClients = []APIClient{{Name: "A"}, {Name: "a"}} },
-		"level out of range": func(c *Config) { c.GuestRights.Levels = &[]int{99} },
+		"level out of range": func(c *Config) { c.GuestRights.Levels = RouterLevels{c.UID: {99}} },
 		"negative source":    func(c *Config) { c.GuestRights.Sources = nums(-1) },
 		"rate limit":         func(c *Config) { c.API.RateLimit = -1 },
 		"take cap":           func(c *Config) { c.API.TakeCap = 0 },

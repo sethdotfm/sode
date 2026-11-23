@@ -36,7 +36,7 @@ export const refusalText = (err, names) => (err?.code === 'protected' ? `${names
 // Why a staged entry { dst, level, src } no longer applies, or ''. world is { env, rights, names (GET /names) }.
 // A read that has not come yet leaves nothing out, so a slow first poll never drops staged work.
 function whyOut(x, { env, rights, names }) {
-  if (!rightsAllow(rights, 'dsts', x.dst) || !rightsAllow(rights, 'sources', x.src) || !rightsAllow(rights, 'levels', x.level)) return 'rights';
+  if (!rightsAllow(rights, 'dsts', x.dst) || !rightsAllow(rights, 'sources', x.src) || !rightsAllow(rights, 'levels', x.level, env?.router)) return 'rights';
   const has = (list, n) => !Array.isArray(list) || list.some((y) => y.n === n);
   if (!has(names?.sources, x.src) || !has(names?.destinations, x.dst)) return 'gone';
   if (env.levels.length && !env.levels.includes(x.level)) return 'gone';

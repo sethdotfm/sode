@@ -79,7 +79,8 @@ func failWith(w http.ResponseWriter, err error) {
 // save never fails over Rights an Administrator widened. Anything else needs the key of a user
 // who can edit the panel (any Role, ADR 0006) and must be within the caller's own Rights.
 func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Rights) (config.Rights, bool, error) {
-	if cur != nil && (want == nil || reflect.DeepEqual(clean(*want), *cur)) {
+	uid := a.r().cfg.UID
+	if cur != nil && (want == nil || reflect.DeepEqual(clean(*want, uid), *cur)) {
 		return *cur, false, nil
 	}
 	if cl.Actor.Kind != actorUser {
@@ -87,7 +88,7 @@ func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Right
 	}
 	r := cl.Rights.Clone()
 	if want != nil {
-		r = clean(*want)
+		r = clean(*want, uid)
 	}
 	if !r.Within(cl.Rights) {
 		return config.Rights{}, false, apiAdminOnly("rights wider than your own")
@@ -101,8 +102,9 @@ func apiAdminOnly(what string) error {
 		what + " need an Administrator, and a key never acts as one: an Administrator makes this change in Settings"}
 }
 
-func clean(r config.Rights) config.Rights {
-	r = r.Clone()
+// uid: the router that references and levels with no router name, as Normalize fills them, so Within compares them.
+func clean(r config.Rights, uid string) config.Rights {
+	r = r.WithRouter(uid)
 	r.Visibility = strings.ToLower(strings.TrimSpace(r.Visibility))
 	return r
 }

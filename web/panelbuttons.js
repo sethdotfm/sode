@@ -43,7 +43,7 @@ const stateOf = (p) => {
     multi: set.multi,
     guard: set.guard,
     resultText: set.resultText,
-    levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null,
+    levels: set.levels || null, // by router; panelmodel.js reads the list of its router
     fixedDests: set.fixedDests,
   });
 };

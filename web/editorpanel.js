@@ -8,6 +8,7 @@ import { setSetting, fontPercent, FONT_MAX, FONT_MIN } from './sidebarrules.js';
 import { createSlugField } from './editorslug.js';
 import { linkRow } from './panellinkrow.js';
 import { createLevelBoxes } from './editorlevels.js';
+import { levelsOn, putLevels } from './routerlevels.js';
 import { createSizeFields } from './editorsize.js';
 import { createFixedField } from './editorfixed.js';
 import { fixedDestsOf } from './panelrules.js';
@@ -134,7 +135,8 @@ export function createPanelTab(ed) {
     ],
     (v) => set('guard', v),
   );
-  const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', v || []) });
+  // The boxes edit the first router's subset; the subsets of other routers stay.
+  const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', putLevels(ed.fields().settings?.levels, S.routerUid, v?.length ? v : null)) });
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node);
   const fixed = createFixedField(ed);
   const multi = toggle('multi', 'Stage several Destinations at the same time');
@@ -229,7 +231,7 @@ export function createPanelTab(ed) {
       guard.set(s.guard === 'hold' || s.guard === 'double' ? s.guard : 'none');
       guard.disable(ro);
       levelField.hidden = !S.levels.length;
-      levelBoxes.draw(s.levels);
+      levelBoxes.draw(levelsOn(s.levels, S.routerUid));
       sizes.update();
       theme.select.value = THEMES.includes(s.theme) ? s.theme : 'auto';
       theme.select.disabled = ro;

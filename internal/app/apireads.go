@@ -164,7 +164,9 @@ func (a *App) tallySnapshot(u *routerUnit, v apiView) map[string]any {
 		levels = append(levels, apiLevel{l.UI, l.Label, l.Swatch, l.Color})
 	}
 	rc := r.routerOf(u.uid)
+	// router: the UID that Rights levels and the level subset of a panel name these levels by.
 	return map[string]any{
+		"router": a.rightsUID(r, u.uid),
 		"levels": levels, "levelNumbering": rc.LevelNumbering, "defaultLevels": rc.DefaultLevels,
 		"routes": routeRows(u.router.tally, v.on(u.uid)),
 	}
