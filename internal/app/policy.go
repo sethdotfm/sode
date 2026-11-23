@@ -150,7 +150,7 @@ var policy = map[string]rule{
 	"log": {crit: critNever, role: config.RoleStandard, need: needLog, admitted: func(c *client) { c.sent = true },
 		handle: func(a *App, c *client, m *inMsg) { go a.sentHistory(c, int64(m.Before), m.N) }},
 	"uptime": {crit: critNever, role: config.RoleStandard, need: needLog, handle: func(a *App, c *client, m *inMsg) {
-		a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
+		a.reply(c, a.uptimeReply(m.ID, m.Router, m.From, m.To, m.Slot))
 	}},
 
 	"config": {crit: critByFields, role: config.RoleTrusted, op: "config", noID: true, write: true,

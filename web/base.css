@@ -822,8 +822,23 @@ html {
 }
 [data-layout="phone"] #patch-view,
 [data-layout="phone"] .sode__conn,
-[data-layout="phone"]:not([data-view="settings"]) #conn-down {
+[data-layout="phone"]:not([data-view="settings"]) #conn-down,
+[data-layout="phone"]:not([data-view="settings"]) #conn-degraded {
   display: none;
+}
+/* The Degraded note (degradedview.js): a caution, with no red. Red is only the down router's icon. */
+.sode__degraded {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--pb-space-3);
+  margin: 0;
+}
+.sode__degraded[hidden] {
+  display: none;
+}
+.sode__degraded > .pb-icon {
+  flex: none;
+  margin-top: 0.15em;
 }
 /* The page's sticky copy would sit over the fixed phone view's header; the phone view draws its own under it. */
 [data-layout="phone"]:not([data-view="settings"]) body > .sode__notsaved {

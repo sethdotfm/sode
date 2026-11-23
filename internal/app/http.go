@@ -385,7 +385,7 @@ type inMsg struct {
 	MyClient     *myClientReq       `json:"client"`   // myClientSave
 	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
 	approver     *config.User       // approve sets it after it checks the Approval's PIN
-	Router       string             `json:"router"`  // setupRouter: the address typed; routerUses: the router UID
+	Router       string             `json:"router"`  // setupRouter: the address typed; routerUses and uptime: the router UID
 	Setup        *setupReq          `json:"setup"`   // setupFinish
 	TakeOver     bool               `json:"take"`    // setupClaim: Take control from the browser that runs setup
 	For          *inMsg             `json:"for"`     // approvalAsk: the action to approve
@@ -406,8 +406,9 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-// A range with no end runs to now; no start, a week back. The graph shows the first router.
-func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
+// A range with no end runs to now; no start, a week back. router is the router UID; blank is the first router. A UID
+// with no router gets a range with nothing recorded, and the reply echoes it.
+func (a *App) uptimeReply(id int, router string, from, to, slot int64) uptimeMsg {
 	now := time.Now().UnixMilli()
 	if to <= 0 || to > now {
 		to = now
@@ -419,8 +420,13 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	if oldest := time.UnixMilli(now).Add(-uptimeKeep).UnixMilli(); from < oldest {
 		from = oldest
 	}
-	r := a.firstUnit().up.Range(from, to, slot)
-	m := uptimeMsg{T: "uptimeResult", ID: id, From: from, To: to, Slot: max(slot, 60_000), Now: now, Start: r.Start, Trans: r.Trans, Counts: r.Counts}
+	var r UptimeRange
+	u, ok := a.unit(router)
+	if ok {
+		r = u.up.Range(from, to, slot)
+		router = u.uid
+	}
+	m := uptimeMsg{T: "uptimeResult", ID: id, Router: router, From: from, To: to, Slot: max(slot, 60_000), Now: now, Start: r.Start, Trans: r.Trans, Counts: r.Counts}
 	if m.Trans == nil {
 		m.Trans = []UptimeTrans{}
 	}
