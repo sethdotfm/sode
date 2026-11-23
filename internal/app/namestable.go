@@ -125,3 +125,18 @@ func (s *namesStore) save(uid string, at time.Time, src, dst map[int]string) {
 	}
 	s.held[uid] = namePoll{src, dst}
 }
+
+// remove deletes the saved names table of a router that a save removed.
+func (s *namesStore) remove(uid string) error {
+	path := s.path(uid)
+	if path == "" {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.held, uid)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}

@@ -117,6 +117,32 @@ func (c Config) DestinationRef(n int, name string) Ref { return c.SourceRef(n, n
 
 func newRouterUID() string { return RandomHexID(8) }
 
+// NewRouterUID is the UID of a router that Add router makes.
+func NewRouterUID() string { return newRouterUID() }
+
+// FreePrefix gives the first router prefix that no router has: A to Z, then AA to ZZ.
+func (c Config) FreePrefix() string {
+	used := map[string]bool{}
+	for _, r := range c.Routers() {
+		used[r.Prefix] = true
+	}
+	var try []string
+	for a := 'A'; a <= 'Z'; a++ {
+		try = append(try, string(a))
+	}
+	for a := 'A'; a <= 'Z'; a++ {
+		for b := 'A'; b <= 'Z'; b++ {
+			try = append(try, string(a)+string(b))
+		}
+	}
+	for _, p := range try {
+		if !used[p] {
+			return p
+		}
+	}
+	return ""
+}
+
 // RandomHexID is n random bytes in hex. The first digit is a to f.
 // YAML then never reads the id as a number, and never quotes it.
 func RandomHexID(n int) string {

@@ -13,8 +13,8 @@ import (
 func TestAppHoldsOneRouterUnitByUID(t *testing.T) {
 	a := newTestApp(t)
 	uid := a.r().cfg.UID
-	if len(a.routers) != 1 || a.routers[uid] != a.first || a.first.uid != uid {
-		t.Fatalf("routers %v, first %p, uid %q", a.routers, a.first, uid)
+	if len(a.units()) != 1 || a.units()[uid] != a.first || a.first.uid != uid {
+		t.Fatalf("routers %v, first %p, uid %q", a.units(), a.first, uid)
 	}
 	for _, k := range []string{"", uid} {
 		if u, ok := a.unit(k); !ok || u != a.first {
@@ -46,8 +46,8 @@ func threeRouters(t *testing.T) (*App, []*fakeRouter) {
 // The test kit puts a fake router on each of several units; each one answers only for its own router.
 func TestKitHasSeveralFakeRouters(t *testing.T) {
 	a, fs := threeRouters(t)
-	if len(a.routers) != 3 {
-		t.Fatalf("%d units, want 3", len(a.routers))
+	if len(a.units()) != 3 {
+		t.Fatalf("%d units, want 3", len(a.units()))
 	}
 	for i, f := range fs {
 		f.u.send(swp08.ExtInterrogate(0, 0, 6), swp08.ReasonResync)
@@ -75,7 +75,7 @@ func TestShortTimersEveryRouter(t *testing.T) {
 		f.u.checkTimeout, f.u.routeTimeout, f.u.routeGrace, f.u.queueMax = time.Second, time.Second, time.Second, time.Second
 	}
 	shortTimers(a)
-	for uid, u := range a.routers {
+	for uid, u := range a.units() {
 		if u.checkTimeout != 40*time.Millisecond || u.routeTimeout != 40*time.Millisecond || u.routeGrace != 40*time.Millisecond || u.queueMax != 500*time.Millisecond {
 			t.Errorf("%s: timers %v %v %v %v", uid, u.checkTimeout, u.routeTimeout, u.routeGrace, u.queueMax)
 		}

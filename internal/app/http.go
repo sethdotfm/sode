@@ -380,7 +380,7 @@ type inMsg struct {
 	MyClient     *myClientReq       `json:"client"`   // myClientSave
 	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
 	approver     *config.User       // approve sets it after it checks the Approval's PIN
-	Router       string             `json:"router"`  // setupRouter: the address typed
+	Router       string             `json:"router"`  // setupRouter: the address typed; routerUses: the router UID
 	Setup        *setupReq          `json:"setup"`   // setupFinish
 	TakeOver     bool               `json:"take"`    // setupClaim: Take control from the browser that runs setup
 	For          *inMsg             `json:"for"`     // approvalAsk: the action to approve

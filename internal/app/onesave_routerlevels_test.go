@@ -68,8 +68,8 @@ func TestOneSaveRouterLevels(t *testing.T) {
 	// A level count that the default levels do not fit is refused; an unknown router or attribute is no key.
 	r = p.saveFields(4, map[string]any{key("defaultLevels"): "1-5"})
 	wantRefused(t, r, key("defaultLevels"), "invalid")
-	if _, ok := lookupField("router/" + uid + "/matrix"); ok {
-		t.Error("router/<uid>/matrix is a key")
+	if _, ok := lookupField("router/" + uid + "/nameLength"); ok {
+		t.Error("router/<uid>/nameLength is a key")
 	}
 	if spec, _ := lookupField("router/b0b0/levels"); spec.get(a.r().cfg) != nil {
 		t.Error("a router that is not there has a value")

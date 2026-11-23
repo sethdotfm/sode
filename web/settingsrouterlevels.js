@@ -1,6 +1,6 @@
 // Settings > Routers > Router levels: one block for each router after the first, with its Levels, Level offset, Level
 // numbering and Default levels. A save source of the one Save (savesources.js), keys router/<uid>/<attribute>. The
-// first router's level fields stay in its own block. Adding and removing a router is not here.
+// first router's level fields stay in its own block. Add router and Remove router are in settingsrouterlist.js.
 
 import { $, S, el, on, routerData } from './core.js';
 import { addSaveSource } from './savesources.js';
@@ -113,7 +113,7 @@ const blockOf = (key) => blocks.find((b) => key.startsWith(`router/${b.uid}/`));
 const attrOf = (key) => key.slice(key.lastIndexOf('/') + 1);
 
 addSaveSource({
-  owns: (key) => key.startsWith('router/'),
+  owns: (key) => /^router\/[^/]+\/(levels|levelWireOffset|levelNumbering|defaultLevels)$/.test(key),
   base: () => base,
   now,
   version: (key) => vers[key],

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -47,6 +48,8 @@ type routerUnit struct {
 	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
 	// fireHolder: what holds fireMu now, for the wait in the next fire's lock row. Guarded by App.mu.
 	fireHolder string
+	// stop ends the link and the uptime loop that startUnitMu began; nil before.
+	stop func()
 }
 
 // The uptime is in memory until SetUptime gives the file.
@@ -106,9 +109,66 @@ func (a *App) unit(uid string) (*routerUnit, bool) {
 	if uid == "" {
 		return a.first, a.first != nil
 	}
-	u, ok := a.routers[uid]
+	u, ok := a.units()[uid]
 	return u, ok
 }
+
+// startUnitMu runs the link and the uptime loop of u on the links' context. Caller holds mu.
+func (a *App) startUnitMu(u *routerUnit) {
+	ctx, cancel := context.WithCancel(a.linkCtx)
+	u.stop = cancel
+	go u.sw.Run(ctx)
+	a.unitRuns.Add(1)
+	go func() { defer a.unitRuns.Done(); u.up.Run(ctx) }()
+}
+
+// syncUnitsMu makes a unit for each router that the settings add, and starts its link while Run runs. It takes the
+// unit of each router that they remove out of the list, and cuts its takes. The first router's unit always stays.
+// The caller ends the gone units' links (endUnit) after it releases mu. Caller holds mu.
+func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
+	old := a.units()
+	next := map[string]*routerUnit{a.first.uid: a.first}
+	for _, rc := range r.cfg.MoreRouters {
+		if u, ok := old[rc.UID]; ok {
+			next[rc.UID] = u
+			continue
+		}
+		u := newRouterUnit(rc)
+		a.link(u, r, a.debug)
+		if a.linkCtx != nil {
+			a.startUnitMu(u)
+		}
+		next[u.uid] = u
+		added = append(added, u)
+	}
+	for uid, u := range old {
+		if _, ok := next[uid]; !ok {
+			u.cutRoutes()
+			gone = append(gone, u)
+		}
+	}
+	if len(added) > 0 || len(gone) > 0 {
+		a.routers.Store(&next)
+	}
+	return added, gone
+}
+
+// endUnit stops the link and the uptime of a unit that syncUnitsMu took out.
+func endUnit(u *routerUnit) {
+	if u.stop != nil {
+		u.stop()
+	}
+	u.up.Stop()
+}
+
+// gone: u is no longer a router of Sode, so its link's late callbacks change nothing.
+func (a *App) gone(u *routerUnit) bool {
+	_, ok := a.units()[u.uid]
+	return !ok
+}
+
+// units gives every router unit by router UID. The map is never changed: syncUnitsMu swaps in a new one.
+func (a *App) units() map[string]*routerUnit { return *a.routers.Load() }
 
 // firstUnit gives the first router's unit. The flat hello fields, the protected message and the uptime file name it.
 func (a *App) firstUnit() *routerUnit { return a.first }
@@ -135,8 +195,8 @@ func (a *App) apiUnit(r *http.Request) *routerUnit { return a.unitOrFirst(r.URL.
 // apiReadUnit is apiUnit for a read about one router. With two or more routers, a read with no router parameter
 // gets 400 router_needed. Thus a client made for one router never reads the wrong one.
 func (a *App) apiReadUnit(w http.ResponseWriter, r *http.Request) (*routerUnit, bool) {
-	if r.URL.Query().Get("router") == "" && len(a.routers) > 1 {
-		apiFail(w, http.StatusBadRequest, "router_needed", routerNeeded(len(a.routers)))
+	if r.URL.Query().Get("router") == "" && len(a.units()) > 1 {
+		apiFail(w, http.StatusBadRequest, "router_needed", routerNeeded(len(a.units())))
 		return nil, false
 	}
 	return a.apiUnit(r), true

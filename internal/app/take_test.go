@@ -1,6 +1,7 @@
 package app
 
 import (
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -86,10 +87,12 @@ func newFakeRouter(t *testing.T, a *App) *fakeRouter { return bindFakeRouter(t, 
 // name rc; else addFakeUnit adds one.
 func addFakeUnit(t *testing.T, a *App, rc config.Router) (*fakeRouter, *routerUnit) {
 	t.Helper()
-	u, ok := a.routers[rc.UID]
+	u, ok := a.units()[rc.UID]
 	if !ok {
 		u = newRouterUnit(rc)
-		a.routers[u.uid] = u
+		m := maps.Clone(a.units())
+		m[u.uid] = u
+		a.routers.Store(&m)
 		a.link(u, a.r(), false) // never run; a settings change still sets its target
 	}
 	shortUnitTimers(u)

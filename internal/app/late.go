@@ -53,7 +53,7 @@ type lateJob struct {
 func (a *App) flushLate() {
 	var jobs []lateJob
 	a.mu.Lock()
-	for _, u := range a.routers {
+	for _, u := range a.units() {
 		for _, h := range u.ext.lateHits {
 			i := slices.IndexFunc(jobs, func(j lateJob) bool { return j.u == u && j.id == h.id })
 			if i < 0 {
