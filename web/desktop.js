@@ -60,7 +60,7 @@ for (const k of ['src', 'dst']) {
     onPickAll: k === 'dst' ? (items) => addAll(items) : undefined,
     foot: $(`${k}-count`),
     onRender: () => b.all?.sync(),
-    outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it.n),
+    outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it),
   });
 }
 // A typed list ("11-13", "Rec 1-4", boxlist.js) in the Destination box shows its destinations all selected, so Enter,

@@ -199,14 +199,14 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-// protectRights: nil when rt has the Protect right and dst. Every level must be in rt, since a Protect covers them
-// all.
-func protectRights(r *runtime, rt config.Rights, dst int) error {
-	off := r.cfg.NumberOffset
+// protectRights: nil when rt has the Protect right and dst on router uid (rightsUID). Every level must be in rt, since a Protect
+// covers them all.
+func protectRights(r *runtime, rt config.Rights, uid string, dst int) error {
+	off := r.routerOf(uid).NumberOffset
 	switch {
 	case !rt.AllowsProtect():
 		return refusal(403, "outside_rights", "Protect is outside your Rights")
-	case !rt.AllowsDst(config.Ref{N: dst}):
+	case !rt.AllowsDst(config.Ref{Router: uid, N: dst}):
 		if rt.Hidden() {
 			return refusal(403, "outside_rights", "destination is outside your rights")
 		}
@@ -335,7 +335,7 @@ func (a *App) protectMany(c *client, reqs []protectDst, set bool, approver *conf
 			outs[i].Err = err
 			continue
 		}
-		if err := protectRights(r, act.rights, q.Dst); err != nil && !admin {
+		if err := protectRights(r, act.rights, a.rightsUID(r, u.uid), q.Dst); err != nil && !admin {
 			outs[i].Err = err
 			continue
 		}

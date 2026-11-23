@@ -4,7 +4,7 @@
 // filters the list. The usual Confirm (the host's, with its churning letter) then sends the picks. A mix of free and
 // protected picks protects first, so the safe action is the default; Free stays one button away. The server checks
 // each one again.
-import { el, S, on as onBus, icon, labelNode } from './core.js';
+import { el, S, on as onBus, icon, labelNode, routerData } from './core.js';
 import { keyLabel, listStep } from './keys.js';
 import { question } from './modal.js';
 import { fuzzyScore } from './fuzzy.js';
@@ -29,7 +29,7 @@ export function openProtectPick() {
   let filter = 'all';
   const rows = () =>
     pickRows(S.dsts, filter, {
-      inRights: (n) => allowed(S.myRights, 'dsts', n),
+      inRights: (n) => allowed(S.myRights, 'dsts', n, routerData('').uid), // the first router's Protects
       held: (n) => protectState(n).levels.length > 0,
       offerOf: protectOfferOf,
     });

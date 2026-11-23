@@ -1,7 +1,6 @@
 package app
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -82,11 +81,7 @@ func (a *App) byRouter(c *client, items []routeReq) []routerPart {
 	var parts []routerPart
 	for _, it := range items {
 		// An Undo or a Retry goes to the router of its entry.
-		if id := cmp.Or(it.Undo, it.Retry); it.Router == "" && id != nil {
-			if e, ok := a.hist.Get(*id); ok {
-				it.Router = e.Router
-			}
-		}
+		it.Router = a.itemRouter(it)
 		u, ok := a.unit(it.Router)
 		if !ok {
 			a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: "unknown router"})
