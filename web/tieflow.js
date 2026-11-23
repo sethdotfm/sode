@@ -121,6 +121,7 @@ async function send(f) {
   // A preset's take names it, for History and the preset right (tiepage.go).
   const preset = f.plan.verb === 'preset' ? { preset: f.plan.preset, presetId: f.plan.presetId || '' } : {};
   const m = await request('tieTakeResult', { t: 'tieTake', routes, ...preset });
+  answer(f, m, text, at);
   // The take is sent here, not by sendTakes: the Redo list changes here (Step back, stepback.js). Only a take that the
   // server ran counts, one time. A refusal (tie_line_changed) opens the picker again, and its send is the same step.
   // The patch boxes stay until then too.
@@ -128,7 +129,6 @@ async function send(f) {
     noteSent(f.plan);
     f.opts.onSent?.(f.plan);
   }
-  answer(f, m, text, at);
 }
 
 function answer(f, m, text, at) {
