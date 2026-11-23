@@ -45,8 +45,8 @@ func (a *App) unitUID(rt *runtime, uid string) (string, bool) {
 }
 
 // tieInput is the planner's input: every router, saved tie line and Protect as Sode has them now. The maps are
-// the live ones, so the caller holds mu while it plans. Reserves come with the ticket that adds them; until then
-// nothing is Reserved. The last change times are the stamps of tiechanges.go.
+// the live ones, so the caller holds mu while it plans. The caller adds the Reserves (tieReserves), since the panel
+// store is not read under mu. The last change times are the stamps of tiechanges.go.
 func (a *App) tieInput(rt *runtime) tieplan.Input {
 	in := tieplan.Input{Now: time.Now(), Started: a.started, HopWeight: rt.cfg.TieHopWeight}
 	for _, u := range a.unitsInOrder(rt) {
@@ -112,9 +112,16 @@ func holderText(h protHold, dev int) string {
 // and tie routes). A route with ties takes the tie lines that it sends to, as the stale check sees them (tieChanged).
 // A plain route to the upstream destination of a tie line takes that tie line for every route. A hop there would
 // fight it (planTieTake gives 409 conflict). Its mark has no real source (N -1), so it never matches one.
-// The result of a route with ties or on one router is empty. Caller holds mu.
-func (a *App) planTieRoutes(rt *runtime, routes []tieRoute) []tieplan.Result {
+// The result of a route with ties or on one router is empty. opts gives the Reserves and, for a panel caller, its
+// Reserved tie lines: the search then uses only those, and they are not Reserved for it. Caller holds mu.
+func (a *App) planTieRoutes(rt *runtime, routes []tieRoute, opts tiePlanOpts) []tieplan.Result {
 	in := a.tieInput(rt)
+	in.Reserves = opts.reserves
+	if opts.panel != nil {
+		in.Only = opts.panel.only
+		in.Reserves = maps.Clone(in.Reserves)
+		maps.DeleteFunc(in.Reserves, func(id, _ string) bool { return opts.panel.only[id] })
+	}
 	in.Taken = map[string]tieplan.End{}
 	for _, r := range routes {
 		if r.src.Router != r.dst.Router {
@@ -159,9 +166,22 @@ func (r tieRoute) planned() bool { return r.src.Router != r.dst.Router && len(r.
 // tie_line_needed with the ranked paths of each. The body lists only the routes that get a plan (planned); routes
 // gives the whole take, so the other routes count (planTieRoutes).
 func (a *App) apiTieProblem(rt *runtime, v apiView, routes []tieRoute) *apiProblem {
+	return a.apiTieProblemFor(rt, v, routes, nil)
+}
+
+// tiePlanOpts: reserves is tie line id → the name of the panel that Reserves it. panel is the caller's, or nil.
+type tiePlanOpts struct {
+	reserves map[string]string
+	panel    *panelTies
+}
+
+// apiTieProblemFor is apiTieProblem for a caller that can be a panel (panelTieRule). A panel gets the paths through
+// its Reserved tie lines only, and a no_path message that says why.
+func (a *App) apiTieProblemFor(rt *runtime, v apiView, routes []tieRoute, pt *panelTies) *apiProblem {
+	opts := tiePlanOpts{reserves: reserveNames(a.tieReserves()), panel: pt}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	plans := a.planTieRoutes(rt, routes)
+	plans := a.planTieRoutes(rt, routes, opts)
 	body := apiTieBody{Routes: []apiTieRouteOut{}}
 	code, msg := "tie_line_needed", "a route across routers needs a tie line for each hop: send the route again with ties. The paths are in routes, cheapest first"
 	for i, r := range routes {
@@ -169,8 +189,11 @@ func (a *App) apiTieProblem(rt *runtime, v apiView, routes []tieRoute) *apiProbl
 			continue
 		}
 		body.Routes = append(body.Routes, a.apiTieRoute(rt, v, r, plans[i]))
-		if plans[i].Usable() == nil {
+		if plans[i].Usable() == nil && code != "no_path" {
 			code, msg = "no_path", "no tie line path is usable for a route across routers; reasons gives each reason"
+			if pt != nil {
+				msg = panelNoPath(rt, pt.panel, plans[i].Reasons)
+			}
 		}
 	}
 	body.Error = apiErr{Code: code, Message: msg}

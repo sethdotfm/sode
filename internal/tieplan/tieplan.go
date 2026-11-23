@@ -64,6 +64,9 @@ type Input struct {
 	// Taken: tie line id → the source that an earlier route of the same take puts on it. The planner does not offer
 	// such a tie line for a different source, and shares it for the same source.
 	Taken map[string]End `json:"taken,omitempty"`
+	// Only: when set, the search uses only these tie lines (the Reserved tie lines of a panel). Via and the Affected
+	// destinations still read every tie line.
+	Only map[string]bool `json:"only,omitempty"`
 }
 
 // Route is the route asked for: Levels are the typed levels, levels of the router of Dst.
@@ -355,7 +358,7 @@ func (p *planner) search(at, to string, visited map[string]bool, ties []int, fou
 		return
 	}
 	for i, t := range p.in.Ties {
-		if t.From.Router != at || visited[t.To.Router] {
+		if t.From.Router != at || visited[t.To.Router] || p.in.Only != nil && !p.in.Only[t.ID] {
 			continue
 		}
 		visited[t.To.Router] = true

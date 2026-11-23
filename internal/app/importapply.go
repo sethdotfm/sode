@@ -243,6 +243,8 @@ func (a *App) writeImportPanels(p *importPlanner, failed map[string]string) {
 // stores the panel's artwork, read through art.
 func (a *App) storePanel(pp plannedPanel, create func(Panel) (Panel, error), art func(PanelArt) ([]byte, bool)) (Panel, error) {
 	fp := pp.P
+	// A tie line that another panel Reserves stays with that panel, so the import does not fail on it.
+	a.dropTieClash(&fp)
 	arts := fp.Art
 	fp.Art = nil
 	var err error
