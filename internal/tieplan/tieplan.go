@@ -52,6 +52,9 @@ type Input struct {
 	Reserves map[string]string `json:"reserves,omitempty"`
 	// Changes: tie line id → the last change of the tie line.
 	Changes map[string]time.Time `json:"changes,omitempty"`
+	// Found: tie line id → true when Sode found the last change at a re-read. Its time is when Sode found it, so it
+	// shows as "before HH:MM" too.
+	Found map[string]bool `json:"found,omitempty"`
 	// Now is when the plan starts. Started is when Sode started: a change before it shows as "before HH:MM".
 	Now     time.Time `json:"now,omitzero"`
 	Started time.Time `json:"started,omitzero"`
@@ -124,7 +127,7 @@ type Hop struct {
 	Protect string     `json:"protect"`
 	Reserve string     `json:"reserve"`
 	Changed *time.Time `json:"changed"`
-	// Before: Sode started after Changed. Thus it is possible that the tie line changed again while Sode was down.
+	// Before: Sode started after Changed, or found the change at a re-read. Thus it is possible that the tie line changed again while Sode was down.
 	Before bool `json:"before"`
 }
 
@@ -414,7 +417,7 @@ func (p *planner) path(rt Route, ties []int) Path {
 			Sends: i > carried, Now: &now, Protect: p.holds[t.From], Reserve: p.in.Reserves[t.ID]}
 		if at, ok := p.in.Changes[t.ID]; ok {
 			h.Changed = &at
-			h.Before = at.Before(p.in.Started)
+			h.Before = at.Before(p.in.Started) || p.in.Found[t.ID]
 			path.ChangedLately = path.ChangedLately || p.in.Now.Sub(at) < Lately
 			if at.After(newest) {
 				newest = at

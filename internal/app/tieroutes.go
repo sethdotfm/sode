@@ -42,8 +42,8 @@ func (a *App) unitUID(rt *runtime, uid string) (string, bool) {
 }
 
 // tieInput is the planner's input: every router, saved tie line and Protect as Sode has them now. The maps are
-// the live ones, so the caller holds mu while it plans. Reserves and the last change times come with the tickets
-// that add them; until then nothing is Reserved and no change time is known.
+// the live ones, so the caller holds mu while it plans. Reserves come with the ticket that adds them; until then
+// nothing is Reserved. The last change times are the stamps of tiechanges.go.
 func (a *App) tieInput(rt *runtime) tieplan.Input {
 	in := tieplan.Input{Now: time.Now(), Started: a.started, HopWeight: rt.cfg.TieHopWeight}
 	for _, u := range a.unitsInOrder(rt) {
@@ -60,6 +60,10 @@ func (a *App) tieInput(rt *runtime) tieplan.Input {
 				break
 			}
 		}
+	}
+	in.Changes, in.Found = map[string]time.Time{}, map[string]bool{}
+	for id, st := range a.tieChanges.snapshot(rt.cfg.TieLines) {
+		in.Changes[id], in.Found[id] = st.At, st.Found
 	}
 	for _, t := range rt.cfg.TieLines {
 		fr, ok1 := a.unitUID(rt, t.From.Router)

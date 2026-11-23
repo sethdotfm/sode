@@ -432,10 +432,16 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [id, name, from, to]
+                      required: [id, name, from, to, changed, before]
                       properties:
                         id: { type: string }
                         name: { type: string }
+                        changed:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          description: "The last change on the upstream destination, on any level, by Sode or another system. Null when Sode has seen none"
+                        before: { type: boolean, description: "Sode was down after `changed`, or found the change at a re-read, so the tie line can have changed again" }
                         from:
                           type: object
                           description: The upstream end, a destination. `n` is 0-based.

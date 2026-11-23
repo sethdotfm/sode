@@ -175,6 +175,8 @@ type App struct {
 	streams map[*apiStream]struct{} // apistream.go, guarded by mu
 
 	names *namesStore // namestable.go
+	// tieChanges: the last change of each tie line (tiechanges.go).
+	tieChanges *tieChanges
 
 	inbox *inboxStore // inbox.go
 
@@ -288,6 +290,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		a.routers[u.uid] = u
 	}
 	a.names = newNamesStore(cfgPath)
+	a.tieChanges = loadTieChanges(cfgPath)
 	a.sweepStages()
 	for _, u := range a.routers {
 		if t, ok := a.names.load(u.uid); ok {
@@ -525,6 +528,9 @@ func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 		t[l.UI] = xp.Src
 		u.router.tallyGen++
 		u.router.pend = append(u.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
+		if known { // the first read of a level is a baseline, not a change
+			a.stampTieLines(u, r, xp.Dst, !xp.Changed())
+		}
 		// A dump or an interrogate shows a route change that the router did not announce. Sode notes it too, unless
 		// it is Sode's own.
 		switch u.classify(xp, l.UI, known) {
@@ -634,6 +640,9 @@ func (a *App) flush() {
 		a.pendSent = nil
 	}
 	save, check = a.namesTickMu()
+	if ties := a.r().cfg.TieLines; a.tieChanges.dirtyNow() {
+		save = append(save, func() { a.tieChanges.write(ties) })
+	}
 }
 
 // [[dst, level, value], ...]. A hello on a 2500 by 750 router holds 12750 of them.
