@@ -10,8 +10,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// pageSave sends a Settings save the way a page does: the live config as JSON, minus
-// the dropped keys, with set overriding or adding keys.
+// pageSave sends a Settings save the way a page does: the live config as JSON without the dropped keys.
+// The keys of set go on top.
 func pageSave(t *testing.T, a *App, c *client, set map[string]any, drop ...string) error {
 	t.Helper()
 	b, err := json.Marshal(a.r().cfg)
@@ -35,16 +35,16 @@ func TestSaveOmittingKeysKeepsLiveValues(t *testing.T) {
 	admin := adminClient(t, a)
 	w := a.r().cfg
 	w.AutoLockMinutes = 7
-	w.DeviceDefaults = config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
-	if err := a.SaveSettings(admin, w, "", false); err != nil {
+	w.DeviceDefaults = config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30", PaletteChar: "~"}
+	if err := a.SaveSettings(admin, w); err != nil {
 		t.Fatal(err)
 	}
 	live := a.r().cfg
 	cases := map[string][]string{
-		"deviceDefaults": {"deviceDefaults"},
-		"locks":          {"locks"},
-		"autoLock":       {"autoLockMinutes"},
-		"all three":      {"deviceDefaults", "locks", "autoLockMinutes"},
+		"browserDefaults": {"browserDefaults"},
+		"locks":           {"locks"},
+		"autoLock":        {"autoLockMinutes"},
+		"all three":       {"browserDefaults", "locks", "autoLockMinutes"},
 	}
 	for name, drop := range cases {
 		if err := pageSave(t, a, admin, map[string]any{"levelColors": []string{"#abcdef"}}, drop...); err != nil {
@@ -74,16 +74,16 @@ func TestSaveWithNullLocksKeepsThem(t *testing.T) {
 func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
-	dd := config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "locale", ScrollTop: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
-	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": dd}); err != nil {
+	dd := config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "locale", ScrollTop: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30", PaletteChar: "~"}
+	if err := pageSave(t, a, admin, map[string]any{"browserDefaults": dd}); err != nil {
 		t.Fatal(err)
 	}
 	if got := a.r().cfg.DeviceDefaults; !reflect.DeepEqual(got, dd) {
 		t.Fatalf("got %+v", got)
 	}
 	// Booleans in a full object turn off too.
-	off := config.DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", SetStack: "and", NextMode: "number", StackGap: "30"}
-	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": off}); err != nil {
+	off := config.DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", SetStack: "and", NextMode: "number", StackGap: "30", PaletteChar: "off"}
+	if err := pageSave(t, a, admin, map[string]any{"browserDefaults": off}); err != nil {
 		t.Fatal(err)
 	}
 	if got := a.r().cfg.DeviceDefaults; !reflect.DeepEqual(got, off) {
@@ -91,15 +91,14 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	}
 }
 
-// A partial deviceDefaults object merges over the live values, key by key.
 func TestSavePartialDeviceDefaultsMerges(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
-	live := config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, ScrollTop: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30"}
-	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": live}); err != nil {
+	live := config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, ScrollTop: true, SetStack: "or", NextMode: "fuzzy", StackGap: "30", PaletteChar: "~"}
+	if err := pageSave(t, a, admin, map[string]any{"browserDefaults": live}); err != nil {
 		t.Fatal(err)
 	}
-	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": map[string]any{"theme": "light"}}); err != nil {
+	if err := pageSave(t, a, admin, map[string]any{"browserDefaults": map[string]any{"theme": "light"}}); err != nil {
 		t.Fatal(err)
 	}
 	want := live
@@ -116,7 +115,7 @@ func TestSaveListFieldsReplace(t *testing.T) {
 	cfg := a.r().cfg
 	cfg.LevelColors = []string{"#111111", "#222222", "#333333"}
 	cfg.TrustedProxies = []string{"10.0.0.1", "10.0.0.2"}
-	if err := a.SaveSettings(admin, cfg, "", false); err != nil {
+	if err := a.SaveSettings(admin, cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := pageSave(t, a, admin, map[string]any{"levelColors": []string{"#999999"}, "trustedProxies": []string{}}); err != nil {
@@ -134,9 +133,9 @@ func TestSaveListFieldsReplace(t *testing.T) {
 	}
 }
 
-// Users are owned: a save carrying a users list (and the map inside a profile) cannot
+// Users are owned: a save with a users list (and the map inside a profile) cannot
 // change them, and cannot leak into the live copy.
-func TestSaveUsersListAndPrefsMapIgnored(t *testing.T) {
+func TestUsersListAndPrefsMapIgnoredBySave(t *testing.T) {
 	a := userApp(t, false)
 	admin := adminClient(t, a)
 	before := a.r().cfg.Clone()

@@ -6,221 +6,227 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Message table: what each browser message needs and what runs for it, in one place. The
-// read loop looks the type up, checks access, then calls the handler; an unlisted type is
-// dropped (TestPolicyCoversEveryMessage: every rule has a handler). A handler picks inline
-// or goroutine itself: unlock and userUnlock stay inline so a following lock wins.
-// Locks cover actions, not data: hello, names, tally, History stream to a locked
-// browser (the lock screen is not a secret). Settings changes need the Advanced Settings PIN
-// (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock. A
-// locked wall panel must still save with the PIN. Locks require an Advanced Settings PIN (Validate).
-//
-//	open: hi userUnlock userLock userSignOut userSetPin unlock lock history activity
-//	needMain: `batch` `refreshNames`; needMain+Admin: clearHistory; needLog: sent uptime
-//	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
-//	needAdmin: users apiSettings userSignOutAll configExport configImportBegin configImport
-//	profileSave: the user's own unlock or needTrusted; profileGet needTrusted; both re-checked by guardProfile.
+// Message table: what each browser message needs and what runs for it. The read loop drops an unlisted type.
+// Locks cover actions, not data: hello, names, tally and History stream to a locked browser.
+// A handler picks inline or goroutine itself. Save handlers check the Role again under cfgMu (guardSave, guardProfile).
 type need uint8
 
 const (
 	needMain need = 1 << iota
 	needLog
-	// needAdmin: Advanced Settings PIN unlocked here (when set); re-checked under cfgMu by guardSave.
-	needAdmin
-	// needTrusted: the PIN, or unlocked as a Trusted user. Weaker than needAdmin; a rule
-	// with both means the PIN.
-	needTrusted
 )
 
 type rule struct {
 	need need
+	// role: roleAnyone or a config Role; the zero value is a test failure.
+	role string
+	// crit: whether this is a Critical action (recheck.go); the zero value is a test failure.
+	crit crit
 	// op: failed refusals answer as "<op>Result" (locked) with the request id; "" = none.
 	op   string
 	noID bool
 	why  string
-	// strict: when true for a message, needTrusted becomes needAdmin (a save that sets or
-	// clears the PIN).
-	strict func(m *inMsg) bool
-	// selfOf: the user a message is about; that user's own connection passes needTrusted.
+	// selfOf: the user a message is about; that user's own connection passes the role.
 	// forMsg fills self.
 	selfOf func(m *inMsg) string
 	self   string
 	// admitted runs under mu on admit, so a lock cannot slip between check and effect.
 	admitted func(c *client)
-	// handle runs after admit passed; connCtx is the read loop's per-connection state.
-	handle func(a *App, c *client, m *inMsg, cc *connCtx)
+	handle   func(a *App, c *client, m *inMsg)
 	// write: a take or save. The read loop counts it so shutdown waits for it, and refuses it
 	// after shutdown began; its handler calls m.finish when done, on every path.
 	write bool
 	// onRefuse: extra replies after a refusal is logged (a take fails each route).
 	onRefuse func(a *App, c *client, m *inMsg, err error)
-}
-
-// connCtx: per-connection state the read loop owns.
-type connCtx struct {
-	budget *readBudget
+	// approvable: an Approval can stand in for the Role (approval.go). approver: the checked
+	// approver of this one message; forMsg fills it.
+	approvable bool
+	approver   *config.User
+	// setup: allowed while setup is pending (setup.go); every other message is refused.
+	setup bool
 }
 
 var policy = map[string]rule{
-	// declares the page type and session token; answered with the lock state
-	"hi": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.Hi(c, m.Page, m.Token) }},
-	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
+	"hi": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { a.Hi(c, m.Page, m.Token) }},
+	// the way out of the lock; counted in the user PIN pool. Inline: a later lock is
 	// handled after.
-	"userUnlock": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserUnlock(c, m) }},
+	"userSignIn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserUnlock(c, m) }},
 	// locking and signing out are never refused; with nobody signed in the Lock is page-only
 	// and the server does nothing
-	"userLock": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+	"userLock": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) {
 		a.setHeld(c, true)
-		a.command(c, "userLock", "ok", "", nil)
+		if c.u.user.Load() != nil {
+			a.command(c, "userLock", "ok", "", nil)
+		}
 	}},
-	"userSignOut": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+	"userSignOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) {
+		who := c.u.user.Load()
 		a.SignOut(c)
-		a.command(c, "userSignOut", "ok", "", nil)
+		if who != nil {
+			a.command(c, "userSignOut", "ok", "", nil)
+		}
 	}},
 	// the page's ping while its user is active (idle.go); never refused, never logged
-	"activity":   {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) { a.Activity(c) }},
-	"userSetPin": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserSetPin(c, m) }},
-	// counted in the settings pool. In line: a later lock is handled after, and one
-	// connection checks one PIN at a time.
-	"unlock": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
-		err := a.Unlock(c, m.Pin)
-		a.command(c, "unlock", map[bool]string{true: "ok", false: "refused"}[err == nil], "", err)
-		a.reply(c, opResultFor("unlock", &m.ID, err))
-	}},
-	// forgetting an unlock is never refused
-	"lock": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
-		a.Lock(c)
-		a.command(c, "lock", "ok", "", nil)
-	}},
+	"activity":   {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, _ *inMsg) { a.Activity(c) }},
+	"userSetPin": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveUserSetPin(c, m) }},
 	// Own keys: a signed-in user only (checked in the handler). Creating asks the user's own
 	// PIN, in the change-PIN pool. Inline, like userSetPin.
-	"keyCreate":  {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreate(c, m) }},
-	"keyRevoke":  {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevoke(c, m) }},
-	"sessionKey": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveSessionKey(c, m) }},
+	"keyCreate":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveKeyCreate(c, m) }},
+	"keyRevoke":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevoke(c, m) }},
+	"sessionKey": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveSessionKey(c, m) }},
 	// the banner's Clear menu; a signed-in user only, checked in the handler
-	"panelAlarm": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveAlarm(c, m) }},
-	"keyListOwn": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListOwn(c, m) }},
-	"history":    {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
+	"panelAlarm": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveAlarm(c, m) }},
+	"keyListOwn": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveKeyListOwn(c, m) }},
+	// Any Role; the handler checks for a signed-in user. Inline, like keyCreate.
+	"myClients":         {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClients(c, m) }},
+	"myClientSave":      {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientSave(c, m) }},
+	"myClientDelete":    {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientDelete(c, m) }},
+	"myClientKey":       {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientKey(c, m) }},
+	"myClientKeyRevoke": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveMyClientKeyRevoke(c, m) }},
+	// The user's own PIN, in that name's pool. Inline, like userSignIn.
+	"pinRecheck": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.servePinRecheck(c, m) }},
+	// Step in and Step out (stepin.go): in line, like userSignIn.
+	"stepIn":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveStepIn(c, m) }},
+	"stepOut": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.StepOut(c) }},
+	// The handlers check who can ask, answer and see cards; the frozen action is checked again when it runs.
+	"approvalAsk":    {crit: critNever, role: roleAnyone, op: "approvalAsk", handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAsk(c, m) }},
+	"approvalAnswer": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalAnswer(c, m) }},
+	"approvalCancel": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, _ *inMsg) { a.serveApprovalCancel(c) }},
+	"approvalCards":  {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { a.serveApprovalCards(c, m) }},
+	"history":        {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.history(c, m.Before, m.N) }},
 
-	"batch": {need: needMain, why: "take", write: true,
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveTake(c, m) },
+	// The setup wizard (setup.go). Finish is a write: shutdown waits for it.
+	"setupClaim":      {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupClaim(c, m) }},
+	"setupRouter":     {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupRouter(c, m) }},
+	"setupRestoreKey": {crit: critNever, role: roleAnyone, setup: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupRestoreKey(c, m) }},
+	"setupFinish":     {crit: critNever, role: roleAnyone, setup: true, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSetupFinish(c, m) }},
+
+	"take": {crit: critNever, role: config.RoleStandard, need: needMain, why: "take", write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveTake(c, m) },
 		onRefuse: func(a *App, c *client, m *inMsg, err error) {
 			for _, it := range m.Items {
 				a.reply(c, routeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
 			}
 		}},
-	"refreshNames": {need: needMain, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
-		a.command(c, "refreshNames", "sent", "", nil)
+	"rereadNames": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg) {
+		a.command(c, "rereadNames", "sent", "", nil)
 		go a.RefreshNames()
 	}},
-	// Erasing history is more than a take.
-	"clearHistory": {need: needMain | needAdmin, write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
-		a.command(c, "clearHistory", "ok", "", nil)
+	// A clear of History is more than a take, so it is always Critical.
+	"clearHistory": {crit: critAlways, role: config.RoleAdministrator, need: needMain, write: true, approvable: true, handle: func(a *App, c *client, m *inMsg) {
+		a.command(c, "clearHistory", "ok", approvedNote(m.approver, ""), nil)
 		go func() {
 			defer m.finish()
 			a.ClearHistory(c.who())
 		}()
 	},
-		// A PIN refusal keeps the bare `locked` the page re-asks on; shutdown has no PIN to ask.
+		// The page waits for a result; a page lock answers with the lock state instead.
 		onRefuse: func(a *App, c *client, _ *inMsg, err error) {
-			if errors.Is(err, errShuttingDown) {
+			if !errors.Is(err, errPageLocked) {
 				a.reply(c, opResultFor("clearHistory", nil, err))
 			}
 		}},
 
-	// Admitting sent subscribes to the feed in the same step, so a lock cannot slip in.
-	"sent": {need: needLog, admitted: func(c *client) { c.sent = true },
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.sentHistory(c, int64(m.Before), m.N) }},
-	"uptime": {need: needLog, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	// Protects (protect.go): the Protect right and the destination's Rights are checked in the handler. Another
+	// Sode user's Protect needs an Administrator, so an Approval can stand in for the Role.
+	"protectSet": {crit: critNever, role: config.RoleStandard, need: needMain, why: "protect", write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtect(c, m, true) }, onRefuse: refuseProtect},
+	"protectClear": {crit: critNever, role: config.RoleStandard, need: needMain, why: "protectClear", write: true, approvable: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtect(c, m, false) }, onRefuse: refuseProtect},
+	// Free Sode's Protects: every Protect with Sode's device number, record or not. Critical, as it can free
+	// destinations other users hold.
+	"protectClearAll": {crit: critAlways, role: config.RoleAdministrator, need: needMain, why: "protectClearAll", write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveProtectClearAll(c, m) }, onRefuse: refuseProtect},
+
+	// Admitting log subscribes to the feed in the same step, so a lock cannot slip in.
+	"log": {crit: critNever, role: config.RoleStandard, need: needLog, admitted: func(c *client) { c.sent = true },
+		handle: func(a *App, c *client, m *inMsg) { go a.sentHistory(c, int64(m.Before), m.N) }},
+	"uptime": {crit: critNever, role: config.RoleStandard, need: needLog, handle: func(a *App, c *client, m *inMsg) {
 		a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
 	}},
 
-	"config": {need: needTrusted, op: "config", noID: true, write: true,
-		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin },
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveConfig(c, m) }},
-	"filterSets": {need: needTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"config": {crit: critByFields, role: config.RoleTrusted, op: "config", noID: true, write: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveConfig(c, m) }},
+	// the one Save: a Standard user passes here and gets a result per field (onesave.go)
+	"settingsSave": {crit: critByFields, role: config.RoleStandard, op: "settingsSave", write: true, approvable: true,
+		handle: func(a *App, c *client, m *inMsg) { a.serveSettingsSave(c, m) }},
+	// the review's Interruptions (interruptions.go): it writes nothing, and the save checks again
+	"settingsReview": {crit: critNever, role: config.RoleStandard, op: "settingsReview",
+		handle: func(a *App, c *client, m *inMsg) { a.serveSettingsReview(c, m) }},
+	"filterSets": {crit: critNever, role: config.RoleTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(sets []config.FilterSet, id int) {
 			defer m.finish()
 			a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
 		}(m.Sets, m.ID)
 	}},
-	"presets": {need: needTrusted, op: "presets", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"bookmarks": {crit: critNever, role: config.RoleTrusted, op: "bookmarks", write: true, handle: func(a *App, c *client, m *inMsg) {
+		go func(list []config.Bookmark, id int) {
+			defer m.finish()
+			a.replyOp(c, "bookmarks", id, len(list), "bookmark", a.SaveBookmarks(c, list))
+		}(m.Bookmarks, m.ID)
+	}},
+	"presets": {crit: critNever, role: config.RoleTrusted, op: "presets", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(presets []config.Preset, id int) {
 			defer m.finish()
 			a.replyOp(c, "presets", id, len(presets), "preset", a.SavePresets(c, presets))
 		}(m.Presets, m.ID)
 	}},
-	// A user saves their own profile with no PIN; others need a trusted user or the PIN.
-	"profileSave": {need: needTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name }, write: true,
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	// A user saves their own profile; another's needs a Trusted user.
+	"profileSave": {crit: critNever, role: config.RoleTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name }, write: true,
+		handle: func(a *App, c *client, m *inMsg) {
 			go func() {
 				defer m.finish()
 				a.serveProfileSave(c, m)
 			}()
 		}},
-	"profileGet": {need: needTrusted, op: "profileGet",
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveProfileGet(c, m) }},
-	// PIN only, trusted or not: holds users, locks, router, profiles and PIN hashes. Begin
-	// raises the read limit for the next message, so it must never be reachable without
-	// the PIN.
-	"configExport": {need: needAdmin, op: "configExport",
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.serveConfigExport(c, m) }},
-	"configImportBegin": {need: needAdmin, op: "configImportBegin", handle: func(a *App, c *client, m *inMsg, cc *connCtx) {
-		if cc.budget.Grant(m.Size) {
-			// Answered either way after the limit is raised. The page sends the file
-			// only after this, so a refusal is a normal result, not a too-big message.
-			a.reply(c, opResult{T: "configImportBeginResult", OK: true, ID: &m.ID})
-		} else {
-			a.replyOp(c, "configImportBegin", m.ID, 0, "", errImportTooBig)
-		}
-	}},
-	"configImport": {need: needAdmin, op: "configImport", write: true,
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveConfigImport(c, m) }},
-	"userSignOutAll": {need: needAdmin, op: "userSignOutAll", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	// Copy this browser to My user: the connection's own user only, checked in the handler.
+	"browserCopy": {crit: critNever, role: roleAnyone, op: "browserCopy", write: true,
+		handle: func(a *App, c *client, m *inMsg) {
+			go func() {
+				defer m.finish()
+				a.serveBrowserCopy(c, m)
+			}()
+		}},
+	"profileGet": {crit: critNever, role: config.RoleTrusted, op: "profileGet",
+		handle: func(a *App, c *client, m *inMsg) { a.serveProfileGet(c, m) }},
+	// The export routes take the token in a header and check the Role. A Guest gets none.
+	"exportSession": {crit: critNever, role: config.RoleStandard, op: "exportSession",
+		handle: func(a *App, c *client, m *inMsg) { a.serveExportSession(c, m) }},
+	"userSignOutAll": {crit: critAlways, role: config.RoleAdministrator, op: "userSignOutAll", write: true, handle: func(a *App, c *client, m *inMsg) {
 		go func(name string, id int) {
 			defer m.finish()
 			a.replyOp(c, "userSignOutAll", id, 0, "", a.SignOutAll(c, name))
 		}(m.Name, m.ID)
 	}},
-	// Any key: the Advanced Settings PIN, even for a trusted user.
-	"keyListAll":   {need: needAdmin, op: "keyListAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListAll(c, m) }},
-	"keyCreateFor": {need: needAdmin, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreateFor(c, m) }},
-	"keyRevokeAny": {need: needAdmin, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAny(c, m) }},
-	"keyRevokeAll": {need: needAdmin, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAll(c, m) }},
-	// the API settings area: advanced, so the Advanced Settings PIN even for a trusted user
-	"apiSettings": {need: needAdmin, op: "apiSettings", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
-		if m.APISet == nil {
-			m.finish()
-			return
-		}
-		go func(r apiSettingsReq, id int) {
-			defer m.finish()
-			a.replyOp(c, "apiSettings", id, 0, "", a.SaveAPISettings(c, r))
-		}(*m.APISet, m.ID)
-	}},
-	"usersList": {need: needAdmin, op: "usersList",
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(m.ID)) }},
-	// and SaveUsers wants an Advanced Settings PIN to exist
-	"users": {need: needAdmin, op: "users", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
-		if m.UsersReq == nil {
-			m.finish()
-			return
-		}
-		go func(r usersReq, id int) {
-			defer m.finish()
-			err := a.SaveUsers(c, r)
-			a.replyOp(c, "users", id, 0, "", err)
-		}(*m.UsersReq, m.ID)
-	}},
+	"keyListAll":   {crit: critNever, role: config.RoleAdministrator, op: "keyListAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyListAll(c, m) }},
+	"keyCreateFor": {crit: critNever, role: config.RoleAdministrator, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg) { a.serveKeyCreateFor(c, m) }},
+	"keyRevokeAny": {crit: critNever, role: config.RoleAdministrator, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAny(c, m) }},
+	"keyRevokeAll": {crit: critAlways, role: config.RoleAdministrator, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg) { a.serveKeyRevokeAll(c, m) }},
+	// Send a copy (inboxsend.go): any signed-in user, with or without a PIN, checked in the handler.
+	// An accept writes only the user's own items, so it is never Critical.
+	"inboxList":     {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { a.serveInboxList(c, m) }},
+	"inboxSend":     {crit: critNever, role: roleAnyone, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxSend(c, m) }},
+	"inboxReview":   {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxReview(c, m) }},
+	"inboxAccept":   {crit: critNever, role: roleAnyone, write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxAccept(c, m) }},
+	"inboxDecline":  {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxDecline(c, m) }},
+	"inboxWithdraw": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.serveInboxWithdraw(c, m) }},
+	// Swap (swap.go): everyone's list is Administrator only, checked in the handler. swapMine writes only the
+	// user's own items, so it is never Critical.
+	"swapList": {crit: critNever, role: config.RoleStandard, op: "swapList", handle: func(a *App, c *client, m *inMsg) { go a.serveSwapList(c, m) }},
+	"swapMine": {crit: critNever, role: config.RoleStandard, op: "swapMine", write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSwapMine(c, m) }},
+	// Broken and Name moved counts (brokencount.go): everyone's is Administrator only, checked in the handler.
+	"brokenCount": {crit: critNever, role: config.RoleStandard, handle: func(a *App, c *client, m *inMsg) { go a.serveBrokenCount(c, m) }},
+	// The Palette's Panels rows (palette.go): the reach of the browser's own sign-in, never a panel key.
+	"palettePanels": {crit: critNever, role: roleAnyone, handle: func(a *App, c *client, m *inMsg) { go a.servePalettePanels(c, m) }},
+	"usersList": {crit: critNever, role: config.RoleAdministrator, op: "usersList",
+		handle: func(a *App, c *client, m *inMsg) { a.reply(c, a.usersList(c, m.ID)) }},
 }
 
 func (r rule) forMsg(m *inMsg) rule {
 	if r.selfOf != nil {
 		r.self = r.selfOf(m)
 	}
-	if r.strict != nil && r.strict(m) && r.need&needTrusted != 0 {
-		r.need = r.need&^needTrusted | needAdmin
-	}
+	r.approver = m.approver
 	return r
 }
 
@@ -228,16 +234,27 @@ func (r rule) forMsg(m *inMsg) rule {
 func (a *App) admit(c *client, r rule) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if !r.setup && a.setupPending() {
+		return errSetup
+	}
 	switch {
 	case r.need&needMain != 0 && !a.pageAllowedMu(c, gateMain),
 		r.need&needLog != 0 && !a.pageAllowedMu(c, gateLog):
 		return errPageLocked
-	case r.need&(needAdmin|needTrusted) != 0 && a.heldMu(c, a.r().cfg):
-		return errPageLocked
-	case r.need&needAdmin != 0 && !a.settingsUnlockedMu(c):
-		return errLocked
-	case r.need&needTrusted != 0 && !a.trustedMu(c) && !a.signedInAsMu(c, r.self):
-		return errLocked
+	case r.self != "" && a.signedInAsMu(c, r.self):
+	case r.approver != nil:
+		if r.role != roleAnyone && !config.RoleAtLeast(approverRole(a.r().cfg, r.approver), r.role) {
+			return cannotApprove(r.approver, r.role)
+		}
+	default:
+		if err := a.needRoleForMu(c, r.need, r.role); err != nil {
+			return err
+		}
+	}
+	// An Administrator's Approval counts as their PIN recheck for this one action.
+	adminApproved := r.approver != nil && approverRole(a.r().cfg, r.approver) == config.RoleAdministrator
+	if r.crit == critAlways && !a.recheckedMu(c) && !adminApproved {
+		return recheckErr{}
 	}
 	if r.admitted != nil {
 		r.admitted(c)
@@ -245,8 +262,7 @@ func (a *App) admit(c *client, r rule) error {
 	return nil
 }
 
-// refuse: logs a "locked" command. A page lock answers with the lock state, and a PIN with
-// "locked". A result type also gets a failed result so the page is not left waiting.
+// A result type also gets a failed result, so the page is not left waiting.
 func (a *App) refuse(c *client, t string, r rule, m *inMsg, err error) {
 	why := r.why
 	if why == "" {
@@ -267,7 +283,5 @@ func (a *App) refuse(c *client, t string, r rule, m *inMsg, err error) {
 	}
 	if errors.Is(err, errPageLocked) {
 		a.syncAccess(c)
-	} else if r.op == "" && !errors.Is(err, errShuttingDown) {
-		a.reply(c, simpleMsg{T: "locked"})
 	}
 }

@@ -1,0 +1,3 @@
+- Main page (desktop): Show all sources is at the right of the Source box, in the same place as Show all destinations.
+- Main page (desktop): the Levels box shrinks with the Source and Destination boxes in a narrow window, and its level picks wrap onto more rows. The Levels row no longer scrolls sideways.
+- Main page (desktop): when no router has more than one level, the Levels box does not show, and Tab, `f` and Ctrl+F skip it. A take then uses level 1. A change of levels in Settings shows or hides the box on open pages. The phone layout does not change.

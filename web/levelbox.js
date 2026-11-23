@@ -1,4 +1,4 @@
-// The Levels box: typed levels plus a picker of toggles and All/None. It takes its levels from a source function,
+// The Levels box: typed levels plus a picker of toggles and All/None. It gets its levels from a source function,
 // so a page with no History, plans or routes can use it. Imports only core.js and levels.js.
 
 import { el } from './core.js';
@@ -34,6 +34,9 @@ export function levelPicks(levels, onToggle) {
 // picker and All do not get focus. It is 'mousedown' on desktop and 'pointerdown' on a phone, to keep the keyboard up.
 export function levelBox(input, picker, allBtn, source, { hold = 'mousedown', onChange = () => {} } = {}) {
   let none = false; // none: picker cleared to no levels (a blank box would mean default)
+  // picking: the last change was a pick click. A click while every level is on and picking is false selects only that
+  // level, as typing "2" does. So a set built up click by click to every level still loses a level on the next click.
+  let picking = false;
   const parse = (src, text) => parseLevelsIn(text, src, none);
   const levels = () => {
     const src = source();
@@ -64,6 +67,11 @@ export function levelBox(input, picker, allBtn, source, { hold = 'mousedown', on
   }
 
   function set(list) {
+    picking = false;
+    write(list);
+  }
+
+  function write(list) {
     const src = source();
     if (!src) return;
     none = list.length === 0;
@@ -73,14 +81,20 @@ export function levelBox(input, picker, allBtn, source, { hold = 'mousedown', on
   }
 
   function toggle(ui) {
+    const src = source();
+    if (!src) return;
     const on = new Set(levels() || []);
+    const all = allUi(src).every((u) => on.has(u));
+    if (all && !picking) on.clear();
     if (on.has(ui)) on.delete(ui);
     else on.add(ui);
-    set([...on].sort((x, y) => x - y));
+    write([...on].sort((x, y) => x - y));
+    picking = true;
   }
 
   input.addEventListener('input', () => {
     none = false;
+    picking = false;
     render();
     onChange();
   });
@@ -100,6 +114,7 @@ export function levelBox(input, picker, allBtn, source, { hold = 'mousedown', on
     clear() {
       input.value = '';
       none = false;
+      picking = false;
       render();
     },
     reset() {

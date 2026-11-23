@@ -24,11 +24,21 @@ test('local hrefs read back as the icon name', () => {
   assert.equal(nameOfHref('#settings'), '');
 });
 
-// For every <use> made against it, Chrome loads and lays out its own copy of the external sprite (about 16,700
-// nodes). It frees that copy only at a major GC. So a page that makes icons as it redraws grows by gigabytes (TestChromeRunPageHoldsNoMemory).
+// Chrome loads and lays out one copy of the external sprite (about 16,700 nodes) for each <use>, and frees it only at a major GC. See TestChromeRunPageHoldsNoMemory.
 test('no page or module points a <use> at the external sprite', () => {
   const bad = readdirSync(web)
     .filter((f) => /\.(js|html)$/.test(f))
     .filter((f) => /lucide\.svg#/.test(readFileSync(join(web, f), 'utf8')));
   assert.deepEqual(bad, []);
+});
+
+test('Sode-owned icons are in sodeicons.svg, never in the vendored sprite', () => {
+  const own = readFileSync(join(web, 'sodeicons.svg'), 'utf8');
+  const names = [...own.matchAll(/<symbol id="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(names.includes('sode-grid'));
+  for (const n of names) {
+    assert.ok(n.startsWith('sode-'), n);
+    assert.match(symbolMarkup(own, n), new RegExp(`^<symbol id="pb-i-${n}"`));
+    assert.equal(symbolMarkup(sprite, n), '');
+  }
 });

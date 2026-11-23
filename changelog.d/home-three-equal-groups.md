@@ -1,0 +1,1 @@
+- Home: the patch row is three groups of one width: Source, Destination with +, and Levels with Take and Clear. The Levels text box is about half as wide as before. The level picks go under Levels, Take and Clear, so 17 levels show with no scroll from 850 px. Compact view centres the full row.

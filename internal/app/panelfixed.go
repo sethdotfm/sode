@@ -3,12 +3,14 @@ package app
 import (
 	"fmt"
 	"maps"
-	"math"
 	"slices"
+	"strings"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Fixed destination: `settings.fixedDests`, the destinations a panel always patches to. Empty
-// or absent means off. Docs: docs/panels-design.md, docs/api.md.
+// Fixed destination: `settings.fixedDests`, the destinations a panel always patches to, stored as
+// router references. Empty or absent means off. Docs: docs/panels-design.md, docs/api.md.
 
 const (
 	panelFixedKey = "fixedDests"
@@ -16,10 +18,10 @@ const (
 	dstNumberMax  = 0xffff // extended commands carry 16-bit numbers
 )
 
-var errFixedDests = fmt.Errorf("fixed destinations are at most %d different whole numbers from 0 to %d", panelFixedMax, dstNumberMax)
+var errFixedDests = fmt.Errorf("fixed destinations are at most %d different destinations from 0 to %d", panelFixedMax, dstNumberMax)
 
-// cleanFixedDests checks the list and stores it as []int, dropping an empty one. The map is
-// cloned before any change, since a stored panel's settings are shared and never mutated.
+// cleanFixedDests checks the list, stores it as []config.Ref and drops an empty one. It clones the map before a
+// change, since a stored panel's settings are shared and never mutated.
 func cleanFixedDests(settings map[string]any) (map[string]any, error) {
 	v, ok := settings[panelFixedKey]
 	if !ok {
@@ -38,15 +40,17 @@ func cleanFixedDests(settings map[string]any) (map[string]any, error) {
 	return settings, nil
 }
 
-// fixedList reads JSON ([]any of float64), YAML ([]any of int) or a list already cleaned.
-func fixedList(v any) ([]int, error) {
+// fixedList reads JSON or YAML ([]any of reference maps) or a list already cleaned. A request can leave the router
+// out, and nameFixed fills it. A file must name it (noRouterProblem). nameFixed refuses a router other than this one,
+// since v2.0 drives one router.
+func fixedList(v any) ([]config.Ref, error) {
 	var raw []any
 	switch l := v.(type) {
 	case nil:
 		return nil, nil
-	case []int:
-		for _, n := range l {
-			raw = append(raw, n)
+	case []config.Ref:
+		for _, f := range l {
+			raw = append(raw, f)
 		}
 	case []any:
 		raw = l
@@ -56,26 +60,56 @@ func fixedList(v any) ([]int, error) {
 	if len(raw) > panelFixedMax {
 		return nil, errFixedDests
 	}
-	out := make([]int, 0, len(raw))
+	out := make([]config.Ref, 0, len(raw))
 	for _, x := range raw {
-		var n int
-		switch x := x.(type) {
-		case int:
-			n = x
-		case float64:
-			if x != math.Trunc(x) || x < 0 || x > dstNumberMax {
-				return nil, errFixedDests
-			}
-			n = int(x)
-		default:
+		f, ok := fixedRef(x)
+		if !ok || f.N < 0 || f.N > dstNumberMax || slices.ContainsFunc(out, func(o config.Ref) bool { return o.N == f.N }) {
 			return nil, errFixedDests
 		}
-		if n < 0 || n > dstNumberMax || slices.Contains(out, n) {
-			return nil, errFixedDests
-		}
-		out = append(out, n)
+		out = append(out, f)
 	}
 	return out, nil
+}
+
+func fixedRef(x any) (config.Ref, bool) {
+	switch x := x.(type) {
+	case config.Ref:
+		return x, true
+	case map[string]any:
+		n, ok := cellInt(x["n"])
+		router, rok := x["router"].(string)
+		name, nok := x["name"].(string)
+		if !ok || (x["router"] != nil && !rok) || (x["name"] != nil && !nok) {
+			return config.Ref{}, false
+		}
+		return config.Ref{Router: router, N: n, Name: name}, true
+	}
+	return config.Ref{}, false
+}
+
+// nameFixed fills each reference's router and, from the router, a blank name, as namePresets does.
+// settings must hold a new list from fixedList, since it is changed in place.
+func (a *App) nameFixed(settings map[string]any) error {
+	l, _ := settings[panelFixedKey].([]config.Ref)
+	if len(l) == 0 {
+		return nil
+	}
+	uid := a.r().cfg.UID
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for i := range l {
+		f := &l[i]
+		switch {
+		case f.Router == "":
+			f.Router = uid
+		case f.Router != uid:
+			return errFixedDests
+		}
+		if n := a.router.dstNames[f.N]; f.Name == "" && strings.TrimSpace(n) != "" {
+			f.Name = n
+		}
+	}
+	return nil
 }
 
 // keepFixedDests is lay with target's own list in place of the source's. Sibling panels

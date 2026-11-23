@@ -1,9 +1,9 @@
-// Draws a panel's grid from the state model. Holds no state of its own: paintGrid is called after
-// every change, with the model state, the router env and the names.
+// Holds no state of its own: paintGrid is called after every change.
 import { el, icon } from './core.js';
 import { artOf, artBOf, artBBadge, cellScale, textHidden } from './panellook.js';
-import { currentLabel, nameCellText, SHOW_KINDS } from './panelrules.js';
+import { currentLabel, nameCellText, presetKey, presetName, SHOW_KINDS } from './panelrules.js';
 import { PAGE_KINDS, pageCellText } from './pagecells.js';
+import { cellStatus, STATUS_TEXT } from './brokenrules.js';
 import {
   sourceState,
   destinationState,
@@ -45,9 +45,9 @@ export function artNode(cell, art) {
   return row;
 }
 
-// An uploaded image from createArt, hidden until it loads. An Icon library SVG becomes a mask in the text colour, as a
-// sprite icon is drawn. So it changes with the theme, and a multi-colour file draws in one colour. A mask, like an
-// <img>, never runs the file's script. Anything else is an <img> in its own colours. The swap needs the node in place by then, which a
+// An uploaded image from createArt, hidden until it loads. An Icon library SVG becomes a mask in the text color, as a
+// sprite icon is drawn. So it changes with the theme, and a multi-color file draws in one color. A mask, like an
+// <img>, never runs the file's script. Anything else is an <img> in its own colors. The swap needs the node in place by then, which a
 // resolved promise's later turn gives.
 export function artImage(cls, art, id, lib) {
   const img = el('img', cls);
@@ -70,10 +70,21 @@ export function artImage(cls, art, id, lib) {
 // Replaces a cell's children apart from its artwork, and only when they differ from the last paint. So the one-second
 // redraw does not touch an idle cell.
 function fill(b, ...kids) {
-  const now = [...b.childNodes].filter((n) => n !== b._art);
+  const now = [...b.childNodes].filter((n) => n !== b._art && n !== b._status);
   if (now.length === kids.length && now.every((n, i) => n.isEqualNode(kids[i]))) return;
   for (const n of now) n.remove();
   b.append(...kids);
+}
+
+// A Broken or Name moved cell's status: an icon only, as panel pages show status (docs/panels-design.md). No banner.
+function statusIcon(status) {
+  if (!status) return null;
+  const i = icon(status === 'broken' ? 'unlink' : 'arrow-right-left');
+  i.classList.add('sode-panel__status-mark');
+  i.setAttribute('role', 'img');
+  i.setAttribute('aria-label', STATUS_TEXT[status]);
+  i.dataset.status = status;
+  return i;
 }
 
 // hold is { down(cell), cancel() } for a Take cell with a hold guard: pointer or Enter and Space start it, and a leave ends it.
@@ -82,6 +93,8 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
   host.replaceChildren();
   host.style.gridTemplate = `repeat(${panel.rows}, 1fr) / repeat(${panel.cols}, 1fr)`;
   host.style.aspectRatio = `${panel.cols} / ${panel.rows}`;
+  host.style.setProperty('--sode-cols', panel.cols);
+  host.style.setProperty('--sode-rows', panel.rows);
   const nodes = cells.map((cell) => {
     const cls = cell.kind === 'take' ? 'pb-btn pb-btn--commit sode-panel__take' : 'pb-btn pb-xpt';
     const b = el('button', `sode-panel__cell sode-panel__cell--${cell.kind} ${cls}`);
@@ -90,6 +103,8 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
     if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
     b._art = artNode(cell, art);
     if (b._art) b.append(b._art);
+    b._status = statusIcon(cellStatus(panel, cell));
+    if (b._status) b.append(b._status);
     if (textHidden(cell)) b.dataset.hideText = '1';
     b.style.gridArea = `${cell.r} / ${cell.c} / span ${cell.rs} / span ${cell.cs}`;
     b.addEventListener('click', () => onPress(cell));
@@ -142,23 +157,20 @@ function paintDestination(b, cell, { st, env, names, now }) {
 function paintPreset(b, cell, { st, env, names }) {
   b.dataset.s = presetState(st, cell, env);
   fill(b, el('span', 'sode-panel__text', names.of(cell)));
-  b.disabled = !env.presets?.has(`${cell.scope}:${cell.name}`);
+  b.disabled = !env.presets?.has(presetKey(cell.scope, presetName(env, cell)));
 }
 
-// Not pressable: it only reads the viewed destination.
 function paintCurrent(b, cell, { st, env, names }) {
   const src = currentSource(env, st);
   const label = currentLabel(cell, st.view ? names.destination(st.view.dst) : '');
   fill(b, el('small', 'sode-panel__text', label), el('span', 'sode-panel__text', src >= 0 ? names.source(src) : ''));
 }
 
-// Not pressable: the panel's own name, or the name of the instance that shows it.
 function paintName(b, cell, ctx) {
   const t = nameCellText(cell, ctx);
   fill(b, ...(t.caption ? [el('small', 'sode-panel__text', t.caption)] : []), el('span', 'sode-panel__text', t.value));
 }
 
-// Not pressable: the Page this grid shows (st.page), so a copy on another Page names that Page.
 function paintPageCell(b, cell, ctx) {
   const t = pageCellText(cell, { ...ctx, page: ctx.st.page });
   const cap = t.caption ? [el('small', 'sode-panel__text', t.caption)] : [];

@@ -7065,6 +7065,14 @@
       <path d="M6 18h.01" />
       <path d="m13 6-4 6h6l-4 6" />
     </symbol>
+    <symbol id="server-nas">
+      <path d="M10 16V8" />
+      <path d="M14 16V8" />
+      <path d="M18 16V8" />
+      <path d="M6 12h.01" />
+      <path d="M6 16h.01" />
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+    </symbol>
     <symbol id="server-off">
       <path d="M7 2h13a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-5" />
       <path d="M10 10 2.5 2.5C2 2 2 2.5 2 5v3a2 2 0 0 0 2 2h6z" />

@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// keys marshals v and returns its top-level JSON keys, sorted.
 func keys(t *testing.T, v any) []string {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -27,13 +26,9 @@ func keys(t *testing.T, v any) []string {
 	return out
 }
 
-// TestMessageKeys pins the key set of every server -> browser message to
-// what the map[string]any versions sent before they were typed. The browser
-// reads these by name, and in places it treats a missing key and a zero one
-// differently.
+// The browser reads these keys by name, and in places it treats a missing key and a zero key differently.
 func TestMessageKeys(t *testing.T) {
 	zero, one := 0, 1
-	yes, no := true, false
 	e := &Entry{}
 	cases := []struct {
 		name string
@@ -41,28 +36,25 @@ func TestMessageKeys(t *testing.T) {
 		want []string
 	}{
 		{"tally", deltaMsg{T: "tally"}, []string{"t", "u"}},
-		{"protect", deltaMsg{T: "protect"}, []string{"t", "u"}},
+		{"protected", deltaMsg{T: "protected"}, []string{"t", "u"}},
 		{"namesChecked", namesCheckedMsg{T: "namesChecked", At: time.Now()}, []string{"at", "t"}},
 		{"names", namesMsg{T: "names"}, []string{"at", "dsts", "srcs", "t"}},
-		{"filterSets", filterSetsMsg{T: "filterSets"}, []string{"sets", "t"}},
-		{"locked", simpleMsg{T: "locked"}, []string{"t"}},
+		{"filterSets", filterSetsMsg{T: "filterSets"}, []string{"bookmarks", "sets", "t"}},
 		{"historyCleared", simpleMsg{T: "historyCleared"}, []string{"t"}},
+		{"reload", simpleMsg{T: "reload"}, []string{"t"}},
 		{"takeResult bare", routeResult{T: "takeResult"}, []string{"id", "ok", "t"}},
 		{"takeResult planned fail", routeResult{T: "takeResult", Err: "x"}, []string{"err", "id", "ok", "t"}},
 		{"takeResult done", routeResult{T: "takeResult", OK: true, Entry: &zero}, []string{"entry", "id", "ok", "t"}},
 		{"takeResult full", routeResult{T: "takeResult", Err: "x", Already: []int{1}, Entry: &one}, []string{"already", "entry", "err", "id", "ok", "t"}},
-		{"recent", recentMsg{T: "recent", E: e}, []string{"e", "t"}},
-		{"recent update", recentMsg{T: "recent", E: e, Update: true}, []string{"e", "t", "update"}},
+		{"entry", recentMsg{T: "entry", E: e}, []string{"e", "t"}},
+		{"entry update", recentMsg{T: "entry", E: e, Update: true}, []string{"e", "t", "update"}},
 		{"history", historyMsg{T: "history"}, []string{"before", "entries", "more", "t"}},
-		{"unlockResult ok", opResult{T: "unlockResult", OK: true, ID: &zero}, []string{"id", "ok", "t"}},
-		{"unlockResult fail", opResult{T: "unlockResult", Err: "x", ID: &one}, []string{"err", "id", "ok", "t"}},
 		{"filterSetsResult ok", opResult{T: "filterSetsResult", OK: true, ID: &zero}, []string{"id", "ok", "t"}},
-		{"filterSetsResult fail", opResult{T: "filterSetsResult", Err: "x", ID: &zero, Locked: &no}, []string{"err", "id", "locked", "ok", "t"}},
+		{"filterSetsResult fail", opResult{T: "filterSetsResult", Err: "x", ID: &zero}, []string{"err", "id", "ok", "t"}},
 		{"configResult ok", opResult{T: "configResult", OK: true}, []string{"ok", "t"}},
-		{"configResult fail", opResult{T: "configResult", Err: "x", Locked: &yes}, []string{"err", "locked", "ok", "t"}},
-		{"configImportResult kept", opResult{T: "configImportResult", OK: true, ID: &zero, Kept: "futureKey"}, []string{"id", "kept", "ok", "t"}},
-		{"sentAdd", sentAddMsg{T: "sentAdd"}, []string{"entries", "lost", "t", "total"}},
-		{"sentPage", sentPageMsg{T: "sentPage"}, []string{"before", "entries", "lost", "more", "t", "total"}},
+		{"configResult fail", opResult{T: "configResult", Err: "x"}, []string{"err", "ok", "t"}},
+		{"logAdd", sentAddMsg{T: "logAdd"}, []string{"entries", "lost", "t", "total"}},
+		{"logPage", sentPageMsg{T: "logPage"}, []string{"before", "entries", "lost", "more", "t", "total"}},
 	}
 	for _, c := range cases {
 		if got := keys(t, c.v); !reflect.DeepEqual(got, c.want) {
@@ -73,14 +65,9 @@ func TestMessageKeys(t *testing.T) {
 
 func TestMessageValues(t *testing.T) {
 	one := 1
-	no := false
-	b, _ := json.Marshal(opResult{T: "filterSetsResult", Err: "x", ID: &one, Locked: &no})
-	if string(b) != `{"t":"filterSetsResult","ok":false,"id":1,"err":"x","locked":false}` {
+	b, _ := json.Marshal(opResult{T: "filterSetsResult", Err: "x", ID: &one})
+	if string(b) != `{"t":"filterSetsResult","ok":false,"id":1,"err":"x"}` {
 		t.Errorf("failed op result: %s", b)
-	}
-	// A failed save that was not the PIN still says locked:false.
-	if l := locked(nil); *l {
-		t.Error("locked(nil) = true")
 	}
 	b, _ = json.Marshal(routeResult{T: "takeResult", ID: 4, OK: true, Already: []int{2}, Entry: &one})
 	if string(b) != `{"t":"takeResult","id":4,"ok":true,"already":[2],"entry":1}` {

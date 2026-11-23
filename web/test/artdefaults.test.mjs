@@ -1,5 +1,3 @@
-// Default artwork: how a cell resolves its own artwork and its item's default (panellook.js), and how an open
-// panel notices a changed default (panelupdate.js revOf).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { withDefault, defaultsBy, defaultFor, itemKey, artOf, artBOf, artBBadge, textHidden, artUrlPath, nameMismatch } from '../panellook.js';
@@ -109,10 +107,7 @@ test("the Cell tab says whether the cell shows its item's default, and warns whe
   assert.match(defaultNote(d, false, 'CAM 3').text, /shows the Default artwork of its source/);
   assert.match(defaultNote(d, true, 'CAM 3').text, /own artwork shows instead/);
   assert.equal(defaultNote(d, false, 'CAM 3').warn, '');
-  assert.match(
-    defaultNote(d, false, 'CAM 9').warn,
-    /It is possible that this default is for another item: it was set for CAM 3, and the router now names this source CAM 9/,
-  );
+  assert.match(defaultNote(d, false, 'CAM 9').warn, /Default set for CAM 3\. The router now names this source CAM 9/);
 });
 
 test("Set as default sends the cell's item, its own artwork and Hide text, and the panel its image is on", () => {
@@ -129,6 +124,20 @@ test("Set as default sends the cell's item, its own artwork and Hide text, and t
     panel: 'p-1',
   });
   assert.deepEqual(defaultBody({ kind: 'destination', n: 0, art: 'icon:tv' }, 'p-1', false), { kind: 'destination', n: 0 });
+});
+
+test("a Preset cell finds its default by the preset's id after a rename, and by name when it has no id", () => {
+  const list = defaultsBy([{ kind: 'preset', scope: 'everyone', id: 'p1', name: 'New name', artB: 'N' }]);
+  assert.equal(defaultFor({ kind: 'preset', scope: 'everyone', id: 'p1', name: 'Old name' }, list)?.artB, 'N');
+  assert.equal(defaultFor({ kind: 'preset', scope: 'everyone', name: 'New name' }, list)?.artB, 'N');
+  assert.equal(defaultFor({ kind: 'preset', scope: 'everyone', id: 'p2', name: 'New name' }, list), null);
+  assert.equal(takesDefault({ kind: 'preset', scope: 'everyone', id: 'p1' }), true);
+  assert.deepEqual(defaultBody({ kind: 'preset', scope: 'everyone', id: 'p1', name: 'Old name' }, 'p-1', false), {
+    kind: 'preset',
+    scope: 'everyone',
+    id: 'p1',
+    name: 'Old name',
+  });
 });
 
 test('a Source, Destination or Everyone preset can carry Default artwork, a Me preset cannot', () => {

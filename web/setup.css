@@ -1,0 +1,295 @@
+[data-sode-setup] .sode > :not(#setup, #home-bar),
+[data-sode-setup] .sode-home-bar > :not(.sode__conn) {
+  display: none !important;
+}
+[data-sode-setup] .sode {
+  max-width: none;
+}
+/* .sode centres its children, so without a width the dialog shrinks to its title. */
+.sode-setup {
+  width: min(100%, 76rem);
+  margin: 2.5rem auto 4rem;
+}
+.sode-setup .sode__mark {
+  text-align: center;
+  margin-bottom: var(--pb-space-6);
+}
+.sode-setup .pb-modal {
+  position: static;
+  max-width: none;
+}
+.sode-setup .pb-modal__title {
+  font-size: var(--pb-text-lg);
+  margin: 0;
+}
+.sode-setup .pb-modal__body {
+  padding-top: var(--pb-space-5);
+}
+
+.sode-setup__steps {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  list-style: none;
+  margin: 0 auto var(--pb-space-7);
+  padding: 0;
+  max-width: 32rem;
+}
+.sode-setup__steps li {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+}
+.sode-setup__steps li:last-child {
+  flex: none;
+}
+.sode-setup__chip {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pb-space-2);
+  width: 5rem;
+  cursor: default;
+}
+.sode-setup__chip[data-go] {
+  cursor: pointer;
+}
+.sode-setup__chip[data-go]:hover .sode-setup__dot {
+  border-color: var(--pb-accent-hover);
+}
+.sode-setup__chip:focus-visible .sode-setup__dot {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 2px;
+}
+.sode-setup__dot {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-weight: var(--pb-weight-bold);
+  line-height: 1;
+}
+.sode-setup__steps .is-now .sode-setup__dot {
+  background: var(--pb-accent);
+  border-color: var(--pb-accent);
+  color: var(--pb-text-on-accent);
+}
+.sode-setup__steps .is-done .sode-setup__dot {
+  border-color: var(--pb-accent);
+  color: var(--pb-accent);
+}
+.sode-setup__label {
+  font-size: var(--pb-text-sm);
+  color: var(--pb-text-muted);
+}
+.sode-setup__steps .is-now .sode-setup__label {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-setup__line {
+  flex: 1;
+  height: var(--pb-border-w);
+  margin-top: 1rem;
+  background: var(--pb-edge);
+}
+.sode-setup__line.is-done {
+  background: var(--pb-accent);
+}
+
+.sode-setup__lead {
+  color: var(--pb-text-muted);
+  margin: 0;
+}
+.sode-setup__section {
+  margin-top: var(--pb-space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode-setup__section:first-child {
+  margin-top: 0;
+}
+.sode-setup__hr {
+  margin: var(--pb-space-7) 0 0;
+}
+.sode-setup__hr + .sode-setup__section {
+  margin-top: var(--pb-space-6);
+}
+/* Two fields side by side; an empty second cell keeps a lone field at half width. */
+.sode-setup__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--pb-space-6);
+  align-items: end;
+}
+.sode-setup__h {
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  color: var(--pb-text-strong);
+  margin: 0;
+}
+.sode-setup__sub {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin: calc(-1 * var(--pb-space-3)) 0 0;
+}
+.sode-setup__restore {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--pb-space-3);
+}
+.sode-setup__err {
+  color: var(--pb-status-error);
+  font-size: var(--pb-text-sm);
+}
+
+.sode-setup__swatches {
+  display: flex;
+  gap: var(--pb-space-3);
+  flex-wrap: wrap;
+}
+.sode-setup__swatch {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: var(--pb-border-w) solid var(--pb-edge);
+  background: var(--brand-color, transparent);
+  cursor: pointer;
+}
+.sode-setup__swatch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.sode-setup__swatch:has(input:checked),
+.sode-setup__swatch.is-picked {
+  outline: 2px solid var(--pb-text-strong);
+  outline-offset: 2px;
+}
+/* The native picker fills the swatch and opens on click. */
+.sode-setup__swatch--own input {
+  position: static;
+  opacity: 1;
+  pointer-events: auto;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.sode-setup__swatch:has(input:focus-visible) {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: 2px;
+}
+
+.sode-setup__sheet {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.sode-setup__sheet th,
+.sode-setup__sheet td {
+  padding: var(--pb-space-3) var(--pb-space-4);
+  border-bottom: 1px solid var(--pb-edge);
+  vertical-align: middle;
+}
+.sode-setup__sheet tbody th {
+  font-weight: normal;
+  text-align: left;
+}
+.sode-setup__sheet thead th {
+  vertical-align: top;
+  text-align: left;
+  border-bottom-width: var(--pb-border-w);
+  cursor: pointer;
+  width: 22%;
+}
+.sode-setup__sheet thead th:first-child {
+  cursor: default;
+  width: auto;
+}
+.sode-setup__sheet thead .sode-setup__corner {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  vertical-align: bottom;
+}
+.sode-setup__sheet td {
+  text-align: center;
+  cursor: pointer;
+}
+.sode-setup__sheet .is-picked {
+  background: var(--pb-accent-wash);
+}
+.sode-setup__sheet thead .is-picked {
+  box-shadow: inset 0 3px 0 var(--pb-accent);
+}
+.sode-setup__yes,
+.sode-setup__no {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pb-space-2);
+}
+.sode-setup__no {
+  color: var(--pb-text-muted);
+}
+
+.sode-setup__done {
+  display: grid;
+  grid-template-columns: 1fr 13rem;
+  gap: var(--pb-space-8);
+}
+@media (max-width: 40rem) {
+  .sode-setup__done {
+    grid-template-columns: 1fr;
+  }
+}
+.sode-setup__done p {
+  font-size: var(--pb-text-md);
+  line-height: 1.6;
+}
+.sode-setup__next {
+  border-left: 1px solid var(--pb-edge);
+  padding-left: var(--pb-space-6);
+  font-size: var(--pb-text-sm);
+}
+.sode-setup__next h3 {
+  font-size: var(--pb-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--pb-tracking-label);
+  color: var(--pb-text-muted);
+  margin: 0 0 var(--pb-space-3);
+}
+.sode-setup__next ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--pb-space-3);
+}
+.sode-setup__next a {
+  color: var(--pb-text-muted);
+}
+
+/* The wait page (setupwizard.js): another browser runs setup, or a phone. */
+.sode-setup__dialog[hidden] {
+  display: none;
+}
+.sode-setup__wait {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--pb-space-4);
+}
+.sode-setup__wait p {
+  margin: 0;
+}

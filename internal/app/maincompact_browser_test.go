@@ -4,17 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
 )
 
-// Compact view hides History. While both links are up, it fades the footer, the Lock bar and the
-// status (hover or focus brings each back). It centres the block, and neither the match list nor a
-// failed take moves the block. After a reload the Last chips fill from the stored Last, and a failed
-// take and a lost link still show. Alt+Shift+C toggles Compact view from a box, and Settings shows
-// it under This browser.
 func TestChromeMainCompact(t *testing.T) {
 	b := startBrowser(t)
 	// The simulator ACKs connects to DSM1 but never routes it, so a take there fails.
@@ -42,7 +39,7 @@ func TestChromeMainCompact(t *testing.T) {
 	b.open(srv.URL + "/")
 	b.waitFor("data-compact set before the modules run", `document.documentElement.hasAttribute('data-compact')`)
 	b.waitFor("History hidden", `!(`+shown("#patch-view > .sode__history")+`)`)
-	for _, sel := range []string{"#patch-view .sode__boxes", "#patch-view [data-presets]", "#patch-view .sode__footer", "#settings-open", "#patch"} {
+	for _, sel := range []string{"#patch-view .sode__boxes", "#patch-view [data-presets]", "#home-bar .sode-bar__grid", "#home-bar .sode-bar__settings", "#patch"} {
 		b.waitFor(sel+" still shown", shown(sel))
 	}
 
@@ -55,7 +52,7 @@ func TestChromeMainCompact(t *testing.T) {
 		xy := b.eval(`(() => { const r = document.querySelector('` + sel + `').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`).([]any)
 		mouse(xy[0], xy[1])
 	}
-	// near points 5rem (100px at 125%) past the item's inner corner, inside the apron but off the item.
+	// near points 5rem (80px at the 100% root) past the item's inner corner, inside the apron but off the item.
 	near := func(sel string, dx, dy int) {
 		xy := b.eval(fmt.Sprintf(`(() => { const r = document.querySelector('%s').getBoundingClientRect(); return [(%d > 0 ? r.right : r.left) + %d, (%d > 0 ? r.bottom : r.top) + %d]; })()`, sel, dx, dx, dy, dy)).([]any)
 		mouse(xy[0], xy[1])
@@ -69,7 +66,7 @@ func TestChromeMainCompact(t *testing.T) {
 	for _, c := range []struct {
 		sel    string
 		dx, dy int
-	}{{".sode__footer", 100, -80}, {"#conn", -100, 80}} {
+	}{{"#conn", -80, 64}} {
 		sel := c.sel
 		b.waitFor(sel+" faded", opacity(sel, "0")+` && `+shown(sel))
 		hover(sel)
@@ -85,22 +82,15 @@ func TestChromeMainCompact(t *testing.T) {
 	for _, sel := range []string{"#src", "#dst", "#patch", "#patch-view [data-presets]"} {
 		b.waitFor(sel+" not under an apron", `(() => { const e = document.querySelector('`+sel+`'), r = e.getBoundingClientRect(), h = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return e === h || e.contains(h); })()`)
 	}
-	if got := b.eval(`[document.getElementById('settings-open').getAttribute('aria-label'), document.getElementById('settings-open').dataset.pbTip].join('|')`); got != "Settings|Settings" {
-		t.Fatalf("faded Settings button lost its name or tip: %v", got)
-	}
-	b.eval(`document.getElementById('settings-open').focus(); true`)
-	b.waitFor("footer back on focus", opacity(".sode__footer", "1"))
-	b.eval(`document.getElementById('settings-open').blur(); true`)
-	b.waitFor("footer faded after blur", opacity(".sode__footer", "0"))
-	dur := `getComputedStyle(document.querySelector('.sode__footer')).transitionDuration`
+	dur := `getComputedStyle(document.getElementById('conn')).transitionDuration`
 	b.waitFor("reveal fades over a quarter second", dur+` === '0.25s'`)
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-reduced-motion", "value": "reduce"}}})
 	b.waitFor("reveal snaps under reduced motion", dur+` === '0s'`)
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{}})
 
-	// Centred: the span from Source's left edge to Levels' right edge, at the height of the boxes,
-	// sits at the viewport's centre. This check ignores where the title and Presets fall.
-	const boxes = `(() => { const a = document.getElementById('src').getBoundingClientRect(), z = document.getElementById('lvl').getBoundingClientRect(); return [(a.left + z.right) / 2 - innerWidth / 2, (a.top + a.bottom) / 2 - innerHeight / 2]; })()`
+	// Centred: the three groups, from Source's left edge to Clear's right edge, at the height of the boxes,
+	// sit at the viewport's centre. This check ignores where the title and Presets fall.
+	const boxes = `(() => { const a = document.getElementById('src').getBoundingClientRect(), z = document.getElementById('clear-all').getBoundingClientRect(); return [(a.left + z.right) / 2 - innerWidth / 2, (a.top + a.bottom) / 2 - innerHeight / 2]; })()`
 	b.waitFor("boxes at the viewport centre", `(() => { const [x, y] = `+boxes+`; return Math.abs(x) <= 1 && Math.abs(y) <= 1; })()`)
 	const presets = `(() => { const p = document.querySelector('#patch-view [data-presets]'), k = [...p.children].filter((c) => c.getBoundingClientRect().width > 0).map((c) => c.getBoundingClientRect()); return (Math.min(...k.map((r) => r.left)) + Math.max(...k.map((r) => r.right))) / 2 - innerWidth / 2; })()`
 	b.waitFor("Presets centred under the boxes", `Math.abs(`+presets+`) <= 1`)
@@ -133,7 +123,6 @@ func TestChromeMainCompact(t *testing.T) {
 		t.Fatalf("the failed take moved the boxes: top %v, was %v", got, top)
 	}
 	b.shot("compact-failed")
-	// Ctrl+Z still reaches undo: its confirm, or Nothing to undo when the failed take moved nothing.
 	b.eval(`document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true})); true`)
 	b.waitFor("Ctrl+Z answers", `!document.getElementById('confirm').hidden || document.getElementById('result').textContent.includes('Nothing to undo')`)
 	if b.eval(`!document.getElementById('confirm').hidden`) == true {
@@ -141,7 +130,6 @@ func TestChromeMainCompact(t *testing.T) {
 		b.waitFor("Esc closes the confirm", `document.getElementById('confirm').hidden`)
 	}
 
-	// Esc clears the boxes, then with them empty starts no keyboard mode while History is hidden.
 	b.eval(`for (let i = 0; i < 6; i++) { const t = document.getElementById('src'); t.focus(); t.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true, cancelable: true})); } true`)
 	b.waitFor("Esc cleared the boxes", `document.getElementById('src').value === '' && document.getElementById('lvl').value === '' && document.getElementById('dst-chips').hidden`)
 	if got := b.eval(`document.getElementById('history').classList.contains('sode__hist--keys') || document.activeElement.id`); got != "src" {
@@ -163,6 +151,7 @@ func TestChromeMainCompact(t *testing.T) {
 	b.waitFor("Global defaults has it too", `!!document.querySelector('select[data-gpref="compact"]')`)
 	b.eval(`document.getElementById('account-login').click()`)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -181,7 +170,7 @@ func TestChromeMainCompact(t *testing.T) {
 	b.waitFor("Lock bar back on hover", opacity(bar, "1"))
 	rest()
 	b.waitFor("Lock bar faded again", opacity(bar, "0"))
-	near(".sode-lock__who", 100, 80)
+	near(".sode-lock__who", 80, 64)
 	b.waitFor("Lock bar back with the pointer near it", opacity(bar, "1"))
 	rest()
 	b.waitFor("Lock bar faded once the pointer leaves", opacity(bar, "0"))
@@ -189,12 +178,33 @@ func TestChromeMainCompact(t *testing.T) {
 	b.waitFor("Lock bar back on focus", opacity(bar, "1"))
 	b.eval(`document.activeElement.blur(); true`)
 
-	// A preset picking from History brings back the usual page.
 	b.eval(`document.documentElement.dataset.sodePick = ''; true`)
 	b.waitFor("History back while picking", shown("#patch-view > .sode__history"))
 	b.waitFor("not centred while picking", `getComputedStyle(document.querySelector('.sode')).display !== 'grid' && getComputedStyle(document.getElementById('result')).position !== 'absolute'`)
 	b.eval(`delete document.documentElement.dataset.sodePick; true`)
 	b.waitFor("Compact again", `!(`+shown("#patch-view > .sode__history")+`)`)
+
+	// The level picks in Compact view: up to 17 levels in two rows with no scroll at 1440 and 1600 px, 24 levels scroll
+	// sideways. The boxes stay at the centre.
+	for _, n := range []int{4, 5, 11, 12, 17, 24} {
+		if err := a.applyConfig(func(c *config.Config) error { c.Levels, c.DefaultLevels = n, "1-"+strconv.Itoa(n); return nil }); err != nil {
+			t.Fatal(err)
+		}
+		b.waitFor(strconv.Itoa(n)+" level picks", `document.querySelectorAll('#lvl-pick > button').length === `+strconv.Itoa(n))
+		for _, w := range []int{1440, 1600} {
+			b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": w, "height": 900, "deviceScaleFactor": 1, "mobile": false})
+			b.waitFor("the page is "+strconv.Itoa(w)+" px", `innerWidth === `+strconv.Itoa(w))
+			b.waitFor("boxes at the viewport centre", `(() => { const [x, y] = `+boxes+`; return Math.abs(x) <= 1 && Math.abs(y) <= 1; })()`)
+			rows, scrolls, inside := levelPicksAt(b)
+			if rows != 2 || scrolls != (n > 17) || !inside {
+				t.Fatalf("Compact view at %d px with %d levels: picks on %d rows, scroll %v, inside the box %v; want 2 rows, scroll %v, inside", w, n, rows, scrolls, inside, n > 17)
+			}
+			if msg, _ := pickShape(b); msg != "" {
+				t.Fatalf("Compact view at %d px with %d levels: %s", w, n, msg)
+			}
+		}
+		b.call("Emulation.clearDeviceMetricsOverride", map[string]any{})
+	}
 
 	stopSim()
 	b.waitFor("lost link shows in Compact view", `!document.getElementById('conn-down').hidden && `+shown("#conn-down"))

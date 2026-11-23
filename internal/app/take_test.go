@@ -2,6 +2,7 @@ package app
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -54,9 +55,9 @@ func TestConfirmedByIsDecidedOnce(t *testing.T) {
 type fakeRouter struct {
 	a      *App
 	mu     sync.Mutex
-	tally  map[[2]int]int  // dst, wire level → src
+	tally  map[[2]int]int  // dst, level (wire number) → src
 	ignore map[int]bool    // dsts the router never answers for
-	deaf   map[[2]int]bool // dst, wire level whose connects are ignored (interrogates still answer)
+	deaf   map[[2]int]bool // dst, level (wire number) whose connects are ignored (interrogates still answer)
 	lose   map[int]bool    // dsts whose Connected goes missing (interrogates still answer)
 	mute   map[int]bool    // dsts whose interrogates go unanswered (connects still do)
 	failAt int             // this send and every later one fail (1-based; 0 = never)
@@ -64,7 +65,9 @@ type fakeRouter struct {
 	n      int
 	whys   []sentWhy // every message's reason, in order
 	out    chan []byte
-	salvo  fakeSalvo // group salvos (fire_test.go)
+	salvo  fakeSalvo   // group salvos (fire_test.go)
+	dsts   int         // destinations a tally dump answers for; 0 = up to the highest one in tally
+	prot   fakeProtect // Protects (protect_test.go)
 }
 
 type sentWhy struct {
@@ -129,6 +132,9 @@ func (f *fakeRouter) deliver(m []byte, why swp08.Why) error {
 		if f.ignore[dst] || f.deaf[k] {
 			return nil
 		}
+		if _, held := f.prot.holds[k]; held {
+			return nil // refused in silence, as the Ultrix does
+		}
 		if old, ok := f.tally[k]; ok && old == src {
 			return nil // no change, no Connected
 		}
@@ -146,10 +152,40 @@ func (f *fakeRouter) deliver(m []byte, why swp08.Why) error {
 			src = 0xFFFF
 		}
 		f.out <- swp08.ExtTally(int(m[1]), l, dst, src)
+	case swp08.CmdExtTallyDumpReq:
+		f.dump(int(m[1]), int(m[2]))
+	case swp08.CmdExtProtectConnect, swp08.CmdExtProtectDisconnect:
+		f.protectMsg(m)
 	case swp08.CmdConnectOnGo, swp08.CmdExtConnectOnGo, swp08.CmdGoSalvo:
 		f.salvoMsg(m)
 	}
 	return nil
+}
+
+// dump answers for every destination of the router, 64 a message, as the Ultrix does. An answer that holds a muted
+// or ignored destination goes missing. Caller holds f.mu.
+func (f *fakeRouter) dump(mx, l int) {
+	n := f.dsts
+	for k := range f.tally {
+		n = max(n, k[0]+1)
+	}
+	for first := 0; first < n; first += 64 {
+		var srcs []int
+		for d := first; d < min(first+64, n); d++ {
+			if f.mute[d] || f.ignore[d] {
+				srcs = nil
+				break
+			}
+			src, ok := f.tally[[2]int{d, l}]
+			if !ok {
+				src = 0xFFFF
+			}
+			srcs = append(srcs, src)
+		}
+		if srcs != nil {
+			f.out <- swp08.ExtTallyDump(mx, l, first, srcs)
+		}
+	}
 }
 
 func (f *fakeRouter) sends() int {
@@ -160,7 +196,7 @@ func (f *fakeRouter) sends() int {
 
 func routeOne(t *testing.T, a *App, src, dst int, levels ...int) Entry {
 	t.Helper()
-	a.route(&client{ip: "10.0.0.1"}, routeReq{ID: 1, Src: src, Dst: dst, Levels: levels})
+	a.takeAllowed(&client{ip: "10.0.0.1"}, []routeReq{{ID: 1, Src: src, Dst: dst, Levels: levels}})
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].Ext {
 		t.Fatalf("no take recorded: %+v", es)
@@ -221,7 +257,7 @@ func TestTakeProtected(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	a.mu.Lock()
-	a.router.protect[5] = map[int]int{2: 9}
+	a.router.protect[5] = map[int]protHold{2: {9, 1}}
 	a.mu.Unlock()
 	n := f.sends()
 	e := routeOne(t, a, 7, 5, 1, 2, 3)
@@ -677,22 +713,195 @@ func TestTakeFreshSkipsCheck(t *testing.T) {
 	}
 }
 
-func TestTakeBigSkipsCheck(t *testing.T) {
+// bigItems: one route from src to each of dsts, on levels 1 to 3.
+func bigItems(src int, dsts ...int) []routeReq {
+	var items []routeReq
+	for i, d := range dsts {
+		items = append(items, routeReq{ID: i + 1, Src: src, Dst: d, Levels: []int{1, 2, 3}})
+	}
+	return items
+}
+
+// at: the index in f.whys of the first (or last) message with this command (0 = any) and reason ("" = any), or -1.
+func (f *fakeRouter) at(cmd byte, reason swp08.Reason, last bool) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	hit := func(w sentWhy) bool { return (cmd == 0 || w.cmd == cmd) && (reason == "" || w.why.Reason == reason) }
+	if !last {
+		return slices.IndexFunc(f.whys, hit)
+	}
+	for i, w := range slices.Backward(f.whys) {
+		if hit(w) {
+			return i
+		}
+	}
+	return -1
+}
+
+// takeEntry: the newest take entry for dst.
+func takeEntry(t *testing.T, a *App, dst int) Entry {
+	t.Helper()
+	es, _ := a.hist.Page(-1, 200)
+	for _, e := range es {
+		if e.Dst == dst && !e.Found && !e.Ext {
+			return e
+		}
+	}
+	t.Fatalf("no take for dst %d in %+v", dst, es)
+	return Entry{}
+}
+
+// A big take reads every route before its first connect. So Prev is the router's route, not the cache's, and Undo
+// puts that route back.
+func TestTakeBigReadsFirst(t *testing.T) {
+	t.Parallel()
+	a, f, key := takerApp(t, nil)
+	dsts := []int{10, 11, 12, 13, 14, 15}
+	for _, d := range dsts {
+		f.seed(d, 1, 0)
+	}
+	f.mu.Lock()
+	f.tally[[2]int{13, 0}] = 2 // a change the router did not announce
+	f.mu.Unlock()
+	var rs []string
+	for _, d := range dsts {
+		rs = append(rs, `{"src":4,"dst":`+strconv.Itoa(d)+`,"levels":[1]}`)
+	}
+	body := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[`+strings.Join(rs, ",")+`]}`, nil))
+	if body["ok"] != true || body["checkSkipped"] != false {
+		t.Fatalf("body %v", body)
+	}
+	if c, last := f.at(swp08.CmdExtConnect, "", false), f.at(0, swp08.ReasonCheck, true); c < 0 || last < 0 || last > c {
+		t.Fatalf("last check %d, first connect %d", last, c)
+	}
+	e := takeEntry(t, a, 13)
+	if !e.OK || !equalPrev(e.Prev, [][2]int{{1, 2}}) {
+		t.Fatalf("entry %+v, want prev source 2 from the router", e)
+	}
+	if rec := apiPost(a, "/api/v1/history/"+strconv.Itoa(e.ID)+"/undo", key, ``, nil); rec.Code != 200 {
+		t.Fatalf("undo %d %s", rec.Code, rec.Body.String())
+	}
+	f.mu.Lock()
+	got := f.tally[[2]int{13, 0}]
+	f.mu.Unlock()
+	if got != 2 {
+		t.Fatalf("after undo, dst 13 is on %d, want 2", got)
+	}
+}
+
+// Each level of a big take gets the cheaper read. That is one tally dump when the router's destinations fit in fewer
+// dump answers than the take has destinations on that level. Else it is one interrogate per destination.
+func TestTakeBigCheckCost(t *testing.T) {
+	t.Parallel()
+	small := newTestApp(t) // 64 destinations: one dump answer per level
+	f := newFakeRouter(t, small)
+	for d := 0; d < 64; d++ {
+		f.seed(d, 1, 0, 1, 2)
+	}
+	f.mu.Lock()
+	f.tally[[2]int{2, 0}] = 9
+	f.mu.Unlock()
+	small.take(&client{ip: "10.0.0.1"}, bigItems(7, 0, 1, 2, 3, 4, 5))
+	if d, n := f.cmds(swp08.CmdExtTallyDumpReq), f.sentFor(swp08.ReasonCheck); d != 3 || n != 3 {
+		t.Fatalf("%d dump requests, %d checks; want 3 dumps and nothing else", d, n)
+	}
+	if c, d := f.at(swp08.CmdExtConnect, "", false), f.at(swp08.CmdExtTallyDumpReq, swp08.ReasonCheck, true); d < 0 || d > c {
+		t.Fatalf("last dump at %d, first connect at %d", d, c)
+	}
+	if e := takeEntry(t, small, 2); !equalPrev(e.Prev, [][2]int{{1, 9}, {2, 1}, {3, 1}}) {
+		t.Fatalf("prev %v, want level 1 from the dump", e.Prev)
+	}
+
+	big := newTestApp(t) // 1024 destinations: 16 dump answers cost more than 6 interrogates
+	g := newFakeRouter(t, big)
+	big.mu.Lock()
+	for d := 0; d < 1024; d++ {
+		big.router.dstNames[d] = "D" + strconv.Itoa(d)
+	}
+	big.mu.Unlock()
+	big.take(&client{ip: "10.0.0.1"}, bigItems(7, 0, 1, 2, 3, 4, 5))
+	if d, n := g.cmds(swp08.CmdExtTallyDumpReq), g.sentFor(swp08.ReasonCheck); d != 0 || n != 18 {
+		t.Fatalf("%d dump requests, %d checks; want 18 interrogates", d, n)
+	}
+
+	// With no destination count known, Sode interrogates.
+	none := newTestApp(t)
+	h := newFakeRouter(t, none)
+	none.take(&client{ip: "10.0.0.1"}, bigItems(7, 0, 1, 2, 3, 4, 5))
+	if d, n := h.cmds(swp08.CmdExtTallyDumpReq), h.sentFor(swp08.ReasonCheck); d != 0 || n != 18 {
+		t.Fatalf("%d dump requests, %d checks; want 18 interrogates", d, n)
+	}
+}
+
+func TestTakeBigSkipsFresh(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
-	var items []routeReq
-	for d := 0; d < bigTake; d++ {
+	dsts := []int{0, 1, 2, 3, 4, 5}
+	for _, d := range dsts {
 		f.seed(d, 1, 0, 1, 2)
-		items = append(items, routeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
 	}
-	a.take(&client{ip: "10.0.0.1"}, items)
-	if n := f.sentFor("check"); n != 0 {
-		t.Fatalf("%d checks for a big take", n)
+	a.mu.Lock()
+	for _, d := range dsts {
+		for l := 1; l <= 3; l++ {
+			if d != 4 || l != 2 {
+				a.router.seenAt[[2]int{d, l}] = time.Now()
+			}
+		}
 	}
-	if es, _ := a.hist.Page(-1, bigTake); len(es) != bigTake || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK }) {
+	a.mu.Unlock()
+	a.take(&client{ip: "10.0.0.1"}, bigItems(7, dsts...))
+	if n := f.sentFor(swp08.ReasonCheck); n != 1 {
+		t.Fatalf("%d checks, want just dst 4 level 2", n)
+	}
+}
+
+// With no answer, a big take still runs after the timeout, with Prev from the cache.
+func TestTakeBigCheckUnanswered(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	dsts := []int{0, 1, 2, 3, 4, 5}
+	for _, d := range dsts {
+		f.seed(d, 1, 0, 1, 2)
+	}
+	f.mute[2] = true
+	if !a.takeAllowed(&client{ip: "10.0.0.1"}, bigItems(7, dsts...)) {
+		t.Fatal("a check with no answer for dst 2 reported every route read")
+	}
+	es, _ := a.hist.Page(-1, 20)
+	if len(es) != len(dsts) || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK || !equalPrev(e.Prev, [][2]int{{1, 1}, {2, 1}, {3, 1}}) }) {
 		t.Fatalf("takes %+v", es)
 	}
+}
+
+// A small take waits for one check of all its routes. One silent destination delays every route by checkTimeout,
+// then each route takes Prev from the cache and the take reports the check unread.
+func TestTakeSmallCheckUnanswered(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	for _, d := range []int{0, 1} {
+		f.seed(d, 1, 0, 1, 2)
+	}
+	f.mute[1] = true
+	start := time.Now()
+	if !a.takeAllowed(&client{ip: "10.0.0.1"}, bigItems(7, 0, 1)) {
+		t.Fatal("a check with no answer for dst 1 reported every route read")
+	}
+	if d := time.Since(start); d < a.checkTimeout {
+		t.Fatalf("took %v, under checkTimeout", d)
+	}
+	es, _ := a.hist.Page(-1, 20)
+	if len(es) != 2 || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK || !equalPrev(e.Prev, [][2]int{{1, 1}, {2, 1}, {3, 1}}) }) {
+		t.Fatalf("takes %+v", es)
+	}
+	leftovers(t, a)
+}
+
+func TestTakeSmallChecksEachRoute(t *testing.T) {
+	t.Parallel()
+	var items []routeReq
 	b := newTestApp(t)
 	g := newFakeRouter(t, b)
 	items = items[:0]
@@ -725,7 +934,7 @@ func TestTakeWaitsForQueue(t *testing.T) {
 	leftovers(t, a)
 }
 
-// A failing retry must not take over the first take's claim: both entries are amended.
+// A retry that fails must not claim what the first take claimed: Sode amends both entries.
 func TestTakeLateRetryKeepsBoth(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)

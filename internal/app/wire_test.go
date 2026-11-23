@@ -19,28 +19,43 @@ func asMap(t *testing.T, b []byte) map[string]any {
 	return m
 }
 
-// legacyHello is the hello as it was built from a map[string]any.
+// legacyHello builds the hello from a map[string]any, the reference shape for the typed one.
 func legacyHello(a *App, p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
 	m := map[string]any{"t": "hello", "srcs": n.Srcs, "dsts": n.Dsts, "at": n.At}
+	if !a.router.savedAt.IsZero() {
+		m["savedAt"] = a.router.savedAt
+	}
 	m["tally"] = legacyTriples(a.router.tally)
-	m["protect"] = legacyTriples(a.router.protect)
+	prot := [][4]int{}
+	for d, t := range a.router.protect {
+		for l, h := range t {
+			prot = append(prot, [4]int{d, l, h.dev, h.kind})
+		}
+	}
+	m["protected"] = prot
+	m["protectBy"] = []any{}
 	m["status"] = a.status
-	m["recent"] = p.recent
+	m["history"] = p.recent
 	m["more"] = p.more
 	m["levels"] = r.levels
 	m["levelDefaults"] = config.DefaultLevelColors
 	m["cfg"] = r.cfg
-	m["pinSet"] = r.cfg.SettingsPin != ""
+	m["versions"] = fieldVersions(r.cfg)
+	m["users"] = []any{}
 	m["configPath"] = a.cfgPath
+	m["notSaved"] = a.cfgPath == ""
 	m["version"] = VersionLabel()
 	m["brandColors"] = config.BrandColors
+	m["routerUid"] = r.cfg.UID
+	m["installUid"] = r.cfg.InstallUID
+	m["prefix"] = r.cfg.Prefix
 	b, _ := json.Marshal(m)
 	return b
 }
 
-// legacyTriples is the bare [dst, level, value] arrays a hello carries.
+// legacyTriples: the bare [dst, level, value] arrays of a hello.
 func legacyTriples(m map[int]map[int]int) [][3]int {
 	out := [][3]int{}
 	for d, t := range m {
@@ -64,8 +79,8 @@ func TestHelloMatchesLegacy(t *testing.T) {
 	}
 }
 
-// TestRouteChangeWire pins routeChange to the bare [dst, level, src] arrays
-// it replaced, in a delta, a hello's tally and protect, and back.
+// routeChange must marshal as a bare [dst, level, src] array. Open pages read that shape in a delta,
+// in a hello's tally and protect, and back.
 func TestRouteChangeWire(t *testing.T) {
 	old := map[string]any{"t": "tally", "u": [][3]int{{5, 1, 7}, {6, 2, -1}}}
 	want, _ := json.Marshal(old)
@@ -86,23 +101,22 @@ func TestRouteChangeWire(t *testing.T) {
 	a.mu.Lock()
 	h := asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
-	if !reflect.DeepEqual(h["tally"], []any{[]any{5.0, 1.0, 7.0}}) || !reflect.DeepEqual(h["protect"], []any{[]any{5.0, 1.0, 9.0}}) {
-		t.Fatalf("hello tally/protect: %v %v", h["tally"], h["protect"])
+	if !reflect.DeepEqual(h["tally"], []any{[]any{5.0, 1.0, 7.0}}) || !reflect.DeepEqual(h["protected"], []any{[]any{5.0, 1.0, 9.0, 1.0}}) {
+		t.Fatalf("hello tally/protected: %v %v", h["tally"], h["protected"])
 	}
 	a.mu.Lock()
-	a.router.tally, a.router.protect = map[int]map[int]int{}, map[int]map[int]int{}
+	a.router.tally, a.router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
 	h = asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
-	if !reflect.DeepEqual(h["tally"], []any{}) || !reflect.DeepEqual(h["protect"], []any{}) {
-		t.Fatalf("empty tally/protect must be [], got %v %v", h["tally"], h["protect"])
+	if !reflect.DeepEqual(h["tally"], []any{}) || !reflect.DeepEqual(h["protected"], []any{}) {
+		t.Fatalf("empty tally/protected must be [], got %v %v", h["tally"], h["protected"])
 	}
 }
 
-// TestRecentWire: a recent message keeps its old shape, and omitempty keys
-// stay absent.
+// Open pages read this shape of recent; omitempty keys stay absent.
 func TestRecentWire(t *testing.T) {
 	e := &Entry{ID: 4, Src: 7, Dst: 2, Levels: []int{1}, Prev: [][2]int{{1, 5}}, OK: true}
-	got, err := json.Marshal(recentMsg{T: "recent", E: e})
+	got, err := json.Marshal(recentMsg{T: "entry", E: e})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,8 +135,7 @@ func TestRecentWire(t *testing.T) {
 	}
 }
 
-// TestHistoryLineRoundTrip reads a history line as written before this
-// change and writes it back unchanged (as JSON values).
+// History files hold lines in this shape: a line must read and write back unchanged (as JSON values).
 func TestHistoryLineRoundTrip(t *testing.T) {
 	line := `{"id":12,"time":"2026-10-23T18:01:40.123456789Z","client":"10.0.0.7","src":50,"srcName":"CAM 51","dst":3,"dstName":"KiPro 4","levels":[1,2,3],"prev":[[1,4],[2,4],[3,-1]],"ok":false,"err":"level 3 no answer","failed":[3],"now":[[3,9]],"already":[1],"late":[2]}`
 	var e Entry
@@ -153,6 +166,8 @@ func TestEntryLogLine(t *testing.T) {
 			`TAKE client=10.0.0.7 src=2 "CAM 2" dst=5 "MON 5" levels=[1] undo=3 retry=- group=g1/2 result="no answer"`},
 		{Entry{Ext: true, Found: true, Src: 1, SrcName: "CAM 2", Dst: 4, DstName: "MON 5", Levels: []int{1}, Follow: &follow, FollowGroup: "g9"},
 			`EXT src=2 "CAM 2" dst=5 "MON 5" levels=[1] group=- follow=4 followGroup=g9 found=true`},
+		{Entry{Client: "Ana", Src: -1, Dst: 4, DstName: "MON 5", Levels: []int{1, 2}, Protect: "set", Still: []int{2}, Group: "p1", GroupN: 2, Err: "no answer"},
+			`PROTECT client=Ana protect=set dst=5 "MON 5" levels=[1 2] still=[2] undo=- group=p1/2 result="no answer"`},
 	}
 	for _, c := range cases {
 		if got := c.e.logLine(1); got != c.want {

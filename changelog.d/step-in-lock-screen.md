@@ -1,0 +1,1 @@
+- Step in opens the lock screen's name list and PIN pad, with the line "Step in: this tab only", in place of the small dialog. Cancel or Esc goes back to the page as it was. The name list shows only other users with a PIN.

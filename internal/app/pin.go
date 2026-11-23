@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"log"
@@ -9,8 +10,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// --- wrong-PIN pools
-
 type pinState struct {
 	n     int
 	until time.Time // no tries before this
@@ -18,19 +17,12 @@ type pinState struct {
 	busy  bool      // a PIN is being checked
 }
 
-// pinPool: wrong-PIN count and rules for one class of secret. The Advanced Settings PIN and user
-// PINs have separate pools so neither's success or lockout touches the other. tryPin is
-// the only mutator.
+// pinPool: wrong-PIN count and rules for one user name's PINs. tryPin is the only mutator.
 type pinPool struct {
 	pinState
-	wait func(tries int) time.Duration // the wait after this many wrong PINs in a row
-	// resetOnOK: not for the users' pool. A PIN there identifies the user, so one valid
-	// PIN would let a stranger reset the count and guess the rest. That pool forgets after
-	// quiet instead.
-	resetOnOK bool
-	forget    time.Duration           // 0 = never
-	maxTries  func(config.Config) int // wrong PINs that lock for good; nil or 0 = never
-	what      string                  // names the class in the log
+	wait   func(tries int) time.Duration // the wait after this many wrong PINs in a row; nil = no waits
+	forget time.Duration                 // 0 = never
+	what   string                        // names the pool in the log
 }
 
 const (
@@ -40,49 +32,69 @@ const (
 	userPinMaxWait = 5 * time.Minute
 )
 
-var errLocked = errors.New("settings are locked; enter the PIN again")
+// userPinWait: first is App.pinFirstWait, which tests shorten.
+func userPinWait(first time.Duration, n int) time.Duration {
+	return doubling(first, min(userPinMaxWait, first<<10), n)
+}
 
-func pinWait(n int) time.Duration {
+func doubling(first, most time.Duration, n int) time.Duration {
 	if n <= pinFreeTries {
 		return 0
 	}
-	w := pinFirstWait
-	for i := pinFreeTries + 1; i < n && w < pinMaxWait; i++ {
+	w := first
+	for i := pinFreeTries + 1; i < n && w < most; i++ {
 		w *= 2
 	}
-	return min(w, pinMaxWait)
+	return min(w, most)
 }
 
-// settingsPool: PinMaxTries wrong in a row lock it until -reset-pin or restart.
-func settingsPool() pinPool {
-	return pinPool{what: "settings", wait: pinWait, resetOnOK: true, maxTries: func(c config.Config) int { return c.PinMaxTries }}
+// Keyed by user id, so a rename keeps the count. nil u is the shared pool for unknown names, which always waits.
+func (a *App) userPoolMu(u *config.User) *pinPool {
+	key := ""
+	if u != nil {
+		key = u.ID
+	}
+	p := a.userPins[key]
+	if p == nil {
+		p = &pinPool{what: "users", forget: pinMaxWait}
+		a.userPins[key] = p
+	}
+	first := a.pinFirstWait
+	p.wait = func(n int) time.Duration { return userPinWait(first, n) }
+	if u != nil {
+		p.what = "user " + u.Name
+		cfg := a.r().cfg
+		live, ok := cfg.FindUserByID(u.ID) // u can be a sign-in copy with an old Role
+		if !cfg.PinWaits && ok && live.Role != config.RoleAdministrator {
+			p.wait = nil
+		}
+	}
+	return p
 }
 
-// userPool: waits stop growing at userPinMaxWait; no permanent lock, so a stranger cannot
-// shut out operators.
-func userPool() pinPool {
-	return pinPool{what: "users", wait: func(n int) time.Duration { return min(pinWait(n), userPinMaxWait) }, forget: pinMaxWait}
+// provePin checks pin against hit in the pool of counts (hit when nil). It runs with mu free; the
+// caller re-reads the user under its own lock (livePinMu), since the check can wait.
+func (a *App) provePin(c *client, counts, hit *config.User, pin string) error {
+	a.mu.Lock()
+	p := a.userPoolMu(cmp.Or(counts, hit))
+	a.mu.Unlock()
+	return a.tryPin(p, c.ip, func() bool { return pinMatches(hit, pin) })
 }
 
-const resetHint = "On the Docker host run: docker compose exec sode /sode -reset-pin, then restart Sode"
+// livePinMu: hit as it is now; false when it is gone or has a new PIN.
+func (a *App) livePinMu(hit *config.User) (config.User, bool) {
+	live, ok := a.r().cfg.FindUserByID(hit.ID)
+	return live, ok && live.Pin == hit.Pin
+}
 
-// tryPin refuses while locked out, waiting or busy, else runs check with mu free (hashing
-// is slow). Takes and releases mu itself; callers needing a stable world re-check under
-// their own lock.
+// check runs with mu free, since hashing is slow; a caller that needs a stable state checks again under its own lock.
 func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	a.mu.Lock()
 	if p.forget > 0 && p.n > 0 && time.Since(p.last) > p.forget {
 		p.n, p.until = 0, time.Time{}
 	}
-	max := 0
-	if p.maxTries != nil {
-		max = p.maxTries(a.r().cfg)
-	}
 	switch left := time.Until(p.until); {
-	case max > 0 && p.n >= max:
-		a.mu.Unlock()
-		return fmt.Errorf("settings are locked after %d wrong PINs. %s", max, resetHint)
-	case left > 0:
+	case left > 0 && p.wait != nil:
 		a.mu.Unlock()
 		return fmt.Errorf("too many wrong PINs; try again in %s", left.Round(time.Second))
 	case p.busy:
@@ -98,82 +110,17 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	defer a.mu.Unlock()
 	p.busy = false
 	if ok {
-		if p.resetOnOK {
-			p.pinState = pinState{}
-		}
+		p.pinState = pinState{}
 		return nil
 	}
 	p.n++
 	p.last = time.Now()
 	log.Printf("%s: wrong PIN from %s (%d in a row)", p.what, from, p.n)
-	if max > 0 && p.n >= max {
-		log.Printf("%s: locked after %d wrong PINs; run sode -reset-pin or restart to unlock", p.what, p.n)
-		return fmt.Errorf("wrong PIN; settings are now locked after %d wrong PINs. %s", p.n, resetHint)
-	}
-	if w := p.wait(p.n); w > 0 {
+	if p.wait == nil {
+		p.until = time.Time{}
+	} else if w := p.wait(p.n); w > 0 {
 		p.until = time.Now().Add(w)
 		return fmt.Errorf("wrong PIN; try again in %s", w)
 	}
 	return errors.New("wrong PIN")
-}
-
-// checkAdmin returns the PIN's hash ("" when none set). Wrong PINs count for everyone: IPs
-// behind a proxy are no guard.
-func (a *App) checkAdmin(c *client, pin string) (string, error) {
-	hash := a.r().cfg.SettingsPin
-	if hash == "" {
-		return "", nil
-	}
-	if err := a.tryPin(&a.pin, c.ip, func() bool { return config.CheckPin(hash, pin) }); err != nil {
-		return "", err
-	}
-	if a.r().cfg.SettingsPin != hash {
-		return "", errLocked
-	}
-	return hash, nil
-}
-
-// Unlock covers the current PIN only: changing or removing it relocks.
-func (a *App) Unlock(c *client, pin string) error {
-	hash, err := a.checkAdmin(c, pin)
-	if err != nil || hash == "" {
-		return err
-	}
-	a.mu.Lock()
-	c.pin = hash
-	a.mu.Unlock()
-	return nil
-}
-
-func (a *App) Lock(c *client) {
-	a.mu.Lock()
-	c.pin = ""
-	a.mu.Unlock()
-}
-
-func (a *App) settingsUnlocked(c *client) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.settingsUnlockedMu(c)
-}
-
-func (a *App) settingsUnlockedMu(c *client) bool {
-	cfg := a.r().cfg
-	if a.heldMu(c, cfg) {
-		return false // a held Lock trusts nothing, with or without the PIN (ADR 0001)
-	}
-	return cfg.SettingsPin == "" || c.pin == cfg.SettingsPin
-}
-
-// Trusted is read live, so unticking takes effect at once. Caller holds mu.
-func (a *App) trustedMu(c *client) bool {
-	if a.settingsUnlockedMu(c) {
-		return true
-	}
-	cfg := a.r().cfg
-	if !a.userOKMu(c, cfg) {
-		return false
-	}
-	u, _ := cfg.FindUser(c.u.user.Load().Name)
-	return u.Trusted
 }

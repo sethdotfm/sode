@@ -12,13 +12,12 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Rename from the panels page: the running panel page, named by its link, gets the new name in its header and its
-// address. A reload keeps it. Two browsers, since one tab runs the panel page and the other the panels page.
+// Two browsers: one tab runs the panel page and the other the panels page.
 func TestChromeRenameARunningPanelPageFromThePanelsPage(t *testing.T) {
 	page := startBrowser(t)
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -36,7 +35,7 @@ func TestChromeRenameARunningPanelPageFromThePanelsPage(t *testing.T) {
 	// Only a Trusted user makes a panel with a client; past that, Ana renames as its owner.
 	cfg := a.r().cfg
 	cfg.Users = slices.Clone(cfg.Users)
-	cfg.Users[0].Trusted = false
+	cfg.Users[0].Role = config.RoleStandard
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -54,6 +53,7 @@ func TestChromeRenameARunningPanelPageFromThePanelsPage(t *testing.T) {
 
 	b.open(srv.URL + "/panels")
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(`document.querySelector('.sode-lock__key[data-key="` + string(d) + `"]').click()`)
 	}

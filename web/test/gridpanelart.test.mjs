@@ -1,4 +1,3 @@
-// The artwork on a Grid panel's names (gridpanelart.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nameArt, nameArtKey } from '../gridpanelart.js';

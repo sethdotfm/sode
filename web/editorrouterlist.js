@@ -3,6 +3,7 @@
 // keyboard has one highlight, moved by the arrows; hover does not move it. Only the rows in view have nodes, since a
 // router can have thousands. Rules are editorgridrules.js.
 import { el, icon } from './core.js';
+import { keyLabel } from './keys.js';
 import { btn } from './formbits.js';
 import { axisSpan, spanMax, OVER } from './gridpanelwindow.js';
 import { routerRows, findRows, addItems, selectRows } from './editorgridrules.js';
@@ -10,6 +11,8 @@ import { routerRows, findRows, addItems, selectRows } from './editorgridrules.js
 const ROW_REM = 2; // keep in step with .sode-rlist__row in panels.css
 
 // o: { key, what, edge(), router(), rights(), kind, off(), readOnly(), fixed() (why adding is off, or ''), set(edge) }.
+// The Live Editor's Insert (editorlivemenu.js) also gives title, at() and onAdd(ns). at() is the members index where
+// the items go in (addItems), and onAdd gets the items added, in list order.
 export function createRouterList(o) {
   const { key, what } = o;
   const find = el('input', 'pb-input');
@@ -22,13 +25,13 @@ export function createRouterList(o) {
   find.setAttribute('aria-expanded', 'true');
   find.setAttribute('aria-controls', `ed-${key}-router`);
   find.setAttribute('aria-label', `Find ${what}s on the router`);
-  const FIND_TIP = 'Enter adds the highlighted one, Shift+Enter adds every match. Up and Down move the highlight.';
+  const FIND_TIP = `Enter: add the highlighted. ${keyLabel('shift+enter')}: add all.`;
   find.dataset.pbTip = FIND_TIP;
   const count = el('span', 'sode-edge__count');
   count.id = `ed-${key}-shown`;
   const addAll = btn('pb-btn--outline pb-btn--sm', '', () => addMatches());
   addAll.id = `ed-${key}-add`;
-  addAll.dataset.pbTip = `Adds every match at the end of the list, in router order (Shift+Enter).`;
+  addAll.dataset.pbTip = keyLabel('shift+enter');
   const box = el('div', 'sode-rlist');
   box.id = `ed-${key}-router`;
   box.setAttribute('role', 'listbox');
@@ -37,12 +40,10 @@ export function createRouterList(o) {
   const field = el('div', 'sode-rlist__field');
   box.append(field);
   const search = el('div', 'pb-input-group sode-rlist__find', find, el('span', 'pb-input-group__addon', icon('search')));
-  // The bar under Find, as the bar over the panel's list: the selection count, then + on the right.
   const selNote = el('span', 'sode-edge__sel');
   selNote.id = `ed-${key}-rsel`;
   selNote.setAttribute('role', 'status');
-  selNote.dataset.pbTip = 'Click selects a row, Shift-click a range, Cmd- or Ctrl-click one more.';
-  const ADD_TIP = 'Adds the selected ones at the end of the list, in router order';
+  const ADD_TIP = 'Add selected';
   const addSel = btn('pb-btn--ghost pb-btn--icon pb-btn--sm', '', () => addPicked());
   addSel.append(icon('plus'));
   addSel.id = `ed-${key}-add-sel`;
@@ -54,7 +55,7 @@ export function createRouterList(o) {
   const node = el(
     'section',
     'sode-edge__part sode-edge__add',
-    el('div', 'sode-edge__head', el('h3', 'sode-edge__h3', 'Add from the router', count)),
+    el('div', 'sode-edge__head', el('h3', 'sode-edge__h3', o.title || 'Add from the router', count)),
     el('div', 'sode-rlist__bar', search),
     acts,
     box,
@@ -146,6 +147,10 @@ export function createRouterList(o) {
     find.disabled = !!why;
     find.dataset.pbTip = why || FIND_TIP;
     node.toggleAttribute('data-off', !!why);
+    // While Follow the router is on nothing can be added, so the part hides. An empty list folds away and leaves its
+    // room to the panel's list; Find stays, and the list opens again for what it finds.
+    node.hidden = !!why;
+    box.hidden = acts.hidden = !shown.length;
   }
 
   function paint() {
@@ -155,7 +160,15 @@ export function createRouterList(o) {
   }
 
   // An add on an "all" edge would make it a list and end Follow the router, so fixed() stops it.
-  const add = (ns) => o.readOnly() || o.fixed?.() || o.set(addItems(o.edge(), o.router(), new Set(ns)));
+  const add = (ns) => {
+    if (o.readOnly() || o.fixed?.()) return;
+    const was = o.edge();
+    const next = addItems(was, o.router(), new Set(ns), o.at ? { at: o.at() } : {});
+    if (next === was) return;
+    o.set(next);
+    const had = new Set(Array.isArray(was?.members) ? was.members : []);
+    o.onAdd?.(next.members.filter((n) => !had.has(n)));
+  };
   function addMatches() {
     if (text && shown.length) add(shown.map((r) => r.n));
   }

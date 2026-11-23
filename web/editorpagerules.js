@@ -4,7 +4,6 @@
 import { PAGE_MAX, PAGE_NAME_MAX, newPageId } from './panelpages.js';
 import { moveItem } from './orderedlistrules.js';
 
-// Pages open side by side at most.
 export const OPEN_MAX = 4;
 
 export const addPage = (pages, id = newPageId()) => (pages.length >= PAGE_MAX ? pages : [...pages, { id, enabled: true, cells: [] }]);
@@ -46,6 +45,15 @@ export function copyPage(pages, from, to) {
   if (from === to || !pages[from] || !pages[to]) return null;
   const cells = structuredClone(pages[from].cells || []);
   return { pages: pages.map((p, j) => (j === to ? { ...p, cells } : p)), replaced: (pages[to].cells || []).length };
+}
+
+// After a change to the Page list. focus is a Page that exists, else the first. open holds only Pages that exist, and
+// it holds focus, else it is focus alone.
+export function settle({ pages, focus, open }) {
+  const has = (id) => pages.some((p) => p.id === id);
+  const f = has(focus) ? focus : pages[0].id;
+  const o = open.filter(has);
+  return { pages, focus: f, open: o.includes(f) ? o : [f] };
 }
 
 // A plain click opens one Page. Cmd or Ctrl-click adds a Page or takes one away, up to OPEN_MAX and never the last.

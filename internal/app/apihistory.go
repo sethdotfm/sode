@@ -10,8 +10,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Paged reads: History, and the Communication Log (which ignores visibility: it shows raw
-// router messages, and the log scope is the gate).
+// The Communication Log ignores visibility: it shows raw router messages, and the log scope is the gate.
 
 func init() {
 	registerAPI(
@@ -23,7 +22,7 @@ func init() {
 
 const apiHistoryDefault, apiLogDefault = 50, 100
 
-// pageParams reads before (default -1, the newest page) and n (default def, at most limit).
+// before defaults to -1, the newest page.
 func pageParams(r *http.Request, def, limit int) (before int64, n int, err error) {
 	before, n = -1, def
 	q := r.URL.Query()
@@ -65,9 +64,8 @@ func (a *App) apiHistory(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	apiJSON(w, map[string]any{"before": before, "entries": out, "more": morePages(page)})
 }
 
-// apiLastGroup returns the newest take Group the caller can see, entries in take order
-// (oldest id first). Externals are not takes, so their groups do not count. A hidden caller
-// gets only the visible routes, and a Group with none is skipped for an older one.
+// Entries are in take order (oldest id first). Externals and Protects are not takes, so their groups do not count.
+// A Group with no route the caller can see is skipped for an older one.
 func (a *App) apiLastGroup(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	v := cl.view()
 	before := -1
@@ -79,7 +77,7 @@ func (a *App) apiLastGroup(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 		var id string
 		var out []Entry
 		for _, e := range page { // newest first
-			if e.Ext || e.Group == "" || (id != "" && e.Group != id) {
+			if e.Ext || e.Protect != "" || e.Group == "" || (id != "" && e.Group != id) {
 				continue
 			}
 			if e, ok := v.Entry(e); ok {
@@ -110,6 +108,8 @@ func (a *App) apiLog(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	if err != nil {
 		log.Printf("api log: %v", err)
 	}
+	// A key never acts as an Administrator, so it never gets Hidden values.
+	page = forReader(a.mergeSaves(page, before, more), false)
 	if page == nil {
 		page = []Sent{}
 	}

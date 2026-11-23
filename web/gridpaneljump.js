@@ -32,7 +32,7 @@ export function holderJump(c, axes, env) {
 export function jumpText(r, names, levels) {
   switch (r?.why) {
     case 'levels':
-      return 'No levels in the Levels box to jump on';
+      return 'Levels box is empty';
     case 'none':
       return `${names.destination(r.dst)} has no source on level ${levels.find((l) => l.level === r.level)?.label ?? r.level}`;
     case 'other':

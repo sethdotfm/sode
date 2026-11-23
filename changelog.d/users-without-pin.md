@@ -1,0 +1,5 @@
+- An Administrator can make a User without a PIN: tick No PIN in Manage users. Such a user signs in by picking their name. They act as a Standard user, or as the Guest role when that is higher, with Rights no wider than Guest Rights. They open no page lock and hold no personal API keys or own API clients. Session keys and panels still work.
+- A save that leaves a Trusted user or an Administrator without a PIN is refused, and the message names the user.
+- Change my PIN can now set a PIN for a user without one. A Standard user can also remove their own PIN, which ends their personal API keys and own API clients. It works on the phone too.
+- An Administrator sets, resets or removes any user's PIN in Manage users. This ends that user's sessions and keys.
+- PIN needed: a user with a Role but no PIN acts as a User without a PIN until they set one. Change my PIN opens by itself at their next sign-in.

@@ -34,6 +34,7 @@
      28  Key/value lists, empty states & skeletons
      29  Field states & disabled labels
      30  Breadcrumbs & pagination
+     31  Forced colours
    ========================================================================== */
 
 
@@ -100,12 +101,24 @@ pre code {
 
 /* 02  SCROLLBARS ========================================================== */
 
-.pb-scroll,
-.pb-pane,
-.pb-grid-body,
-textarea {
-  scrollbar-color: var(--pb-scroll-thumb) var(--pb-scroll-track);
-  scrollbar-width: thin;
+/* Chrome and Safari draw the ::-webkit-scrollbar rules: a set width, an
+   inset thumb, a hover colour and a least thumb length, always shown rather
+   than as overlay bars. They skip all of it on an element whose
+   scrollbar-width or scrollbar-color is not auto, inherited included, so
+   the standard properties go only to browsers without the pseudo (Firefox).
+   <html class="pb-scroll"> styles the page's own bar. Firefox keeps
+   scrollbar-width: auto, because a thin thumb is too small a target. */
+@supports not selector(::-webkit-scrollbar) {
+  .pb-scroll,
+  .pb-pane,
+  .pb-grid-body,
+  textarea {
+    scrollbar-color: var(--pb-scroll-thumb) var(--pb-scroll-track);
+  }
+
+  .pb-scroll--lg {
+    scrollbar-color: var(--pb-scroll-thumb) var(--pb-surface-control);
+  }
 }
 
 .pb-scroll::-webkit-scrollbar,
@@ -123,25 +136,59 @@ textarea::-webkit-scrollbar-track {
   background: var(--pb-scroll-track);
 }
 
+/* padding-box: the border is the inset, and a transparent track would
+   otherwise show the thumb's own colour through it. */
 .pb-scroll::-webkit-scrollbar-thumb,
 .pb-pane::-webkit-scrollbar-thumb,
 .pb-grid-body::-webkit-scrollbar-thumb,
 textarea::-webkit-scrollbar-thumb {
+  background-clip: padding-box;
   background-color: var(--pb-scroll-thumb);
+  border: var(--pb-scroll-inset) solid transparent;
   border-radius: 0;
-  border: 3px solid var(--pb-scroll-track);
+}
+
+.pb-scroll::-webkit-scrollbar-thumb:vertical,
+.pb-pane::-webkit-scrollbar-thumb:vertical,
+.pb-grid-body::-webkit-scrollbar-thumb:vertical,
+textarea::-webkit-scrollbar-thumb:vertical {
+  min-height: var(--pb-scroll-thumb-min);
+}
+
+.pb-scroll::-webkit-scrollbar-thumb:horizontal,
+.pb-pane::-webkit-scrollbar-thumb:horizontal,
+.pb-grid-body::-webkit-scrollbar-thumb:horizontal,
+textarea::-webkit-scrollbar-thumb:horizontal {
+  min-width: var(--pb-scroll-thumb-min);
 }
 
 .pb-scroll::-webkit-scrollbar-thumb:hover,
 .pb-pane::-webkit-scrollbar-thumb:hover,
 .pb-grid-body::-webkit-scrollbar-thumb:hover,
 textarea::-webkit-scrollbar-thumb:hover {
-  background-color: var(--pb-surface-hover);
+  background-color: var(--pb-scroll-thumb-hover);
 }
 
 .pb-scroll::-webkit-scrollbar-corner,
-.pb-pane::-webkit-scrollbar-corner {
+.pb-pane::-webkit-scrollbar-corner,
+.pb-grid-body::-webkit-scrollbar-corner {
   background: var(--pb-scroll-track);
+}
+
+/* A large bar on a visible track: class="pb-scroll pb-scroll--lg". After
+   the base rules, which have the same specificity. */
+.pb-scroll--lg::-webkit-scrollbar {
+  width: var(--pb-scroll-w-lg);
+  height: var(--pb-scroll-w-lg);
+}
+
+.pb-scroll--lg::-webkit-scrollbar-track,
+.pb-scroll--lg::-webkit-scrollbar-corner {
+  background: var(--pb-surface-control);
+}
+
+.pb-scroll--lg::-webkit-scrollbar-thumb {
+  border-width: var(--pb-scroll-inset-lg);
 }
 
 
@@ -496,7 +543,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-btn--loading > * { visibility: hidden; }
 
 .pb-btn--loading::after {
-  animation: pb-spin 0.9s linear infinite;
+  animation: pb-spin var(--pb-motion-spin) linear infinite;
   border: 2px solid transparent;
   border-top-color: var(--pb-loading-ink);
   border-right-color: var(--pb-loading-ink);
@@ -662,7 +709,7 @@ textarea::-webkit-scrollbar-thumb:hover {
   color: var(--pb-text);
   display: inline-block;
   font-family: inherit;
-  font-size: var(--pb-text-sm);
+  font-size: max(var(--pb-field-text-min), var(--pb-text-sm));
   font-weight: var(--pb-weight-normal);
   height: var(--pb-control-h);
   margin: 0;
@@ -684,7 +731,9 @@ textarea::-webkit-scrollbar-thumb:hover {
   /* Doubles the border to 2px so focus is not signalled by hue alone. */
   box-shadow: 0 0 0 1px var(--pb-accent);
   color: var(--pb-text);
-  outline: none;
+  /* Transparent, not none: forced colours drop the shadow and paint this
+     outline, so focus still shows in Windows High Contrast. */
+  outline: 1px solid transparent;
 }
 
 /* Muted, not disabled: a placeholder is often a compact field's only label (WCAG 1.4.3). */
@@ -714,8 +763,10 @@ textarea::-webkit-scrollbar-thumb:hover {
   padding-left: 0;
 }
 
+/* :user-invalid waits until the user has edited and left the field, so an
+   empty required field is not an error on page load. */
 .pb-input--invalid,
-.pb-input:invalid {
+.pb-input:user-invalid {
   border-color: var(--pb-status-error);
 }
 
@@ -1259,7 +1310,9 @@ textarea::-webkit-scrollbar-thumb:hover {
   overscroll-behavior: contain;
 }
 
-/* Submenus open on hover, flipping left when near the right edge. */
+/* Submenus open on hover or keyboard focus, flipping left when near the
+   right edge. :focus-visible, not :focus-within, so a clicked parent does
+   not hold its submenu open after the pointer leaves. */
 .pb-menu li { position: relative; }
 
 .pb-menu__sub {
@@ -1270,7 +1323,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 .pb-menu__sub--left { left: auto; right: 100%; }
-.pb-menu li:hover > .pb-menu__sub { display: block; }
+.pb-menu li:hover > .pb-menu__sub,
+.pb-menu li:has(:focus-visible) > .pb-menu__sub { display: block; }
 
 
 /* 12  MODALS ============================================================== */
@@ -1436,7 +1490,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 /* Indeterminate: we know it is working, not how far along it is. */
 .pb-progress--indeterminate .pb-progress__bar {
-  animation: pb-indeterminate 1.4s var(--pb-ease) infinite;
+  animation: pb-indeterminate var(--pb-motion-sweep) var(--pb-ease) infinite;
   width: 35%;
 }
 
@@ -1455,7 +1509,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 .pb-spinner {
-  animation: pb-spin 0.9s linear infinite;
+  animation: pb-spin var(--pb-motion-spin) linear infinite;
   border: 2px solid transparent;
   border-top-color: var(--pb-accent);
   border-right-color: var(--pb-accent);
@@ -1724,6 +1778,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-xpt--source:hover { background-color: var(--pb-source-hover); }
 .pb-xpt--dest { background-color: var(--pb-dest); }
 .pb-xpt--dest:hover { background-color: var(--pb-dest-hover); }
+.pb-xpt--level { background-color: var(--pb-level); }
+.pb-xpt--level:hover { background-color: var(--pb-level-hover); }
 .pb-xpt--tieline { background-color: var(--pb-tieline); }
 .pb-xpt--tieline:hover { background-color: var(--pb-tieline-hover); }
 
@@ -1925,6 +1981,15 @@ textarea::-webkit-scrollbar-thumb:hover {
   visibility: visible;
 }
 
+/* A tap leaves :hover on the button, so the tip would stay over it after the
+   press. Keyboard focus still shows it. */
+@media (hover: none) {
+  [data-pb-tip]:hover:not(:focus-visible)::after {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
 .pb-tip--top[data-pb-tip]::after {
   bottom: calc(100% + var(--pb-space-2));
   top: auto;
@@ -2045,9 +2110,10 @@ textarea::-webkit-scrollbar-thumb:hover {
 /* 24  ROLE BARS ========================================================== */
 
 /* A coloured bar down the left edge that says what a row or box is for:
-   a source, a destination, a tie-line, or a failure. */
+   a source, a destination, a level, a tie-line, or a failure. */
 .pb-rolebar--source  { border-left: var(--pb-rolebar-w) solid var(--pb-source); }
 .pb-rolebar--dest    { border-left: var(--pb-rolebar-w) solid var(--pb-dest); }
+.pb-rolebar--level   { border-left: var(--pb-rolebar-w) solid var(--pb-level); }
 .pb-rolebar--tieline { border-left: var(--pb-rolebar-w) solid var(--pb-tieline); }
 .pb-rolebar--error   { border-left: var(--pb-rolebar-w) solid var(--pb-status-error); }
 
@@ -2097,14 +2163,6 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 
 /* 26  TOUCH & PHONE LAYOUT =============================================== */
-
-/* iOS zooms into a focused field under 16px and does not zoom back out.
-   Zero specificity so an app's own sizes still win. */
-@media (pointer: coarse) {
-  :where(.pb-input, .pb-select, .pb-textarea) {
-    font-size: max(var(--pb-touch-text), var(--pb-text-sm));
-  }
-}
 
 /* <html data-pb-layout="phone">: drop the page floor and let the dense
    layouts reflow. The routing matrix still scrolls inside its own pane. */
@@ -2424,8 +2482,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 /* REDUCED MOTION ==========================================================
    Transition durations are zeroed in the tokens; looping decoration stops
-   here. Spinners and the indeterminate bar keep moving — they are the
-   only signal that work is happening. A pulsing alarm dot goes steady and
+   here. Spinners and the indeterminate bar slow down (in the tokens) but keep
+   moving, because they are the only signal that work is happening. A pulsing alarm dot goes steady and
    relies on the text beside it, which it must always have. */
 
 @media (prefers-reduced-motion: reduce) {
@@ -2433,4 +2491,40 @@ textarea::-webkit-scrollbar-thumb:hover {
   .pb-state-offline,
   .pb-skeleton,
   .pb-progress__bar--animated { animation: none; }
+}
+
+
+/* 31  FORCED COLOURS ====================================================== */
+
+/* Windows High Contrast drops box-shadow and repaints backgrounds, so state
+   drawn that way vanishes. Outlines and native controls survive. */
+@media (forced-colors: active) {
+  .pb-tab[aria-selected="true"],
+  .pb-tab.active,
+  .pb-table tbody tr[aria-selected="true"],
+  .pb-table tbody tr.pb-selected {
+    outline: 2px solid var(--pb-forced-select);
+    outline-offset: -2px;
+  }
+
+  /* The glyphs are fixed-colour images; the native control draws in system colours. */
+  .pb-check__input,
+  .form-check-input.pb-check__input {
+    appearance: auto;
+    -webkit-appearance: auto;
+    background-image: none;
+  }
+
+  .pb-check__input:checked,
+  .pb-check__input[type="checkbox"]:checked,
+  .pb-check__input[type="checkbox"]:indeterminate,
+  .pb-check__input[type="radio"]:checked { background-image: none; }
+
+  /* The thumb is a background, which would be repainted to the page colour. */
+  .pb-switch__input::after {
+    background: var(--pb-forced-ink);
+    forced-color-adjust: none;
+  }
+
+  .pb-switch__input:checked::after { background: var(--pb-forced-select); }
 }

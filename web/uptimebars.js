@@ -6,12 +6,12 @@ import { slots, slotText } from './uptime.js';
 // marks, since the panels page rebuilds its list every poll and a focused button would hold that rebuild off.
 export function uptimeBars(data, { fmt, words, pick, sel } = {}) {
   return slots(data).map((s) => {
-    const bar = el(pick ? 'button' : 'span', `sode-up__bar sode-up__bar--${s.colour}`);
-    bar.title = slotText(s, fmt, words);
+    const bar = el(pick ? 'button' : 'span', `sode-up__bar sode-up__bar--${s.color}`);
+    bar.dataset.pbTip = slotText(s, fmt, words);
     if (!pick) return bar;
     bar.type = 'button';
     bar.setAttribute('aria-label', bar.title);
-    bar.disabled = s.colour === 'future';
+    bar.disabled = s.color === 'future';
     const on = sel != null && s.from === sel;
     if (on) bar.classList.add('sode-up__bar--sel');
     bar.setAttribute('aria-pressed', String(on));

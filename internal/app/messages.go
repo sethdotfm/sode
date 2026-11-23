@@ -45,22 +45,47 @@ type deltaMsg struct {
 
 // helloMsg: every key always sent (none omitempty).
 type helloMsg struct {
-	T             string              `json:"t"` // "hello"
-	Srcs          [][2]any            `json:"srcs"`
-	Dsts          [][2]any            `json:"dsts"`
-	At            time.Time           `json:"at"`
-	Tally         json.RawMessage     `json:"tally"`   // routeTriples
-	Protect       json.RawMessage     `json:"protect"` // routeTriples
-	Status        statusMsg           `json:"status"`
-	Recent        []Entry             `json:"recent"`
-	More          bool                `json:"more"`
-	Levels        []config.Level      `json:"levels"`
-	LevelDefaults []string            `json:"levelDefaults"`
-	Cfg           config.Config       `json:"cfg"`
-	PinSet        bool                `json:"pinSet"`
-	ConfigPath    string              `json:"configPath"`
-	Version       string              `json:"version"`
-	BrandColors   []config.BrandColor `json:"brandColors"`
+	T       string          `json:"t"` // "hello"
+	Srcs    [][2]any        `json:"srcs"`
+	Dsts    [][2]any        `json:"dsts"`
+	At      time.Time       `json:"at"`
+	SavedAt time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
+	Tally   json.RawMessage `json:"tally"`            // routeTriples
+	Protect json.RawMessage `json:"protected"`        // protectRows: [dst, level, device, kind]
+	// ProtectBy: the Protects in Sode's own record, with who set each (protect.go).
+	ProtectBy     []protectBy    `json:"protectBy"`
+	Status        statusMsg      `json:"status"`
+	Recent        []Entry        `json:"history"`
+	More          bool           `json:"more"`
+	Levels        []config.Level `json:"levels"`
+	LevelDefaults []string       `json:"levelDefaults"`
+	Cfg           config.Config  `json:"cfg"`
+	// Versions: each one Save field's version (onesave.go); a save sends back the one it loaded.
+	Versions map[string]string `json:"versions"`
+	// Users: the sign-in list. It reaches locked pages, so it holds each name and PIN length (0 for
+	// none) and never more; cfg.users stays empty.
+	Users       []helloUser         `json:"users"`
+	ConfigPath  string              `json:"configPath"`
+	Version     string              `json:"version"`
+	BrandColors []config.BrandColor `json:"brandColors"`
+	// RouterUID: browsers write it into This browser presets and filter sets. Never shown.
+	RouterUID string `json:"routerUid"`
+	// InstallUID: pages compare it with an Item link's install. Never shown.
+	InstallUID string `json:"installUid"`
+	// Prefix is the router prefix, so typing accepts A.23. Not in cfg, which hides it.
+	Prefix string `json:"prefix"`
+	// NoAdministrator: users and no Administrator (a hand-edited file). The page shows the
+	// recovery banner. Only a restart can change it.
+	NoAdministrator bool `json:"noAdministrator,omitempty"`
+	// NotSaved: env-only mode (no SODE_CONFIG). The page shows the Not saved banner.
+	NotSaved bool `json:"notSaved,omitempty"`
+	// Setup opens the setup wizard (setup.go): only while setup is pending.
+	Setup *setupHello `json:"setup,omitempty"`
+}
+
+type helloUser struct {
+	Name string `json:"name"`
+	Len  int    `json:"len"`
 }
 
 type namesCheckedMsg struct {
@@ -78,11 +103,15 @@ type namesMsg struct {
 type filterSetsMsg struct {
 	T    string             `json:"t"` // "filterSets"
 	Sets []config.FilterSet `json:"sets"`
+	// Bookmarks: Everyone's list after the save, since a rename moves the bookmarks on the set.
+	Bookmarks []config.Bookmark `json:"bookmarks"`
 }
 
 type presetsMsg struct {
 	T       string          `json:"t"` // "presets"
 	Presets []config.Preset `json:"presets"`
+	// Bookmarks: Everyone's list after the save, since a rename changes the bookmarks' names.
+	Bookmarks []config.Bookmark `json:"bookmarks"`
 }
 
 type simpleMsg struct {
@@ -100,7 +129,7 @@ type routeResult struct {
 }
 
 type recentMsg struct {
-	T      string `json:"t"` // "recent"
+	T      string `json:"t"` // "entry"
 	E      *Entry `json:"e"`
 	Update bool   `json:"update,omitempty"`
 }
@@ -112,27 +141,26 @@ type historyMsg struct {
 	More    bool    `json:"more"`
 }
 
-// opResult is shared by many result messages. ID, Locked and Kept are
-// omitted unless the sender sets them; Locked is for failures only.
 type opResult struct {
-	T      string `json:"t"`
-	OK     bool   `json:"ok"`
-	ID     *int   `json:"id,omitempty"`
-	Err    string `json:"err,omitempty"`
-	Locked *bool  `json:"locked,omitempty"`
-	// Kept: configImport only, the keys this release does not know that the file keeps (config.NameKeys).
-	Kept string `json:"kept,omitempty"`
+	T   string `json:"t"`
+	OK  bool   `json:"ok"`
+	ID  *int   `json:"id,omitempty"`
+	Err string `json:"err,omitempty"`
+	// Recheck: refused for want of a PIN recheck; the page asks for it and sends again.
+	Recheck bool `json:"recheck,omitempty"`
+	// Approval: the Approval itself was refused; the page shows why in its Approval popup.
+	Approval bool `json:"approval,omitempty"`
 }
 
 type sentAddMsg struct {
-	T       string `json:"t"` // "sentAdd"
+	T       string `json:"t"` // "logAdd"
 	Entries []Sent `json:"entries"`
 	Total   int64  `json:"total"`
 	Lost    int64  `json:"lost"`
 }
 
 type sentPageMsg struct {
-	T       string `json:"t"` // "sentPage"
+	T       string `json:"t"` // "logPage"
 	Before  int64  `json:"before"`
 	Entries []Sent `json:"entries"`
 	More    bool   `json:"more"`

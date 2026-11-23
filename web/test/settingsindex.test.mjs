@@ -3,34 +3,31 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { DICT, buildIndex, find, slug } from '../settingsindex.js';
+import { DICT, buildIndex, find, hitWhere } from '../settingsindex.js';
 
 const web = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => readFileSync(join(web, f), 'utf8');
 
-// The sections as the page registers them: the settings view's own fieldsets
-// plus the ones modules add (users.js).
-function registered() {
+// The sections as the page registers them: the settings view's fieldsets, with their slug and topic.
+function sections() {
   const html = read('index.html');
   const view = html.slice(html.indexOf('id="settings-view"'));
-  const titles = [...view.matchAll(/<fieldset class="sode__group[^"]*"[^>]*>\s*<legend>([^<]+)<\/legend>/g)].map((m) => m[1]);
-  const lines = read('users.js') + read('settings.js');
-  for (const m of lines.matchAll(/el\('legend', null, '([^']+)'\)/g)) titles.push(m[1]);
-  return [...new Set(titles)];
+  const topics = Object.fromEntries([...view.matchAll(/<h3 class="sode__topic"[^>]*data-topic="([^"]+)"[^>]*>([^<]+)<\/h3>/g)].map((m) => [m[1], m[2].trim()]));
+  return [...view.matchAll(/<fieldset class="sode__group[^"]*"([^>]*)>\s*<legend>([^<]+)<\/legend>/g)].map((m) => {
+    const topicId = m[1].match(/data-topic="([^"]+)"/)?.[1];
+    return { id: m[1].match(/data-section="([^"]+)"/)?.[1], title: m[2], topicId, topic: topics[topicId] };
+  });
 }
 
 const idx = () =>
   buildIndex(
-    registered()
-      .map((t) => ({ id: slug(t), title: t, settings: [] }))
+    sections()
+      .map((s) => ({ ...s, settings: [] }))
       .concat([
         {
-          id: 'access',
-          title: 'Access',
-          settings: [
-            { id: 'cfg-pin', label: 'Advanced Settings PIN' },
-            { id: 'cfg-pin-tries', label: 'Lock after wrong PINs' },
-          ],
+          id: 'locks',
+          title: 'Locks',
+          settings: [{ id: 'cfg-pin-waits', label: 'Wait after wrong PINs' }],
         },
         {
           id: 'history',
@@ -44,35 +41,22 @@ const idx = () =>
   );
 const top = (q) => find(idx(), q)[0];
 
-test('sections appear in the agreed order', () => {
-  const html = read('index.html');
-  const view = html.slice(html.indexOf('id="settings-view"'));
-  const titles = [...view.matchAll(/<fieldset class="sode__group[^"]*"[^>]*>\s*<legend>([^<]+)<\/legend>/g)].map((m) => m[1]);
-  // users.js inserts Users right after Access.
-  titles.splice(titles.indexOf('Access') + 1, 0, 'Users');
-  assert.deepEqual(titles, [
-    'This browser',
-    'My user',
-    'Global defaults',
-    'Router & matrix',
-    'Takes',
-    'Router Source & Destination Names',
-    'Level colors',
-    'Branding',
-    'Access',
-    'Users',
-    'History',
-    'Proxy',
-    'Export & import',
-    'Server backup',
-  ]);
-  assert.match(view, /<fieldset class="sode__group"[^>]*data-toc="Router names"[^>]*>\s*<legend>Router Source/);
+test('every registered section has dictionary terms', () => {
+  const secs = sections();
+  assert.ok(secs.length >= 12, 'found the sections: ' + secs.map((s) => s.title).join(', '));
+  for (const s of secs) {
+    assert.ok(s.id, `${s.title} needs data-section`);
+    assert.ok(s.topic, `${s.title} needs data-topic of a topic band`);
+    assert.ok(DICT[s.id]?.length, `add DICT['${s.id}'] in settingsindex.js`);
+  }
 });
 
-test('every registered section has dictionary terms', () => {
-  const secs = registered();
-  assert.ok(secs.length >= 12, 'found the sections: ' + secs.join(', '));
-  for (const t of secs) assert.ok(DICT[slug(t)]?.length, `add DICT['${slug(t)}'] in settingsindex.js`);
+// my-default-* buttons come from devicesettings.js and open-log from about.js.
+test('every DICT key names a section or control on the page', () => {
+  const html = read('index.html');
+  for (const k of Object.keys(DICT).filter((k) => !k.startsWith('my-default-') && k !== 'open-log')) {
+    assert.match(html, new RegExp(`(id|data-find|data-section)="${k}"`), k);
+  }
 });
 
 test('common words reach their section', () => {
@@ -81,7 +65,9 @@ test('common words reach their section', () => {
     clock: 'this-browser',
     ip: 'router-matrix',
     host: 'router-matrix',
-    poll: 'router-source-destination-names',
+    poll: 'router-names',
+    lockout: 'confirm',
+    'success banner': 'confirm',
     offset: 'router-matrix',
     undo: 'history',
     audit: 'proxy',
@@ -91,7 +77,7 @@ test('common words reach their section', () => {
     salvo: 'salvos',
   };
   for (const [q, sec] of Object.entries(cases)) {
-    const hits = find(buildIndex([...registered().map((t) => ({ id: slug(t), title: t })), { id: 'salvos', title: 'Salvos' }]), q);
+    const hits = find(buildIndex([...sections(), { id: 'salvos', title: 'Salvos' }]), q);
     assert.ok(
       hits.some((h) => h.sectionId === sec),
       `${q} -> ${sec}`,
@@ -103,14 +89,14 @@ test('password, pin, lock, idle and auto-lock land on Users or Access', () => {
   for (const q of ['password', 'pin', 'lock', 'timeout', 'idle', 'auto-lock']) {
     const hits = find(idx(), q);
     assert.ok(
-      hits.some((h) => h.sectionId === 'users' || h.sectionId === 'access'),
+      hits.some((h) => h.sectionId === 'users' || h.sectionId === 'locks'),
       q,
     );
   }
 });
 
 test('settings are found by label and by dictionary', () => {
-  assert.equal(top('wrong pins').id, 'cfg-pin-tries');
+  assert.equal(top('wrong pins').id, 'cfg-pin-waits');
   assert.equal(top('communication log').id, 'open-log');
   assert.equal(top('uptime').id, 'open-log');
   assert.equal(top('wipe').id, 'clear-history');
@@ -121,7 +107,7 @@ test('the router salvo group is found by its words', () => {
     {
       id: 'router',
       title: 'Router',
-      settings: [{ id: 'cfg-salvogroup', label: 'Router salvo group (advanced)' }],
+      settings: [{ id: 'cfg-salvogroup', label: 'Router salvo group' }],
     },
   ]);
   for (const q of ['salvo group', 'native', 'group number', 'crosspoint list']) {
@@ -138,7 +124,7 @@ test('the fire mode setting is found by its words', () => {
     {
       id: 'router',
       title: 'Router',
-      settings: [{ id: 'cfg-firemode', label: 'Multi destination behavior' }],
+      settings: [{ id: 'cfg-firemode', label: 'Multi destination' }],
     },
   ]);
   for (const q of ['native', 'fire mode', 'router salvo', 'preset']) {
@@ -150,7 +136,7 @@ test('the fire mode setting is found by its words', () => {
 });
 
 test('typos still match', () => {
-  assert.equal(top('pasword').sectionId === 'access' || top('pasword').sectionId === 'users', true);
+  assert.equal(top('pasword').sectionId === 'locks' || top('pasword').sectionId === 'users', true);
   assert.equal(top('histroy').sectionId, 'history');
   assert.equal(top('comunication log').id, 'open-log');
 });
@@ -208,4 +194,32 @@ test('account words reach the Me block inside This browser', () => {
       q,
     );
   }
+});
+
+test('every result names its topic', () => {
+  const index = buildIndex(sections().map((s) => ({ ...s, settings: s.id === 'confirm' ? [{ id: 'cfg-lockout', label: 'Confirm lockout (ms)' }] : [] })));
+  const hit = find(index, 'confirm lockout')[0];
+  assert.equal(hit.id, 'cfg-lockout');
+  assert.equal(hit.topic, 'Look and feel');
+  for (const [q, topic] of [
+    ['proxy', 'Server'],
+    ['dark', 'Preferences'],
+    ['ip', 'Routers'],
+    ['users', 'Access'],
+  ]) {
+    assert.equal(find(index, q)[0]?.topic, topic, q);
+  }
+});
+
+test("a topic name finds that topic's sections", () => {
+  const hits = find(buildIndex(sections()), 'look and feel');
+  assert.equal(hits.length, 5);
+  assert.ok(hits.every((h) => h.topic === 'Look and feel'));
+});
+
+test('hitWhere names the topic, and the router for a per-router section', () => {
+  assert.equal(hitWhere({ kind: 'section', topic: 'Server', section: 'Proxy' }), 'Server');
+  assert.equal(hitWhere({ kind: 'setting', topic: 'Server', section: 'Proxy' }), 'Server › Proxy');
+  assert.equal(hitWhere({ kind: 'section', topic: 'Routers', router: 'Ultrix', section: 'Takes' }), 'Routers › Ultrix');
+  assert.equal(hitWhere({ kind: 'setting', topic: 'Routers', router: 'Ultrix', section: 'Takes' }), 'Routers › Ultrix › Takes');
 });

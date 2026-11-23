@@ -1,8 +1,5 @@
-// A Grid panel's header parts, laid out as on the main page. The Lock chip, the title and the icon buttons are on the
-// left. The Server and Router status (connview.js) is top right. On the panel page they share one band, the deck, with the Levels box and the search boxes (gridpanel.css lays
-// it out). Results, refusals and the "This panel was changed" banner show in the gap between the search boxes and
-// Clear. The Live Editor (ui.back) keeps its status slot beside the status block. The run (gridpanelrun.js)
-// makes them, and its stop puts the page back.
+// A Grid panel's header, laid out as on the main page. On the panel page it shares one band, the deck, with the Levels
+// box and the search boxes (gridpanel.css). The run (gridpanelrun.js) makes it, and its stop puts the page back.
 import { el, icon, on, S } from './core.js';
 import { connBox, paintConn } from './connview.js';
 import { layout, onLayout } from './layout.js';
@@ -32,23 +29,27 @@ const rule = (cls) => {
 // the page's Copy (gridpanelrun.js).
 export function gridHead(ui, count, { onCopy } = {}) {
   const page = !ui.back;
+  // The Live Editor shows the editor's page header (panelsbar.js), so its run has no header row of its own. Full screen
+  // and the status slot go in that header. The run's title and status block do not show.
+  const bar = page ? null : ui.topBar;
   // The panel page puts a rule after the instance name, before the buttons.
   const nameRule = page ? rule('sode-gridpanel__namerule') : null;
   const id = el('div', 'sode-gridpanel__id', el('div', 'sode-gridpanel__name', ...[ui.title, ui.name, nameRule].filter(Boolean)), count);
   ui.head.prepend(id);
-  const conn = connBox();
-  conns.add(conn);
-  paintConn(conn);
-  // Full screen is a ghost icon button, as the Panels link beside it is.
+  const conn = bar ? null : connBox();
+  if (conn) {
+    conns.add(conn);
+    paintConn(conn);
+  }
   const screenCls = ['pb-btn--outline', 'pb-btn--sm'].filter((c) => ui.screen?.classList.contains(c));
   ui.screen?.classList.remove(...screenCls);
   ui.screen?.classList.add('pb-btn--ghost');
-  // The main page's Settings button (index.html #settings-open), as a link: settings.js opens the view at #settings.
+  // Settings on Home, as a link: settings.js opens the view at #settings.
   const settings = iconLink('sode-gridpanel__settings', 'settings', 'Settings');
   settings.href = './#settings';
-  // The header buttons in one group; the Panels link joins it (panelfull.js). Kiosk mode and Full width stay in it
-  // for their code, and gridpanel.css hides them. On the panel page the order is Settings, Panels, Edit or Copy, a
-  // rule, then Full screen. Edit and Copy use the rules of /panels (actionsFor, see access).
+  // The Panels link joins this group (panelfull.js). Kiosk mode and Full width stay for their code; gridpanel.css hides them.
+  // Order on the panel page: Settings, Panels, Edit or Copy, a rule, Full screen. Edit and Copy use the rules of /panels (actionsFor, see access).
+  // In the Live Editor: a rule and Full screen, after the page header's links.
   const btns = [ui.kiosk, ui.screen, ui.full].filter(Boolean);
   const after = btns.at(-1)?.nextSibling ?? null;
   const home = page ? el('span', 'sode-gridpanel__home') : null;
@@ -61,9 +62,10 @@ export function gridHead(ui, count, { onCopy } = {}) {
     copy.addEventListener('click', () => onCopy?.());
   }
   for (const n of [edit, copy]) if (n) n.hidden = true;
-  const parts = page ? [settings, home, edit, copy, rule('sode-gridpanel__toolrule'), ...btns] : [settings, ...btns];
+  const parts = page ? [settings, home, edit, copy, rule('sode-gridpanel__toolrule'), ...btns] : [rule('sode-gridpanel__toolrule'), ...btns];
   const tools = el('div', 'sode-gridpanel__tools', ...parts);
-  ui.head.insertBefore(tools, after);
+  if (bar) bar.querySelector('.sode-bar__tools').after(tools);
+  else ui.head.insertBefore(tools, after);
   // On the panel page the link joins the buttons even with the Title bar setting off; panelfull.js moves it out in kiosk mode.
   if (ui.home && (home || ui.head.contains(ui.home))) (home || tools).append(ui.home);
   ui.tools = home || tools;
@@ -80,15 +82,29 @@ export function gridHead(ui, count, { onCopy } = {}) {
   // The count of messages that a higher one held back (bannerStep), in the box's corner.
   const held = page ? el('span', 'pb-badge sode-gridpanel__held') : null;
   if (held) held.hidden = true;
-  // One live region that only gets each message's words, so a screen reader reads a result once and never the buttons.
+  // One live region gets only each message's words, so a screen reader reads a result one time and never the buttons.
   const said = page ? el('div', 'pb-sr-only sode-gridpanel__said') : null;
   said?.setAttribute('role', 'status');
   const msg = page ? el('div', 'sode-gridpanel__msg', res, held, said) : null;
-  const top = el('div', 'sode-gridpanel__headrow');
+  const top = bar ? null : el('div', 'sode-gridpanel__headrow');
   ui.head.before(deck);
-  // On the panel page a rule follows the Lock chip's "Signed in as" (gridpanel.css shows it only beside the chip).
-  top.append(...[page ? rule('sode-gridpanel__whorule') : null, ui.head, slot, conn.root].filter(Boolean));
-  deck.append(top, ...(box ? [box] : []), rule('sode-gridpanel__rule sode-gridpanel__rule--1'), finds, rule('sode-gridpanel__rule sode-gridpanel__rule--2'));
+  // A rule follows the Lock chip's "Signed in as" (gridpanel.css shows it only beside the chip).
+  if (top) top.append(rule('sode-gridpanel__whorule'), ui.head, ...[slot, conn?.root].filter(Boolean));
+  else {
+    ui.head.remove();
+    // In the gap before Inbox, where a message that shows or goes moves nothing.
+    bar.querySelector('.sode-inbox__slot').before(slot);
+  }
+  // The Live Editor's bar (editorlive.js) goes at the top of the deck, under the page header.
+  if (ui.liveBar) deck.classList.add('sode-gridpanel__deck--live');
+  deck.append(
+    ...(top ? [top] : []),
+    ...(ui.liveBar ? [ui.liveBar] : []),
+    ...(box ? [box] : []),
+    rule('sode-gridpanel__rule sode-gridpanel__rule--1'),
+    finds,
+    rule('sode-gridpanel__rule sode-gridpanel__rule--2'),
+  );
   if (msg) deck.append(rule('sode-gridpanel__rule sode-gridpanel__rule--3'), msg);
   // The phone's band (gridpanel.css): More and the levels in words open the rest of the deck under it.
   const more = el('button', 'pb-btn pb-btn--ghost pb-btn--icon sode-gridpanel__more', icon('menu', false));
@@ -155,7 +171,7 @@ export function gridHead(ui, count, { onCopy } = {}) {
       drop();
       return false;
     }
-    // A "This panel was changed" banner that comes up is the newest message, so it takes the place of a result.
+    // A "This panel was changed" banner that comes up is the newest message, so it replaces a result.
     const up = !ui.update.hidden;
     if (up && !updating) drop();
     updating = up;
@@ -210,8 +226,12 @@ export function gridHead(ui, count, { onCopy } = {}) {
       ui.screen?.classList.add(...screenCls);
       offLayout();
       place('phone');
-      tools.replaceWith(...btns);
+      if (bar) {
+        tools.remove();
+        slot.remove();
+      } else tools.replaceWith(...btns);
       if (ui.home && (ui.home.parentNode === tools || ui.home.parentNode === home)) ui.head.append(ui.home);
+      if (ui.liveBar) deck.before(ui.liveBar);
       deck.replaceWith(ui.head);
       if (box) ui.grid.before(box);
     },

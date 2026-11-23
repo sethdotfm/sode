@@ -169,7 +169,6 @@ func TestPanelArtConcurrentCopiesKeepTheTotal(t *testing.T) {
 	}
 }
 
-// Artwork stored before the 2 MB and 1024 by 1024 limits still loads and serves.
 func TestPanelArtOldOversizeStillServes(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

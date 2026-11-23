@@ -18,6 +18,26 @@ export function backdropClose(downTarget, upTarget, root) {
   return downTarget === root && upTarget === root;
 }
 
+// A press on root itself, as on a modal's backdrop (backdropClose). Shared by trapDialog and the Grid popup, whose keys
+// must come after the grid's own.
+export function onBackdropPress(root, fn) {
+  let down = null;
+  let up = null;
+  root.addEventListener('mousedown', (e) => {
+    down = e.target;
+    up = null;
+  });
+  root.addEventListener('mouseup', (e) => {
+    up = e.target;
+  });
+  root.addEventListener('click', (e) => {
+    const d = down;
+    const u = up;
+    down = up = null;
+    if (e.target === root && backdropClose(d, u, root)) fn();
+  });
+}
+
 // Scrims share one z-index, so moving root last in its parent puts it in front; no-op if already last (keeps focus and scroll).
 export function bringToFront(root) {
   const parent = root.parentNode;
@@ -49,27 +69,33 @@ function listen() {
 // How many dialogs the Esc stack holds, for the tests.
 export const heldDialogs = () => stack.length;
 
+// A Lock closes every shown dialog as Esc would; one whose Esc only steps back is hidden as well.
+export function closeShown() {
+  for (const e of stack.slice()) {
+    if (e.root.hidden || !e.root.isConnected) continue;
+    e.onEsc();
+    e.root.hidden = true;
+  }
+}
+
+// The Home key over unsaved edits (homeview.js): each shown dialog gets its own Esc, newest first, and is not hidden
+// after it. So a dialog with edits stays and warns, as on Esc. True when a dialog still shows.
+export function escShown() {
+  for (const e of stack.slice().sort((a, b) => b.order - a.order)) {
+    if (e.root.hidden || !e.root.isConnected) continue;
+    e.onEsc();
+  }
+  return dialogShown();
+}
+export const dialogShown = () => topDialog(stack) !== null;
+
 // Stopped at root so the layouts' own keys do not act behind it. The stack holds a dialog only while it is shown.
 // A modal built per open is removed from the page on close, and a held root would keep its whole tree alive.
 export function trapDialog(root, dialog, onEsc) {
   const entry = { root, onEsc, order: 0 };
   stack.push(entry);
   listen();
-  let down = null,
-    up = null;
-  root.addEventListener('mousedown', (e) => {
-    down = e.target;
-    up = null;
-  });
-  root.addEventListener('mouseup', (e) => {
-    up = e.target;
-  });
-  root.addEventListener('click', (e) => {
-    const d = down,
-      u = up;
-    down = up = null;
-    if (e.target === root && backdropClose(d, u, root)) onEsc();
-  });
+  onBackdropPress(root, onEsc);
   root.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Escape') {

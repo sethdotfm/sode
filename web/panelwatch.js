@@ -1,5 +1,4 @@
-// Monitoring in the browser: the `panelNotice` toast, the `panelsOffline` badge and, if allowed, a
-// browser notification. Imported by the Sode page and the panels pages, so a watcher is told on either.
+// Imported by the Sode page and the panels pages, so a watcher is told on either.
 import { el, icon, onMsg, wsSend } from './core.js';
 import { noticeText, badgeText, bannerText, clearNote, shouldNotify, lostText } from './panelwatchrules.js';
 
@@ -20,7 +19,7 @@ function host() {
   return stack;
 }
 
-// Counters of open lost toasts by panel and device, so the return of the device freezes its count.
+// The device's return stops its open lost toast's count.
 const counters = new Map();
 const counterKey = (n) => `${n.panel}\n${String(n.device).toLowerCase()}`;
 
@@ -58,7 +57,6 @@ function toast(n) {
   return t;
 }
 
-// Counts the silence up while the toast is open, from when the notice arrived.
 function count(n, msg) {
   const from = Date.now();
   const timer = setInterval(() => {
@@ -87,8 +85,8 @@ let offline = [];
 let menuOpen = false;
 
 function mountBanners() {
-  if (banners.length || !document.getElementById('conn')) return;
-  for (const next of [document.getElementById('conn'), document.getElementById('m-result')]) {
+  if (banners.length) return;
+  for (const next of [document.getElementById('home-bar'), document.getElementById('m-result')]) {
     if (!next) continue;
     const box = el('div', 'sode__outage');
     box.dataset.panelOutage = '';
@@ -116,8 +114,10 @@ function bannerNode() {
   toggle.dataset.panelAlarm = 'menu';
   toggle.setAttribute('aria-expanded', String(menuOpen));
   toggle.addEventListener('click', () => {
+    const box = toggle.closest('[data-panel-outage]');
     menuOpen = !menuOpen;
     drawBanners();
+    box?.querySelector('[data-panel-alarm="menu"]')?.focus();
   });
   const link = el('a', 'pb-btn pb-btn--sm', 'Open panels');
   link.href = 'panels';
@@ -150,10 +150,9 @@ function setBadge(rows) {
   badge.dataset.pbTip = rows.map((r) => `${r.name}: ${r.device}`).join('\n');
 }
 
-// 'granted', 'denied', 'default', or 'unsupported' where the browser has no Notification.
 export const notifyPermission = () => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
 
-// Asked from a click: a browser only shows its permission prompt for a gesture. Resolves to the answer.
+// Call from a click: browsers prompt only for a gesture.
 export async function askNotifyPermission() {
   if (notifyPermission() === 'default') {
     try {

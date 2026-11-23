@@ -14,7 +14,6 @@ func sessionKeyApp(t *testing.T) *App {
 	t.Helper()
 	a := keyTestApp(t)
 	cfg := a.r().cfg
-	cfg.API.Enabled = true
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +40,7 @@ func TestSessionKeyActsAsTheSignedInUser(t *testing.T) {
 	key := sessionKeyOf(t, a, c, next)
 	id := makePanel(t, a, key, `{"name":"Mine"}`)
 	p, _ := a.panels.get(id)
-	if p.Owner != "Ana" {
+	if p.Owner != idOf(a, "Ana") {
 		t.Fatalf("owner %q", p.Owner)
 	}
 	// A key shows in the user's own key list like any other, with its key name.
@@ -72,8 +71,32 @@ func TestSessionKeyEndsOnSignOut(t *testing.T) {
 	if got := panelsStatus(a, key); got != 401 {
 		t.Fatalf("after sign out: %d", got)
 	}
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("record kept after sign out")
+	}
+}
+
+// A panel editor's save after its tab signed out: the key it opened with is refused, and the panel stays as it was.
+func TestSessionKeySaveAfterSignOutIsRefused(t *testing.T) {
+	a := sessionKeyApp(t)
+	c, next := signedIn(t, a, "10.0.0.1", "1234")
+	key := sessionKeyOf(t, a, c, next)
+	id := makePanel(t, a, key, `{"name":"Mine"}`)
+	was, _ := a.panels.get(id)
+	a.SignOut(c)
+	if got := apiSend(a, "PUT", "/api/v1/panels/"+id, key, `{"name":"Guest edit"}`).Code; got != 401 {
+		t.Fatalf("save after sign out: %d", got)
+	}
+	if got := apiSend(a, "POST", "/api/v1/panels/"+id+"/copy", key, `{}`).Code; got != 401 {
+		t.Fatalf("copy after sign out: %d", got)
+	}
+	if now, _ := a.panels.get(id); now.Name != was.Name || now.Rev != was.Rev {
+		t.Fatalf("panel changed: %q rev %d, was %q rev %d", now.Name, now.Rev, was.Name, was.Rev)
+	}
+	// The connection is a Guest now, so it gets no key to try again with.
+	r := send(t, a, c, next, inMsg{T: "sessionKey", ID: 2}, "sessionKeyResult")
+	if r["ok"] != false {
+		t.Fatalf("a signed-out connection got a key: %v", r)
 	}
 }
 
@@ -92,7 +115,7 @@ func TestSessionKeyEndsWithItsSessionToken(t *testing.T) {
 		t.Fatalf("expired session: %d", got)
 	}
 	a.expireKeys(time.Now())
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("record kept after the sweep")
 	}
 }
@@ -124,10 +147,10 @@ func TestSessionKeysStayWithTheirOwnUser(t *testing.T) {
 	idb := makePanel(t, a, kb, `{"name":"B"}`)
 	pa, _ := a.panels.get(ida)
 	pb, _ := a.panels.get(idb)
-	if pa.Owner != "Ana" || pb.Owner != "Bo" {
+	if pa.Owner != idOf(a, "Ana") || pb.Owner != idOf(a, "Bo") {
 		t.Fatalf("owners %q %q", pa.Owner, pb.Owner)
 	}
-	// Signing one browser out leaves the other's key alone.
+	// A sign-out of one browser leaves the other's key alone.
 	a.SignOut(ca)
 	if panelsStatus(a, ka) != 401 || panelsStatus(a, kb) != 200 {
 		t.Fatal("sign out reached the wrong key")

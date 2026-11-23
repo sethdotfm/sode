@@ -47,10 +47,12 @@ function drive() {
   return step;
 }
 
-// Call after the page knows the panel runs as the signed-in user.
+// Call after the page knows the panel runs as the signed-in user. The access message often comes while the page still
+// opens, so the watchers hear the step here too. Without it, a page shows no note and no Sign in button.
 export function startSession() {
   started = true;
-  drive();
+  const step = drive();
+  if (step !== 'idle') for (const fn of watchers) fn(key, step);
 }
 
 // Raises the PIN pad again after a cancel.
@@ -79,7 +81,7 @@ on('wsclose', () => {
 });
 
 const signedOut = () =>
-  new Response(JSON.stringify({ error: { code: 'signed_out', message: 'Not signed in, so the take was not sent. Sign in and press again.' } }), {
+  new Response(JSON.stringify({ error: { code: 'signed_out', message: 'Not signed in. Nothing was sent. Sign in and press again.' } }), {
     status: 401,
     headers: { 'Content-Type': 'application/json' },
   });

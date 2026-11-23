@@ -4,7 +4,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestUserSetPin(t *testing.T) {
@@ -21,19 +20,18 @@ func TestUserSetPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, pins := range map[string][2]string{
-		"short":     {"1234", "123"},
-		"letters":   {"1234", "12a4"},
-		"too long":  {"1234", "123456789"},
-		"another's": {"1234", "567890"},
-		"same":      {"1234", "1234"},
+		"short":    {"1234", "123"},
+		"letters":  {"1234", "12a4"},
+		"too long": {"1234", "123456789"},
+		"same":     {"1234", "1234"},
 	} {
 		if err := a.UserSetPin(c, pins[0], pins[1]); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	n := a.userPin.n
-	if err := a.UserSetPin(c, "0000", "4321"); err == nil || a.userPin.n != n+1 {
-		t.Fatalf("wrong old PIN: %v n=%d", err, a.userPin.n)
+	n := userPinCount(a, "Ana")
+	if err := a.UserSetPin(c, "0000", "4321"); err == nil || userPinCount(a, "Ana") != n+1 {
+		t.Fatalf("wrong old PIN: %v n=%d", err, userPinCount(a, "Ana"))
 	}
 	if err := a.UserSetPin(c, "1234", "43210"); err != nil {
 		t.Fatalf("change: %v", err)
@@ -49,7 +47,7 @@ func TestUserSetPin(t *testing.T) {
 		t.Fatal("old PIN still works")
 	}
 	a.mu.Lock()
-	a.userPin.until = time.Time{}
+	clear(a.userPins)
 	a.mu.Unlock()
 	if err := a.UserUnlock(fresh, "43210"); err != nil {
 		t.Fatalf("new PIN: %v", err)
@@ -66,21 +64,12 @@ func TestMaxPinLen(t *testing.T) {
 		t.Fatalf("default %d", a.r().cfg.MaxPinLen)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	long := []userEdit{{Name: "Ana"}, {Name: "Bo", Pin: "123456789"}}
-	if err := a.SaveUsers(admin, usersReq{Users: long}); err == nil {
-		t.Fatal("a 9-digit PIN under maxPinLen 8")
-	}
-	if err := a.SaveUsers(admin, usersReq{Users: long, MaxPin: 9}); err != nil {
-		t.Fatalf("raised: %v", err)
-	}
-	keep := []userEdit{{Name: "Ana"}, {Name: "Bo"}}
-	if err := a.SaveUsers(admin, usersReq{Users: keep, MaxPin: 6}); err == nil {
-		t.Fatal("lowered below an existing PIN")
-	}
-	if err := a.SaveUsers(admin, usersReq{Users: keep, MaxPin: 13}); err == nil {
-		t.Fatal("13 accepted")
-	}
+	long := ukey(a, "Bo", "pin")
+	mustRefuse(t, a, admin, map[string]any{long: "123456789"})
+	mustSave(t, a, admin, map[string]any{long: "123456789", "maxPinLen": 9})
+	mustRefuse(t, a, admin, map[string]any{"maxPinLen": 6})
+	mustRefuse(t, a, admin, map[string]any{"maxPinLen": 13})
 }

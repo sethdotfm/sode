@@ -9,10 +9,16 @@ import { thumbFor, thumbAt, dragTo, pageDir, wheelPx } from './bigscrollrules.js
 // entries go before a broader big one.
 export const SCROLLERS = [
   ['.sode__search .sode__menu', 'y', 'little'],
+  ['.sode-namepick__list', 'y', 'little'],
+  ['.sode__staged-list', 'y', 'little'],
   ['.sode__menu', 'y'],
   ['.sode__found', 'y'],
   ['.sode__scroll', 'y'],
   ['#settings-toc', 'y'],
+  ['.sode-inbox__list', 'y'],
+  ['.sode-palette__list', 'y'],
+  ['.sode-protpick__list', 'y'],
+  ['.sode-protpick__plan', 'y'],
   ['.pb-modal__body', 'y'],
   ['.sode__preset-list', 'y'],
   ['.sode__key-list', 'y', 'little'],
@@ -21,6 +27,7 @@ export const SCROLLERS = [
   ['.sode__box--levels .sode__levels', 'x'],
   ['.sode-log__scroll', 'x'],
   ['.sode-ed__side', 'y'],
+  ['.sode-pages__list', 'y', 'little'],
   ['.sode-live__art', 'y'],
   ['.sode-edge__list', 'y'],
   ['.sode-rlist', 'y'],
@@ -29,6 +36,7 @@ export const SCROLLERS = [
   ['.sode-tpl__list', 'y'],
   ['.sode-ov__people', 'y'],
   ['.sode-ov__keys', 'y'],
+  ['.sode-lock', 'y'],
 ];
 
 const PAGE = 0.9; // a track press pages by this much of the view, so a line stays in sight
@@ -190,7 +198,7 @@ function track(scroller, axis, little, page) {
   let geo = null; // { track, len, travel, max } from the last layout read
   let at = -1;
   let laid = false;
-  let pad = null; // the scroller's own end padding in px, read once while it is drawn
+  let pad = null; // the scroller's own end padding in px, read one time while it is drawn
 
   const view = () => (y ? scroller.clientHeight : scroller.clientWidth);
   const content = () => (y ? scroller.scrollHeight : scroller.scrollWidth);

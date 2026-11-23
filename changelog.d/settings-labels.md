@@ -1,0 +1,1 @@
+- Settings labels are shorter, in the form and in the Settings saves record: "Logo text and page title", "Page border color", "Multi destination" and "Auto-lock after (min)".

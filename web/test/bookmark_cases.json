@@ -1,0 +1,31 @@
+{
+  "comment": "Bookmarks that Sode keeps or refuses. web/test/bookmarkrules.test.mjs and internal/config/bookmarks_test.go read the same cases, so the page and the server say the same.",
+  "cases": [
+    { "b": { "key": "preset:global:a1b2", "label": "Morning" }, "problem": "" },
+    { "b": { "key": "setting:this-browser/cfg-theme", "label": "Theme" }, "problem": "" },
+    { "b": { "key": "filterSet:user:Cams", "label": "Cams" }, "problem": "" },
+    { "b": { "url": "https://example.com/rundown", "label": "Rundown", "newTab": true }, "problem": "" },
+    { "b": { "url": "http://10.0.0.5:8080/", "label": "Encoder" }, "problem": "" },
+    { "b": { "key": "preset:global:a1b2", "label": "Two words" }, "problem": "" },
+    { "b": { "key": "preset:global:a1b2", "label": "No\u00a0break" }, "problem": "a bookmark name has only characters you can see" },
+    { "b": { "key": "preset:global:a1b2", "label": "Wide\u3000space" }, "problem": "a bookmark name has only characters you can see" },
+    { "b": { "key": "preset:global:a1b2", "label": "Line\u2028end" }, "problem": "a bookmark name has only characters you can see" },
+    { "b": { "url": "javascript:alert(1)", "label": "Bad" }, "problem": "use a web address that starts with http:// or https://" },
+    { "b": { "url": "JavaScript:alert(1)", "label": "Bad" }, "problem": "use a web address that starts with http:// or https://" },
+    { "b": { "url": "data:text/html,hi", "label": "Bad" }, "problem": "use a web address that starts with http:// or https://" },
+    { "b": { "url": "ftp://example.com/", "label": "Bad" }, "problem": "use a web address that starts with http:// or https://" },
+    { "b": { "url": "https://", "label": "Bad" }, "problem": "use a web address that starts with http:// or https://" },
+    { "b": { "url": "https://sode.local/panels/wall#key=abc123", "label": "Wall" }, "problem": "a bookmark cannot hold a panel key" },
+    { "b": { "url": "https://sode.local/panels/wall#kiosk=1&key=abc123", "label": "Wall" }, "problem": "a bookmark cannot hold a panel key" },
+    { "b": { "url": "https://sode.local/panels/wall#setup=t0k3n", "label": "Wall" }, "problem": "a bookmark cannot hold a setup link" },
+    { "b": { "url": "https://sode.local/#share=abc", "label": "Share" }, "problem": "a bookmark cannot hold a #share= link" },
+    { "b": { "url": "https://sode.local/panels/wall?token=abc", "label": "Wall" }, "problem": "a bookmark cannot hold a panel key" },
+    { "b": { "url": "https://ana:secret@example.com/", "label": "Site" }, "problem": "a web address in a bookmark cannot hold a user name or password" },
+    { "b": { "url": "https://sode.local/panels/wall#kiosk=1", "label": "Wall" }, "problem": "" },
+    { "b": { "key": "page:log", "url": "https://example.com/", "label": "Both" }, "problem": "a bookmark opens a Palette row or a web address, not both" },
+    { "b": { "label": "Nothing" }, "problem": "a bookmark needs a Palette row or a web address" },
+    { "b": { "key": "page:log", "label": "" }, "problem": "a bookmark needs a name" },
+    { "b": { "key": "page:log", "label": "12345678901234567890123456789012345678901" }, "problem": "a bookmark name has at most 40 characters" },
+    { "b": { "key": "secret:x", "label": "X" }, "problem": "a bookmark names a Palette row that Sode does not know" }
+  ]
+}

@@ -10,7 +10,7 @@ import (
 )
 
 // The Icon library over REST. List and read need `panels`, so any panel page or editor draws its icons. Upload
-// needs `panelsmanage`, a user's key, and a Trusted user or the Advanced Settings PIN. Not under /panels/, whose
+// needs `panelsmanage`, a user's key, and a Trusted user. Not under /panels/, whose
 // {id} routes would conflict.
 
 func init() {
@@ -26,7 +26,7 @@ func init() {
 	)
 }
 
-// readIconChange reads {name?, pin?} and checks that the caller is allowed to change the library. A DELETE can send no body.
+// A DELETE can send no body.
 func (a *App) readIconChange(w http.ResponseWriter, r *http.Request, cl *apiCtx) (iconIn, bool) {
 	var in iconIn
 	if cl.Actor.Kind != actorUser {
@@ -43,7 +43,7 @@ func (a *App) readIconChange(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return in, false
 		}
 	}
-	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can change the Icon library"); err != nil {
+	if err := a.mayEveryone(cl, "only a Trusted user can change the Icon library"); err != nil {
 		failWith(w, err)
 		return in, false
 	}
@@ -68,10 +68,8 @@ func (a *App) apiIconRename(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 	switch {
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "no such icon in the Icon library")
-	case errors.Is(err, errIconBadName):
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the icon could not be renamed: "+err.Error())
+		failStore(w, err, "the icon could not be renamed")
 	default:
 		a.apiEvent(cl.Actor, "iconRename", "ok", "Icon library: renamed "+ic.ID+" to "+ic.Name, nil)
 		apiJSON(w, ic)
@@ -87,7 +85,7 @@ func (a *App) apiIconDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 	case !found:
 		apiFail(w, http.StatusNotFound, "not_found", "no such icon in the Icon library")
 	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the icon could not be deleted: "+err.Error())
+		failStore(w, err, "the icon could not be deleted")
 	default:
 		a.apiEvent(cl.Actor, "iconDelete", "ok", "Icon library: deleted "+ic.Name, nil)
 		w.WriteHeader(http.StatusNoContent)
@@ -152,7 +150,7 @@ func (a *App) apiIconUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"name", "data" as base64} as JSON: `+err.Error())
 		return
 	}
-	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, can add to the Icon library"); err != nil {
+	if err := a.mayEveryone(cl, "only a Trusted user can add to the Icon library"); err != nil {
 		failWith(w, err)
 		return
 	}
@@ -162,15 +160,8 @@ func (a *App) apiIconUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		return
 	}
 	ic, err := a.icons.add(in.Name, in.Data, typ)
-	switch {
-	case errors.Is(err, errIconBadName):
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	case errors.Is(err, errIconLibCap):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-		return
-	case err != nil:
-		apiFail(w, http.StatusInternalServerError, "internal", "the icon could not be saved: "+err.Error())
+	if err != nil {
+		failStore(w, err, "the icon could not be saved")
 		return
 	}
 	a.apiEvent(cl.Actor, "iconAdd", "ok", "Icon library: added "+ic.Name, nil)

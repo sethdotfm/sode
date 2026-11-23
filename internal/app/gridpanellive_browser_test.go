@@ -5,11 +5,6 @@ import (
 	"testing"
 )
 
-// A saved change and a Default artwork change reach an open Grid panel by the usual live update. With nothing staged
-// it applies after the countdown and keeps the search, the picks and the cursor on the same items. With a route
-// staged it waits until Apply now, which drops the staged route and keeps the search. The banner shows in the gap
-// between the search boxes and Clear, with the main page's countdown bar, and the grid never moves. A take result
-// shows over it, and a new update notice takes the place of the result.
 func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -17,7 +12,7 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
 	body := func(name, dsts string) string {
-		return fmt.Sprintf(`{"name":%q,"type":"grid","settings":{"mode":"take","levels":[1]},"sources":{"members":"all"},"destinations":{"members":%s}}`, name, dsts)
+		return gridBody(t, fmt.Sprintf(`{"name":%q,"type":"grid","settings":{"mode":"take","levels":[1]},"sources":{"members":"all"},"destinations":{"members":%s}}`, name, dsts))
 	}
 	id := makePanel(t, a, ana, body("Before", `"all"`))
 	save := func(name, dsts string) {
@@ -63,7 +58,7 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	// Destination 0 leaves the panel, so destination 1 moves up a row.
 	save("After", `[1,2,3,4,5,6]`)
 	text := `document.getElementById('panel-update-text').textContent`
-	b.waitFor("the countdown banner", `/Refreshing in \d+ s\./.test(`+text+`)`)
+	b.waitFor("the countdown banner", `/Applies in \d+ s\./.test(`+text+`)`)
 	b.waitFor("the banner is in the gap between the search boxes and Clear, whole, with its countdown bar, and the grid did not move", `(() => {
 		const u = document.getElementById('panel-update'), r = u.getBoundingClientRect();
 		const f = document.querySelector('.sode-gridpanel__deck .sode-gridpanel__find-mode').getBoundingClientRect(), c = document.querySelector('.sode-gridpanel__clear').getBoundingClientRect();
@@ -98,7 +93,7 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	b.waitFor("the Take button is on", `document.getElementById('panel-take').textContent === 'Take' && !document.getElementById('panel-take').disabled`)
 	save("Third", `[1,2,3,4,5,6]`)
 	// The poll and the countdown together come near one wait's limit, so each gets its own.
-	b.waitFor("the countdown banner for the third copy", `/Refreshing in \d+ s\./.test(`+text+`)`)
+	b.waitFor("the countdown banner for the third copy", `/Applies in \d+ s\./.test(`+text+`)`)
 	b.waitFor("the banner waits for the staged route, its longest line whole, and the grid did not move", `/take or clear/.test(`+text+`) && `+whole+` && `+still)
 	b.waitFor("the staged route and the old copy stay", `document.getElementById('panel-title').textContent === 'After' && `+gridXp(12, 2)+`.dataset.s === 'staged'`)
 	b.eval(`document.getElementById('panel-apply').click(); true`)
@@ -107,7 +102,6 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	b.waitFor("the Take button is off", `document.getElementById('panel-take').textContent === 'Take' && document.getElementById('panel-take').disabled`)
 	kept("Apply now", 0)
 
-	// A take's result is the main page's banner in the same box, with its countdown, and the grid does not move.
 	b.eval(gridXp(12, 2) + `.click(); true`)
 	gridKey(b, "Enter")
 	gridConfirm(b)

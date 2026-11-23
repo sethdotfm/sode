@@ -119,8 +119,8 @@ export default [
         {
           patterns: [
             {
-              regex: '^(?!\\./(tooltip|sprite|fuzzy)\\.js$)',
-              message: 'core.js imports only ./tooltip.js, ./sprite.js and ./fuzzy.js.',
+              regex: '^(?!\\./(tooltip|sprite|fuzzy|buildrules|routerprefix)\\.js$)',
+              message: 'core.js imports only ./tooltip.js, ./sprite.js, ./fuzzy.js, ./buildrules.js and ./routerprefix.js.',
             },
           ],
         },
@@ -132,4 +132,6 @@ export default [
     languageOptions: { globals: { ...browser, ...node } },
   },
   { files: ['web/prepaint.js'], languageOptions: { sourceType: 'script' } },
+  // The service worker is a classic script with the worker's globals.
+  { files: ['web/sw.js'], languageOptions: { sourceType: 'script', globals: { ...browser, caches: 'readonly' } } },
 ];

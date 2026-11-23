@@ -1,0 +1,224 @@
+/* The Palette (palette.js): one list dialog on every page. */
+.sode-palette__scrim > .sode-palette {
+  align-self: flex-start;
+  margin-top: 8vh;
+  max-width: calc(100vw - 2 * var(--pb-space-4));
+  min-width: 0;
+  transform-origin: top left;
+  width: min(60vw, 60rem);
+}
+.sode-palette--grow {
+  transition: transform var(--pb-motion-normal) var(--pb-ease);
+}
+.sode-palette > .pb-modal__footer:empty {
+  display: none;
+}
+.sode-palette__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-palette__where {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+.sode-palette__list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  /* About 70vh, less what the box, the search field and the key hint need on a short window. */
+  max-height: min(70vh, calc(100dvh - 8vh - 12rem));
+  overflow-y: auto;
+  padding: 0;
+}
+.sode-palette__row {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-height: var(--pb-control-h);
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+/* On the desktop the right-hand parts sit in fixed columns: icon, name, where it is, status, Bookmark. */
+:root:not([data-pb-layout="phone"]) .sode-palette__row {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) minmax(0, 18rem) 8.5rem var(--pb-control-h-sm);
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .pb-icon {
+  grid-column: 1;
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .sode-palette__label {
+  grid-column: 2;
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .sode-palette__hint {
+  grid-column: 3;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .sode-palette__tag {
+  grid-column: 4;
+  margin: 0;
+}
+:root:not([data-pb-layout="phone"]) .sode-palette__row > .sode-palette__mark,
+:root:not([data-pb-layout="phone"]) .sode-palette__row--cat > .pb-icon {
+  grid-column: 5;
+  justify-self: center;
+  margin: 0;
+}
+.sode-palette__row[aria-selected="true"] {
+  background: var(--pb-surface-hover);
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
+}
+.sode-palette__row:hover {
+  background: var(--pb-surface-hover);
+}
+.sode-palette__row--off {
+  color: var(--pb-text-disabled);
+}
+.sode-palette__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sode-palette__hint {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin-inline-start: auto;
+}
+.sode-palette__row--off .sode-palette__hint {
+  color: inherit;
+}
+.sode-palette__tag {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1);
+  white-space: nowrap;
+}
+.sode-palette__hint + .sode-palette__tag {
+  margin-inline-start: var(--pb-space-2);
+}
+.sode-palette__label + .sode-palette__tag {
+  margin-inline-start: auto;
+}
+.sode-palette__head {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  padding: var(--pb-space-2) var(--pb-space-2) 0;
+  text-transform: uppercase;
+}
+.sode-palette__none {
+  color: var(--pb-text-muted);
+  padding: var(--pb-space-2);
+}
+.sode-palette__why p {
+  margin: 0 0 var(--pb-space-2);
+}
+.sode-palette__offers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+.sode-palette__keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-6);
+  margin: 0;
+}
+.sode-palette__key {
+  white-space: nowrap;
+}
+.sode-palette__warn {
+  color: var(--pb-status-warn);
+}
+[data-pb-layout="phone"] .sode-palette__scrim > .sode-palette {
+  margin-top: var(--pb-space-4);
+}
+[data-pb-layout="phone"] .sode-palette__keys {
+  display: none;
+}
+.sode-palette__label + .sode-palette__mark {
+  margin-inline-start: auto;
+}
+.sode-palette__mark {
+  color: var(--pb-text-muted);
+  flex: none;
+}
+.sode-palette__note {
+  margin: 0;
+}
+.sode-palette__note:empty {
+  display: none;
+}
+/* Placed by tooltip.js: a CSS tip under the last row would make the list scroll. */
+.sode-palette__list [data-pb-tip]::after {
+  display: none;
+}
+
+/* The Protect picker (protectpick.js), opened from the Palette's Protect row. */
+#protpick > .sode-protpick {
+  max-width: calc(100vw - 2 * var(--pb-space-4));
+  width: min(50vw, 44rem);
+}
+.sode-protpick .pb-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-protpick__list {
+  display: flex;
+  flex-direction: column;
+  max-height: min(55vh, calc(100dvh - 18rem));
+  overflow-y: auto;
+}
+.sode-protpick__row {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-height: var(--pb-control-h);
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+.sode-protpick__row:hover {
+  background: var(--pb-surface-hover);
+}
+.sode-protpick__row[data-cue] {
+  background: var(--pb-surface-hover);
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
+}
+.sode-protpick__row > .pb-check__input {
+  pointer-events: none;
+}
+.sode-protpick__hint {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+/* The "N picked" chip: the Home grid's staged count chip (pb-badge--info), at the foot's start. */
+.sode-protpick__count {
+  margin-right: auto;
+}
+.sode-protpick__count[hidden] {
+  display: none;
+}
+.sode-protpick__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+/* A row that cannot be picked shows who holds it, and does nothing on a click. */
+.sode-protpick__row--off {
+  color: var(--pb-text-muted);
+  cursor: default;
+}
+.sode-protpick__row--off:hover {
+  background: none;
+}
+
+.sode-protpick__plan {
+  display: flex;
+  flex-direction: column;
+  max-height: 40vh;
+  overflow-y: auto;
+}

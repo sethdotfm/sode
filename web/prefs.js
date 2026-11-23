@@ -1,5 +1,6 @@
-// Resolves a pref: this browser's value (localStorage), else the global default (deviceDefaults), else built-in; missing or unknown means follow global.
+// Resolves a pref: this browser's value (localStorage), else the global default (browserDefaults), else built-in; missing or unknown means follow global.
 // Pure; device.js does storage. prepaint.js repeats the lookup inline; prepaint.test.mjs checks they agree.
+import { PALETTE_DEFAULT, PALETTE_VALUES } from './paletterules.js';
 
 // Stored as strings; the on/off ones are booleans in the config.
 const browserClock = () => (/h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'numeric' }).resolvedOptions().hourCycle || '') ? '12-hour' : '24-hour');
@@ -15,12 +16,28 @@ export const PREFS = {
   stackGap: { key: 'sode-stack-gap', def: '30', values: { 0: 'Off', 10: '10 seconds', 30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes' } },
   searchFilters: { key: 'sode-search-filters', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
   compact: { key: 'sode-compact', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
+  paletteChar: { key: 'sode-palette-char', def: PALETTE_DEFAULT, values: PALETTE_VALUES },
+};
+
+// Settings labels; index.html and internal/app/browsercopy.go keep the same words (tests check both).
+export const PREF_LABELS = {
+  theme: 'Theme',
+  layout: 'Layout',
+  clock: 'Clock',
+  flip: 'Destination before Source',
+  scrollTop: 'Scroll to top on focus',
+  setStack: 'Stacked filters behavior',
+  nextMode: 'Next match behavior',
+  stackGap: 'Stack quick changes in History',
+  searchFilters: 'Searching history respects filters',
+  compact: 'Compact view',
+  paletteChar: 'Palette character',
 };
 
 // The Browser language option says what it gives (still one table entry, as the Go test reads it).
 Object.defineProperty(PREFS.clock.values, 'locale', { get: () => `Browser language (${browserClock()})`, enumerable: true });
 
-export const CACHE_KEY = 'sode-device-defaults';
+export const CACHE_KEY = 'sode-browser-defaults';
 
 const valid = (name, v) => typeof v === 'string' && Object.hasOwn(PREFS[name].values, v);
 

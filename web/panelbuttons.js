@@ -1,5 +1,6 @@
 // The Buttons panel body of a panel run (panelrun.js): cells, the state model, the Undo cell and the hold guard.
 // ctx is the run's adapter: { ui, art, embedded, page, id, call, callJSON, post, poll, ready, instance, touched }.
+import { showNote } from './core.js';
 import { envFrom, namesFrom, drawnCells, errorText, undoneText, undoMoved } from './panelrules.js';
 import {
   createState,
@@ -30,14 +31,8 @@ import { pagesOf } from './panelpages.js';
 import { NAV_KINDS, landingPage, pageIndex, wrapOf } from './panelnav.js';
 import { savedPage, keepPage } from './pagekeep.js';
 
-const UNDO_MOVED = 'What Undo would undo has changed; press it again';
+const UNDO_MOVED = 'Undo target changed. Press again.';
 
-const say = (n, text) => {
-  n.textContent = text;
-  n.hidden = !text;
-};
-
-// The current Page's cells; a live update or a Page change makes them again.
 const cellsOf = (p, page) => drawnCells(p, pageIndex(pagesOf(p), page)).map((c) => withDefault(c, defaultsBy(p.artDefaults)));
 // Every Page's cells, so a live update keeps a Destination viewed on another Page.
 const everyCell = (p) => pagesOf(p).flatMap((_, i) => drawnCells(p, i));
@@ -80,12 +75,12 @@ export function buttonsBody(ctx, first) {
     paintGrid(grid, { st, env, names, now, panelName: panel.name, instance: ctx.instance(), pages: pagesOf(panel), wrap: wrapOf(panel), undo: undoNext });
     const err = errorOf(st, now);
     const undone = err ? null : undoneOf(st, now);
-    say(ui.status, err ? errorText(err, names) : undoneText(undone, names));
+    showNote(ui.status, err ? errorText(err, names) : undoneText(undone, names));
     ui.status.classList.toggle('sode-panel__status--ok', !!undone && !undone.failed.length);
   };
   const build = () => buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
   let grid = build();
-  // Painted now, not at the first poll: an unpainted Take cell is enabled and the cells have no text.
+  // An unpainted Take cell is enabled and the cells have no text, so paint before the first poll.
   render();
 
   // A poll and a finished take can both ask; only the newest ask's answer counts, since an older one can come back last.
@@ -127,8 +122,8 @@ export function buttonsBody(ctx, first) {
       const why = (e.code === 'conflict' && onConflict) || e.message;
       st =
         e.status === undefined
-          ? failTake(st, 'network', `Sode did not answer, so it is possible that the ${word} was not sent`, Date.now())
-          : failTake(st, e.code || String(e.status), why || `The ${word} was refused`, Date.now());
+          ? failTake(st, 'network', `Sode did not answer. ${word[0].toUpperCase()}${word.slice(1)} not confirmed.`, Date.now())
+          : failTake(st, e.code || String(e.status), why || `Sode refused the ${word}`, Date.now());
     }
     render();
     ctx.poll();
@@ -154,7 +149,6 @@ export function buttonsBody(ctx, first) {
   }
 
   function onPress(cell) {
-    // A Page change sends nothing, so it works while the router or Sode is away.
     const nav = NAV_KINDS.includes(cell.kind);
     if (!ctx.ready() && !nav) return;
     ctx.touched();
@@ -181,7 +175,6 @@ export function buttonsBody(ctx, first) {
     render();
   }
 
-  // A Page change keeps the plan and rebuilds the grid from the new Page's cells.
   function showNewPage(next) {
     if (next === st) return;
     clearTimeout(holdTimer);

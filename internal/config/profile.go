@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Profile lives on the User; never in a hello (json:"-"), reaches only connections unlocked as that user.
+// Profile lives on the User. It is never in a hello (json:"-") and reaches only connections signed in as that user.
 
 // MaxProfileBytes keeps a profileSave message under the 64 KiB read limit.
 const MaxProfileBytes = 48 << 10
@@ -18,16 +18,12 @@ type Profile struct {
 	Prefs      map[string]string `yaml:"prefs,omitempty" json:"prefs"`
 	FilterSets []FilterSet       `yaml:"filterSets,omitempty" json:"filterSets"`
 	Presets    []Preset          `yaml:"presets,omitempty" json:"presets"`
-	// PinOrder keys are "scope:lowercase name"; unmatched ignored, unlisted pinned presets come after.
-	PinOrder []string       `yaml:"pinOrder,omitempty" json:"pinOrder"`
-	Extra    map[string]any `yaml:",inline" json:"-"`
+	// Bookmarks is the user's Me list (GLOSSARY.md, Bookmark).
+	Bookmarks []Bookmark `yaml:"bookmarks,omitempty" json:"bookmarks"`
+	// PalettePicks holds the keys of the user's last Palette picks, newest first.
+	PalettePicks []string       `yaml:"palettePicks,omitempty" json:"palettePicks"`
+	Extra        map[string]any `yaml:",inline" json:"-"`
 }
-
-// MaxPinOrder caps PinOrder; MaxPinKey caps one key, in runes.
-const (
-	MaxPinOrder = 200
-	MaxPinKey   = 80
-)
 
 // Go twin of PREFS in web/prefs.js; keep in step (TestPrefTable).
 var PrefValues = map[string][]string{
@@ -41,18 +37,15 @@ var PrefValues = map[string][]string{
 	"stackGap":      {"0", "10", "30", "60", "120", "300"},
 	"searchFilters": {"on", "off"},
 	"compact":       {"on", "off"},
+	"paletteChar":   paletteValues(),
 }
 
 func (p Profile) Empty() bool {
-	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.PinOrder) == 0
-}
-
-func (p Profile) Items() int {
-	return len(p.Prefs) + len(p.FilterSets) + len(p.Presets) + len(p.PinOrder)
+	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.Bookmarks) == 0 && len(p.PalettePicks) == 0
 }
 
 func (p Profile) Clone() Profile {
-	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder), Extra: p.Extra}
+	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), Bookmarks: CloneBookmarks(p.Bookmarks), PalettePicks: slices.Clone(p.PalettePicks), Extra: p.Extra}
 }
 
 func knownPref(k string) bool {
@@ -84,32 +77,16 @@ func (p Profile) Normalized() Profile {
 	}
 	maps.DeleteFunc(p.Prefs, func(k, _ string) bool { return !knownPref(k) })
 	p.FilterSets = normalizeFilterSets(p.FilterSets)
-	tmp := Config{Presets: p.Presets}
-	tmp.normalizePresets()
-	p.Presets = tmp.Presets
-	p.PinOrder = normalizePinOrder(p.PinOrder)
+	p.Presets = normalizePresets(p.Presets, "")
+	p.Bookmarks = normalizeBookmarks(p.Bookmarks)
+	p.PalettePicks = normalizePalettePicks(p.PalettePicks)
 	return p
-}
-
-// Keys are opaque: the browser builds them (presetKey in presetstore.js) and compares bytes. Go's
-// ToLower differs from JS for some letters, so lowercasing again could break a key.
-func normalizePinOrder(in []string) []string {
-	out := []string{}
-	seen := map[string]bool{}
-	for _, k := range in {
-		k = strings.TrimSpace(k)
-		if k == "" || seen[k] || len([]rune(k)) > MaxPinKey || len(out) >= MaxPinOrder {
-			continue
-		}
-		seen[k] = true
-		out = append(out, k)
-	}
-	return out
 }
 
 func (c *Config) normalizeProfiles() {
 	for i := range c.Users {
 		p := c.Users[i].Profile.Normalized()
+		p.Presets = normalizePresets(p.Presets, c.UID)
 		// Normalized is what the browser gets; the file keeps prefs a newer release wrote.
 		p.Prefs = WithUnknownPrefs(p.Prefs, c.Users[i].Profile.Prefs)
 		if p.Empty() {
@@ -136,6 +113,9 @@ func validateProfile(owner string, p Profile) []error {
 	for _, e := range tmp.validatePresets() {
 		bad("%v", e)
 	}
+	for _, e := range validateBookmarks(p.Bookmarks) {
+		bad("%v", e)
+	}
 	if b, err := json.Marshal(p); err == nil && len(b) > MaxProfileBytes {
 		bad("too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxProfileBytes>>10)
 	}
@@ -155,9 +135,15 @@ func normalizeFilterSets(in []FilterSet) []FilterSet {
 	if in == nil {
 		return []FilterSet{}
 	}
+	ids := map[string]bool{}
 	for i := range in {
 		f := &in[i]
 		f.Name, f.Src, f.Dst = strings.TrimSpace(f.Name), strings.TrimSpace(f.Src), strings.TrimSpace(f.Dst)
+		f.ID = strings.TrimSpace(f.ID)
+		for f.ID == "" || ids[f.ID] {
+			f.ID = NewFilterSetID()
+		}
+		ids[f.ID] = true
 	}
 	return in
 }

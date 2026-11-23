@@ -1,5 +1,5 @@
 // API key lists and requests, pure (no imports) so Node tests them. A key record is what keyserve.go sends:
-// {id, owner: {kind: 'user'|'client', name}, name (the key name), created, lastUsed, count, expires}.
+// {id, owner: {kind: 'user'|'client', user (a user's id), name}, name (the key name), created, lastUsed, count, expires}.
 // Go sends the zero time (year 1) for "never", so any date before 1970 means unset.
 
 const UNSET = (iso) => !iso || Date.parse(iso) < 0;
@@ -55,7 +55,7 @@ export const ownerText = (o) => `${o.name} (${o.kind === 'client' ? 'API client'
 export function keysByOwner(keys) {
   const groups = new Map();
   for (const k of keys) {
-    const id = `${k.owner.kind}:${k.owner.name.toLowerCase()}`;
+    const id = `${k.owner.kind}:${k.owner.user || k.owner.name.toLowerCase()}`;
     if (!groups.has(id)) groups.set(id, { owner: k.owner, keys: [] });
     groups.get(id).keys.push(k);
   }

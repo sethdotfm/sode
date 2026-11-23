@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// REST and stream seam for renaming an instance from the panels page. The rename line goes down the instance's
-// held stream, its key is renamed, and the page reopens under the new name.
-
 func renameBody(instance, name, pin string) string {
 	return fmt.Sprintf(`{"instance":%q,"name":%q,"pin":%q}`, instance, name, pin)
 }
@@ -43,7 +40,6 @@ func TestRenameSendsTheNameDownTheStreamAndRenamesTheKey(t *testing.T) {
 	case <-time.After(300 * time.Millisecond):
 	}
 
-	// The key keeps working under its new name, so the Link with key list agrees with the instances.
 	keys := apiSend(a, "GET", "/api/v1/panels/"+id+"/keys", cy, "").Body.String()
 	if !strings.Contains(keys, `"name":"Front desk"`) || strings.Contains(keys, `"name":"Lobby"`) {
 		t.Fatalf("keys: %s", keys)
@@ -51,7 +47,6 @@ func TestRenameSendsTheNameDownTheStreamAndRenamesTheKey(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, lobbyKey, ""); rec.Code != 200 {
 		t.Fatalf("the key ended: %d", rec.Code)
 	}
-	// The old name goes from the list without a lost notice, and its watch follows the new name.
 	for deadline := time.Now().Add(5 * time.Second); instanceRows(t, a, id, cy)["Lobby"] != nil; time.Sleep(10 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("the old name is still listed")
@@ -93,7 +88,6 @@ func TestRenameRights(t *testing.T) {
 	id := makePanel(t, a, ana, `{"name":"Studio A","share":{"mode":"everyone"}}`)
 	lobby := assignHold(t, a, id, ana, "Lobby")
 
-	// Neither owner nor Trusted, and no PIN or a wrong one.
 	wantErr(t, apiSend(a, "POST", renamePath(id), bo, renameBody("Lobby", "Hall", "")), 403, "trusted_required")
 	wantErr(t, apiSend(a, "POST", renamePath(id), bo, renameBody("Lobby", "Hall", "1111")), 403, "trusted_required")
 	// A panel's own key is no user.
@@ -102,8 +96,10 @@ func TestRenameRights(t *testing.T) {
 		t.Fatalf("a panel key renamed: %d %s", rec.Code, rec.Body.String())
 	}
 
-	// The owner, then the PIN, then a Trusted user. Each rename ends the stream, so the page's reopen is held again.
-	steps := []struct{ key, from, to, pin string }{{ana, "Lobby", "Hall", ""}, {bo, "Hall", "Porch", "2468"}, {cy, "Porch", "Gate", ""}}
+	wantErr(t, apiSend(a, "POST", renamePath(id), bo, renameBody("Lobby", "Hall", "2468")), 403, "trusted_required")
+
+	// Each rename ends the stream, so the page's reopen is held again.
+	steps := []struct{ key, from, to, pin string }{{ana, "Lobby", "Hall", ""}, {cy, "Hall", "Porch", ""}, {cy, "Porch", "Gate", ""}}
 	for _, s := range steps {
 		if rec := apiSend(a, "POST", renamePath(id), s.key, renameBody(s.from, s.to, s.pin)); rec.Code != 200 {
 			t.Fatalf("%s to %s: %d %s", s.from, s.to, rec.Code, rec.Body.String())
@@ -166,7 +162,6 @@ func TestRenameRefusals(t *testing.T) {
 			wantErr(t, apiSend(a, "POST", renamePath(c.panel), cy, c.body), c.status, c.code)
 		})
 	}
-	// An offline instance's key is not renamed alone.
 	if instanceRows(t, a, id, cy)["Porch"] == nil {
 		t.Fatal("Porch is not listed")
 	}

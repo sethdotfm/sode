@@ -1,11 +1,12 @@
 // Grid panel keys to actions. Pure apart from keys.js. The run does the action and marks the key handled when this
 // returns one. Keys are exact chord(e) names, so h/j/k/l are physical keys and a chord with an extra modifier is not
-// the grid's. ctx is { staged, picks, inControl, inField, bar, finding, line }. staged counts staged routes and picks
-// counts picked names. inControl is true when focus is on a header button or a field, inField only for the Levels box. bar
-// is barOf(cursor) in gridpanelcursor.js. finding is true while a box has text. line is true while a Drawn line
-// shows. A move action is a name in gridpanelcursor.js MOVES. 'range:<move>' is a Shift move along a bar or across
-// the crosspoints, which extends the pick.
-import { chord } from './keys.js';
+// the grid's. ctx is { staged, picks, inControl, inField, bar, finding, line, canSend }. staged counts staged routes and
+// picks counts picked names. inControl is true when focus is on a header button or a field, inField only for the Levels
+// box. bar is barOf(cursor) in gridpanelcursor.js. finding is true while a box has text. line is true while a Drawn line
+// shows. canSend is false while a press policy takes the presses (gridpaneladd.js); omitted is true. A move action is a
+// name in gridpanelcursor.js MOVES. 'range:<move>' is a Shift move along a bar or across the crosspoints, which extends
+// the pick.
+import { chord, modChord, listStep } from './keys.js';
 import { MOVES } from './gridpanelcursor.js';
 
 const free = (act) => (c) => (c.inControl ? null : act);
@@ -19,7 +20,8 @@ const keys = () => 'keys';
 export const clearAction = (c) => (c.line ? 'unline' : c.picks ? 'unpick' : c.staged ? 'drop' : null);
 
 const ACTIONS = {
-  enter: (c) => (c.staged && !c.inControl ? 'confirm' : null),
+  // With no sending there is no take to confirm, so Enter presses as Space does.
+  enter: (c) => (c.canSend === false ? ACTIONS[' '](c) : c.staged && !c.inControl ? 'confirm' : null),
   f: free('levels'),
   // With nothing to clear, Kiosk mode's own Esc works. In a field (the Levels box) Esc only leaves it, so typing
   // there never drops picks or staged routes.
@@ -68,10 +70,8 @@ const ACTIONS = {
   'alt+right': free('pageRight'),
   home: free('corner'),
   end: free('colEnd'),
-  'ctrl+home': free('rowStart'),
-  'meta+home': free('rowStart'),
-  'ctrl+end': free('rowEnd'),
-  'meta+end': free('rowEnd'),
+  'mod+home': free('rowStart'),
+  'mod+end': free('rowEnd'),
   // Find and Filter (gridpanelfind.js). n and N stay free while no box has text.
   s: free('findSrcs'),
   d: free('findDsts'),
@@ -81,24 +81,27 @@ const ACTIONS = {
 
 // While a line is drawn, Space stages it and only moves and Esc work besides.
 const LINE_KEEPS = new Set(['press', 'unline', 'leave']);
+// The keys that stage a line, unstage, undo or send. With canSend false they do nothing.
+const SENDS = new Set(['line', 'unstage', 'undo', 'confirm']);
 
-export function gridKeyAction(e, ctx) {
-  const act = ACTIONS[chord(e)]?.(ctx) ?? null;
+// A mod+ row is Ctrl, or Cmd on a Mac (modChord in keys.js). isMac is for the tests.
+export function gridKeyAction(e, ctx, isMac) {
+  const act = (ACTIONS[chord(e)] ?? ACTIONS[modChord(e, isMac)])?.(ctx) ?? null;
+  if (ctx.canSend === false && SENDS.has(act)) return null;
   return ctx.line && act && !MOVES.has(act) && !LINE_KEEPS.has(act) ? null : act;
 }
 
 // Keys in a Source bar or Destination bar search box. Any other key is typing. Ctrl+Tab cannot be used: browsers
-// keep it, so Ctrl+/ switches the mode. Chrome on Windows and Linux keeps Ctrl+N for a new window, so there only
-// Ctrl+P arrives; on a Mac both do.
+// keep it, so Ctrl+/ switches the mode. Ctrl+J and Ctrl+K step as in every other list (listStep in keys.js).
 const BOX = {
   enter: 'nextMatch',
   'shift+enter': 'prevMatch',
-  'ctrl+n': 'nextMatch',
-  'ctrl+p': 'prevMatch',
   escape: 'clear',
   tab: 'swap',
   'shift+tab': 'swap',
   'ctrl+/': 'mode',
 };
 
-export const findBoxAction = (e) => BOX[chord(e)] ?? null;
+const STEP = { 1: 'nextMatch', [-1]: 'prevMatch' };
+
+export const findBoxAction = (e, isMac) => BOX[chord(e)] ?? STEP[listStep(e, isMac)] ?? null;

@@ -60,7 +60,9 @@ export function profileFilters(t, { normalize, saver }) {
         t.lists.map((x) => String(x?.name)),
         { noun: 'filter set', old: t.old, reserved: 'all' },
       );
-      return err ? { err } : { list: upsertEntry(t.lists, filterEntry(name, f), t.old) };
+      // The set keeps its hidden id through a rename; the server makes a new set's id.
+      const id = typeof t.found?.id === 'string' && t.found.id ? { id: t.found.id } : {};
+      return err ? { err } : { list: upsertEntry(t.lists, { ...id, ...filterEntry(name, f) }, t.old) };
     },
   };
 }

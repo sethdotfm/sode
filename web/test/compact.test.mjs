@@ -1,4 +1,3 @@
-// Compact view: the pref, its Alt+Shift+C toggle and the html[data-compact] that hides History.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -45,8 +44,8 @@ test('compact resolves this browser, then Me, then Everyone, then off', async ()
 
 test('the toggle writes only this browser, the explicit opposite, and History follows', async () => {
   const { toggleCompact, compactOn, emit } = await import('./all.mjs');
-  // Everyone has it on: a toggle must still turn it off, so it cannot write '' and follow Everyone.
-  emit('helloCfg', { deviceDefaults: { compact: true } });
+  // Everyone has it on. A toggle must turn it off, so it must not write '' (that follows Everyone).
+  emit('helloCfg', { browserDefaults: { compact: true } });
   assert.equal(compactOn(), true);
   assert.equal(attrs.has('data-compact'), true);
   writes.length = 0;
@@ -66,8 +65,7 @@ test('desktop.css hides only the desktop History under data-compact', () => {
   assert.match(css, /:root\[data-layout="desktop"\]\[data-compact\][^{]*#patch-view > \.sode__history \{\s*display: none;/);
 });
 
-// A preset picking takes from History (historypick.js sets data-sode-pick="") needs it shown, and
-// historyShown() must agree or keyboard mode stays off while it is.
+// historyShown() must agree with the CSS, or keyboard mode stays off while History shows.
 test('History shows again in Compact view while a preset picks takes from it', () => {
   const css = readFileSync(join(web, 'desktop.css'), 'utf8');
   assert.match(css, /\[data-compact\]:not\(\[data-sode-pick=""\]\) #patch-view > \.sode__history \{/);
@@ -77,7 +75,6 @@ test('History shows again in Compact view while a preset picks takes from it', (
   assert.match(hist, /historyShown = \(\) => !compactOn\(\) \|\| document\.documentElement\.dataset\.sodePick === ''/);
 });
 
-// Seam: Alt+Shift+C is bound once, and nothing else takes Alt+Shift+C or lists it.
 test('Alt+Shift+C collides with no other binding or shortcut-list entry', () => {
   const hits = [];
   for (const f of readdirSync(web).filter((f) => f.endsWith('.js'))) {
@@ -87,6 +84,5 @@ test('Alt+Shift+C collides with no other binding or shortcut-list entry', () => 
   assert.deepEqual(hits, ["desktopkeys.js: 'alt+shift+c'"]);
   const html = readFileSync(join(web, 'index.html'), 'utf8');
   const list = html.slice(html.indexOf('id="keys-dialog"'));
-  assert.equal([...list.matchAll(/<kbd[^>]*>(?:Alt|⌥)\+?(?:Shift|⇧)\+?c<\/kbd>/gi)].length, 1);
-  assert.equal([...list.matchAll(/data-mac="⌥⇧c"/g)].length, 1);
+  assert.equal([...list.matchAll(/<kbd data-key="alt\+shift\+c">/g)].length, 1);
 });

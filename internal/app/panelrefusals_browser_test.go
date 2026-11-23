@@ -12,14 +12,12 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// A kiosk panel draws only the grid, and a route outside the user's Rights is refused on the
-// page before Take arms. The refusal shows at the bottom of the viewport and never moves the grid.
 func TestChromePanelKioskAndRefusal(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 
 	a := simApp(t, sim)
-	a.r().cfg.Users[0].Rights = config.Rights{Dsts: ints(simDst)}
+	a.r().cfg.Users[0].Rights = config.Rights{Dsts: nums(simDst)}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -46,6 +44,7 @@ func TestChromePanelKioskAndRefusal(t *testing.T) {
 	}
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -59,12 +58,11 @@ func TestChromePanelKioskAndRefusal(t *testing.T) {
 	b.waitFor("kiosk hides the header", `document.querySelector('.sode-panels__head').offsetParent === null`)
 	b.waitFor("the grid is shown", `!!document.getElementById('panel-grid').offsetParent`)
 
-	// Outside the Rights: refused with a message, and Take stays disabled.
 	gridTop := `document.getElementById('panel-grid').getBoundingClientRect().top`
 	b.eval(`window.__gridTop = ` + gridTop)
 	b.eval(cell("destination", 1) + `.click()`)
 	b.eval(cell("source", 0) + `.click()`)
-	b.waitFor("refusal shown", `document.getElementById('panel-status').textContent.includes("outside this panel's rights")`)
+	b.waitFor("refusal shown", `document.getElementById('panel-status').textContent.includes("outside this panel's Rights")`)
 	b.waitFor("Take not armed", cell("take", 0)+`.disabled`)
 	b.waitFor("the grid did not move", gridTop+` === window.__gridTop`)
 	b.waitFor("the refusal sits at the bottom of the viewport", `(() => {
@@ -74,7 +72,6 @@ func TestChromePanelKioskAndRefusal(t *testing.T) {
 	})()`)
 	b.shot("refused")
 
-	// Inside the Rights: arms, and the server takes it.
 	b.eval(cell("destination", 0) + `.click()`)
 	b.eval(cell("source", 0) + `.click()`)
 	b.waitFor("Take armed", `!`+cell("take", 0)+`.disabled`)

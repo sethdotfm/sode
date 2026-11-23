@@ -7,10 +7,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The Grid page's header buttons and kiosk mode at 1280 by 800. Ana can use Ben's panel but not change it. Its Title bar
-// setting is off, but Settings, the Panels link and Copy show. Settings hides only in kiosk mode. Copy makes Ana's own copy and opens it in the editor. In kiosk mode on her own panel the header row goes, so
-// the grid moves up, and a take's banner never moves it. Rules follow the Lock chip, the instance name and the Find box,
-// and the banner is as tall as the Find box.
 func TestChromeGridPanelHeader(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

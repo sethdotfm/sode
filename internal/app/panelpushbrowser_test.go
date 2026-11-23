@@ -8,8 +8,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Push modal on /panels: Ana pushes EVS 1 to the EVS group, saves a set, then restores a
-// checkpoint. The router is the simulator, which the page never uses here.
 func TestChromePushFlow(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -29,6 +27,7 @@ func TestChromePushFlow(t *testing.T) {
 	b.open(srv.URL + "/panels")
 
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(`document.querySelector('.sode-lock__key[data-key="` + string(d) + `"]').click()`)
 	}
@@ -51,13 +50,12 @@ func TestChromePushFlow(t *testing.T) {
 		}
 	}
 
-	// A set, then restore the checkpoint of EVS 2 from the Restore tab.
 	b.eval(`document.querySelector('#tab-sets').click()`)
 	b.waitFor("Save needs a name", `document.querySelector('#panel-sets .pb-btn--outline').disabled === true`)
 	b.eval(`(() => { const i = document.querySelector('#panel-sets input.pb-input'); i.value = 'Show A'; i.dispatchEvent(new Event('input', {bubbles: true})); })()`)
 	b.waitFor("Save enabled", `document.querySelector('#panel-sets .pb-btn--outline').disabled === false`)
 	b.eval(`document.querySelector('#panel-sets .pb-btn--outline').click()`)
-	b.waitFor("set saved", `document.querySelector('.sode-ov__share .pb-modal__footer .sode__hint').textContent === 'Saved the set Show A.'`)
+	b.waitFor("set saved", `document.querySelector('.sode-ov__share .pb-modal__footer .sode__hint').textContent === 'Saved set Show A.'`)
 	if n := len(apiBody(t, apiDo(a, "GET", "/api/v1/panel-sets", ana, nil))["sets"].([]any)); n != 1 {
 		t.Fatalf("sets %d", n)
 	}

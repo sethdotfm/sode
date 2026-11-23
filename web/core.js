@@ -1,38 +1,65 @@
-// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js, sprite.js and fuzzy.js: an
-// import cycle must not occur.
+// Imports only tooltip.js, sprite.js, fuzzy.js, buildrules.js and routerprefix.js, so no import cycle occurs.
 
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
+import { searchText } from './routerprefix.js';
+import { buildChanged } from './buildrules.js';
+
+// A send or a pending answer with no Server link.
+export const LINK_DOWN = 'Server link down.';
 
 export const $ = (id) => document.getElementById(id);
 
-export function el(tag, cls, ...kids) {
+// A line that hides when empty; an unchanged text is not written again (a redraw each second must not restart a
+// screen reader).
+export function showNote(n, text) {
+  if (n.textContent !== text) n.textContent = text;
+  n.hidden = !text;
+}
+
+// props is a class string or an object; a key the element has as a property is set as one, any other as an attribute.
+export function el(tag, props, ...kids) {
   const e = document.createElement(tag);
-  if (cls) e.className = cls;
+  if (typeof props === 'string') e.className = props;
+  else if (props)
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null) continue;
+      if (k === 'data-pb-tip' && !String(v).trim()) continue; // a blank tip still draws an empty bubble
+      if (k === 'class') e.className = v;
+      else if (k in e) e[k] = v;
+      else if (v !== false) e.setAttribute(k, v === true ? '' : v);
+    }
   for (const k of kids) if (k != null) e.append(k);
   return e;
 }
-
-// ---- state & events
 
 export const S = {
   cfg: null,
   configPath: '',
   version: '',
   brandColors: [],
+  routerUid: '',
+  installUid: '', // from the hello; Item links name it
+  prefix: '', // the router prefix, from the hello
+  noAdministrator: false, // users and no Administrator: the page shows the recovery banner
+  notSaved: false,
+  setup: null, // setupwizard.js
   srcs: [],
   dsts: [],
   srcBy: new Map(),
   dstBy: new Map(),
   tally: new Map(),
-  prot: new Map(),
+  prot: new Map(), // dst → Map(level → {dev, kind}), from the router
+  protBy: new Map(), // dst → {by, device, levels}: the Protects in Sode's own record
   levels: [],
   levelDefaults: [],
   levelBy: new Map(),
   namesAt: null,
+  namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
   wsState: 'connecting',
   wsLost: false,
+  wsErr: '',
   router: null,
   routerAddr: '',
   routerErr: '',
@@ -45,23 +72,13 @@ export const S = {
   newId: null,
   prevNumbering: null,
   myRights: null,
+  users: [], // the hello's sign-in list, [{name, len}]; len 0 is no PIN
+  userNames: [],
 };
 
 export function toggle(set, k) {
   if (set.has(k)) set.delete(k);
   else set.add(k);
-}
-
-// is() is true while the box still holds the search left by the last + (not a destination
-// waiting to be picked).
-export function keepSearch(read) {
-  let kept = null;
-  return {
-    is: () => kept !== null && read() === kept,
-    set: (keep, text) => {
-      kept = keep && text.trim() ? text : null;
-    },
-  };
 }
 
 const listeners = {};
@@ -73,6 +90,13 @@ export const on = (ev, fn) => {
     const i = l.indexOf(fn);
     if (i >= 0) l.splice(i, 1);
   };
+};
+// The removal waits a microtask: one inside emit would skip the next listener.
+export const once = (ev, fn) => {
+  const off = on(ev, (...a) => {
+    queueMicrotask(off);
+    fn(...a);
+  });
 };
 // Runs before earlier listeners: for a module that must refresh its memo before views read it.
 export const onFirst = (ev, fn) => {
@@ -103,8 +127,6 @@ export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n
 export const dstLabel = (n) => dstItem(n).label;
 export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
 
-// ---- websocket
-
 let retry = 1000;
 
 // Browsers cannot see ping frames; the server sends {"t":"ping"} about every 5s. A socket quiet for
@@ -123,7 +145,7 @@ function drop(ws) {
   } catch {
     /* already closed */
   }
-  lost?.();
+  lost?.({ stale: true });
 }
 
 export function connect() {
@@ -143,8 +165,10 @@ export function connect() {
     S.wsLost = false;
     emit('conn');
   };
-  ws.onclose = () => {
+  ws.onclose = (e) => {
     clearInterval(watch);
+    // The why for the Lost link banner. A browser gives no more than the close code: 1006 is a drop with no close frame.
+    S.wsErr = `${location.host}: ` + (e?.stale ? `no data for ${STALE_MS / 1000} s` : `connection closed (code ${e?.code}${e?.reason ? `, ${e.reason}` : ''})`);
     S.ws = null;
     S.wsState = 'down';
     S.wsLost = true;
@@ -171,27 +195,72 @@ export function wsSend(m) {
   return true;
 }
 
+// One message and its answer of type resultT, matched by id. msg keeps its literal t at the call site: the policy
+// test reads the types from the source. With no link, or when the socket closes first, it answers { ok: false, err }.
+const waiting = new Map();
+const asked = new Set();
+let askSeq = 0;
+export function request(resultT, msg) {
+  if (!asked.has(resultT)) {
+    asked.add(resultT);
+    onMsg(resultT, (m) => {
+      const done = waiting.get(m.id);
+      waiting.delete(m.id);
+      done?.(m);
+    });
+  }
+  const id = ++askSeq;
+  return new Promise((resolve) => {
+    if (!wsSend({ ...msg, id })) return resolve({ ok: false, err: LINK_DOWN });
+    waiting.set(id, resolve);
+  });
+}
+on('wsclose', () => {
+  for (const done of waiting.values()) done({ ok: false, err: LINK_DOWN });
+  waiting.clear();
+});
+
 function handle(m) {
   switch (m.t) {
     case 'hello':
+      // This page's code is from the old build, and the new server can send messages it does not know.
+      if (buildChanged(S.version, m.version)) {
+        globalThis.location?.reload();
+        return;
+      }
+      // The prefix changed while this socket was down, so the reload message never came.
+      if (S.prefix && m.prefix && S.prefix !== m.prefix) {
+        globalThis.location?.reload();
+        return;
+      }
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
+      S.versions = m.versions || {};
       emit('helloCfg', m.cfg);
-      S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.version = m.version || '';
       S.brandColors = m.brandColors || [];
+      S.routerUid = m.routerUid || '';
+      S.installUid = m.installUid || '';
+      S.prefix = m.prefix || '';
+      S.users = m.users || [];
+      S.userNames = S.users.map((u) => u.name);
+      S.noAdministrator = !!m.noAdministrator;
+      S.notSaved = !!m.notSaved;
+      S.setup = m.setup || null;
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];
       setNames(m.srcs, m.dsts);
       S.namesAt = m.at;
+      S.namesSavedAt = m.savedAt || null;
       S.tally = new Map();
       applyTally(m.tally || []);
       S.prot = new Map();
-      applyProtect(m.protect || []);
+      applyProtect(m.protected || []);
+      applyProtectBy(m.protectBy || []);
       setStatus(m.status);
-      S.hist = m.recent || [];
+      S.hist = m.history || [];
       S.histMore = m.more;
       // A page asked for before this snapshot is for a replaced list and is ignored (takePage):
       // do not wait for it.
@@ -214,19 +283,11 @@ function handle(m) {
       emit('tallyRows', m.u);
       emit('tally');
       break;
-    case 'protect':
+    case 'protected':
       applyProtect(m.u);
+      if (m.by) applyProtectBy(m.by);
       emit('protectedRows');
       emit('tally');
-      break;
-    case 'configResult':
-      emit('configResult', m);
-      break;
-    case 'unlockResult':
-      emit('unlockResult', m);
-      break;
-    case 'locked':
-      emit('locked');
       break;
     case 'status':
       setStatus(m);
@@ -234,9 +295,12 @@ function handle(m) {
       break;
     case 'ping':
       break;
-    case 'sentPage':
+    case 'reload':
+      globalThis.location?.reload();
+      break;
+    case 'logPage':
     case 'uptimeResult':
-    case 'sentAdd':
+    case 'logAdd':
       emit(m.t, m);
       break;
     default: {
@@ -261,16 +325,22 @@ function applyTally(list) {
   }
 }
 
+// [dst, level, device, kind]; device -1 clears. A row with no kind is a Protect.
 function applyProtect(list) {
-  for (const [d, l, dev] of list) {
+  for (const [d, l, dev, kind = 1] of list) {
     let t = S.prot.get(d);
     if (dev < 0) {
       if (t) t.delete(l);
+      if (t && !t.size) S.prot.delete(d);
       continue;
     }
     if (!t) S.prot.set(d, (t = new Map()));
-    t.set(l, dev);
+    t.set(l, { dev, kind });
   }
+}
+
+function applyProtectBy(list) {
+  S.protBy = new Map(list.map((r) => [r.dst, r]));
 }
 
 function setStatus(st) {
@@ -288,20 +358,11 @@ export function connState() {
   const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
   let down = null;
   if (S.wsLost) {
-    down = {
-      title: 'Lost link: Server link down',
-      text: 'Reconnecting…',
-      links: [false, null],
-    };
+    down = { title: 'Lost link: Server link down', err: S.wsErr, links: [false, null] };
   } else if (S.wsState === 'up' && S.router === 'down' && !S.routerAddr) {
     down = { title: 'No router set', text: 'Set the router address in Settings.' };
   } else if (S.wsState === 'up' && (S.router === 'down' || (S.router === 'connecting' && S.routerLastErr))) {
-    down = {
-      title: 'Lost link: Router link down',
-      text: `Reconnecting to ${S.routerAddr}…`,
-      err: S.routerLastErr,
-      links: [true, false],
-    };
+    down = { title: 'Lost link: Router link down', err: S.routerLastErr, links: [true, false] };
   }
   // ok: both links up, the only state that Compact view is allowed to hide the status for.
   return { ws, rt: [dot, `Router ${word}`], down, ok: ws[0] === 'ok' && dot === 'ok' && !down };
@@ -313,6 +374,10 @@ export function routerTitle() {
   if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];
   return [S.routerAddr || '', false];
 }
+
+// The video router's icon in the status and the Lost link banner. Lucide's `router` is a Wi-Fi router, which the
+// SW-P-08 matrix is not. `server-nas` is copied from lucide-static 1.56.0 into the vendored sprite (owner's pick).
+export const routerIcon = () => 'server-nas';
 
 // The page starts below a fixed banner (the desktop one; the phone's has its own column):
 // publish the fixed, showing banner's height as --sode-down-h.
@@ -341,21 +406,32 @@ export function renderDown(box, c) {
   box.dataset.key = key;
   if (!c.down) return box.replaceChildren();
   const { title, text, err, links } = c.down;
-  const link = (ok) => el('span', 'sode__down-link' + (ok === false ? ' sode__down-link--lost' : ''), ok === true ? 'ok' : ok === false ? '✕ lost' : '?');
+  // links[k] is the wire into node k + 1: true ok, false lost, null unknown (past a lost link).
+  const wire = (ok) => {
+    const [tone, word] = ok === true ? ['ok', 'ok'] : ok === false ? ['error', 'lost'] : ['idle', 'unknown'];
+    return el('span', `sode__down-link sode__down-link--${tone}`, el('span', 'sode__down-word', icon(STATE_GLYPH[tone], false), word));
+  };
+  const node = (glyph, ok, ...label) =>
+    el('span', 'sode__down-node' + (ok === false ? ' sode__down-node--down' : ok === null ? ' sode__down-node--unknown' : ''), icon(glyph, false), ...label);
   box.replaceChildren(
     ...[
-      el('div', 'sode__down-title', title),
+      el('div', 'sode__down-title', icon('unplug', false), title),
       links &&
         el(
           'div',
           'sode__down-map',
-          el('span', 'sode__down-node', 'This browser'),
-          link(links[0]),
-          el('span', 'sode__down-node', 'Sode server'),
-          link(links[1]),
-          el('span', 'sode__down-node', 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
+          node('monitor', true, 'This browser'),
+          // A wire and the node it leads to wrap as one, so a line never starts with a loose wire.
+          el('span', 'sode__down-hop', wire(links[0]), node('server', links[0], 'Sode server')),
+          el(
+            'span',
+            'sode__down-hop',
+            wire(links[1]),
+            node(routerIcon(), links[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
+          ),
         ),
-      el('div', null, text, err ? el('div', null, el('code', null, err)) : null),
+      text && el('div', null, text),
+      err && el('div', 'sode__down-why', el('span', null, 'Reason'), el('code', null, err)),
     ].filter(Boolean),
   );
 }
@@ -395,22 +471,32 @@ on('conn', () => {
   for (const b of document.querySelectorAll('[data-needs-link]')) setLinkDisabled(b, !linked());
 });
 
-export function setDot(dotEl, textEl, [state, text]) {
-  dotEl.className = `pb-dot pb-dot--${state}`;
+// The Server and Router status (.sode__state, bar.css), not patchbay's square. The link's icon (base) has the state's
+// colour. A corner badge tells the state apart by its shape, also in greyscale. data-state is one of STATE_GLYPH's keys;
+// the HTML leaves it out until the first paint. label is the spoken name with the state; count shows inside the icon,
+// so it stays where the words hide. The icons are made only on a change: panel pages repaint often.
+const STATE_GLYPH = { ok: 'circle-check', warn: 'loader-circle', error: 'circle-x', idle: 'circle-minus', info: 'circle-dot' };
+export function setDot(dotEl, textEl, [state, text], { base, label = text, count = '' } = {}) {
+  if (dotEl.dataset.base !== base) {
+    dotEl.dataset.base = base;
+    delete dotEl.dataset.state;
+    dotEl.replaceChildren(icon(base, false), el('span', 'sode__state-badge'), el('span', 'sode__state-count'));
+    dotEl.removeAttribute('aria-hidden');
+    dotEl.setAttribute('role', 'img');
+  }
+  if (dotEl.dataset.state !== state) {
+    dotEl.dataset.state = state;
+    dotEl.children[1].replaceChildren(icon(STATE_GLYPH[state]));
+  }
+  if (dotEl.children[2].textContent !== count) dotEl.children[2].textContent = count;
+  if (dotEl.getAttribute('aria-label') !== label) dotEl.setAttribute('aria-label', label);
   textEl.textContent = text;
 }
 
-export const protectedLabel = (devices) => `Protected by ${devices.join(', ')}`;
-
-export function protectedOn(dst, levels) {
-  const t = S.prot.get(dst);
-  const hit = t ? levels.filter((u) => t.has(u)) : [];
-  return { levels: hit, devices: [...new Set(hit.map((u) => t.get(u)))].sort((a, b) => a - b) };
-}
-// ---- fuzzy finder (scoring in fuzzy.js)
-
+// A.23 searches 23.
 export function search(list, q, n = 8) {
-  q = q.trim().toLowerCase();
+  q = searchText(q, S.prefix, [], [S.prefix]);
+  q = q?.trim().toLowerCase();
   if (!q) return [];
   const out = [];
   for (const it of list) {

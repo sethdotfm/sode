@@ -1,4 +1,3 @@
-// Push target selection and the Push modal's wording. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -84,15 +83,9 @@ test('a set pushes to its ticked panels, or to all of its panels when none is ti
 });
 
 test('the summary names the panels and says what was kept', () => {
-  assert.equal(
-    pushSummary({ pushed: [{ panel: 'p-1' }, { panel: 'p-2' }, { panel: 'p-3' }] }, wall),
-    'Pushed to EVS 1, EVS 2 and EVS 3. A checkpoint of each was kept.',
-  );
-  assert.equal(
-    pushSummary({ pushed: [{ panel: 'p-1' }], skipped: [{ panel: 'p-x' }] }, wall),
-    'Pushed to EVS 1. A checkpoint of each was kept. Skipped p-x, which no longer exists.',
-  );
-  assert.equal(pushSummary({ pushed: [] }, wall), 'Nothing was pushed.');
+  assert.equal(pushSummary({ pushed: [{ panel: 'p-1' }, { panel: 'p-2' }, { panel: 'p-3' }] }, wall), 'Pushed to EVS 1, EVS 2 and EVS 3. Checkpoints kept.');
+  assert.equal(pushSummary({ pushed: [{ panel: 'p-1' }], skipped: [{ panel: 'p-x' }] }, wall), 'Pushed to EVS 1. Checkpoints kept. Skipped p-x (deleted).');
+  assert.equal(pushSummary({ pushed: [] }, wall), 'Nothing pushed.');
 });
 
 test('a checkpoint line gives when, who and what it holds', () => {
@@ -108,6 +101,6 @@ test('a set needs a name and at least one ticked panel', () => {
 test('a Push names each target whose artwork did not all fit', () => {
   assert.equal(
     pushSummary({ pushed: [{ panel: 'p-1', artSkipped: ['a-1', 'a-2'] }, { panel: 'p-2' }, { panel: 'p-3', artSkipped: ['a-3'] }] }, wall),
-    'Pushed to EVS 1, EVS 2 and EVS 3. A checkpoint of each was kept. 2 images did not fit under the 64 MB artwork total of EVS 1 and were left out. 1 image did not fit under the 64 MB artwork total of EVS 3 and was left out.',
+    'Pushed to EVS 1, EVS 2 and EVS 3. Checkpoints kept. 2 images of EVS 1 left out: over the 64 MB artwork total. 1 image of EVS 3 left out: over the 64 MB artwork total.',
   );
 });

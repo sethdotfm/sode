@@ -6,9 +6,21 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 )
+
+func TestHistoryBadLineHidesNothingOlder(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "h.jsonl")
+	os.WriteFile(path, []byte(`{"id":0,"src":1}`+"\n"+`{"id":1,"src":`+"\n"+`{"id":2,"src":3}`+"\n"), 0o600)
+	h, err := OpenHistory(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := h.Page(-1, 10)
+	if err != nil || len(page) != 2 || page[1].Src != 1 {
+		t.Fatalf("page %+v err %v", page, err)
+	}
+}
 
 func TestHistoryPagingAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "h.jsonl")
@@ -178,29 +190,6 @@ func TestHistoryUpdateMemoryDoesNotAlias(t *testing.T) {
 	after, _ := h.Page(-1, 1)
 	if !slices.Equal(after[0].Failed, []int{1, 3}) {
 		t.Fatalf("update lost: %+v", after[0])
-	}
-}
-
-func TestHistoryReadsOldSalvoKey(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "h.jsonl")
-	old := `{"id":0,"time":"2026-11-02T10:00:00Z","src":1,"dst":2,"ok":true,"salvo":"Show"}` + "\n"
-	if err := os.WriteFile(path, []byte(old), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	h, err := OpenHistory(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	page, err := h.Page(-1, 10)
-	if err != nil || len(page) != 1 || page[0].Preset != "Show" {
-		t.Fatalf("old key: %+v err %v", page, err)
-	}
-	if err := h.Append(&Entry{Src: 3, OK: true, Preset: "New"}); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := os.ReadFile(path)
-	if !strings.Contains(string(b), `"preset":"New"`) || strings.Count(string(b), `"salvo"`) != 1 {
-		t.Fatalf("a new entry should write preset:\n%s", b)
 	}
 }
 

@@ -1,0 +1,1 @@
+- **Preset cell icon**: the Preset cell kind and the preset category in Find now show the layers icon. The bookmark icon is kept for Bookmarks.

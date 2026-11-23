@@ -17,13 +17,6 @@ func mrLast(msgs []map[string]any, typ string) map[string]any {
 	return out
 }
 
-func mrSet(t *testing.T, a *App, edits []userEdit) {
-	t.Helper()
-	if err := a.SaveUsers(adminClient(t, a), usersReq{Users: edits}); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func mrJSON(m map[string]any) string {
 	b, _ := json.Marshal(m["rights"])
 	return string(b)
@@ -31,26 +24,31 @@ func mrJSON(m map[string]any) string {
 
 func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	a := keyTestApp(t)
-	srcs := []int{7}
-	none := []int{}
-	mrSet(t, a, []userEdit{
-		{Name: "Ana", Rights: &config.Rights{Sources: &srcs, Dsts: &none, Visibility: config.VisHidden}},
-		{Name: "Bo"},
-	})
+	srcs := *nums(7)
+	none := *nums()
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Ana", "rights"): config.Rights{Sources: &srcs, Dsts: &none, Visibility: config.VisHidden}})
 
 	guest := &client{ip: "10.0.0.7"}
 	gnext := registerAll(a, guest)
 	a.syncAccess(guest)
-	if m := mrLast(gnext(), "myRights"); m != nil {
-		t.Fatalf("guest got rights: %v", m)
+	// A guest gets the guest's Rights, never a user's; the Guest role sets the Protect right.
+	if m := mrLast(gnext(), "myRights"); m == nil || mrJSON(m) != `{"protect":false}` {
+		t.Fatalf("guest rights: %v", m)
 	}
+	editCfg(t, a, func(cfg *config.Config) { cfg.GuestRole = config.RoleTrusted })
+	a.syncAccess(guest)
+	if m := mrLast(gnext(), "myRights"); m == nil || mrJSON(m) != `{"protect":true}` {
+		t.Fatalf("Trusted user guest rights: %v", m)
+	}
+	// Under the page lock a user has only their own Rights.
+	editCfg(t, a, func(cfg *config.Config) { cfg.Locks.Main = true })
 
 	ana, anext := signedIn(t, a, "10.0.0.1", "1234")
 	m := mrLast(anext(), "myRights")
 	if m == nil {
 		t.Fatal("Ana got no myRights after sign-in")
 	}
-	if got := mrJSON(m); got != `{"dsts":[],"sources":[7],"visibility":"hidden"}` {
+	if got := mrJSON(m); got != `{"dsts":[],"protect":false,"sources":[{"n":7,"router":"`+a.r().cfg.UID+`"}],"visibility":"hidden"}` {
 		t.Fatalf("Ana's rights %s", got)
 	}
 
@@ -59,25 +57,40 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if bm == nil {
 		t.Fatal("Bo got no myRights")
 	}
-	if got := mrJSON(bm); got != `{}` {
+	if got := mrJSON(bm); got != `{"protect":false}` {
 		t.Fatalf("Bo's rights %s", got)
 	}
 
-	// An administrator's edit reaches the open page at once.
-	dsts := []int{3}
-	mrSet(t, a, []userEdit{{Name: "Ana", Rights: &config.Rights{Dsts: &dsts}}, {Name: "Bo"}})
+	dsts := *nums(3)
+	mustSave(t, a, adminClient(t, a), map[string]any{ukey(a, "Ana", "rights"): config.Rights{Dsts: &dsts}})
 	m = mrLast(anext(), "myRights")
 	if m == nil {
 		t.Fatal("no myRights after the edit")
 	}
-	if got := mrJSON(m); got != `{"dsts":[3]}` {
+	if got := mrJSON(m); got != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":false}` {
 		t.Fatalf("Ana's rights after the edit %s", got)
 	}
+	// Without it her Role is at least the Guest role, so her unset Protect right is on; her lists stay
+	// (config.Acts).
+	editCfg(t, a, func(cfg *config.Config) { cfg.Locks.Main = false })
+	if m = mrLast(anext(), "myRights"); m == nil || mrJSON(m) != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":true}` {
+		t.Fatalf("Ana's rights on a page open to guests: %v", m)
+	}
 
-	// The held Lock covers the page: the rights are cleared.
 	a.UserLock(ana)
 	m = mrLast(anext(), "myRights")
 	if m == nil || m["rights"] != nil {
 		t.Fatalf("held Lock left rights on the page: %v", m)
+	}
+}
+
+// A guest under the page lock acts as nobody, so it gets no Rights.
+func TestMyRightsSkipAGuestUnderThePageLock(t *testing.T) {
+	a := userApp(t, true)
+	guest := &client{ip: "10.0.0.7"}
+	gnext := registerAll(a, guest)
+	a.syncAccess(guest)
+	if m := mrLast(gnext(), "myRights"); m != nil && m["rights"] != nil {
+		t.Fatalf("locked guest got rights: %v", m)
 	}
 }

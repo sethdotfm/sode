@@ -8,7 +8,6 @@ import (
 	"log"
 	"maps"
 	"net/netip"
-	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -48,24 +47,11 @@ func (r *runtime) probe() []byte {
 	return swp08.ExtInterrogate(r.cfg.Matrix, r.levels[0].Wire, 0)
 }
 
-// App is all server state. A router change (applyConfig with reconnect) RESETS what
-// describes the old router:
-//   - router (*routerState: names, tally, protect, seenAt, pending broadcasts, name refresh buffers).
-//   - ext (*extTracker: burst, own, causes, leaders, late*). The pointer is the router's generation.
-//   - waiters and checks. cutRoutes fails them with "the router changed"; each keeps the
-//     extTracker it started on.
-//   - status (Router/Addr/Err set to "connecting").
-//
-// KEPT:
-//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, userPin, tokens, cfgMu,
-//     gapHook, xffWarn, fireMu, fire, lateQ (plumbing, config, PINs).
-//   - clients (get a fresh hello) and pendSent.
-//   - nameReqAt, nameRxAt, namesDirt, dumpAt (polling clock, not cleared; onRouterUp re-asks).
-//
+// App is all server state. A router change (applyConfig with reconnect) replaces router and ext, fails waiters and
+// checks (cutRoutes) and sets status to "connecting". All other state stays; clients get a new hello.
 // Fields from mu down to dumpAt are guarded by mu.
 type App struct {
-	// profMemo: marshalled profile per user for one config snapshot, so an apply marshals
-	// one time. Guarded by mu.
+	// profMemo: the marshalled profile per user for one config snapshot. Guarded by mu.
 	profMemoRT *runtime
 	profMemo   map[string]string
 
@@ -78,6 +64,7 @@ type App struct {
 	evq     chan Sent
 	txLost  atomic.Int64 // events dropped because txq or evq was full, or not saved
 	up      *Uptime
+	saves   *SaveLog
 	cfgPath string
 	rt      atomic.Pointer[runtime]
 
@@ -97,16 +84,17 @@ type App struct {
 	// Take timers; only tests shorten them (shortTimers).
 	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration
 
-	// Writes from browser messages; Run waits up to drainLimit for them (shutdown.go).
+	// Run waits up to drainLimit for them (shutdown.go).
 	writes     inflight
+	checkMu    sync.Mutex // one Broken check at a time
 	drainLimit time.Duration
 
-	// Idle sweep (idle.go): the clock and the sweep period; tests change both (lock_idle_test.go).
+	// idle.go; tests change both (lock_idle_test.go).
 	now       func() time.Time
 	idleEvery time.Duration
 	idleAt    time.Time
 
-	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
+	lateQ chan lateJob // to lateWorker; nil = amend in line (tests). Set by Run before the router link starts, then fixed.
 
 	nameReqAt  time.Time
 	sessionsAt time.Time
@@ -114,47 +102,81 @@ type App struct {
 	namesDirt  bool
 	dumpAt     time.Time
 
-	pin         pinPool
-	userPin     pinPool
-	tokens      *tokenStore
-	keys        *keyStore
-	public      publicKeys
-	panels      *panelStore
-	templates   *templateStore
-	artDefaults *artDefaultStore
-	icons       *iconLib
-	mon         *panelMon
-	cfgMu       sync.Mutex
+	userPins map[string]*pinPool // by user id; "" for names that match no user
+	// pinFirstWait: the first wait after wrong user PINs; tests shorten it.
+	pinFirstWait time.Duration
+	recheckFor   time.Duration // how long a PIN recheck holds; tests shorten it
+	// approvalrequest.go: pending requests by requester, under mu. Tests shorten the wait.
+	asks         map[*client]*approvalRequest
+	askSeq       int
+	approvalWait time.Duration
+	tokens       *tokenStore
+	keys         *keyStore
+	public       publicKeys
+	panels       *panelStore
+	templates    *templateStore
+	artDefaults  *artDefaultStore
+	icons        *iconLib
+	mon          *panelMon
+	cfgMu        sync.Mutex
+	// promoted: token keys the last commit turned from tab to ordinary. catchUpSessions gives them to their pages.
+	// Under mu.
+	promoted map[string]bool
+	setup    setupHold // the browser that runs setup (setup.go). Under cfgMu.
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
 	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
+	// fireHolder: what holds fireMu now, for the wait in the next fire's lock row. Guarded by mu.
+	fireHolder string
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 
-	apiS apiState // REST throttles (apiauth.go)
+	apiS apiState // apiauth.go
 
-	streams map[*apiStream]struct{} // attached API streams (apistream.go), guarded by mu
+	streams map[*apiStream]struct{} // apistream.go, guarded by mu
 
 	tallyCache tallyBody // apireads.go, guarded by mu
 	namesCache namesBody // apireads.go, guarded by mu
+
+	names *namesStore // namestable.go
+
+	inbox *inboxStore // inbox.go
+
+	protects  *protectStore          // protect.go: Sode's record of the Protects it set
+	protWaits map[*protWait]struct{} // guarded by mu
+	protMu    sync.Mutex             // one Protect set or clear at a time
+	// inboxTTL: how long a card waits before it expires; tests shorten it. inboxAt: the last sweep.
+	inboxTTL time.Duration
+	inboxAt  time.Time
 }
 
-// routerState is replaced as a whole on a router change. Guarded by App.mu.
+// Replaced as a whole on a router change. Guarded by App.mu.
 type routerState struct {
 	srcNames map[int]string
 	dstNames map[int]string
-	tally    map[int]map[int]int // dst → UI level → src (-1 = nothing routed)
-	protect  map[int]map[int]int
-	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
-	tallyGen int                  // bumped on every tally change; keys App.tallyCache
-	namesGen int                  // bumped on every change to the names or namesAt; keys App.namesCache
+	tally    map[int]map[int]int           // dst → UI level → src (-1 = nothing routed)
+	protect  map[int]map[int]protHold      // dst → UI level → the device and kind (protect.go)
+	protSeen map[[2]int]bool               // dst, UI level → the router has reported its Protect state (protext.go)
+	protExt  map[protExtKey]*protExtLevels // Protect changes another system made, until the burst ends (protext.go)
+	protAt   [2]time.Time                  // the protExt burst's first and last change
+	seenAt   map[[2]int]time.Time          // dst, UI level → when the router last reported its route
+	tallyGen int                           // bumped on every tally change; keys App.tallyCache
+	namesGen int                           // bumped on every change to the names or namesAt; keys App.namesCache
 	pend     []routeChange
-	pendProt []routeChange
+	pendProt []protChange
 
-	// Refresh replies fill fresh maps swapped in when they stop, so deleted names disappear.
+	// Replies to a name read fill new maps that Sode swaps in when they stop, so deleted names go.
 	newSrc, newDst map[int]string
 	namesAt        time.Time
+	// savedAt: the names came from the saved names table at start and no read has finished yet.
+	savedAt time.Time
+	// lastPoll: the last full read the Broken check counted (brokencheck.go); at start the saved names table.
+	lastPoll  *namePoll
+	faultSeen bool // the last full read was ignored as a router fault; logged one time per run
+	// renamedTo: per side (0 sources, 1 destinations), an old name in lower case to the name at its number.
+	// A Broken exact filter term names it (Missing.Now).
+	renamedTo [2]map[string]string
 }
 
 func (rs *routerState) name(dst bool, n int) string {
@@ -169,7 +191,9 @@ func newRouterState() *routerState {
 		srcNames: map[int]string{},
 		dstNames: map[int]string{},
 		tally:    map[int]map[int]int{},
-		protect:  map[int]map[int]int{},
+		protect:  map[int]map[int]protHold{},
+		protSeen: map[[2]int]bool{},
+		protExt:  map[protExtKey]*protExtLevels{},
 		seenAt:   map[[2]int]time.Time{},
 	}
 }
@@ -182,8 +206,11 @@ type statusMsg struct {
 }
 
 func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug bool) (*App, error) {
+	cfg = cfg.Clone()
+	cfg.Normalize() // every user has an id from here on; the caller saved any it filled
 	panels := loadPanels(cfgPath)
 	dropOrphanPanelClients(&cfg, panels)
+	dropOwnerless(&cfg)
 	r, err := newRuntime(cfg)
 	if err != nil {
 		return nil, err
@@ -210,9 +237,10 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		drainLimit:   defaultDrainLimit,
 		now:          time.Now,
 		idleEvery:    defaultIdleEvery,
-		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
+		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Address},
 	}
-	a.pin, a.userPin = settingsPool(), userPool()
+	a.userPins, a.pinFirstWait, a.recheckFor = map[string]*pinPool{}, pinFirstWait, recheckFor
+	a.asks, a.approvalWait = map[*client]*approvalRequest{}, defaultApprovalWait
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
 	a.keys = loadKeys(cfgPath)
@@ -222,12 +250,22 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.icons = loadIconLib(cfgPath)
 	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
+	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
+	a.protects, a.protWaits = loadProtects(cfgPath), map[*protWait]struct{}{}
+	a.names = newNamesStore(cfgPath)
+	a.sweepStages()
+	if t, ok := a.names.load(cfg.UID); ok {
+		a.router.srcNames, a.router.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
+		a.router.savedAt = t.At
+		a.router.lastPoll = &namePoll{maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)}
+	}
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
 	}
 	a.up, _ = openUptime("", time.Now)
+	a.saves, _ = OpenSaveLog("")
 	a.rt.Store(r)
-	a.sw = swp08.NewClient(cfg.Router, r.probe())
+	a.sw = swp08.NewClient(cfg.Address, r.probe())
 	a.sw.Debug = debug
 	a.sw.OnUp = a.onRouterUp
 	a.sw.OnMsg = a.onRouterMsg
@@ -248,20 +286,19 @@ var background = map[swp08.Reason]bool{swp08.ReasonResync: true, swp08.ReasonNam
 
 func (a *App) r() *runtime { return a.rt.Load() }
 
-// Run ends when ctx does, after the writes in flight finish (up to drainLimit). The router
-// link, logSent and uptime run on their own context so those writes keep them meanwhile.
+// The router link, logSent and uptime run on their own context, so the writes in flight at the end can still use them.
 func (a *App) Run(ctx context.Context) {
 	start := event(kindServer, "", "", "start")
 	start.Err = a.r().cfg.UnknownKeysProblem() // Err files it under Problems
 	a.logEvent(start)
 	link, cut := context.WithCancel(context.WithoutCancel(ctx))
+	a.lateQ = make(chan lateJob, 64)
 	go a.sw.Run(link)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() { defer wg.Done(); a.logSent(link) }()
 	go func() { defer wg.Done(); a.up.Run(link) }()
 	defer func() { cut(); wg.Wait(); a.up.Stop() }()
-	a.lateQ = make(chan lateJob, 64)
 	go a.lateWorker(link)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
@@ -284,6 +321,7 @@ func (a *App) Run(ctx context.Context) {
 		case <-t.C:
 			a.flush()
 			a.flushExt()
+			a.flushProtExt()
 			a.periodic()
 		}
 	}
@@ -303,9 +341,16 @@ func (a *App) periodic() {
 	if idle {
 		a.idleAt = a.now()
 	}
+	inbox := a.now().Sub(a.inboxAt) >= inboxSweepEvery
+	if inbox {
+		a.inboxAt = a.now()
+	}
 	a.mu.Unlock()
 	if sessions {
 		a.touchSessions()
+	}
+	if inbox {
+		a.inboxSweep()
 	}
 	if idle {
 		a.idleSweep()
@@ -313,6 +358,7 @@ func (a *App) periodic() {
 	a.expireKeys(time.Now())
 	a.monSweep()
 	a.flushAuthFails(time.Now())
+	a.apiS.idemSweep(time.Now())
 	if !up {
 		return
 	}
@@ -328,18 +374,6 @@ func (a *App) onRouterUp() {
 	a.RefreshNames()
 	a.requestDumps()
 	go a.clearStaleSalvo()
-}
-
-func (a *App) RefreshNames() {
-	r := a.r()
-	a.mu.Lock()
-	a.router.newSrc, a.router.newDst = map[int]string{}, map[int]string{}
-	a.nameReqAt = time.Now()
-	a.mu.Unlock()
-	ext := r.cfg.NameRequests == "ext"
-	for _, dest := range []bool{false, true} {
-		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode), swp08.ReasonNames)
-	}
 }
 
 func (a *App) requestDumps() {
@@ -361,15 +395,19 @@ func (a *App) send(m []byte, reason swp08.Reason) {
 
 func (a *App) SetUptime(u *Uptime) { a.up = u }
 
+func (a *App) SetSettingsSaves(l *SaveLog) {
+	l.Reanchor(a.sent.Next(), a.sent.Oldest())
+	a.saves = l
+}
+
 func (a *App) onRouterState(s swp08.State, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.up.State(s == swp08.StateUp)
 	a.logLink(s, err)
 	a.status.Router = string(s)
-	a.status.Addr = a.r().cfg.Router
-	// Retrying keeps the last error so a browser loading mid-retry sees the router as
-	// lost; Up clears it.
+	a.status.Addr = a.r().cfg.Address
+	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
 	if s != swp08.StateConnecting {
 		a.status.Err = ""
 	}
@@ -379,7 +417,7 @@ func (a *App) onRouterState(s swp08.State, err error) {
 	a.broadcast(a.status)
 }
 
-// logLink logs up/down one time each, not every retry unless the error changes. Caller holds mu.
+// A retry is logged only when the error changes. Caller holds mu.
 func (a *App) logLink(s swp08.State, err error) {
 	why := ""
 	if err != nil {
@@ -394,7 +432,7 @@ func (a *App) logLink(s swp08.State, err error) {
 		return
 	}
 	e := event(kindLink, "", "", a.linkSeen)
-	e.Err, e.Note = a.linkErr, a.r().cfg.Router
+	e.Err, e.Note = a.linkErr, a.r().cfg.Address
 	a.logEvent(e)
 }
 
@@ -410,7 +448,7 @@ func (a *App) onRouterMsg(msg []byte) {
 		a.applyTally(r, xp)
 	}
 	for _, p := range ev.Protects {
-		a.applyProtect(r, p)
+		a.applyProtect(r, p, ev.Cmd != swp08.CmdExtProtectTally && ev.Cmd != swp08.CmdExtProtectDump)
 	}
 	if nb := ev.Names; nb != nil {
 		a.applyNames(nb)
@@ -442,8 +480,8 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 		t[l.UI] = xp.Src
 		a.router.tallyGen++
 		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
-		// A changed route not announced shows up in a dump or interrogate: noted too,
-		// unless ours.
+		// A dump or an interrogate shows a route change that the router did not announce. Sode notes it too, unless
+		// it is Sode's own.
 		switch a.classify(xp, l.UI, known) {
 		case verdictExt:
 			a.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
@@ -451,8 +489,9 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 			a.sawOwn(xp)
 		}
 	} else if xp.Changed() && a.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
-		// Our route already cached from a tally: a native salvo's Connected after the
-		// interrogate answer (fire.go) uses its key up.
+		// A tally already cached Sode's own route: the Connected of a native salvo came after the interrogate answer
+		// (fire.go).
+		// This uses up its key.
 		a.sawOwn(xp)
 	}
 	for w := range a.waiters {
@@ -465,8 +504,8 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 	}
 }
 
-// Caller holds mu.
-func (a *App) applyProtect(r *runtime, p swp08.Protect) {
+// announced: a 0x8D or 0x8F, not an answer to a re-read. Caller holds mu.
+func (a *App) applyProtect(r *runtime, p swp08.Protect, announced bool) {
 	if p.Matrix != r.cfg.Matrix {
 		return
 	}
@@ -474,58 +513,62 @@ func (a *App) applyProtect(r *runtime, p swp08.Protect) {
 	if !ok {
 		return
 	}
-	dev := -1
-	if p.Protected {
-		dev = p.Device
+	h := protHold{dev: p.Device, kind: p.Kind}
+	for w := range a.protWaits {
+		if w.dst == p.Dst {
+			w.see(l.UI, h, p.Protected)
+		}
 	}
 	t := a.router.protect[p.Dst]
 	old, had := t[l.UI]
-	if dev < 0 {
+	k := [2]int{p.Dst, l.UI}
+	known := a.router.protSeen[k]
+	a.router.protSeen[k] = true
+	if !p.Protected {
 		if !had {
 			return
 		}
 		delete(t, l.UI)
-	} else {
-		if had && old == dev {
-			return
-		}
-		if t == nil {
-			t = map[int]int{}
-			a.router.protect[p.Dst] = t
-		}
-		t[l.UI] = dev
+		a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, -1, 0})
+		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
+		return
 	}
-	a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
+	if had && old == h {
+		return
+	}
+	if had {
+		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
+	}
+	a.noteProtect(r, p.Dst, l.UI, h, true, known, announced)
+	if t == nil {
+		t = map[int]protHold{}
+		a.router.protect[p.Dst] = t
+	}
+	t[l.UI] = h
+	a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, h.dev, h.kind})
 }
-
-// Caller holds mu.
-func (a *App) applyNames(nb *swp08.NameBlock) {
-	m := a.router.srcNames
-	if a.router.newSrc != nil {
-		m = a.router.newSrc
-	}
-	if nb.Dest {
-		m = a.router.dstNames
-		if a.router.newDst != nil {
-			m = a.router.newDst
-		}
-	}
-	for i, n := range nb.Names {
-		m[nb.First+i] = n
-	}
-	a.router.namesGen++
-	a.nameRxAt = time.Now()
-	if a.router.newSrc == nil {
-		a.namesDirt = true
-	}
-}
-
-const (
-	namesQuiet   = 300 * time.Millisecond // refresh is done when names stop for this long
-	namesTimeout = 10 * time.Second
-)
 
 func (a *App) flush() {
+	var save, check func()
+	defer func() { // runs after mu is released: no disk work under mu
+		if save != nil {
+			save()
+		}
+		if check == nil {
+			return
+		}
+		// Off the tick: the check waits for cfgMu, which a save holds across a PBKDF2 hash.
+		run := func() {
+			a.checkMu.Lock()
+			defer a.checkMu.Unlock()
+			check()
+		}
+		if done, ok := a.writes.start("brokenCheck"); ok {
+			go func() { defer done(); run() }()
+		} else {
+			run()
+		}
+	}()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if len(a.router.pend) > 0 {
@@ -533,83 +576,18 @@ func (a *App) flush() {
 		a.router.pend = nil
 	}
 	if len(a.router.pendProt) > 0 {
-		a.broadcast(deltaMsg{T: "protect", U: a.router.pendProt})
+		a.broadcast(protectMsg{T: "protected", U: a.router.pendProt, By: a.protectByList(a.r())})
 		a.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
 		a.broadcastSent(a.pendSent)
 		a.pendSent = nil
 	}
-
-	if a.router.newSrc != nil {
-		got := a.nameRxAt.After(a.nameReqAt)
-		if (got && time.Since(a.nameRxAt) > namesQuiet) || time.Since(a.nameReqAt) > namesTimeout {
-			changed := false
-			// A side with no replies keeps its old names.
-			if next := refreshed(a.router.srcNames, a.router.newSrc); next != nil {
-				a.router.srcNames, changed = next, true
-			}
-			if next := refreshed(a.router.dstNames, a.router.newDst); next != nil {
-				a.router.dstNames, changed = next, true
-			}
-			a.router.newSrc, a.router.newDst = nil, nil
-			if got {
-				a.router.namesAt = time.Now()
-			}
-			a.router.namesGen++
-			if changed {
-				log.Printf("names: %d sources, %d destinations", len(a.router.srcNames), len(a.router.dstNames))
-				a.namesDirt = true
-			} else {
-				a.broadcast(namesCheckedMsg{T: "namesChecked", At: a.router.namesAt})
-			}
-		}
-	}
-	if a.namesDirt && time.Since(a.nameRxAt) > namesQuiet {
-		a.namesDirt = false
-		a.broadcast(a.namesMsg())
-	}
+	save, check = a.namesTickMu()
 }
 
-// refreshed returns the names after a refresh, nil to keep old. A refresh cut short holds
-// only part of the list, so a smaller one is laid over the old names.
-func refreshed(old, got map[int]string) map[int]string {
-	if len(got) == 0 {
-		return nil
-	}
-	if len(got) < len(old) {
-		got = maps.Clone(got)
-		for k, v := range old {
-			if _, ok := got[k]; !ok {
-				got[k] = v
-			}
-		}
-	}
-	if maps.Equal(got, old) {
-		return nil
-	}
-	return got
-}
-
-func (a *App) namesMsg() namesMsg {
-	return namesMsg{T: "names", Srcs: sorted(a.router.srcNames), Dsts: sorted(a.router.dstNames), At: a.router.namesAt}
-}
-
-func sorted(m map[int]string) [][2]any {
-	keys := make([]int, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Ints(keys)
-	out := make([][2]any, len(keys))
-	for i, k := range keys {
-		out[i] = [2]any{k, m[k]}
-	}
-	return out
-}
-
-// routeTriples is m as [[dst, level, value], ...]. A hello on a 2500 by 750 router holds 12750
-// of them. One marshal call for each cost more than the rest of the hello.
+// [[dst, level, value], ...]. A hello on a 2500 by 750 router holds 12750 of them.
+// One marshal call for each cost more than all other parts of the hello.
 func routeTriples(m map[int]map[int]int) json.RawMessage {
 	b := make([]byte, 0, 2+16*len(m))
 	b = append(b, '[')
@@ -647,17 +625,22 @@ func (a *App) readHello() helloPage {
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
-	// No user directory in a hello (reaches locked pages): names ride the lock state, the
-	// editor asks usersList.
+	// A hello reaches pages under a lock: no users in it (AGENTS.md).
 	cfg := r.cfg
+	users := make([]helloUser, 0, len(cfg.Users))
+	for _, u := range cfg.Users {
+		users = append(users, helloUser{u.Name, u.Len})
+	}
 	cfg.Users = nil
 	m := helloMsg{
-		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At,
-		Tally: routeTriples(a.router.tally), Protect: routeTriples(a.router.protect),
+		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: a.router.savedAt,
+		Tally: routeTriples(a.router.tally), Protect: protectRows(a.router.protect), ProtectBy: a.protectByList(r),
 		Status: a.status, Recent: p.recent, More: p.more,
-		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg,
-		PinSet: r.cfg.SettingsPin != "", ConfigPath: a.cfgPath, Version: BuildLabel(),
-		BrandColors: config.BrandColors,
+		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
+		ConfigPath: a.cfgPath, Version: BuildLabel(),
+		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
+		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),
+		NotSaved: a.cfgPath == "", Setup: a.setupHelloFor(r.cfg),
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -679,7 +662,7 @@ func (a *App) broadcast(v any) {
 	a.streamFan(v)
 }
 
-// deliver drops b if the browser cannot keep up. Caller holds mu.
+// Drops b if the browser cannot keep up. Caller holds mu.
 func (a *App) deliver(c *client, b []byte) {
 	if c.api != nil && c.api.sink != nil {
 		c.api.sink(b)
@@ -705,12 +688,14 @@ func (a *App) reply(c *client, v any) {
 }
 
 func (a *App) record(e *Entry) {
+	cfg := a.r().cfg
+	e.Router, e.RouterTitle = cfg.UID, cfg.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	log.Print(e.logLine(a.r().cfg.NumberOffset))
+	log.Print(e.logLine(cfg.NumberOffset))
 	a.mu.Lock()
-	a.broadcast(recentMsg{T: "recent", E: e})
+	a.broadcast(recentMsg{T: "entry", E: e})
 	a.mu.Unlock()
 }
 

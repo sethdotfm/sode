@@ -40,6 +40,7 @@ test('built-in defaults match the old behaviour', () => {
     stackGap: '30',
     nextMode: 'number',
     compact: 'off',
+    paletteChar: '>',
   });
 });
 

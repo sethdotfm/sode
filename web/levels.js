@@ -39,7 +39,7 @@ export function parseLevelsAs(text, mode, max) {
   return out.size ? [...out].sort((x, y) => x - y) : null;
 }
 
-// These take levels ({ui} from the hello, {level} from /api/v1) and the Level numbering as arguments.
+// These get levels ({ui} from the hello, {level} from /api/v1) and the Level numbering as arguments.
 // A page with no socket can use them.
 const uiOf = (l) => l.ui ?? l.level;
 
@@ -104,3 +104,7 @@ export function levelStyle(l) {
   if (l.color) return { color: l.color, ink: inkFor(l.color) };
   return { color: `var(--pb-signal-${l.swatch})`, ink: null };
 }
+
+// The desktop main page shows its Levels box only when some router has more than one level. counts: each router's
+// levels setting. With no counts yet (before the hello), the box shows, as it did before this rule.
+export const levelsBoxShown = (counts) => !counts.length || counts.some((n) => n > 1);

@@ -1,0 +1,4 @@
+- Set and free a Protect on every level of a destination from Sode. Use the shield in the route view (desktop and phone), or `x` and Shift+x in Keyboard mode. The API has `POST` and `DELETE /api/v1/protected/{dst}` with the new `protect` scope. Each one goes through the Confirm and is a History entry, and Undo works on Sode's own Protects. Set Sode's device number in Settings > Routers > Protects first.
+- Sode shows the kind of each hold: "Protected by you", "Protected by Ana in Sode", "Protected by another system (device 112)" or "Router lock by another system (device 9)". `/api/v1/protected` rows add `kind`, `device` and, for Sode's own, `sodeUser`.
+- A new Protect right in Rights, on by default for Trusted users and Administrators. Freeing another user's Protect needs an Administrator or an Approval.
+- Settings > Routers > Protects lists every Protect and Router lock, and Free Sode's Protects frees every Protect with Sode's device number after a PIN recheck.

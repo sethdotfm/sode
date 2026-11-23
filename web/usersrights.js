@@ -3,17 +3,18 @@
 // rightsrules.accessReq. A factory that gets hooks, so nothing imports users.js back.
 
 import { el, S } from './core.js';
-import { SCOPES } from './apirules.js';
 import { entryKeys, newEntry, pickValid } from './rightsrules.js';
 import { check, field, opt } from './formbits.js';
 
 const LISTS = [
-  { kind: 'sources', title: 'Sources', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
-  { kind: 'dsts', title: 'Destinations', hint: 'Numbers as shown, with ranges: 1-8, 12.' },
-  { kind: 'levels', title: 'Levels', hint: 'Level numbers start at 1, whatever the router calls its levels.' },
-  { kind: 'presets', title: 'Presets', hint: 'One preset name per line.', area: true },
+  { kind: 'sources', title: 'Sources', example: () => '1-8, 12' },
+  { kind: 'dsts', title: 'Destinations', example: () => '1-8, 12' },
+  { kind: 'levels', title: 'Levels', example: () => `1-${S.levels.length || 8}` },
+  { kind: 'presets', title: 'Presets', hint: "One name per line (Everyone or the user's Me presets)", area: true },
 ];
 const off = () => S.cfg?.numberOffset ?? 0;
+// Rights name presets by id. The Everyone presets, and a user's own Me presets, give the names to type.
+const presets = () => S.cfg?.presets || [];
 
 const select = (id, options) => {
   const s = el('select', 'pb-select');
@@ -32,8 +33,7 @@ export function makeRightsTab({ users, clients, touched }) {
   const node = el('div', null, el('div', 'sode__rights-pick', selectField('rights-pick', 'Rights for', pickSel)), body);
 
   const entryOf = (key) => {
-    if (!entries.has(key))
-      entries.set(key, newEntry(undefined, off(), key === 'guest' ? { scopes: [] } : key.startsWith('user:') ? { noAutoLock: false } : {}));
+    if (!entries.has(key)) entries.set(key, newEntry(undefined, off(), key.startsWith('user:') ? { noAutoLock: !!S.cfg?.newUserDefaults?.noAutoLock } : {}));
     return entries.get(key);
   };
   const keys = () => entryKeys(users(), clients());
@@ -51,7 +51,7 @@ export function makeRightsTab({ users, clients, touched }) {
           .find((c) => String(c.rid) === rid)
           ?.name.trim() || '(new client)'
       }`;
-    return 'Guest (a signed-out browser, and an API call with no key)';
+    return 'Guest';
   };
 
   function draw() {
@@ -70,6 +70,7 @@ export function makeRightsTab({ users, clients, touched }) {
       if (l.area) text.rows = 3;
       text.value = d.text;
       text.spellcheck = false;
+      if (l.example) text.placeholder = l.example();
       text.disabled = d.all;
       text.setAttribute('aria-label', `${l.title} allowed`);
       mode.addEventListener('change', () => {
@@ -88,26 +89,28 @@ export function makeRightsTab({ users, clients, touched }) {
           'sode__rights-list',
           el('div', 'sode__rights-head', Object.assign(el('label', null, l.title), { htmlFor: mode.id }), el('span', 'pb-select-wrap', mode)),
           text,
-          el('span', 'sode__hint', l.hint),
+          ...(l.hint ? [el('span', 'sode__hint', l.hint)] : []),
         ),
       );
     }
-    const vis = select('rights-visibility', [opt('readonly', 'Read-only'), opt('hidden', 'Hidden')]);
+    const vis = select('rights-visibility', [opt('readonly', 'Read-only'), opt('hidden', 'Hidden from the API')]);
     vis.value = e.draft.visibility;
     vis.addEventListener('change', () => {
       e.draft.visibility = vis.value;
       dirty('rights');
     });
-    parts.push(
-      selectField(
-        'rights-visibility',
-        'Visibility',
-        vis,
-        'Read-only shows everything and refuses commands outside these lists. Hidden also removes what is outside them from what this actor sees over the API. Browsers always see everything.',
-      ),
-    );
+    parts.push(selectField('rights-visibility', 'Visibility', vis));
+    // The Protect right: set and free Sode's Protects on the destinations above. Unset follows a user's Role or the
+    // Guest role (GuestActs on the server); an API client has no Role, so unset is off.
+    const unsetText = { user: 'From the Role (on for a Trusted user)', guest: 'From the Guest role (on for Trusted user)' };
+    const prot = select('rights-protect', [opt('', unsetText[kind] || 'No'), opt('yes', 'Yes'), ...(unsetText[kind] ? [opt('no', 'No')] : [])]);
+    prot.value = e.draft.protect;
+    prot.addEventListener('change', () => {
+      e.draft.protect = prot.value;
+      dirty('rights');
+    });
+    parts.push(selectField('rights-protect', 'Protect', prot, "Set and free Sode's Protects"));
     if (kind === 'user') parts.push(flagBox(e, dirty));
-    if (kind === 'guest') parts.push(scopeBoxes(e, dirty));
     body.replaceChildren(el('h3', 'sode__profiles-h', titleOf(pick)), ...parts);
   }
 
@@ -122,30 +125,7 @@ export function makeRightsTab({ users, clients, touched }) {
           dirty('noAutoLock');
         },
       }).label,
-      el('span', 'sode__hint', 'Auto-lock skips this user. The Lock button still works for them.'),
     );
-  const scopeBoxes = (e, dirty) =>
-    el(
-      'div',
-      'sode__field',
-      el('span', 'sode__field-label', 'Guest API scopes'),
-      el(
-        'div',
-        'sode__scopes',
-        ...SCOPES.map(
-          (s) =>
-            check(s.text, {
-              checked: e.draft.scopes.includes(s.id),
-              onChange: (v) => {
-                e.draft.scopes = SCOPES.map((x) => x.id).filter((id) => (id === s.id ? v : e.draft.scopes.includes(id)));
-                dirty('scopes');
-              },
-            }).label,
-        ),
-      ),
-      el('span', 'sode__hint', 'What an API call with no key can use, when Guest API is on in Settings.'),
-    );
-
   // Names and rows change under the tab: rebuild the list, keep the pick if its row is still there.
   function refresh() {
     const ks = keys();
@@ -167,14 +147,20 @@ export function makeRightsTab({ users, clients, touched }) {
       refresh();
     },
     reset: () => entries.clear(),
+    setNoAutoLock(rid, v) {
+      const e = entryOf(`user:${rid}`);
+      e.draft.noAutoLock = v;
+      e.dirty.add('noAutoLock');
+      if (pick === `user:${rid}`) draw();
+    },
     adoptUser(rid, u) {
-      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }));
+      entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, [...presets(), ...(u.presets || [])]));
     },
     adoptClient(rid, c) {
-      entries.set(`client:${rid}`, newEntry(c.rights || {}, off()));
+      entries.set(`client:${rid}`, newEntry(c.rights || {}, off(), {}, presets()));
     },
-    adoptGuest(rights, scopes) {
-      entries.set('guest', newEntry(rights || {}, off(), { scopes: scopes || [] }));
+    adoptGuest(rights) {
+      entries.set('guest', newEntry(rights || {}, off(), {}, presets()));
     },
     read: () => entries,
   };

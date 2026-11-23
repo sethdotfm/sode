@@ -5,81 +5,81 @@ import (
 	"testing"
 )
 
-// Connection states the matrix runs every rule against. Terms follow the Go code: a guest
-// is nobody signed in on an app with the locks off.
+// Connection states the matrix runs every rule against. A Guest is nobody signed in on an
+// app with the locks off.
 const (
-	stNoAccess = iota // locks on, nobody signed in
-	stGuest           // locks off, nobody signed in
-	stSignedIn        // Ana, untrusted
-	stTrusted         // Ana, trusted
-	stLocked          // Ana signed in, then the held Lock
-	stPin             // Advanced Settings PIN entered, nobody signed in, locks on
-	stPinAna          // PIN entered and Ana signed in
+	stNoAccess     = iota // locks on, nobody signed in
+	stGuest               // locks off, nobody signed in, Guest role Standard user
+	stGuestTrusted        // the same with Guest role Trusted user
+	stStandard            // Ana, a Standard user
+	stTrusted             // Ana, a Trusted user
+	stAdmin               // Ada, an Administrator
+	stLocked              // Ada signed in, then the held Lock
+	stNoUsers             // no users: every browser acts as an Administrator
+	stNoPin               // Cy, a PIN needed Administrator: acts as a Standard user
 	nStates
 )
 
-var stateNames = [nStates]string{"noAccess", "guest", "signedIn", "trusted", "locked", "pin", "pinAna"}
-
-func stateClient(t *testing.T, st int) (*App, *client) {
-	t.Helper()
-	a := userApp(t, st != stGuest)
-	c := &client{ip: "10.0.0.1"}
-	if st == stTrusted {
-		setFlags(t, a, "Ana", true, false)
-	}
-	switch st {
-	case stSignedIn, stTrusted, stLocked, stPinAna:
-		if err := a.UserUnlock(c, "1234"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if st == stLocked {
-		a.UserLock(c)
-	}
-	if st == stPin || st == stPinAna {
-		if err := a.Unlock(c, "2468"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return a, c
-}
+var stateNames = [nStates]string{"noAccess", "guest", "guestTrusted", "standard", "trusted", "administrator", "locked", "noUsers", "noPin"}
 
 var (
-	pl, lk = errPageLocked, errLocked
+	pl = errPageLocked
+	ro = roleErr{} // any Role refusal
 	// per-state results, in state order
-	openRule    = [nStates]error{nil, nil, nil, nil, nil, nil, nil}
-	mainRule    = [nStates]error{pl, nil, nil, nil, pl, pl, nil}
-	trustedRule = [nStates]error{lk, lk, lk, nil, pl, nil, nil}
-	adminRule   = [nStates]error{lk, lk, lk, lk, pl, nil, nil}
-	// needMain is checked before needAdmin, so the page lock shows first
-	mainAdminRule = [nStates]error{pl, lk, lk, lk, pl, pl, nil}
-	selfRule      = [nStates]error{lk, lk, nil, nil, pl, nil, nil}
-	otherRule     = [nStates]error{lk, lk, lk, nil, pl, nil, nil}
+	openRule    = [nStates]error{nil, nil, nil, nil, nil, nil, nil, nil, nil}
+	mainRule    = [nStates]error{pl, nil, nil, nil, nil, nil, pl, nil, nil}
+	trustedRule = [nStates]error{pl, ro, nil, ro, nil, nil, pl, nil, ro}
+	adminRule   = [nStates]error{pl, ro, ro, ro, ro, nil, pl, nil, ro}
+	selfRule    = [nStates]error{pl, ro, nil, nil, nil, nil, pl, nil, ro}
+	// a Standard user's rule without the main lock
+	standardRule = [nStates]error{pl, nil, nil, nil, nil, nil, pl, nil, nil}
 )
 
 // One row per policy rule. A rule added to or removed from the table fails until its row
 // follows. profileSave runs with Name "Ana" here; the Name branches are below.
 var policyExpect = map[string][nStates]error{
-	"hi": openRule, "userUnlock": openRule, "userLock": openRule, "userSignOut": openRule,
-	"userSetPin": openRule, "unlock": openRule, "lock": openRule, "history": openRule,
+	"hi": openRule, "userSignIn": openRule, "userLock": openRule, "userSignOut": openRule,
+	"userSetPin": openRule, "history": openRule, "pinRecheck": openRule,
+	"stepIn": openRule, "stepOut": openRule,
+	"approvalAsk": openRule, "approvalAnswer": openRule, "approvalCancel": openRule, "approvalCards": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
-	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,
+	"myClients": openRule, "myClientSave": openRule, "myClientDelete": openRule, "myClientKey": openRule, "myClientKeyRevoke": openRule,
+	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule, "browserCopy": openRule,
+	// a signed-in user only, checked in the handlers (inboxlife_test.go)
+	"inboxList": openRule, "inboxSend": openRule, "inboxReview": openRule, "inboxAccept": openRule,
+	"inboxDecline": openRule, "inboxWithdraw": openRule,
+	// the handler also needs a signed-in user; the export routes check the Role (exportitems_test.go)
+	"exportSession": standardRule,
+	// the handlers refuse after setup; while setup is pending see TestSetupWizardAdmitsOnlySetupMessages
+	"setupClaim": openRule, "setupRouter": openRule, "setupRestoreKey": openRule, "setupFinish": openRule,
 
-	"batch": mainRule, "refreshNames": mainRule, "sent": mainRule, "uptime": mainRule,
-	"clearHistory": mainAdminRule,
+	"take": mainRule, "rereadNames": mainRule, "log": mainRule, "uptime": mainRule,
+	// the Protect right and the owner of the Protect are checked in the handlers (protect_test.go)
+	"protectSet": mainRule, "protectClear": mainRule,
 
-	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule,
+	"settingsSave": standardRule, "settingsReview": standardRule,
+	// everyone's list needs an Administrator and swapMine a signed-in user, checked in the handlers (swap_test.go)
+	"swapList": standardRule, "swapMine": standardRule,
+	// everyone's count needs an Administrator, checked in the handler (brokencount_test.go)
+	"brokenCount": standardRule,
+	// the handler lists by the panel page lock and the reach of the sign-in (palette_test.go)
+	"palettePanels": openRule,
+
+	"config": trustedRule, "filterSets": trustedRule, "presets": trustedRule, "bookmarks": trustedRule,
 	"profileGet": trustedRule, "profileSave": selfRule,
 
-	"configExport": adminRule, "configImportBegin": adminRule, "configImport": adminRule,
-	"userSignOutAll": adminRule, "usersList": adminRule, "users": adminRule,
-	"apiSettings": adminRule, "keyListAll": adminRule, "keyCreateFor": adminRule,
+	"clearHistory": adminRule, "protectClearAll": adminRule,
+	"userSignOutAll": adminRule, "usersList": adminRule,
+	"keyListAll": adminRule, "keyCreateFor": adminRule,
 	"keyRevokeAny": adminRule, "keyRevokeAll": adminRule,
 }
 
 func sameRefusal(got, want error) bool {
-	if want == nil {
+	switch {
+	case want == nil:
 		return got == nil
+	case want == ro:
+		return isRoleErr(got)
 	}
 	return errors.Is(got, want)
 }
@@ -114,8 +114,8 @@ func TestPolicyMatrix(t *testing.T) {
 	}
 }
 
-// The branches that depend on the message body: config turns admin-only when it sets or
-// clears the PIN. profileSave passes for the signed-in user's own name.
+// The branches that depend on the message body: profileSave passes for the signed-in user's
+// own name.
 func TestPolicyMatrixMessageBranches(t *testing.T) {
 	for _, r := range []struct {
 		name string
@@ -123,10 +123,8 @@ func TestPolicyMatrixMessageBranches(t *testing.T) {
 		want [nStates]error
 	}{
 		{"config plain", inMsg{T: "config"}, trustedRule},
-		{"config sets PIN", inMsg{T: "config", Pin: "9999"}, adminRule},
-		{"config clears PIN", inMsg{T: "config", ClearPin: true}, adminRule},
 		{"profileSave own", inMsg{T: "profileSave", Name: "Ana"}, selfRule},
-		{"profileSave other", inMsg{T: "profileSave", Name: "Bo"}, otherRule},
+		{"profileSave other", inMsg{T: "profileSave", Name: "Bo"}, trustedRule},
 	} {
 		for st := range nStates {
 			t.Run(r.name+"/"+stateNames[st], func(t *testing.T) {

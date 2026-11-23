@@ -6,7 +6,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A Default artwork of an item a Grid panel shows reaches the panel read, so its ETag moves and an open page sees it.
 func TestGridDefaultArtworkChangeMovesTheETag(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -36,13 +35,12 @@ func TestGridDefaultArtworkChangeMovesTheETag(t *testing.T) {
 	}
 }
 
-// A destination default shows only when the destination edge shows the item.
 func TestGridDefaultArtworkFollowsTheEdge(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	id := makeGridPanel(t, a, ana, "G")
 	body := `{"name":"G","destinations":{"members":[3]}}`
-	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, gridBody(t, body)); rec.Code != 200 {
 		t.Fatalf("PUT: %d %s", rec.Code, rec.Body.String())
 	}
 	for _, n := range []int{3, 4} {
@@ -56,13 +54,12 @@ func TestGridDefaultArtworkFollowsTheEdge(t *testing.T) {
 	}
 }
 
-// An item keeps its own Icon A and Icon B.
 func TestGridItemStoresIconB(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	id := makeGridPanel(t, a, ana, "G")
 	body := `{"name":"G","sources":{"members":[1,2],"items":{"1":{"art":"icon:mic","artB":"A"},"2":{"artB":"7"}}}}`
-	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, gridBody(t, body)); rec.Code != 200 {
 		t.Fatalf("PUT: %d %s", rec.Code, rec.Body.String())
 	}
 	want := `{"items":{"1":{"art":"icon:mic","artB":"A"},"2":{"artB":"7"}},"members":[1,2]}`
@@ -71,14 +68,13 @@ func TestGridItemStoresIconB(t *testing.T) {
 	}
 }
 
-// Hide text is true, false (shows the name against a Default artwork that hides it) or absent (follows the default),
-// as on a cell. All three survive a save and a restart.
+// Hide text: true, false (shows the name against a Default artwork that hides it) or absent (follows the default).
 func TestGridItemKeepsHideTextAllThreeWays(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	id := makeGridPanel(t, a, ana, "G")
 	body := `{"name":"G","sources":{"members":[1,2,3],"items":{"1":{"art":"icon:mic","hideText":true},"2":{"art":"icon:mic","hideText":false},"3":{"art":"icon:mic"}}}}`
-	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body); rec.Code != 200 {
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, gridBody(t, body)); rec.Code != 200 {
 		t.Fatalf("PUT: %d %s", rec.Code, rec.Body.String())
 	}
 	want := `{"items":{"1":{"art":"icon:mic","hideText":true},"2":{"art":"icon:mic","hideText":false},"3":{"art":"icon:mic"}},"members":[1,2,3]}`

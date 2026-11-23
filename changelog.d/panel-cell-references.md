@@ -1,0 +1,1 @@
+- Buttons panel cells and templates keep the router and the router's name for each source and destination. A Preset cell keeps working when you rename its preset.

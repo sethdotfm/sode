@@ -1,4 +1,3 @@
-// The corner grip's rules (gridmodel.js dragRect, editorrules.js gripTip) and what the Live Editor shows (liveCells).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGrid, select, extendPlan, dragRect, liveCells } from '../gridmodel.js';

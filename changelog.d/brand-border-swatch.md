@@ -1,0 +1,1 @@
+- Page border color: choosing Custom shows a color swatch with a paintbrush. A click on the swatch opens the picker there, not at the list.

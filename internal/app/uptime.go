@@ -6,14 +6,17 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
-// uptimeKeep: older lines are dropped at start; older ranges show no data.
-const uptimeKeep = 400 * 24 * time.Hour
+// uptimeKeep: prune drops older lines, so older ranges show no data. The byte cap is in savelog.go.
+const uptimeKeep = keepAge
 
 // slowAckMs: ACK time above which a message is slow (yellow in the graph); under the
 // client's 1 s ACK timeout.
@@ -63,8 +66,10 @@ type Uptime struct {
 	now   func() time.Time
 	trans []UptimeTrans
 	mins  []minute // completed minutes with problems, oldest first
-	cur   minute   // the minute being counted
-	pend  []byte   // lines not yet in the file
+	cur   minute
+	pend  []byte // lines not yet in the file
+	size  int    // bytes
+	cap   int
 }
 
 func OpenUptime(path string) (*Uptime, error) {
@@ -72,7 +77,11 @@ func OpenUptime(path string) (*Uptime, error) {
 }
 
 func openUptime(path string, now func() time.Time) (*Uptime, error) {
-	u := &Uptime{path: path, now: now}
+	return openUptimeCap(path, now, keepBytes)
+}
+
+func openUptimeCap(path string, now func() time.Time, capBytes int) (*Uptime, error) {
+	u := &Uptime{path: path, now: now, cap: capBytes}
 	t := now()
 	if path != "" {
 		f, err := os.Open(path)
@@ -130,7 +139,7 @@ func alivePath(path string) string { return path + ".alive" }
 // prune keeps the last transition before the cutoff: the state the oldest kept range
 // starts in.
 func (u *Uptime) prune(now time.Time) {
-	cut := now.Add(-uptimeKeep).UnixMilli()
+	cut := max(now.Add(-uptimeKeep).UnixMilli(), u.sizeCut())
 	i := sort.Search(len(u.trans), func(i int) bool { return u.trans[i].T > cut })
 	if i > 1 {
 		u.trans = u.trans[i-1:]
@@ -139,7 +148,43 @@ func (u *Uptime) prune(now time.Time) {
 	u.mins = u.mins[j:]
 }
 
-func (u *Uptime) rewrite() error {
+// sizeCut: the time before which lines go so the file keeps under cap, with room for the kept
+// state line. Caller holds mu or owns u.
+func (u *Uptime) sizeCut() int64 {
+	type line struct {
+		t int64
+		n int
+	}
+	var ls []line
+	for _, t := range u.trans {
+		l, _ := json.Marshal(uptimeLine{T: t.T, S: t.S})
+		ls = append(ls, line{t.T, len(l) + 1})
+	}
+	for _, m := range u.mins {
+		l, _ := json.Marshal(uptimeLine{M: m.M, Bad: m.Bad, Slow: m.Slow})
+		ls = append(ls, line{m.M * 60_000, len(l) + 1})
+	}
+	sort.Slice(ls, func(i, j int) bool { return ls[i].t > ls[j].t })
+	total := 0
+	for _, l := range ls {
+		total += l.n
+	}
+	if total <= u.cap {
+		return 0
+	}
+	room := lowWater(u.cap)
+	for _, l := range ls {
+		if room -= l.n; room < 0 {
+			return l.t
+		}
+	}
+	return 0
+}
+
+func (u *Uptime) rewrite() error { return config.AtomicWrite(u.path, u.lines()) }
+
+// Caller holds mu or owns u.
+func (u *Uptime) lines() []byte {
 	var b []byte
 	for _, t := range u.trans {
 		l, _ := json.Marshal(uptimeLine{T: t.T, S: t.S})
@@ -149,19 +194,12 @@ func (u *Uptime) rewrite() error {
 		l, _ := json.Marshal(uptimeLine{M: m.M, Bad: m.Bad, Slow: m.Slow})
 		b = append(append(b, l...), '\n')
 	}
-	return replaceFile(u.path, b)
-}
-
-func replaceFile(path string, b []byte) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	u.size = len(b)
+	return b
 }
 
 func (u *Uptime) writeAlive() {
-	if err := replaceFile(alivePath(u.path), []byte(u.now().UTC().Format(time.RFC3339Nano))); err != nil {
+	if err := config.AtomicWrite(alivePath(u.path), []byte(u.now().UTC().Format(time.RFC3339Nano))); err != nil {
 		log.Printf("uptime: %v", err)
 	}
 }
@@ -225,18 +263,22 @@ func (u *Uptime) flush(final ...bool) {
 	u.roll(len(final) > 0 && final[0])
 	b := u.pend
 	u.pend = nil
-	u.mu.Unlock()
 	if len(b) == 0 || u.path == "" {
+		u.mu.Unlock()
 		return
 	}
-	f, err := os.OpenFile(u.path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
-	if err == nil {
-		_, err = f.Write(b)
-		if cerr := f.Close(); err == nil {
-			err = cerr
+	u.size += len(b)
+	if u.size > u.cap { // disk is written outside mu, so State and Note never wait on it
+		u.prune(u.now())
+		all := u.lines()
+		u.mu.Unlock()
+		if err := config.AtomicWrite(u.path, all); err != nil {
+			log.Printf("uptime: not saved: %v", err)
 		}
+		return
 	}
-	if err != nil {
+	u.mu.Unlock()
+	if err := appendFile(u.path, b); err != nil {
 		log.Printf("uptime: not saved: %v", err)
 	}
 }
@@ -262,6 +304,18 @@ func (u *Uptime) Run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// Record: every state change and every minute with bad or slow messages, oldest first. The
+// minute in progress is in it when it has a count.
+func (u *Uptime) Record() ([]UptimeTrans, []minute) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	mins := slices.Clone(u.mins)
+	if u.cur.Bad > 0 || u.cur.Slow > 0 {
+		mins = append(mins, u.cur)
+	}
+	return slices.Clone(u.trans), mins
 }
 
 func (u *Uptime) Range(from, to, slot int64) UptimeRange {

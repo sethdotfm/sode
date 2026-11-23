@@ -55,15 +55,17 @@ SODE_ROUTER=127.0.0.1:8910 go run ./cmd/sode         # server on :8080
 
 Sode serves plain HTTP, so put your own TLS proxy in front. Behind a proxy, set `trustedProxies` so history shows real client IPs.
 
+A main page or panel page that a device opened once also opens while Sode is down, and it connects when Sode comes back. This uses a service worker, which a browser runs only on a secure origin: `localhost`, or HTTPS through your TLS proxy. Over plain HTTP on a LAN address, a page opened before Sode is up shows the browser's own error page.
+
 ## Configuration
 
-You change settings in the page, with the **Settings** button at the bottom. Sode stores them in `/data/config.yaml` and applies a save immediately. On first start, with no config file yet, Sode seeds the file from `SODE_*` variables such as `SODE_ROUTER`. After that the file wins.
+You change settings in the page, with the **Settings** button at the bottom. Sode stores them in `/data/config.yaml` and applies a save immediately. On first start, with no config file yet, Sode opens a setup wizard: name and colour, your Administrator user, the router and an Access preset. `SODE_*` variables such as `SODE_ROUTER` fill its fields. Finish writes the file, and after that the file wins.
 
-A few process settings stay in the environment. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true`, which hex-dumps all SW-P-08 traffic.
+A few process settings stay in the environment. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_COMMLOG` (`/data/sent.jsonl`), `SODE_COMMLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true`, which hex-dumps all SW-P-08 traffic. `SODE_SETTINGS_SAVES` (`/data/settings-saves.jsonl`) holds the Settings saves record.
 
 The Icon library lives beside the config: `/data/icons.yaml` and the `/data/icons/` directory. To back it up or move it, copy both with `config.yaml`. To add many icons in one step, put SVG and PNG files in `/data/icons/drop-in/`. Sode adds them at start and when a Trusted user presses **Rescan**. See [docs/reference.md](docs/reference.md#icon-library-files).
 
-If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -reset-pin && docker compose restart sode`.
+If no Administrator knows their PIN, run `docker compose exec sode /sode -make-administrator "NAME" && docker compose restart sode`. It asks for a new PIN and makes that user an Administrator. See [docs/reference.md](docs/reference.md#no-administrator).
 
 ## More documentation
 

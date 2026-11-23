@@ -1,4 +1,4 @@
-// Auto on narrow touch screens, per-browser override, else the global default. index.html applies the same rule before first paint.
+// Auto on narrow touch screens, per-browser override, else the global default. Keep in step with prepaint.js, which applies the same rule before first paint.
 
 import { on } from './core.js';
 import { pref } from './device.js';

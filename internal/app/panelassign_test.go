@@ -11,13 +11,11 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST and stream seam for Assign: a held instance stream, a trusted user or the PIN, a target that acts as an API client.
+// REST and stream seam for Assign: a held instance stream, a Trusted user, a target that acts as an API client.
 
-const assignTarget = `{"name":"Studio B","acts":"api","clientRights":{"sources":[1,2],"dsts":[2]},"settings":{"mode":"take","fixedDests":[2]}}`
+const assignTarget = `{"name":"Studio B","acts":"api","clientRights":{"sources":[{"n":1},{"n":2}],"dsts":[{"n":2}]},"settings":{"mode":"take","fixedDests":[{"n":2}]}}`
 
 // assignHold holds an instance stream like the panel page and hands back every line after the first.
 func assignHold(t *testing.T, a *App, id, key, device string) <-chan map[string]any {
@@ -61,8 +59,6 @@ func instanceKey(t *testing.T, a *App, panel, key, name string) string {
 	return apiBody(t, rec)["key"].(string)
 }
 
-// A panel's own key does not read a panel that is not shared with everyone, even one of its owner's. It does not read
-// the people list for the Share picker.
 func TestPanelKeyReadsNoPrivatePanel(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
@@ -122,7 +118,7 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 	// The key is the target's client, so it carries the target's rights and reaches only it.
 	key, _ := msg["key"].(string)
 	got := panelOf(t, a, to, key)
-	if fmt.Sprint(got["rights"].(map[string]any)["dsts"]) != "[2]" {
+	if fmt.Sprint(wireNs(got["rights"].(map[string]any)["dsts"])) != "[2]" {
 		t.Fatalf("rights %v", got["rights"])
 	}
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+from, key, ""); rec.Code != 404 {
@@ -131,12 +127,11 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+to+"/keys", cy, ""); !strings.Contains(rec.Body.String(), `"name":"Lobby"`) {
 		t.Fatalf("keys: %s", rec.Body.String())
 	}
-	// The old key stays, and the target panel itself is not written.
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+from, lobbyKey, ""); rec.Code != 200 {
 		t.Fatalf("the old key ended: %d", rec.Code)
 	}
 	after := panelOf(t, a, to, cy)
-	if after["rev"] != before["rev"] || fmt.Sprint(after["settings"].(map[string]any)["fixedDests"]) != "[2]" || after["acts"] != "api" {
+	if after["rev"] != before["rev"] || fmt.Sprint(wireNs(after["settings"].(map[string]any)["fixedDests"])) != "[2]" || after["acts"] != "api" {
 		t.Fatalf("the target changed: %v -> %v", before, after)
 	}
 
@@ -148,7 +143,7 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 	}
 
 	row := lastRow(t, a, "assign")
-	if !strings.Contains(row.By, "Cy") || !strings.Contains(row.Note, "Lobby") || !strings.Contains(row.Note, "studio-a") || !strings.Contains(row.Note, "Studio B") {
+	if !strings.Contains(row.By, "Cy") || !strings.Contains(row.Note, "Lobby") || !strings.Contains(row.Note, "studio-a") || !strings.Contains(row.Note, "Studio B") || !strings.Contains(row.Note, "at 127.0.0.1") {
 		t.Fatalf("row %+v", row)
 	}
 	if strings.Contains(row.Note, key) {
@@ -181,8 +176,6 @@ func TestAssignSendsTheKeyToTheNewestStreamOfADeviceOnly(t *testing.T) {
 	}
 }
 
-// A key whose line no stream wrote is revoked and the Assign fails: the stream closed with the line still queued,
-// or its write failed.
 func TestAssignFailsAndDropsTheKeyWhenNoStreamWroteTheLine(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -235,7 +228,7 @@ func TestAssignFailsAndDropsTheKeyWhenNoStreamWroteTheLine(t *testing.T) {
 }
 
 func openTestStream(a *App, from string, cancel context.CancelFunc) (string, func(), <-chan lastLine) {
-	done, out, _, err := a.mon.openStream(from, "Lobby", streamWho{addr: "192.0.2.7", signIn: "client"}, cancel)
+	done, out, _, err := a.mon.openStream(from, "Lobby", "", streamWho{addr: "192.0.2.7", signIn: "client"}, cancel)
 	if err != nil {
 		panic(err)
 	}
@@ -243,11 +236,11 @@ func openTestStream(a *App, from string, cancel context.CancelFunc) (string, fun
 }
 
 func openTestKeyless(a *App, from string, cancel context.CancelFunc) (string, func(), <-chan lastLine) {
-	done, out := a.mon.openKeyless(from, "192.0.2.7", "Lobby", false, cancel)
+	done, out, _, _ := a.mon.openKeyless(from, "192.0.2.7", "Lobby", false, cancel)
 	return `{"keyless":"` + a.mon.keylessOf(Panel{ID: from})[0].Keyless + `"}`, sync.OnceFunc(done), out
 }
 
-func TestAssignNeedsATrustedUserOrThePin(t *testing.T) {
+func TestAssignNeedsATrustedUser(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	from := makePanel(t, a, ana, `{"name":"Studio A"}`)
@@ -256,20 +249,12 @@ func TestAssignNeedsATrustedUserOrThePin(t *testing.T) {
 	assignHold(t, a, from, ana, "Lobby")
 
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "")), 403, "trusted_required")
-	h, err := config.HashPin("9999")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := a.r().cfg
-	cfg.SettingsPin = h
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "1111")), 403, "trusted_required")
-	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "9999")); rec.Code != 200 {
-		t.Fatalf("with the PIN: %d %s", rec.Code, rec.Body.String())
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, assignBody(from, "Lobby", "9999")), 403, "trusted_required")
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")); rec.Code != 200 {
+		t.Fatalf("Trusted user: %d %s", rec.Code, rec.Body.String())
 	}
-	// A panel's own key cannot assign, even with the PIN.
+	// A panel's own key is not allowed to assign, even with the PIN.
 	client := instanceKey(t, a, to, cy, "Desk")
 	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", client, assignBody(from, "Lobby", "9999")); rec.Code != 403 {
 		t.Fatalf("a panel key assigned: %d %s", rec.Code, rec.Body.String())
@@ -337,7 +322,6 @@ func TestAssignNameClashAnswersASuggestionAndTakesTheChosenName(t *testing.T) {
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+to, held, ""); rec.Code != 200 {
 		t.Fatalf("the held key ended: %d", rec.Code)
 	}
-	// A chosen name that clashes too is answered the same way.
 	rec = apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignAs(from, "Lobby", "LOBBY 2"))
 	wantErr(t, rec, 409, "name_taken")
 	if got := suggestOf(t, rec); got != "LOBBY 3" {
@@ -531,7 +515,6 @@ func TestATimedOutInstanceIsListedButCannotBeAssigned(t *testing.T) {
 	}
 }
 
-// assignLine waits for the instance's assign line.
 func assignLineOf(t *testing.T, ch <-chan map[string]any) map[string]any {
 	t.Helper()
 	select {
@@ -543,13 +526,12 @@ func assignLineOf(t *testing.T, ch <-chan map[string]any) map[string]any {
 	return nil
 }
 
-// A panel that acts as a user gets no key: the device opens it and shows its own sign-in.
 func TestAssignToAUserModePanelMakesNoKey(t *testing.T) {
 	a := panelsApp(t)
 	defer startLog(t, a)()
 	cy := userKey(t, a, "Cy")
 	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
-	to := makePanel(t, a, cy, `{"name":"Desk","slug":"desk","settings":{"mode":"take","fixedDests":[2]}}`)
+	to := makePanel(t, a, cy, `{"name":"Desk","slug":"desk","settings":{"mode":"take","fixedDests":[{"n":2}]}}`)
 	lobby := assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
 	before, keys := panelOf(t, a, to, cy), len(a.keys.list())
 
@@ -565,7 +547,7 @@ func TestAssignToAUserModePanelMakesNoKey(t *testing.T) {
 		t.Fatalf("keys %d -> %d", keys, n)
 	}
 	after := panelOf(t, a, to, cy)
-	if after["rev"] != before["rev"] || after["acts"] != "session" || fmt.Sprint(after["settings"].(map[string]any)["fixedDests"]) != "[2]" {
+	if after["rev"] != before["rev"] || after["acts"] != "session" || fmt.Sprint(wireNs(after["settings"].(map[string]any)["fixedDests"])) != "[2]" {
 		t.Fatalf("the target changed: %v -> %v", before, after)
 	}
 	if row := lastRow(t, a, "assign"); !strings.Contains(row.Note, "Desk") || !strings.Contains(row.Note, "sign-in") {
@@ -573,7 +555,6 @@ func TestAssignToAUserModePanelMakesNoKey(t *testing.T) {
 	}
 }
 
-// A panel that acts as both gives a key unless the Assign asks for the sign-in.
 func TestAssignToABothPanelHonoursTheChoice(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
@@ -607,7 +588,7 @@ func TestAssignToABothPanelHonoursTheChoice(t *testing.T) {
 func TestAssignSendsNoKeyDownAStreamWhoseKeyEnded(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
-	from := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	from := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	to := makePanel(t, a, cy, assignTarget)
 	lines := assignHold(t, a, from, publicKeyOf(t, a, from), "Wall")
 	a.endPublicKeys(from)

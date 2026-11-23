@@ -1,13 +1,11 @@
-// Pick mode for History (the preset editor's "Add from History..."): rows get check boxes, a bar says what the next click does.
-// "Include external follow entries" also adds changes made right after (probably following the take).
-// Mode 'boxes' ("Add from Patch Boxes...") uses the same bar and state but keeps the patch boxes live: Add turns the patch into a row, Done ends it.
-// Each layout asks picking()/pickBox() while building rows, redraws on 'pick' and calls bindPick(list) one time.
-import { el, on, emit, S } from './core.js';
+// Pick mode for History (the preset editor's "Add from History..."): rows get check boxes, and a bar says what Add does.
+// Mode 'boxes' is the same bar for the Add from Patch Boxes session (presetadd.js); the patch boxes stay live.
+// Each layout asks picking()/pickBox() while it builds rows, redraws on 'pick' and calls bindPick(list) one time.
+import { el, on, emit, S, icon } from './core.js';
 import { histRows } from './history.js';
+import { presetAdd } from './presetadd.js';
 
-// ---- pure
-
-// Keys: 'e<id>' (a take, follower, merged row's newest) and 'f<group>' (a folder: all its takes).
+// Keys: 'e<id>' (an entry, or a stacked row's newest) and 'f<group>' (a Group: all its entries).
 export function indexRows(rows) {
   const m = new Map();
   const one = (e) => m.set(`e${e.id}`, { entries: [e], follows: e.follows || [] });
@@ -27,7 +25,7 @@ export function indexRows(rows) {
   return m;
 }
 
-// Picked keys as takes, oldest first, each entry one time; ok(e): a real source and an existing level.
+// Picked keys as routes, oldest first, each entry one time; ok(e): a real source and an existing level.
 export function pickedEntries(index, keys, withFollows, ok = () => true) {
   const seen = new Map();
   for (const k of keys) {
@@ -42,15 +40,12 @@ export function pickedEntries(index, keys, withFollows, ok = () => true) {
     .map((e) => ({ src: e.src, dst: e.dst, levels: [...e.levels] }));
 }
 
-// ---- the two modes
-
-const plural = (n) => `${n} take${n === 1 ? '' : 's'}`;
-// count/addText/canAdd accept the state and, in History, the takes ticked now (taken), worked out one time per redraw.
+const plural = (n) => `${n} route${n === 1 ? '' : 's'}`;
+// count/addText/canAdd get the state and, in History, the routes ticked now (taken), worked out one time per redraw.
 export const MODES = {
   history: {
-    msg: (name) => `Choose takes for ${name}`,
-    sub: 'Click takes or Groups in History to select them.',
-    aria: 'Choose takes from History',
+    msg: (s) => `Choose entries for ${s.label ? `“${s.label}”` : 'the preset'}`,
+    aria: 'Choose entries from History',
     follows: true,
     cancelText: 'Cancel',
     taken: (s) => pickedNow(s),
@@ -64,30 +59,24 @@ export const MODES = {
     // Esc always cancels.
     escCancels: () => true,
   },
+  // The preset editor's Add from Patch Boxes (presetadd.js): the bar shows while the session is active.
   boxes: {
-    msg: (name) => `Add patches to ${name}`,
+    msg: () => `Add patches to ${presetAdd.label()}`,
     sub: 'Fill Source, Destination and Levels in the boxes, then Add (Enter).',
     aria: 'Add patches from the patch boxes',
     follows: false,
     cancelText: 'Done',
-    count: (s) => s.note,
-    addText: () => 'Add',
-    canAdd: () => true,
-    add(s) {
-      s.note = s.onAddPatch();
-      update();
-    },
+    // The patch boxes' Take reads Add in this mode (desktop.js, mobile.js), so the bar has no Add of its own.
+    addShown: false,
+    count: () => presetAdd.note(),
     // Esc still clears a box or closes its list first.
     escCancels: (e) => !(e.target instanceof HTMLInputElement && (e.target.value || e.target.getAttribute('aria-expanded') === 'true')),
   },
 };
 
-// ---- state
-
-// { mode, label, onAdd(takes), onAddPatch(): note, onCancel(), picked: Set of keys, follows, ok, note }
+// { mode, label, ok(e), onAdd(takes), onCancel(), picked: Set of keys, follows }
 let st = null;
 export const picking = () => st?.mode === 'history';
-export const boxPicking = () => st?.mode === 'boxes';
 export const isPicked = (key) => !!st?.picked.has(key);
 
 const pickedNow = (s) => pickedEntries(indexRows(histRows(S.hist)), s.picked, s.follows, s.ok);
@@ -99,14 +88,14 @@ export function togglePick(key) {
   update();
 }
 
-// opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() };
-// mode 'boxes': { label, onAddPatch() (adds the boxes' patch, returns a line
-// to show), onCancel() (Done) }.
+// opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() }. Mode 'boxes' starts from the session.
 export function startPick(opts) {
   if (st) return;
   st = { mode: 'history', ...opts, picked: new Set(), follows: false, note: '' };
   followsIn.checked = false;
   document.documentElement.dataset.sodePick = st.mode === 'boxes' ? 'boxes' : '';
+  const chip = document.querySelector('.sode-lock__who');
+  if (chip) chipSize?.observe(chip);
   update();
 }
 
@@ -119,11 +108,14 @@ function finish(fn) {
   fn?.(s);
 }
 export const endPick = () => finish(null);
-const cancel = () => finish((s) => s.onCancel?.());
-export const addPatch = () => st?.mode === 'boxes' && MODES.boxes.add(st);
+// Done in the boxes mode ends the session, and the session's event ends the bar.
+const cancel = () => (st?.mode === 'boxes' ? presetAdd.done() : finish((s) => s.onCancel?.()));
+on('presetAdd', () => {
+  if (presetAdd.active() && !st) startPick({ mode: 'boxes' });
+  else if (!presetAdd.active() && st?.mode === 'boxes') finish(null);
+  else if (st?.mode === 'boxes') update();
+});
 const add = () => st && MODES[st.mode].add(st);
-
-// ---- the bar
 
 const msg = el('strong', 'sode__pickbar-msg');
 const sub = el('span', 'sode__pickbar-sub');
@@ -131,19 +123,24 @@ const count = el('span', 'sode__hint');
 count.setAttribute('role', 'status');
 const followsIn = el('input', 'pb-check__input');
 followsIn.type = 'checkbox';
-const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include external follow entries'));
-followsBox.title = 'Also add Externals made right after a chosen take, which probably followed it';
+const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include External follow entries'));
+followsBox.setAttribute('data-pb-tip', "Adds each chosen entry's External follow entries");
 const addBtn = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Add');
 addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
 cancelBtn.type = 'button';
-const controls = el('div', 'sode__pickbar-controls', followsBox, count, addBtn, cancelBtn);
+// The bar covers the page's top bar and its Grid button, so it has its own (gridpopup.js opens on 'gridOpen').
+const gridBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__pickbar-grid', icon('sode-grid'), 'Switch to grid view');
+gridBtn.type = 'button';
+gridBtn.addEventListener('mousedown', (e) => e.preventDefault());
+gridBtn.addEventListener('click', () => emit('gridOpen'));
+const controls = el('div', 'sode__pickbar-controls', followsBox, count, addBtn, gridBtn, cancelBtn);
 const bar = el('div', 'sode__pickbar', el('div', 'sode__pickbar-title', msg, sub), controls);
 bar.setAttribute('role', 'region');
-bar.setAttribute('aria-label', 'Choose takes from History');
+bar.setAttribute('aria-label', 'Choose entries from History');
 bar.hidden = true;
 document.body.append(bar);
-// The phone makes the bar a row of its view (mobile.js).
+// The phone makes the bar a row of its view (mobilehistory.js).
 export const pickBar = bar;
 
 followsIn.addEventListener('change', () => {
@@ -160,33 +157,48 @@ function update() {
   if (st) {
     const m = MODES[st.mode];
     const t = m.taken?.(st) || [];
-    msg.textContent = m.msg(st.label ? `“${st.label}”` : 'the preset');
-    sub.textContent = m.sub;
+    msg.textContent = m.msg(st);
+    sub.textContent = m.sub || '';
     bar.setAttribute('aria-label', m.aria);
     followsBox.hidden = !m.follows;
     cancelBtn.textContent = m.cancelText;
     clearChip();
     count.textContent = m.count(st, t);
-    addBtn.textContent = m.addText(st, t);
-    addBtn.disabled = !m.canAdd(st, t);
+    addBtn.hidden = m.addShown === false;
+    if (!addBtn.hidden) {
+      addBtn.textContent = m.addText(st, t);
+      addBtn.disabled = !m.canAdd(st, t);
+    }
+    gridBtn.hidden = st.mode !== 'boxes';
   }
   emit('pick');
 }
 
+// The title starts at the page content's left edge and Done ends at its right edge, as the boxes below them. The lock
+// chip at the left can push the title further in.
 function clearChip() {
   const chip = document.querySelector('.sode-lock__who');
   const r = chip && !chip.hidden ? chip.getBoundingClientRect() : null;
-  bar.style.paddingLeft = r && r.width ? `${Math.ceil(r.right) + 16}px` : '';
+  const page = document.documentElement.dataset.layout === 'phone' ? null : document.getElementById('patch-view')?.getBoundingClientRect();
+  const left = page?.width ? Math.floor(page.left) : 0;
+  const past = r && r.width ? `${Math.ceil(r.right)}px + var(--pb-space-7)` : '0px';
+  bar.style.paddingLeft = left || (r && r.width) ? `max(var(--pb-space-6), ${left}px, ${past})` : '';
+  const right = page?.width ? Math.floor(bar.getBoundingClientRect().right - page.right) : 0;
+  bar.style.paddingRight = right > 0 ? `max(var(--pb-space-6), ${right}px)` : '';
 }
 globalThis.addEventListener?.('resize', () => {
   if (st) clearChip();
 });
+// The chip moves when the Lock goes and grows on a sign-in, both while the bar can show.
+document.addEventListener('transitionend', (e) => st && e.target.closest?.('.sode-lock__who') && clearChip());
+const chipSize = globalThis.ResizeObserver ? new ResizeObserver(() => st && clearChip()) : null;
 
 document.addEventListener(
   'keydown',
   (e) => {
     if (!st || e.key !== 'Escape') return;
-    if (!MODES[st.mode].escCancels(e)) return;
+    // While the Grid popup covers the bar, Esc closes the popup only (gridpopup.js).
+    if (presetAdd.covered() || !MODES[st.mode].escCancels(e)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     cancel();
@@ -196,8 +208,6 @@ document.addEventListener(
 on('locking', () => cancel());
 on('wsclose', () => cancel());
 
-// ---- for the layouts
-
 export function pickBox(key) {
   const i = el('input', 'pb-check__input');
   i.type = 'checkbox';
@@ -206,7 +216,7 @@ export function pickBox(key) {
   return el('label', 'pb-check sode__pickbox', i, el('span', 'pb-check__label', 'Add'));
 }
 
-// A click ticks a take or folder, whatever it hit, except the "N takes" disclosure, which still opens a folder.
+// A click ticks an entry or a Group, whatever it hit. The exception is the "N takes" disclosure, which still opens the Group.
 export function bindPick(list) {
   list.addEventListener(
     'click',

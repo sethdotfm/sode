@@ -1,4 +1,6 @@
-// The lock screen's pure rules. No imports, so Node tests them.
+// The lock screen's pure rules. No DOM, so Node tests them.
+
+import { stepInUsers } from './stepinrules.js';
 
 // maxLen: the configured longest PIN (0 = none given, 12 is the hard limit).
 export const padCap = (lens, maxLen = 0) => Math.min(Math.max(...lens, 0), maxLen > 0 ? maxLen : 12);
@@ -30,9 +32,7 @@ export function groupActor(entries, users) {
   return who.size === 1 ? [...who][0] : '';
 }
 
-// The History row's "by Ana on panel Lobby Wall, instance Front desk". An API take by a user's key names the user
-// through its actor, since its client text carries the key name. x is an entry or a Group ({entries}), which
-// shows only what all its takes share; '' when there is nothing to show.
+// browserOf: the original user or the address, for a take made while stepped in.
 export function byText(x, users) {
   const list = x.entries || [x];
   const shared = (f) => {
@@ -40,10 +40,11 @@ export function byText(x, users) {
     return all.size === 1 ? [...all][0] : '';
   };
   const name = shared((e) => actorUser(e.actor?.kind === 'user' ? e.actor.name : e.client, users));
+  const of = name ? shared((e) => e.browserOf || '') : '';
   const panel = shared((e) => e.panel || '');
   const instance = panel ? shared((e) => e.instance || '') : '';
   const where = panel ? `on panel ${panel}${instance ? `, instance ${instance}` : ''}` : '';
-  return [name && `by ${name}`, where].filter(Boolean).join(' ');
+  return [name && `by ${name}${of ? ` (browser of ${of})` : ''}`, where].filter(Boolean).join(' ');
 }
 
 export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastActive >= minutes * 60_000;
@@ -65,33 +66,6 @@ export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enfor
 // counts it locked, so it sends no names; a held Lock and the idle letter Lock still apply.
 export const pinFreeView = (m, pinFree) => (pinFree ? { enforced: false, locked: !!m.held } : { enforced: !!m.enforced, locked: !!m.locked });
 
-// Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
-// step.
-const GUARDED = [
-  'router',
-  'matrix',
-  'levels',
-  'levelWireOffset',
-  'nameLength',
-  'nameRequests',
-  'fireMode',
-  'salvoGroup',
-  'pinMaxTries',
-  'autoLockMinutes',
-  'requireHttps',
-];
-export const guardedEdited = (next, cur) =>
-  !!cur &&
-  (GUARDED.some((k) => next[k] !== cur[k]) ||
-    !!next.locks?.main !== !!cur.locks?.main ||
-    !!next.locks?.log !== !!cur.locks?.log ||
-    !!next.locks?.panel !== !!cur.locks?.panel ||
-    (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
-
-// A low-risk settings save asks for the settings PIN first, except on a trusted user's
-// connection. The server decides; this only hides the prompt.
-export const needsPin = (pinSet, unlocked, trusted) => !!pinSet && !unlocked && !trusted;
-
 export function pageType(pathname) {
   if (/\/log(\.html)?\/?$/.test(pathname)) return 'log';
   // The panels page, the editor and a panel itself share one lock.
@@ -99,7 +73,6 @@ export function pageType(pathname) {
   return 'main';
 }
 
-// Puts box `to` over box `from`: translate its centre, scale its width.
 export function liftFrom(from, to) {
   if (!from || !from.width || !to || !to.width) return { x: 0, y: 0, scale: 1 };
   return {
@@ -142,7 +115,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // Plain wrong PIN: "Incorrect" for WRONG_MS, then the dots; with a wait ("try again in 30s")
 // the wait is `note` under the field. Any other refusal stays whole in the field (ms 0 = until
-// the next key). Always text, never colour alone.
+// the next key). Always text, never color alone.
 export function wrongFeedback(err) {
   const e = String(err || '').trim();
   const m = /^wrong pin(?:[;.]\s*(.*))?$/i.exec(e);
@@ -185,19 +158,31 @@ export const hiToken = (tab, persistent) => tab || persistent || '';
 
 export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
-// Username and PIN mode asks for the username too, except where the held Lock of a signed-in
-// session resumes. There the server knows whose it is, and a `user` that names someone else is a
-// wrong try.
-export const asksUsername = (s) => s.mode === 'username' && !s.held;
+// Under a held Lock the server knows the holder, so a `user` that names someone else is a wrong try.
+export const asksName = (s) => !s.held || !!s.heldNoPin;
 
-export const canSend = (s, pin, username) => sendable(pin, s.lens || []) && (!asksUsername(s) || username.trim() !== '');
+// Names are public, so the pad waits only for the picked user's length; len 0 = no PIN.
+export const padLens = (s, user) => (user ? [user.len || 0] : s.lens || []);
 
-// A pad that auto-sends waits for the username, so a full PIN typed first is not lost as a wrong try.
-export const padDelay = (s, pin, username) => (asksUsername(s) && username.trim() === '' ? null : sendDelay(pin, s.lens || []));
+export const sendsOnPick = (s, user) => asksName(s) && user?.len === 0;
 
-export const signInMsg = (s, { pin, id, username }) => ({
-  t: 'userUnlock',
-  ...(asksUsername(s) ? { user: username.trim() } : {}),
+// A user with a PIN acts with their own Role, so role decides who can remove theirs.
+export function pinForm(me, role) {
+  const has = !me || me.len > 0;
+  return { current: has, remove: !!me && has && role === 'standard', save: has ? 'Change PIN' : 'Set PIN' };
+}
+
+// The name to ask to set a PIN now, else ''. asked: the user already asked on this page.
+export const pinNeededAsk = (s, asked) => (s.user && s.pinNeeded && s.user !== asked ? s.user : '');
+
+export const canSend = (s, pin, user) => sendable(pin, padLens(s, user)) && (!asksName(s) || !!user);
+
+// A pad that auto-sends waits for the name, so a full PIN typed first is not lost as a wrong try.
+export const padDelay = (s, pin, user) => (asksName(s) && !user ? null : sendDelay(pin, padLens(s, user)));
+
+export const signInMsg = (s, { pin, id, user }) => ({
+  t: 'userSignIn',
+  ...(asksName(s) ? { user: user?.name || '' } : {}),
   pin,
   id,
   tab: wantsTab(s),
@@ -207,21 +192,22 @@ export const signInAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
 // One value {mode, back}. mode is one of MODE. PAGE: a lock from the server can still cover it
 // (see viewBody). LOCK: the Lock with nobody signed in. SIGN_IN: a pad by request, dismissable.
+// STEP_IN: the same pad sends a stepIn (stepin.js), dismissable, and the page under it stays as it is.
 // back: where Cancel / Esc of a sign-in returns to ('page' or 'lock'). Pure; lock.js does the DOM.
-export const MODE = Object.freeze({ PAGE: 'page', LOCK: 'lock', SIGN_IN: 'signIn' });
+export const MODE = Object.freeze({ PAGE: 'page', LOCK: 'lock', SIGN_IN: 'signIn', STEP_IN: 'stepIn' });
 export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
 
-export const viewBody = (v, covered) => (v.mode === MODE.LOCK ? 'letter' : covered || v.mode === MODE.SIGN_IN ? 'pad' : '');
+export const padAsked = (v) => v.mode === MODE.SIGN_IN || v.mode === MODE.STEP_IN;
 
-// The server covers the page: a PIN lock with nobody signed in, or the held Lock of a
-// signed-in session.
+export const viewBody = (v, covered) => (v.mode === MODE.LOCK ? 'letter' : covered || padAsked(v) ? 'pad' : '');
+
 export const lockCovers = (s) => !!s.locked && !!(s.enforced || s.held);
 
 // The Lock of a signed-in session keeps the session (ADR 0001). Until the server's state
 // arrives the page already shows the pad.
-export const raiseLock = (s) => ({ ...s, locked: true, held: true, user: '', trusted: false, persistent: false, noAutoLock: false });
+export const raiseLock = (s) => ({ ...s, locked: true, held: true, user: '', role: '', trusted: false, persistent: false, noAutoLock: false });
 
-export const signedOut = (s) => ({ ...s, locked: !!s.enforced, held: false, user: '', trusted: false, persistent: false, noAutoLock: false });
+export const signedOut = (s) => ({ ...s, locked: !!s.enforced, held: false, user: '', role: '', trusted: false, persistent: false, noAutoLock: false });
 
 // Only the answer to our hi says whether the token was honored. A held Lock is the session
 // still alive and waiting for its PIN, so its token stays.
@@ -238,10 +224,16 @@ export const startSignIn = (v, fromLock) =>
 // The view stays LOCK so the page stays covered; "Sign in as…" remains when users exist.
 export const signOutOffered = (s) => !s.enforced && !!s.user;
 
-export const signInCancelled = (v) => (v.mode === MODE.SIGN_IN ? PAGE_VIEW : v);
+export const signInCancelled = (v) => (padAsked(v) ? PAGE_VIEW : v);
 
-// covered: a lock from the server is up (lockCovers).
-export const lockArrived = (v, covered) => (covered && v.mode === MODE.LOCK ? PAGE_VIEW : v);
+// covered: a lock from the server is up (lockCovers). Its pad replaces a Step in.
+export const lockArrived = (v, covered) => (covered && (v.mode === MODE.LOCK || v.mode === MODE.STEP_IN) ? PAGE_VIEW : v);
+
+export const startStepIn = (v) => (v.mode === MODE.PAGE ? { mode: MODE.STEP_IN, back: 'page' } : v);
+
+// The Step in pad closes once the step-in is in, or when Step in is no longer offered (stepInOffered). Any other
+// lockState, such as one after a Settings save, keeps a half-typed PIN.
+export const stepInKept = (v, offered) => (v.mode === MODE.STEP_IN && !offered ? PAGE_VIEW : v);
 
 // A sign-in ends only with an enforced lock or a real unlock. Any other state (someone else saved
 // settings, a token catch-up) says nothing about the pad.
@@ -249,6 +241,10 @@ export const signInWon = (v, { enforced, unlocked, user }) => (v.mode === MODE.S
 
 // heldUser: whose held Lock this tab shows (the server's held state carries no name).
 export const chipShown = ({ covered, letter, user, heldUser = '' }) => (letter ? !!user : !covered || !!heldUser);
+
+// The chip's Sign in button: a guest on the page with nothing over it. Its words are the guest state on Home (patchbay: status
+// always with text). It opens the same pad as Settings > My user > Sign in (bus `login`).
+export const chipSignInShown = (s, v, covered) => v.mode === MODE.PAGE && !covered && signInOffered(s);
 
 // The server fills `user` only for a session that is signed in and not locked. So if a held Lock
 // ends with no user, a sign out, a removed user or a changed PIN ended it. With a user, it was resumed.
@@ -258,10 +254,41 @@ export const heldEnded = (prev, next) => !!prev.held && !next.held && !next.user
 // came. sessionStorage keeps it across reloads, and the tab forgets it when the Lock is gone.
 export const heldWho = (kept, prev, next) => (next.held ? prev.user || kept : '');
 
-// A username is kept for the next sign-in unless a browser-wide token already signs them in.
-export const remembers = (m) => !m.token || !!m.tab;
-
-export const prefillName = (s, last) => (asksUsername(s) ? last || '' : '');
+export const prefillName = (s, last, users) => (asksName(s) && last ? users?.find((u) => u.name.toLowerCase() === last.toLowerCase())?.name || '' : '');
 
 // The pad gets the keys when the box already holds a name.
-export const focusName = (s, name) => asksUsername(s) && !name.trim();
+export const focusName = (s, name) => asksName(s) && !name.trim();
+
+// What the pad does in a view: one entry for Step in, one for every other pad (the Lock's and a sign-in's). lock.js
+// reads these and has no mode checks of its own. send: the message kind lock.js sends. note: the line under the site
+// name ('' = none). label and offLabel: the overlay's name, online and offline. offline: the offline line. users: the
+// names the box lists. prefill: the name the box starts with. pickSends: a pick sends at once (a user with no PIN).
+// lapses: the pad can stop being offered while it shows, so a hello or a layout change looks again (stepInKept).
+const PADS = Object.freeze({
+  signIn: Object.freeze({
+    send: 'signIn',
+    note: '',
+    label: 'Locked',
+    offLabel: 'Offline, locked',
+    offline: 'Offline, locked',
+    users: (s, users) => users,
+    prefill: prefillName,
+    pickSends: sendsOnPick,
+    lapses: false,
+  }),
+  stepIn: Object.freeze({
+    send: 'stepIn',
+    note: 'Step in: this tab only',
+    label: 'Step in',
+    offLabel: 'Step in, offline',
+    offline: 'Offline',
+    users: (s, users) => stepInUsers(users, s.user),
+    prefill: () => '',
+    pickSends: () => false,
+    lapses: true,
+  }),
+});
+export const padOf = (v) => (v.mode === MODE.STEP_IN ? PADS.stepIn : PADS.signIn);
+
+// The lockState that ends a Step in pad: this tab was not stepped in before it and is now.
+export const stepInWon = (v, wasStepped, stepped) => v.mode === MODE.STEP_IN && !wasStepped && stepped;

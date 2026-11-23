@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 
@@ -26,12 +25,12 @@ func profiles(c *client) []profileMsg {
 }
 
 func testPreset(name string) config.Preset {
-	return config.Preset{Name: name, Items: []config.PresetItem{{Src: 1, Dsts: []int{2}, Levels: []int{1}}}}
+	return config.Preset{Name: name, Items: []config.PresetItem{presetItem(1, []int{1}, 2)}}
 }
 
 func anasProfile(t *testing.T, a *App) config.Profile {
 	t.Helper()
-	u, _ := a.r().cfg.FindUser("Ana")
+	u, _ := a.r().cfg.FindUserByName("Ana")
 	return u.Profile
 }
 
@@ -58,7 +57,7 @@ func TestProfileSelfSave(t *testing.T) {
 		t.Fatalf("save: n=%d err=%v", n, err)
 	}
 	p := anasProfile(t, a)
-	if p.Prefs["theme"] != "dark" || len(p.FilterSets) != 1 || len(p.Presets) != 1 || p.Presets[0].Pinned == nil {
+	if p.Prefs["theme"] != "dark" || len(p.FilterSets) != 1 || len(p.Presets) != 1 {
 		t.Fatalf("profile %+v", p)
 	}
 	for _, c := range []*client{ana, anaTwo} {
@@ -77,7 +76,7 @@ func TestProfileSelfSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u, _ := cfg.FindUser("Ana"); u.Profile.Prefs["flip"] != "on" || len(u.Profile.Presets) != 1 {
+	if u, _ := cfg.FindUserByName("Ana"); u.Profile.Prefs["flip"] != "on" || len(u.Profile.Presets) != 1 {
 		t.Fatalf("saved file %+v", u.Profile)
 	}
 }
@@ -122,7 +121,7 @@ func TestProfileValidation(t *testing.T) {
 			return out
 		}()},
 	} {
-		if _, err := a.ProfileSave(ana, req); err == nil || errors.Is(err, errLocked) && req.Name == "Ana" {
+		if _, err := a.ProfileSave(ana, req); err == nil || isRoleErr(err) && req.Name == "Ana" {
 			t.Errorf("%s: err=%v", name, err)
 		}
 	}
@@ -157,18 +156,18 @@ func TestProfileTrustedSavesAnothers(t *testing.T) {
 		t.Fatalf("the trusted editor was sent Ana's profile: %+v", got)
 	}
 	setFlags(t, a, "Bo", false, false)
-	if _, err := a.ProfileSave(bo, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !errors.Is(err, errLocked) {
+	if _, err := a.ProfileSave(bo, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !isRoleErr(err) {
 		t.Fatalf("untrusted again: %v", err)
 	}
 	c := &client{ip: "10.0.0.9"}
-	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !errors.Is(err, errLocked) {
+	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !isRoleErr(err) {
 		t.Fatalf("anonymous: %v", err)
 	}
-	if err := a.Unlock(c, "2468"); err != nil {
+	if err := a.UserUnlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); err != nil {
-		t.Fatalf("Advanced Settings PIN: %v", err)
+		t.Fatalf("Administrator: %v", err)
 	}
 	if anasProfile(t, a).Prefs["theme"] != "light" {
 		t.Fatal("PIN save did not land")
@@ -181,30 +180,30 @@ func TestProfileUntrustedRefused(t *testing.T) {
 	bo := watched(t, a, "10.0.0.3", "567890") // not trusted
 	anon := &client{ip: "10.0.0.9"}
 	for who, c := range map[string]*client{"Bo": bo, "anonymous": anon} {
-		if err := admitMsg(a, c, inMsg{T: "profileSave", Name: "Ana"}); !errors.Is(err, errLocked) {
+		if err := admitMsg(a, c, inMsg{T: "profileSave", Name: "Ana"}); !isRoleErr(err) {
 			t.Errorf("%s: profileSave admitted: %v", who, err)
 		}
-		if err := admitMsg(a, c, inMsg{T: "profileGet", Name: "Ana"}); !errors.Is(err, errLocked) {
+		if err := admitMsg(a, c, inMsg{T: "profileGet", Name: "Ana"}); !isRoleErr(err) {
 			t.Errorf("%s: profileGet admitted: %v", who, err)
 		}
-		if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); !errors.Is(err, errLocked) {
+		if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); !isRoleErr(err) {
 			t.Errorf("%s: ProfileSave: %v", who, err)
 		}
 	}
-	if err := admitMsg(a, ana, inMsg{T: "profileSave"}); !errors.Is(err, errLocked) {
+	if err := admitMsg(a, ana, inMsg{T: "profileSave"}); !isRoleErr(err) {
 		t.Errorf("empty name admitted: %v", err)
 	}
-	if _, err := a.ProfileSave(ana, profileReq{Name: "Bo", Prefs: map[string]string{"theme": "dark"}}); !errors.Is(err, errLocked) {
+	if _, err := a.ProfileSave(ana, profileReq{Name: "Bo", Prefs: map[string]string{"theme": "dark"}}); !isRoleErr(err) {
 		t.Errorf("Ana saving Bo's: %v", err)
 	}
 	if !anasProfile(t, a).Empty() {
 		t.Fatal("a refused save changed the profile")
 	}
-	// A refusal answers as a failed result echoing the id, with locked.
+	// A refusal answers as a failed result with the same id.
 	c := watched(t, a, "10.0.0.7", "")
 	rl := policy["profileSave"].forMsg(&inMsg{T: "profileSave", Name: "Ana", ID: 7})
 	m := inMsg{T: "profileSave", Name: "Ana", ID: 7}
-	a.refuse(c, "profileSave", rl, &m, errLocked)
+	a.refuse(c, "profileSave", rl, &m, roleErr{need: config.RoleTrusted})
 	var res opResult
 	select {
 	case b := <-c.send:
@@ -212,7 +211,7 @@ func TestProfileUntrustedRefused(t *testing.T) {
 	default:
 		t.Fatal("no reply")
 	}
-	if res.T != "profileSaveResult" || res.OK || res.ID == nil || *res.ID != 7 || res.Locked == nil || !*res.Locked {
+	if res.T != "profileSaveResult" || res.OK || res.ID == nil || *res.ID != 7 || res.Err == "" {
 		t.Fatalf("refusal %+v", res)
 	}
 }
@@ -251,36 +250,26 @@ func TestProfileRenameKeepsAndDeleteDrops(t *testing.T) {
 		t.Fatal(err)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Anna", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	u, ok := a.r().cfg.FindUser("Anna")
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "name"): "Anna"})
+	u, ok := a.r().cfg.FindUserByName("Anna")
 	if !ok || u.Profile.Prefs["theme"] != "dark" || len(u.Profile.Presets) != 1 {
 		t.Fatalf("after rename: %+v", u)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ann", Was: "Anna", Pin: "4321"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	u, _ = a.r().cfg.FindUser("Ann")
+	mustSave(t, a, admin, map[string]any{ukey(a, "Anna", "name"): "Ann", ukey(a, "Anna", "pin"): "4321"})
+	u, _ = a.r().cfg.FindUserByName("Ann")
 	if u.Profile.Prefs["theme"] != "dark" {
 		t.Fatalf("after rename with a new PIN: %+v", u)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ann", Was: "Ann"}, {Name: "Ana", Pin: "1357"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if u, _ := a.r().cfg.FindUser("Ana"); !u.Profile.Empty() {
+	mustSave(t, a, admin, map[string]any{"user/new:0/add": newUser{Name: "Ana", Pin: "1357"}})
+	if u, _ := a.r().cfg.FindUserByName("Ana"); !u.Profile.Empty() {
 		t.Fatalf("a new user inherited %+v", u.Profile)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo", Was: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo", Was: "Bo"}, {Name: "Ann", Pin: "4321"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if u, _ := a.r().cfg.FindUser("Ann"); !u.Profile.Empty() {
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ann", "remove"): true, ukey(a, "Ana", "remove"): true})
+	mustSave(t, a, admin, map[string]any{"user/new:0/add": newUser{Name: "Ann", Pin: "4321"}})
+	if u, _ := a.r().cfg.FindUserByName("Ann"); !u.Profile.Empty() {
 		t.Fatalf("a removed user's profile came back: %+v", u.Profile)
 	}
 	raw, _ := json.Marshal(a.r().cfg)
@@ -299,12 +288,10 @@ func TestProfilePushOnAccessChange(t *testing.T) {
 	}
 	profiles(ana)
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo", Was: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "remove"): true})
 	got := profiles(ana)
 	if len(got) != 1 || got[0].Name != "" || len(got[0].Prefs) != 0 {
 		t.Fatalf("after removal: %+v", got)
@@ -344,12 +331,10 @@ func TestProfileNeverInHello(t *testing.T) {
 	bo := watched(t, a, "10.0.0.3", "567890")
 	anon := watched(t, a, "10.0.0.4", "")
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{"maxPinLen": 9})
 	for who, c := range map[string]*client{"Bo": bo, "anonymous": anon} {
 		for {
 			select {
@@ -424,35 +409,12 @@ func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
+	if err := a.UserUnlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "9753"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	u, _ := a.r().cfg.FindUser("Ana")
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "remove"): true, "user/new:0/add": newUser{Name: "Ana", Pin: "9753"}})
+	u, _ := a.r().cfg.FindUserByName("Ana")
 	if len(u.Profile.Prefs) != 0 {
 		t.Fatalf("new Ana inherited the old profile: %+v", u.Profile)
-	}
-}
-
-// The pinned presets' order is part of the profile. It is saved by the user, kept
-// when other parts are saved, and cleaned (no repeats; keys kept as sent).
-func TestProfileSavePinOrder(t *testing.T) {
-	a := userApp(t, false)
-	ana := watched(t, a, "10.0.0.1", "1234")
-	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", PinOrder: []string{"local:b", "global:a", "local:b"}}); err != nil {
-		t.Fatal(err)
-	}
-	u, _ := a.r().cfg.FindUser("Ana")
-	if got := u.Profile.Normalized().PinOrder; len(got) != 2 || got[0] != "local:b" || got[1] != "global:a" {
-		t.Fatalf("pin order %v", got)
-	}
-	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); err != nil {
-		t.Fatal(err)
-	}
-	u, _ = a.r().cfg.FindUser("Ana")
-	if len(u.Profile.Normalized().PinOrder) != 2 {
-		t.Fatalf("pin order lost: %v", u.Profile.PinOrder)
 	}
 }

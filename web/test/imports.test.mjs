@@ -1,5 +1,5 @@
-// Static check of the module graph: every name a web/*.js module imports is exported there. Most modules touch the DOM,
-// so sources are parsed instead of loaded.
+// Static check of the module graph: every name a web/*.js module imports is exported there. Most modules touch the DOM at
+// load, so this check parses the sources and does not load them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';

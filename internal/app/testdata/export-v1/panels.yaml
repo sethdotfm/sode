@@ -1,0 +1,29 @@
+panels:
+  - id: p-0a1b2c3d
+    name: Desk
+    type: buttons
+    owner: u-0001
+    acts: session
+    share: {mode: everyone}
+    rows: 1
+    cols: 2
+    pages:
+      - id: pg-1
+        enabled: true
+        cells:
+          - {kind: source, n: 1, name: CAM 2, art: "lib:00ff00ff"}
+          - {kind: destination, router: A, n: 0, name: MON 1}
+    settings: {mode: take}
+checkpoints:
+  p-0a1b2c3d:
+    - id: c-00000001
+      at: 2026-11-17T08:00:00Z
+      by: u-0001
+      why: push
+      layout:
+        rows: 1
+        cols: 1
+        pages: [{id: pg-1, enabled: true, cells: [{kind: source, n: 0}]}]
+        settings: {}
+templates: []
+checkpointSets: []

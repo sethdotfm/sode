@@ -1,0 +1,7 @@
+presets:
+  - id: pr-0001
+    name: Show
+    items:
+      - src: {router: A, n: 0, shown: "1", name: CAM 1}
+        dsts: [{n: 0, shown: "1", name: MON 1}]
+        levels: [1, 2]

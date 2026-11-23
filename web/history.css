@@ -1,4 +1,4 @@
-/* Recent in both layouts, with the keyed boxes and shortcut list that keep their order against it. Load after mobile.css. */
+/* History in both layouts. Load after mobile.css. */
 
 .sode__history {
   display: flex;
@@ -6,7 +6,7 @@
   gap: var(--pb-space-3);
   width: 100%;
 }
-/* One grid for the whole list: every row (and each take in a folder) is a subgrid of it, so a column grows when one row needs it (e.g. ids passing #999). */
+/* One grid for the whole list. Each row, and each take in a Group, is a subgrid of it, so a column grows when one row needs it. */
 /* Columns: id, time, levels, route, status, Before, actions. */
 .sode__hist {
   display: grid;
@@ -174,8 +174,15 @@
 }
 .pb-btn.sode__patch {
   font-size: var(--pb-text-lg);
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
   padding: 0 var(--pb-space-8);
+}
+/* Room for "Take 128" (One Take, desktop.js), so Take and Clear do not move as the count changes. */
+.pb-btn.sode__patch {
+  font-family: var(--pb-font-num);
+  font-variant-numeric: tabular-nums;
+  min-width: 8rem;
+  white-space: nowrap;
 }
 .sode__hist-route {
   min-width: 0;
@@ -234,7 +241,7 @@
 .sode-m__recent-route > .sode__hist-by {
   display: block;
 }
-/* Below 1000px a row's status is color alone (text on hover, still read out) and its level bar moves into the Before panel. */
+/* Below 1000px a row's level bar moves into the Before panel. */
 .sode__hist-levels {
   display: none;
 }
@@ -251,15 +258,7 @@
   .sode__hist-row > .pb-status {
     --sode-hint: on;
   }
-  .sode__hist-row > .pb-status > .sode__status-text {
-    clip: rect(0, 0, 0, 0);
-    height: 1px;
-    overflow: hidden;
-    position: absolute;
-    white-space: nowrap;
-    width: 1px;
-  }
-  /* Stacked, so an open panel's bars don't widen the levels column for every row. */
+  /* Stacked, so the bars of an open panel do not widen the levels column for every row. */
   .sode__hist-before {
     display: flex;
     flex-direction: column;
@@ -299,15 +298,10 @@
   display: flex;
   justify-content: center;
 }
-.sode__hist-more > .pb-btn,
-.sode-m__recent-more > .pb-btn {
-  background-image: linear-gradient(to right, var(--pb-surface-hover) calc(var(--sode-pull, 0) * 100%), transparent 0);
-}
 .sode-m__recent-more:empty,
 .sode__hist-more:empty {
   display: none;
 }
-/* ---- Recent filters */
 .sode__recent-head {
   align-items: center;
   display: flex;
@@ -317,13 +311,14 @@
 .sode__recent-head[hidden] {
   display: none;
 }
+/* These are buttons, so they have a button's fill (base.css, outline buttons). */
 :root:not([data-layout="phone"]) .sode__chipbtn {
-  background-color: transparent;
-  border-color: var(--pb-surface-control);
+  background-color: var(--pb-surface-hover);
+  border-color: transparent;
 }
 :root:not([data-layout="phone"]) .sode__chipbtn:hover {
-  background-color: var(--pb-overlay-hover);
-  border-color: var(--pb-surface-hover);
+  background-color: var(--pb-surface-hover);
+  border-color: var(--pb-text-muted);
 }
 .sode__filters-btn--on,
 :root:not([data-layout="phone"]) .sode__filters-btn--on,
@@ -400,14 +395,27 @@
 .sode__filters-preview {
   overflow-wrap: anywhere;
 }
-.sode__filters-share {
+.sode__itemlink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__itemlink[hidden] {
+  display: none;
+}
+.sode__itemlink-row {
   align-items: flex-end;
   display: flex;
   gap: var(--pb-space-3);
 }
-.sode__filters-share > .pb-input {
+.sode__itemlink-row > .sode__fld {
   flex: 1;
   min-width: 0;
+}
+.sode__itemlink-qr .sode__qr {
+  display: block;
+  height: auto;
+  width: 12rem;
 }
 .sode__filters-empty {
   align-items: center;
@@ -580,7 +588,6 @@
 }
 .sode__search > [data-search-clear] {
   flex: none;
-  font-size: var(--pb-text-xs);
 }
 .sode__search > .sode__hint {
   min-width: 0;
@@ -656,7 +663,7 @@
 html:not([data-keys-on]) :is(.sode__keyed, .sode__search-box) > .sode__key-note {
   display: none !important;
 }
-/* The Option+number wipes in over the name while Option is held (html[data-alt]); the chip keeps its size and only the key's own box is clipped, so its tooltip isn't. */
+/* While Option is held (html[data-alt]), the Option+number shows over the name. Only the key's own box is clipped, so its tooltip is not. */
 .sode__chip-key {
   align-items: center;
   background: var(--pb-accent);
@@ -716,9 +723,16 @@ html[data-alt] .sode__chip-key {
   margin: var(--pb-space-3) 0;
   width: 100%;
 }
+/* One row: the heading, Edit, Show all, then the bookmark chips, which take the rest of the row. */
+#patch-view .sode__presets {
+  flex-wrap: nowrap;
+}
+#patch-view .sode__presets > .sode__label {
+  flex: none;
+}
 .sode__presets > .sode__sets {
   flex: 1;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .sode__presets .sode__set {
   font-size: var(--pb-text-sm);
@@ -751,7 +765,7 @@ html[data-alt] .sode__chip-key {
 .sode__presets-all {
   align-items: center;
   display: inline-flex;
-  gap: var(--pb-space-1);
+  gap: var(--pb-space-2);
 }
 @media (max-width: 599.98px) {
   .sode__scrim > .sode__presets-dlg {
@@ -845,14 +859,8 @@ html[data-alt] .sode__chip-key {
 [data-pb-layout="phone"] .sode__preset-list {
   max-height: none;
 }
-.sode__scrim > .sode__tr {
-  width: 38rem;
-}
 .sode__scrim > .sode__rv {
   width: 56rem;
-}
-.sode__tr .sode__filters-sets:last-of-type {
-  border-bottom: 0;
 }
 .sode__rv-sec {
   display: flex;
@@ -916,11 +924,10 @@ html[data-alt] .sode__chip-key {
   flex-basis: 100%;
 }
 @media (max-width: 599.98px) {
-  .sode__scrim:has(> .sode__rv, > .sode__tr) {
+  .sode__scrim:has(> .sode__rv) {
     padding: var(--pb-space-3);
   }
-  .sode__scrim > .sode__rv,
-  .sode__scrim > .sode__tr {
+  .sode__scrim > .sode__rv {
     min-width: 0;
     width: 100%;
   }
@@ -968,13 +975,23 @@ html[data-alt] .sode__chip-key {
 }
 .sode__pickbar-controls {
   align-items: center;
-  background: var(--pb-surface-base);
-  color: var(--pb-text);
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
   margin-left: auto;
-  padding: var(--pb-space-3) var(--pb-space-4);
+}
+/* The controls sit on the accent itself: text and the outline button take the on-accent colour. */
+.sode__pickbar-controls :is(.sode__hint, .pb-check__label) {
+  color: var(--pb-text-on-accent);
+}
+.sode__pickbar-controls .pb-btn--outline {
+  background-color: transparent;
+  border-color: var(--pb-text-on-accent);
+  color: var(--pb-text-on-accent);
+}
+.sode__pickbar-controls .pb-btn--outline:hover {
+  background-color: var(--pb-overlay-hover);
+  border-color: var(--pb-text-on-accent);
 }
 [data-sode-pick=""] .sode-m__composer {
   opacity: 0.35;
@@ -985,9 +1002,6 @@ html[data-alt] .sode__chip-key {
 [data-sode-pick] [data-presets] {
   opacity: 0.35;
   pointer-events: none;
-}
-[data-sode-pick="boxes"] #patch {
-  display: none;
 }
 [data-sode-pick=""] .sode__hist-row,
 [data-sode-pick=""] .sode-m__recent-face {
@@ -1013,7 +1027,7 @@ html[data-alt] .sode__chip-key {
   color: var(--pb-text-on-accent);
 }
 [data-sode-pick] .sode-lock__who .pb-btn,
-[data-sode-pick] .sode-lock__who .sode-lock__who-ico {
+[data-sode-pick] .sode-lock__who :is(.sode-lock__who-ico, .sode-lock__who-name) {
   color: inherit;
 }
 
@@ -1033,4 +1047,151 @@ html[data-alt] .sode__chip-key {
 }
 .sode__filters-count {
   margin-inline-start: var(--pb-space-2);
+}
+/* The Bookmarks editor (bookmarkeditor.js) and the strip's grey bookmarks (bookmarks.js). */
+.sode__set--off {
+  color: var(--pb-text-disabled);
+}
+.sode__set .sode__status-badge {
+  margin-inline-start: var(--pb-space-1);
+}
+/* Wide enough that no add row or bookmark row wraps at 1280 px. Only .sode-bm: the Filters dialog keeps 40rem. */
+@media (min-width: 600px) {
+  .sode__scrim > .sode-bm {
+    width: min(52rem, 100%);
+  }
+}
+.sode-bm__add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-bm__add-row {
+  align-items: flex-end;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-bm__add[hidden],
+.sode-bm__add-row[hidden],
+.sode-bm__count[hidden] {
+  display: none;
+}
+.sode-bm__add-row > .sode-bm__url {
+  flex: 2 1 16em;
+}
+.sode-bm__add-row > .sode-bm__scope {
+  flex: 0 1 20em;
+}
+.sode-bm__add > .sode__hint {
+  margin: 0;
+}
+.sode-bm__pick {
+  align-items: flex-start;
+  flex: none;
+}
+.sode-bm__count {
+  align-self: center;
+  margin-inline-start: auto;
+}
+/* One grid for all rows (subgrid), so the ticks and buttons line up from row to row. */
+.sode-bm__list {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  column-gap: var(--pb-space-3);
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) max-content max-content auto auto auto;
+  list-style: none;
+  margin: 0;
+  padding: var(--pb-space-2) 0 0;
+}
+.sode-bm__row {
+  align-items: center;
+  border-left: var(--sode-side-w) solid transparent;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  min-height: var(--pb-control-h);
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+.sode-bm__row + .sode-bm__row {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+}
+.sode-bm__empty {
+  grid-column: 1 / -1;
+  padding: var(--pb-space-2);
+}
+.sode-bm__opts,
+.sode-bm__tools {
+  display: contents;
+}
+.sode-bm__row:focus-visible {
+  border-left-color: var(--pb-accent);
+  outline: none;
+}
+.sode-bm__row[draggable="true"] {
+  cursor: grab;
+}
+.sode-bm__row.is-dragging {
+  opacity: 0.4;
+}
+.sode-bm__grip {
+  color: var(--pb-text-muted);
+  display: inline-flex;
+}
+.sode-bm__grip svg {
+  pointer-events: none;
+}
+.sode-bm__main {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1) var(--pb-space-2);
+  min-width: 0;
+}
+.sode-bm__name {
+  overflow-wrap: anywhere;
+}
+.sode-bm__name.pb-input {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+.sode-bm__what {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 599.98px) {
+  .sode-bm__add-row {
+    flex-wrap: wrap;
+  }
+  .sode-bm__list {
+    display: flex;
+    flex-direction: column;
+  }
+  .sode-bm__row {
+    column-gap: var(--pb-space-2);
+    grid-template-areas: "grip key main tools" ". . opts opts";
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    row-gap: var(--pb-space-1);
+  }
+  .sode-bm__grip {
+    grid-area: grip;
+  }
+  .sode-bm__row > .sode__preset-key {
+    grid-area: key;
+  }
+  .sode-bm__main {
+    grid-area: main;
+  }
+  .sode-bm__opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--pb-space-2) var(--pb-space-4);
+    grid-area: opts;
+  }
+  .sode-bm__opts > :empty {
+    display: none;
+  }
+  .sode-bm__tools {
+    display: flex;
+    grid-area: tools;
+  }
 }

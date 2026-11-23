@@ -1,4 +1,3 @@
-// Panel Name and Instance Name cells: kept by cellsIn without a number, offered by Type and Find, never pressed.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cellsIn, nameCellText, namesFrom, SHOW_KINDS } from '../panelrules.js';

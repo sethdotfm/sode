@@ -1,0 +1,2 @@
+- Swap source and Swap destination. An Administrator opens Swap from Settings > Routers and types the old and the new number. Swap lists every preset, filter set and panel that uses the old number, grouped by owner and all ticked. "Only Broken" shows only the Broken ones. The Swap saves with Settings' Save, and the Settings saves row gives the count of changed items per owner.
+- Any signed-in user can swap their own presets, filter sets and panels from Settings > My user. That Swap saves at once.

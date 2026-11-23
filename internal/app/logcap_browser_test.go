@@ -30,7 +30,7 @@ func TestChromeLogRowCap(t *testing.T) {
 			k := min(n, 100)
 			want := a.sent.Total() + int64(k)
 			for i := 0; i < k; i++ {
-				a.logEvent(event(kindCommand, "refreshNames", "Ana", "ok"))
+				a.logEvent(event(kindCommand, "rereadNames", "Ana", "ok"))
 			}
 			for deadline := time.Now().Add(10 * time.Second); a.sent.Total() < want; time.Sleep(10 * time.Millisecond) {
 				if time.Now().After(deadline) {

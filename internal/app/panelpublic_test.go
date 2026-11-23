@@ -13,17 +13,16 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST seam for a Public panel. Anyone with its URL gets a short-lived key for the panel's own
-// client, asked for with the panel id alone.
-
 const publicPanel = `{"name":"Lobby","acts":"public"`
 
-func TestPublicNeedsATrustedUserWithinTheirRights(t *testing.T) {
+func TestPublicNeedsAUserWithinTheirRights(t *testing.T) {
 	a, _ := clientApp(t)
 	cy, ana := userKey(t, a, "Cy"), userKey(t, a, "Ana")
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, publicPanel+`}`), 403, "trusted_required")
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels", cy, publicPanel+`,"clientRights":{"sources":[1,8],"dsts":[2]}}`), 403, "outside_rights")
-	rec := apiSend(a, "POST", "/api/v1/panels", cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	if rec := apiSend(a, "POST", "/api/v1/panels", ana, publicPanel+`}`); rec.Code != 201 {
+		t.Fatalf("a Standard user within their Rights: %d %s", rec.Code, rec.Body.String())
+	}
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels", cy, publicPanel+`,"clientRights":{"sources":[{"n":1},{"n":8}],"dsts":[{"n":2}]}}`), 403, "administrator_only")
+	rec := apiSend(a, "POST", "/api/v1/panels", cy, publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	if rec.Code != 201 || apiBody(t, rec)["acts"] != "public" {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
@@ -37,11 +36,11 @@ func TestPublicNeedsATrustedUserWithinTheirRights(t *testing.T) {
 func TestSwitchingToPublicChecksTheCallerAgain(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, apiPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	id := makePanel(t, a, cy, apiPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	cfg := a.r().cfg
 	for i, c := range cfg.APIClients {
 		if c.Panel == id {
-			cfg.APIClients[i].Rights = config.Rights{Sources: ints(1, 9), Dsts: ints(2)}
+			cfg.APIClients[i].Rights = config.Rights{Sources: nums(1, 9), Dsts: nums(2)}
 		}
 	}
 	if err := a.ApplyConfig(cfg); err != nil {
@@ -50,11 +49,13 @@ func TestSwitchingToPublicChecksTheCallerAgain(t *testing.T) {
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, cy, apiPanel+`}`); rec.Code != 200 {
 		t.Fatalf("api save: %d %s", rec.Code, rec.Body.String())
 	}
-	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, cy, publicPanel+`}`), 403, "outside_rights")
+	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, cy, publicPanel+`}`), 403, "administrator_only")
 
 	ana := userKey(t, a, "Ana")
 	own := makePanel(t, a, ana, `{"name":"Mine"}`)
-	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+own, ana, publicPanel+`}`), 403, "trusted_required")
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+own, ana, publicPanel+`}`); rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
 }
 
 func askPublic(a *App, peer, id string) *httptest.ResponseRecorder {
@@ -91,14 +92,14 @@ func publicKeyOf(t *testing.T, a *App, id string) string {
 func TestPublicPanelHandsOutAKeyWithTheClientsRights(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	key := publicKeyOf(t, a, id)
 	rec := apiSend(a, "GET", "/api/v1/panels/"+id, key, "")
 	if rec.Code != 200 {
 		t.Fatalf("read with the public key: %d %s", rec.Code, rec.Body.String())
 	}
 	r, _ := apiBody(t, rec)["rights"].(map[string]any)
-	if r == nil || !reflect.DeepEqual(r["sources"], []any{1.0}) || !reflect.DeepEqual(r["dsts"], []any{2.0}) {
+	if r == nil || fmt.Sprint(wireNs(r["sources"])) != "[1]" || fmt.Sprint(wireNs(r["dsts"])) != "[2]" {
 		t.Fatalf("rights %v", r)
 	}
 	if n := len(keyList(t, a, cy, id)); n != 0 {
@@ -128,9 +129,6 @@ func TestAskingANonPublicPanelIsNotCountedAsAFailedKey(t *testing.T) {
 	}
 }
 
-// Asks are capped per address whatever the id. An unknown id, a panel that is not Public and a
-// Public panel asked from outside its networks get the same answers. So no run of asks says which
-// ids exist.
 func TestAskingSaysNothingAboutWhichIdsExist(t *testing.T) {
 	seq := func(mk func(a *App, cy string) string) []string {
 		a, _ := clientApp(t)
@@ -182,8 +180,7 @@ func TestAskingIsCappedWithTheRateLimitOff(t *testing.T) {
 	}
 }
 
-// Past the cap an address loses its own oldest key first. So one caller that loops the route cannot
-// push every other page's key out. The key that ends takes its streams with it.
+// The key that ends takes its streams with it.
 func TestPastTheCapAnAddressLosesItsOwnKeyFirst(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -319,7 +316,6 @@ func TestPublicKeysPerPanelAreCapped(t *testing.T) {
 	wantErr(t, apiSend(a, "GET", "/api/v1/panels/"+id, first, ""), 401, "key_revoked")
 }
 
-// Outside the client's networks a Public panel reads as not Public, as an unknown id does.
 func TestPublicKeyOnlyFromTheClientsNetworks(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -340,7 +336,7 @@ func TestAnUnnamedPublicPageIsLoggedByItsAddress(t *testing.T) {
 	shortTimers(a)
 	defer startLog(t, a)()
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	key := publicKeyOf(t, a, id)
 	f.seed(2, 3, 0)
 	if rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, nil); rec.Code != 200 {
@@ -355,7 +351,7 @@ func TestPublicTakeOutsideTheRightsIsRefusedAndHistoryNamesTheClient(t *testing.
 	a, f := clientApp(t)
 	shortTimers(a)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	key := publicKeyOf(t, a, id)
 	n := f.sends()
 	wantErr(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":3,"dst":2,"levels":[1]}]}`, nil), 403, "outside_rights")
@@ -378,15 +374,14 @@ func TestPublicTakeOutsideTheRightsIsRefusedAndHistoryNamesTheClient(t *testing.
 func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
 	a, f := apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
-		cy.Rights = config.Rights{Sources: ints(1, 2, 3), Dsts: ints(2, 4)}
+		cy.Role = config.RoleTrusted
+		cy.Rights = config.Rights{Sources: nums(1, 2, 3), Dsts: nums(2, 4)}
 		c.Users = append(c.Users, cy)
 		c.Locks = config.Locks{Panel: true}
-		c.SettingsPin = mkUser(t, "", "2468").Pin
 	})
 	shortTimers(a)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	key := publicKeyOf(t, a, id)
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, key, ""); rec.Code != 200 || apiBody(t, rec)["acts"] != "public" {
 		t.Fatalf("read under the page lock: %d %s", rec.Code, rec.Body.String())
@@ -402,8 +397,8 @@ func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
 	a.mu.Lock()
 	m := a.lockStateMu(c)
 	a.mu.Unlock()
-	if !m.Enforced || !m.Locked || len(m.Names) != 0 || m.User != "" {
-		t.Fatalf("panel page lockState %+v, want locked with no names", m)
+	if !m.Enforced || !m.Locked || m.User != "" {
+		t.Fatalf("panel page lockState %+v, want locked", m)
 	}
 }
 
@@ -411,7 +406,7 @@ func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
 func TestPublicKeyReadsNoUserNames(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, publicPanel+`,"share":{"mode":"named","users":["Ana"]},"clientRights":{"sources":[1],"dsts":[2]}}`)
+	id := makePanel(t, a, cy, publicPanel+`,"share":{"mode":"named","users":["Ana"]},"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	key := publicKeyOf(t, a, id)
 	for _, path := range []string{"/api/v1/panels/" + id, "/api/v1/panels"} {
 		rec := apiSend(a, "GET", path, key, "")
@@ -424,10 +419,56 @@ func TestPublicKeyReadsNoUserNames(t *testing.T) {
 	}
 }
 
+func TestPublicKeyCannotFillThePanel(t *testing.T) {
+	a, _ := clientApp(t)
+	id := makePanel(t, a, userKey(t, a, "Cy"), publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
+	key := publicKeyOf(t, a, id)
+	ok := 0
+	for i := range monDevices {
+		if apiSend(a, "POST", "/api/v1/panels/"+id+"/instances", key, fmt.Sprintf(`{"device":"d%d"}`, i)).Code == 200 {
+			ok++
+		}
+	}
+	if ok > monPublicPerKey {
+		t.Fatalf("one Public key named %d devices", ok)
+	}
+	if got := a.rateLimitFor(600, &apiCtx{Panel: id}); got != 600 {
+		t.Fatalf("rate limit %d", got)
+	}
+}
+
+func TestKeylessGuestReadsNoUserNames(t *testing.T) {
+	a, _ := clientApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`,"share":{"mode":"everyone"},"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
+	if rec := apiSend(a, "POST", "/api/v1/panel-templates", cy, `{"name":"Grid","scope":"everyone","from":"`+id+`"}`); rec.Code != 201 {
+		t.Fatalf("template: %d %s", rec.Code, rec.Body.String())
+	}
+	cfg := a.r().cfg
+	cfg.API.GuestEnabled = true
+	cfg.GuestAPIScopes = append(cfg.GuestAPIScopes, config.ScopePanels)
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	read := 0
+	for _, path := range []string{"/api/v1/panels/" + id, "/api/v1/panels", "/api/v1/panel-templates"} {
+		rec := apiDo(a, "GET", path, "", nil)
+		if rec.Code == 200 {
+			read++
+		}
+		if strings.Contains(rec.Body.String(), `"Cy"`) {
+			t.Fatalf("%s names a user: %s", path, rec.Body.String())
+		}
+	}
+	if read == 0 {
+		t.Fatal("the Guest read nothing, so the test shows nothing")
+	}
+}
+
 func TestPublicKeyReadsNoTemplateOwner(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[{"n":1}],"dsts":[{"n":2}]}}`)
 	if rec := apiSend(a, "POST", "/api/v1/panel-templates", cy, `{"name":"Grid","scope":"everyone","from":"`+id+`"}`); rec.Code != 201 {
 		t.Fatalf("template: %d %s", rec.Code, rec.Body.String())
 	}

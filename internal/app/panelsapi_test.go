@@ -14,8 +14,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// REST seam for /api/v1/panels: real Handler, recorder, users Ana and Bo, and Cy (Trusted).
-
 // problems lists the panel files the store skipped; production only logs them.
 func (s *panelStore) problems() []string {
 	s.mu.Lock()
@@ -27,7 +25,7 @@ func panelsApp(t *testing.T) *App {
 	t.Helper()
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		cy := mkUser(t, "Cy", "4321")
-		cy.Trusted = true
+		cy.Role = config.RoleTrusted
 		c.Users = append(c.Users, cy)
 	})
 	return a
@@ -35,7 +33,7 @@ func panelsApp(t *testing.T) *App {
 
 func userKey(t *testing.T, a *App, name string) string {
 	t.Helper()
-	return apiTestKey(t, a, keyOwner{Kind: actorUser, Name: name}, "Desk "+name, time.Time{})
+	return apiTestKey(t, a, ownerOf(a, name), "Desk "+name, time.Time{})
 }
 
 func apiSend(a *App, method, path, key, body string) *httptest.ResponseRecorder {
@@ -102,7 +100,6 @@ func TestPanelRoundTrip(t *testing.T) {
 		t.Errorf("share %v", p["share"])
 	}
 
-	// Update keeps what the body leaves out, and never moves the owner or id.
 	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Studio B","owner":"Bo","id":"p-ffff","rows":4,"cols":8,"cells":[],"settings":{}}`)
 	if rec.Code != 200 {
 		t.Fatalf("update: %d %s", rec.Code, rec.Body.String())
@@ -112,7 +109,6 @@ func TestPanelRoundTrip(t *testing.T) {
 		t.Fatalf("after update %v", p)
 	}
 
-	// The file is one YAML per panel beside the config, and a fresh store reads it back.
 	dir := filepath.Join(filepath.Dir(a.cfgPath), "panels")
 	raw, err := os.ReadFile(filepath.Join(dir, id+".yaml"))
 	if err != nil || !strings.Contains(string(raw), "nextVersionField") {
@@ -145,14 +141,12 @@ func TestPanelOwnershipAndUseOnlySharing(t *testing.T) {
 	ana, bo := userKey(t, a, "Ana"), userKey(t, a, "Bo")
 	id := makePanel(t, a, ana, `{"name":"Ana's"}`)
 
-	// Not shared: invisible to Bo, as if absent.
 	if got := panelIDs(t, a, bo); got != "" {
 		t.Fatalf("Bo sees %q", got)
 	}
 	wantErr(t, apiDo(a, "GET", "/api/v1/panels/"+id, bo, nil), 404, "not_found")
 	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, bo, `{"name":"mine now"}`), 404, "not_found")
 
-	// Named: Bo can read, never change.
 	apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Ana's","share":{"mode":"named","users":["bo"]}}`)
 	p := apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, bo, nil))
 	if p["canEdit"] != false || p["name"] != "Ana's" {
@@ -161,7 +155,6 @@ func TestPanelOwnershipAndUseOnlySharing(t *testing.T) {
 	wantErr(t, apiSend(a, "PUT", "/api/v1/panels/"+id, bo, `{"name":"mine now"}`), 403, "not_owner")
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/panels/"+id, bo, ``), 403, "not_owner")
 
-	// Everyone, then back to Only me: the share follows live.
 	apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Ana's","share":{"mode":"everyone"}}`)
 	if got := panelIDs(t, a, bo); got != "Ana's" {
 		t.Fatalf("everyone: %q", got)
@@ -186,10 +179,9 @@ func TestPanelTrustedReachesAnyPanel(t *testing.T) {
 	if p["name"] != "Fixed by Cy" || p["owner"] != "Ana" {
 		t.Fatalf("after Trusted edit %v", p)
 	}
-	// Trusted is read live: unticking ends the reach at once.
 	cfg := a.r().cfg
 	for i := range cfg.Users {
-		cfg.Users[i].Trusted = false
+		cfg.Users[i].Role = config.RoleStandard
 	}
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
@@ -217,7 +209,6 @@ func TestPanelSaveACopyAndDelete(t *testing.T) {
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+cid, bo, `{"name":"Bo's wall"}`); rec.Code != 200 {
 		t.Fatalf("edit copy: %d", rec.Code)
 	}
-	// A named copy name, and the original is untouched.
 	rec = apiSend(a, "POST", "/api/v1/panels/"+id+"/copy", bo, `{"name":"Mine"}`)
 	if rec.Code != 201 || apiBody(t, rec)["name"] != "Mine" {
 		t.Fatalf("named copy: %d %s", rec.Code, rec.Body.String())
@@ -225,7 +216,6 @@ func TestPanelSaveACopyAndDelete(t *testing.T) {
 	if p := apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)); p["name"] != "Wall" {
 		t.Fatalf("original %v", p)
 	}
-	// A panel that Bo cannot see cannot be copied.
 	hidden := makePanel(t, a, ana, `{"name":"Private"}`)
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+hidden+"/copy", bo, ``), 404, "not_found")
 
@@ -254,7 +244,6 @@ func TestPanelScopesAndWhoOwns(t *testing.T) {
 	if got := panelIDs(t, a, bot); got != "Wall" {
 		t.Fatalf("reader sees %q", got)
 	}
-	// Reading is not managing, and a client cannot own a panel.
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels", bot, `{"name":"x"}`), 403, "scope")
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/panels/"+id, bot, ``), 403, "scope")
 	cfg.APIClients[0].Scopes = append(cfg.APIClients[0].Scopes, config.ScopePanelsManage)
@@ -265,7 +254,7 @@ func TestPanelScopesAndWhoOwns(t *testing.T) {
 	wantErr(t, apiSend(a, "DELETE", "/api/v1/panels/"+id, bot, ``), 403, "not_owner")
 }
 
-func TestPanelAPISwitchAndRateLimitApply(t *testing.T) {
+func TestPanelAPIRateLimitApplies(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	cfg := a.r().cfg
@@ -276,11 +265,6 @@ func TestPanelAPISwitchAndRateLimitApply(t *testing.T) {
 	apiDo(a, "GET", "/api/v1/panels", ana, nil)
 	apiDo(a, "GET", "/api/v1/panels", ana, nil)
 	wantErr(t, apiDo(a, "GET", "/api/v1/panels", ana, nil), 429, "rate_limited")
-	cfg.API.Enabled = false
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
-	wantErr(t, apiDo(a, "GET", "/api/v1/panels", ana, nil), 503, "api_off")
 }
 
 func TestPanelStoreLoadsMissingFolderAndSkipsBadFiles(t *testing.T) {

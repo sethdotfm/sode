@@ -1,11 +1,12 @@
 // The plan a Grid panel's confirm shows, from the routes it will send. Pure. Names are the current Router names.
 // names is namesFrom (panelrules.js). Items keep the order their destination was first staged. With tally (the last
-// GET /tally answer), each item also has now: what the destination has on the take's levels before the take.
+// GET /tally answer), each item also has now: what the destination has on the take's levels before the take. Each end
+// also has a label item { num, name } (labelOf), so the confirm shows numbers and names as Home's Confirm does.
 export function planOf(routes, names, tally = null) {
   const items = new Map();
   for (const r of routes) {
-    if (!items.has(r.dst)) items.set(r.dst, { dst: r.dst, dstName: names.destination(r.dst), groups: [] });
-    items.get(r.dst).groups.push({ src: r.src, srcName: names.source(r.src), levels: r.levels });
+    if (!items.has(r.dst)) items.set(r.dst, { dst: r.dst, dstName: names.destination(r.dst), dstLabel: labelOf(names, 'destination', r.dst), groups: [] });
+    items.get(r.dst).groups.push({ src: r.src, srcName: names.source(r.src), srcLabel: labelOf(names, 'source', r.src), levels: r.levels });
   }
   const out = [...items.values()];
   if (tally) for (const item of out) item.now = currentlyOf(item, tally, names);
@@ -23,5 +24,14 @@ export function currentlyOf(item, tally, names) {
     if (!rows.has(src)) rows.set(src, []);
     rows.get(src).push(l);
   }
-  return [...rows].map(([src, ls]) => ({ src, srcName: src == null ? 'unknown' : src < 0 ? 'nothing' : names.source(src), levels: ls }));
+  return [...rows].map(([src, ls]) => ({
+    src,
+    srcName: src == null ? 'unknown' : src < 0 ? 'nothing' : names.source(src),
+    ...(src != null && src >= 0 ? { srcLabel: labelOf(names, 'source', src) } : {}),
+    levels: ls,
+  }));
 }
+
+// The number as shown and the Router name: an empty name when the router has given none, so only the number shows.
+// kind is 'source' or 'destination'.
+export const labelOf = (names, kind, n) => ({ num: String(n + (names.off || 0)), name: names.routerName(kind, n) });

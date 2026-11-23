@@ -1,15 +1,10 @@
 package app
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
-	"io"
 	"log"
 	"maps"
 	"net/http"
@@ -20,9 +15,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Panels over REST (docs/panels-design.md). They ride the API switch, scopes, rate limit and
-// error shape of the rest of v1. Read is `panels`, change is `panelsmanage`. A panel the
-// caller is not allowed to use is answered 404, as if it did not exist.
+// Panels over REST (docs/panels-design.md). A panel the caller is not allowed to use is answered 404, as if it did
+// not exist.
 
 func init() {
 	const read, manage = config.ScopePanels, config.ScopePanelsManage
@@ -40,23 +34,32 @@ func init() {
 	)
 }
 
-// trusted reads the user's Trusted flag live from the config, so an edit applies at once.
-func (a *App) trusted(name string) bool {
-	u, ok := a.r().cfg.FindUser(name)
-	return ok && u.Trusted
+// A user's key never acts above Trusted user: an Administrator-only change is made in Settings (apiAdminOnly).
+func keyRole(owner string) string {
+	if config.RoleAtLeast(owner, config.RoleTrusted) {
+		return config.RoleTrusted
+	}
+	return owner
 }
 
-// panelReach is what cl can do with p. A user owns a panel by name; a Trusted user (read
-// live from the config) reaches all. A client reaches the panel it is the API client of. The Assign to warning
-// repeats the user part (opens in web/panelassignrules.js); keep in step.
+// Read live, so a demotion applies at once.
+func (a *App) trusted(id string) bool {
+	u, ok := a.r().cfg.FindUserByID(id)
+	role, _ := a.r().cfg.ActsAs(u)
+	return ok && keyRole(role) == config.RoleTrusted
+}
+
+// A user owns a panel by id, and a Trusted user (read live) reaches all. A client reaches the panel it is the API
+// client of.
+// Keep in step with the Assign to warning in web/panelassignrules.js, which repeats the user part.
 func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
 	name := cl.Actor.Name
 	switch cl.Actor.Kind {
 	case actorUser:
-		if strings.EqualFold(p.Owner, name) {
+		if cl.Actor.User != "" && p.Owner == cl.Actor.User {
 			return true, true
 		}
-		if a.trusted(name) {
+		if a.trusted(cl.Actor.User) {
 			return true, true
 		}
 		for _, n := range p.Share.Users {
@@ -72,18 +75,17 @@ func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
 	return p.Share.Mode == panelShareAll, false
 }
 
-// panelOut is a panel as sent: its fields plus canEdit, and for an editor the Rights of its
-// API client.
 func (a *App) panelOut(p Panel, edit bool) map[string]any {
-	if c, ok := clientOfPanel(a.r().cfg, p); ok && edit {
-		r := c.Rights.Clone()
+	cl, hasClient := clientOfPanel(a.r().cfg, p)
+	if hasClient && edit {
+		r := cl.Rights.Clone()
 		p.ClientRights = &r
 	}
-	cl, hasClient := clientOfPanel(a.r().cfg, p)
 	b, _ := json.Marshal(p)
 	m := map[string]any{}
 	json.Unmarshal(b, &m)
 	m["canEdit"] = edit
+	m["owner"] = a.r().cfg.UserName(p.Owner) // the id stays inside Sode
 	if s, _ := m["settings"].(map[string]any); s != nil {
 		s[panelAskNameKey] = asksName(p)
 	}
@@ -94,10 +96,9 @@ func (a *App) panelOut(p Panel, edit bool) map[string]any {
 	return m
 }
 
-// hideNamesFromPublic: a Public panel's key is anyone's. User names never reach a caller who
-// entered no PIN (AGENTS.md), so its reads carry no owner or named users.
-func hideNamesFromPublic(m map[string]any, cl *apiCtx) {
-	if cl.Key == nil || !cl.Key.public {
+// User names never reach a caller who entered no PIN (AGENTS.md): Guest, API client, Public key.
+func hideUserNames(m map[string]any, cl *apiCtx) {
+	if cl.Actor.Kind == actorUser {
 		return
 	}
 	m["owner"] = ""
@@ -106,8 +107,7 @@ func hideNamesFromPublic(m map[string]any, cl *apiCtx) {
 	}
 }
 
-// panelFor loads {id} for cl. It answers 404 for a missing id or one cl cannot read, and 403
-// not_owner when needEdit and cl is allowed only to use it.
+// 404 for a missing id or one cl cannot read; 403 not_owner when needEdit and cl is allowed only to use it.
 func (a *App) panelFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needEdit bool) (Panel, bool) {
 	id := r.PathValue("id")
 	p, read, edit := a.reachPanel(cl, id)
@@ -118,7 +118,6 @@ func (a *App) panelFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needE
 	return p, true
 }
 
-// reachPanel loads panel id and what cl can do with it. A missing or malformed id reaches nothing.
 func (a *App) reachPanel(cl *apiCtx, id string) (p Panel, read, edit bool) {
 	p, ok := a.panels.get(id)
 	if !ok || !validPanelID(id) {
@@ -128,9 +127,8 @@ func (a *App) reachPanel(cl *apiCtx, id string) (p Panel, read, edit bool) {
 	return p, read, edit
 }
 
-// refuseReach writes the refusal for a record cl is not allowed to use (404, so it does not say the record
-// exists). When needEdit, it also refuses a record cl is allowed only to use (403 not_owner). It reports
-// whether it refused.
+// 404 for a record cl is not allowed to use, so the answer does not say that it exists. With needEdit, 403 not_owner
+// for one cl is allowed only to use. Returns true when it refused.
 func refuseReach(w http.ResponseWriter, read, edit, needEdit bool, noRead, noEdit string) bool {
 	switch {
 	case !read:
@@ -143,18 +141,9 @@ func refuseReach(w http.ResponseWriter, read, edit, needEdit bool, noRead, noEdi
 	return true
 }
 
-// readPanelBody decodes a panel from the request. Fields left out stay at their zero value.
 func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Panel, bool) {
-	body, ok := readBody(w, r, panelLayoutBodyMax, "panel")
-	if !ok {
-		return Panel{}, false
-	}
 	var p Panel
-	if len(strings.TrimSpace(string(body))) == 0 && allowEmpty {
-		return p, true
-	}
-	if err := json.Unmarshal(body, &p); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", "send a panel as JSON: "+err.Error())
+	if !decodeBody(w, r, panelLayoutBodyMax, "panel", "send a panel as JSON: ", allowEmpty, &p) {
 		return Panel{}, false
 	}
 	if p.Pages != nil && p.LegacyCells != nil {
@@ -164,13 +153,17 @@ func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Pan
 	return p, true
 }
 
-func (a *App) panelStoreFail(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, errPanelCap), errors.Is(err, errArtCap), errors.Is(err, errSlugTaken):
-		apiFail(w, http.StatusConflict, "conflict", err.Error())
-	default:
-		apiFail(w, http.StatusInternalServerError, "internal", "the panel could not be saved: "+err.Error())
+const panelSaveFail = "the panel could not be saved"
+
+func (a *App) checkPanel(w http.ResponseWriter, p *Panel) bool {
+	err := validatePanel(p)
+	if err == nil {
+		err = a.nameFixed(p.Settings)
 	}
+	if err != nil {
+		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	}
+	return err == nil
 }
 
 func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
@@ -179,16 +172,15 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 		if read, edit := a.panelReach(cl, p); read {
 			m := a.panelOut(p, edit)
 			a.monFields(m, cl, p, edit)
-			hideNamesFromPublic(m, cl)
+			hideUserNames(m, cl)
 			out = append(out, m)
 		}
 	}
 	apiJSON(w, map[string]any{"panels": out})
 }
 
-// apiPanelPeople is the Share picker's list: names only, never PINs or flags. It is only for a
-// user's key, so an API client or Guest cannot enumerate people. "people" is not a panel id
-// (validPanelID), so this route hides no panel.
+// Names only, never PINs or flags, and only for a user's key, so an API client or Guest cannot list people.
+// "people" is not a panel id (validPanelID), so this route hides no panel.
 func (a *App) apiPanelPeople(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	if cl.Actor.Kind != actorUser {
 		apiFail(w, http.StatusForbidden, "user_required", "the list of people is for a user's key")
@@ -210,18 +202,19 @@ func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	out := a.panelOut(p, edit)
 	a.monFields(out, cl, p, edit)
-	hideNamesFromPublic(out, cl)
-	// The page mirrors these before arming a take; the server still enforces them.
+	hideUserNames(out, cl)
+	// The page copies these before it arms a take; the server still enforces them.
 	out["rights"] = cl.Rights.Clone()
 	out["artDefaults"] = a.panelArtDefaults(cl, p)
-	// A panel page's take confirm reads these here, since its socket hello can be late or never come.
+	// The take confirm on a panel page reads these here: its socket hello can be late or never come.
 	cfg := a.r().cfg
 	out["confirm"] = map[string]any{"lockoutMs": cfg.ConfirmLockoutMs, "enter": cfg.ConfirmEnter}
 	apiJSONTaggedBy(w, r, out, readTagOf(out))
 }
 
-// readTagOf is the panel read without the fields that move with the clock. Seen moves on each keepalive, and a held
-// stream counts as now. The uptime window ends now. Online and uptime changes still move the tag.
+// The panel read without the fields that move with the clock alone: Seen (each keepalive) and the end of the uptime
+// window.
+// A change of Online or uptime still moves the tag.
 func readTagOf(out map[string]any) map[string]any {
 	tag := maps.Clone(out)
 	if rows, ok := out["instances"].([]instOut); ok {
@@ -243,8 +236,8 @@ func readTagOf(out map[string]any) map[string]any {
 	return tag
 }
 
-// panelIDOf turns a short name into its panel's id. Anything else comes back as given, so an unknown
-// name fails the same way as an id nobody is allowed to use.
+// Anything that is not a short name comes back as given, so an unknown name fails as an id nobody is allowed to use
+// does.
 func (a *App) panelIDOf(seg string) string {
 	if validPanelID(seg) {
 		return seg
@@ -255,9 +248,9 @@ func (a *App) panelIDOf(seg string) string {
 	return seg
 }
 
-// ownerOnly answers 403 user_required: a panel needs a user to own it.
+// A panel needs a user to own it.
 func ownerOnly(w http.ResponseWriter, cl *apiCtx) bool {
-	if cl.Actor.Kind != actorUser {
+	if cl.Actor.Kind != actorUser || cl.Actor.User == "" {
 		apiFail(w, http.StatusForbidden, "user_required", "a panel is owned by a user: use a user's key to create or copy one")
 		return false
 	}
@@ -273,10 +266,19 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = "", cl.Actor.Name, "", nil, nil, 0
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = "", cl.Actor.User, "", nil, nil, 0
 	p.normalize()
-	if err := validatePanel(&p); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	if p.Type == panelTypeGrid {
+		a.refEdges(&p, nil)
+	}
+	if !a.checkPanel(w, &p) {
+		return
+	}
+	if p.Type == panelTypeButtons {
+		p.Pages = a.refPages(p.Pages, cl.Actor.User)
+	}
+	if p.Acts == panelActsPublic && !a.r().cfg.PublicPanels {
+		failWith(w, errPublicOff)
 		return
 	}
 	var rights config.Rights
@@ -287,52 +289,72 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return
 		}
 	}
-	made, err := a.panels.create(p)
+	made, err := a.createPanelWithClient(cl.Actor, p, &rights, nil)
 	if err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
-	}
-	if actsHasClient(made.Acts) {
-		made.Client = panelClientName(made.ID)
-		err := a.setPanelClient(made.ID, &rights)
-		if err == nil {
-			_, err = a.panels.replace(made)
-		}
-		if err != nil {
-			a.panels.delete(made.ID)
-			a.setPanelClient(made.ID, nil)
-			failWith(w, err)
-			return
-		}
 	}
 	a.apiEvent(cl.Actor, "panelCreate", "ok", "panel "+made.ID+" "+made.Name, nil)
 	apiCreated(w, a.panelOut(made, true))
 }
 
-// apiPanelUpdate replaces the panel with the body. Id, owner, client and artwork are the
-// server's, and an unknown stored field the body leaves out is kept. A body with cells and no
-// pages changes Page 1 only.
 func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	old, ok := a.panelFor(w, r, cl, true)
 	if !ok {
 		return
 	}
-	p, ok := readPanelBody(w, r, false)
+	p, want, ok := a.readPanelUpdate(w, r, cl, old)
 	if !ok {
 		return
 	}
+	putClient, ok := a.panelClientChange(w, cl, old, &p, want)
+	if !ok {
+		return
+	}
+	// The panel is written before the client changes: a removed client's keys cannot come back, a file can.
+	if _, err := a.panels.replaceBody(p); err != nil {
+		failStore(w, err, panelSaveFail)
+		return
+	}
+	if putClient != nil {
+		if err := putClient(); err != nil {
+			if _, rerr := a.panels.replaceBody(old); rerr != nil {
+				log.Printf("panels: %s not put back after a refused client change: %v", p.ID, rerr)
+			}
+			failWith(w, err)
+			return
+		}
+	}
+	// After the write: an ask that read the panel as Public before it would get a key that outlives the switch.
+	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
+		a.endPublicKeys(p.ID)
+	}
+	if old.Acts != panelActsPublic && p.Acts == panelActsPublic {
+		a.publicAgain(p.ID)
+	}
+	p, _ = a.panels.get(p.ID) // carries the new Rev
+	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
+	apiJSON(w, a.panelOut(p, true))
+}
+
+// Id, owner, client and artwork are the server's. An unknown stored field that the body leaves out is kept.
+func (a *App) readPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx, old Panel) (Panel, *config.Rights, bool) {
+	p, ok := readPanelBody(w, r, false)
+	if !ok {
+		return p, nil, false
+	}
 	want := p.ClientRights
 	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
-	// ADR 0011: a body with no type is an older client's, so it keeps the stored one.
+	// ADR 0011: a body with no type keeps the stored one, so a client that does not know types still saves.
 	if p.Type == "" {
 		p.Type = old.Type
 	}
 	if p.Type != old.Type {
 		apiFail(w, http.StatusConflict, "conflict", "a panel's type is fixed when the panel is made")
-		return
+		return p, nil, false
 	}
 	if p.Type == panelTypeButtons && p.Pages == nil && p.LegacyCells != nil {
-		// A client from before Pages: its cells are Page 1's, and the other Pages stay.
+		// A body with cells and no Pages changes Page 1 only, so a client that does not know Pages still saves.
 		p.Pages = slices.Clone(old.Pages)
 		p.Pages[0].Cells, p.LegacyCells = p.LegacyCells, nil
 	}
@@ -345,59 +367,53 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		p.Extra = nil
 	}
 	p.normalize()
-	if err := validatePanel(&p); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
+	if p.Type == panelTypeGrid {
+		a.refEdges(&p, &old)
 	}
-	// The client change goes first: it is the part that can be refused, and a refused save
-	// must leave the panel as it was. So the store's own refusal is checked before it.
-	if a.panels.slugTaken(p.Slug, p.ID) {
-		a.panelStoreFail(w, errSlugTaken)
-		return
+	if !a.checkPanel(w, &p) {
+		return p, nil, false
 	}
+	if p.Type == panelTypeButtons {
+		p.Pages = a.refPages(p.Pages, cl.Actor.User)
+	}
+	return p, want, true
+}
+
+// panelClientChange sets p.Client and returns the client change to make after the panel write, or nil for none.
+func (a *App) panelClientChange(w http.ResponseWriter, cl *apiCtx, old Panel, p *Panel, want *config.Rights) (func() error, bool) {
 	cur, had := clientOfPanel(a.r().cfg, old)
-	switch {
-	case actsHasClient(p.Acts):
-		var curRights *config.Rights
+	p.Client = ""
+	if !actsHasClient(p.Acts) {
 		if had {
-			curRights = &cur.Rights
+			return func() error { return a.putPanelClient(cl.Actor, p.ID, nil, nil) }, true
 		}
-		// Opening a panel to anyone checks the caller even when the Rights stay as stored.
-		if p.Acts == panelActsPublic && old.Acts != panelActsPublic {
-			if want == nil && had {
-				want = &cur.Rights
-			}
-			curRights = nil
-		}
-		rights, changed, err := a.clientRightsFor(cl, want, curRights)
-		if err == nil && (!had || changed) {
-			err = a.setPanelClient(p.ID, &rights)
-		}
-		if err != nil {
-			failWith(w, err)
-			return
-		}
-		p.Client = panelClientName(p.ID)
-	case had:
-		if err := a.setPanelClient(p.ID, nil); err != nil {
-			failWith(w, err)
-			return
-		}
-		p.Client = ""
-	default:
-		p.Client = ""
+		return nil, true
 	}
-	if _, err := a.panels.replaceBody(p); err != nil {
-		a.panelStoreFail(w, err)
-		return
+	var curRights *config.Rights
+	if had {
+		curRights = &cur.Rights
 	}
-	// After the write: an ask that read the panel as Public until then would get a key that outlives the switch.
-	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
-		a.endPublicKeys(p.ID)
+	// A change to Public checks the caller even when the Rights stay as stored.
+	if p.Acts == panelActsPublic && old.Acts != panelActsPublic {
+		if !a.r().cfg.PublicPanels {
+			failWith(w, errPublicOff)
+			return nil, false
+		}
+		if want == nil && had {
+			want = &cur.Rights
+		}
+		curRights = nil
 	}
-	p, _ = a.panels.get(p.ID) // carries the new Rev
-	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
-	apiJSON(w, a.panelOut(p, true))
+	rights, changed, err := a.clientRightsFor(cl, want, curRights)
+	if err != nil {
+		failWith(w, err)
+		return nil, false
+	}
+	p.Client = panelClientName(p.ID)
+	if had && !changed {
+		return nil, true
+	}
+	return func() error { return a.putPanelClient(cl.Actor, p.ID, &rights, nil) }, true
 }
 
 func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -406,20 +422,19 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	if _, err := a.panels.delete(p.ID); err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	a.mon.forget(p.ID, true)
 	a.endPublicKeys(p.ID)
-	if err := a.setPanelClient(p.ID, nil); err != nil {
+	if err := a.putPanelClient(cl.Actor, p.ID, nil, nil); err != nil {
 		log.Printf("panels: client of deleted panel %s not removed: %v", p.ID, err)
 	}
 	a.apiEvent(cl.Actor, "panelDelete", "ok", "panel "+p.ID+" "+p.Name, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// apiPanelCopy is Save a copy: a new private panel the caller owns, acting as a session user.
-// It gets the copied panel's grid, settings, unknown fields and artwork. The body can name it.
+// The copy is private and the caller owns it.
 func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if !ownerOnly(w, cl) {
 		return
@@ -433,19 +448,31 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	c := src
-	c.Owner, c.Client, c.Acts, c.Share = cl.Actor.Name, "", panelActsSession, PanelShare{Mode: panelShareMe}
+	c.Owner, c.Client, c.Share = cl.Actor.User, "", PanelShare{Mode: panelShareMe}
+	// A Public source while the switch is off: the copy acts as a user, as a new panel does.
+	if c.Acts == panelActsPublic && !a.r().cfg.PublicPanels {
+		c.Acts = panelActsSession
+	}
 	c.Name = in.Name
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
 	c.Art, c.Rev, c.Slug = nil, 0, ""
-	if err := validatePanel(&c); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	if !a.checkPanel(w, &c) {
 		return
 	}
-	made, err := a.panels.create(c)
+	var rights config.Rights
+	var nets []string
+	if actsHasClient(c.Acts) {
+		if srcClient, ok := clientOfPanel(a.r().cfg, src); ok {
+			rights, nets = srcClient.Rights.Intersect(cl.Rights), srcClient.Networks
+		} else {
+			rights = cl.Rights.Clone()
+		}
+	}
+	made, err := a.createPanelWithClient(cl.Actor, c, &rights, nets)
 	if err != nil {
-		a.panelStoreFail(w, err)
+		failStore(w, err, panelSaveFail)
 		return
 	}
 	skipped := a.panels.copyArt(src, made.ID)
@@ -456,101 +483,4 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		out["artSkipped"] = skipped
 	}
 	apiCreated(w, out)
-}
-
-// apiArtUpload takes the image as the raw body. Its type is decided by its content: the
-// request's Content-Type and any file name are ignored.
-func (a *App) apiArtUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	p, ok := a.panelFor(w, r, cl, true)
-	if !ok {
-		return
-	}
-	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, panelArtBytes))
-	if err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			apiFail(w, http.StatusRequestEntityTooLarge, "too_large", "artwork is at most 2 MB")
-		} else {
-			apiFail(w, http.StatusBadRequest, "bad_request", "the body could not be read")
-		}
-		return
-	}
-	typ, f := checkArtBytes(data)
-	if f != nil {
-		failWith(w, f)
-		return
-	}
-	art, _, err := a.panels.addArt(p.ID, data, typ)
-	if err != nil {
-		a.panelStoreFail(w, err)
-		return
-	}
-	apiCreated(w, art)
-}
-
-// checkArtBytes judges artwork by its content: the type, and a raster's sides. Panel uploads and
-// Default artwork both pass through it.
-func checkArtBytes(data []byte) (string, error) {
-	if len(data) > panelArtBytes {
-		return "", &panelClientFail{http.StatusRequestEntityTooLarge, "too_large", "artwork is at most 2 MB"}
-	}
-	typ := sniffArt(data)
-	if typ == "" {
-		return "", &panelClientFail{http.StatusUnsupportedMediaType, "unsupported_type", "artwork is a JPEG, PNG, GIF or SVG image"}
-	}
-	if typ != "image/svg+xml" {
-		// DecodeConfig reads the header only, so a huge image costs no pixel memory here.
-		cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
-		if err != nil {
-			return "", &panelClientFail{http.StatusBadRequest, "bad_request", "the image header could not be read"}
-		}
-		if cfg.Width > panelArtSide || cfg.Height > panelArtSide {
-			msg := fmt.Sprintf("artwork is at most %d by %d pixels, this one is %d by %d", panelArtSide, panelArtSide, cfg.Width, cfg.Height)
-			return "", &panelClientFail{http.StatusBadRequest, "bad_request", msg}
-		}
-	}
-	return typ, nil
-}
-
-// serveArtBytes writes stored artwork. The headers keep a script in an SVG from running even if
-// someone opens the URL directly: sandbox without allow-scripts, nothing loadable, no sniffing.
-// Pages must show it as an image, never inline.
-func serveArtBytes(w http.ResponseWriter, typ string, data []byte) {
-	h := w.Header()
-	h.Set("Content-Type", typ)
-	h.Set("X-Content-Type-Options", "nosniff")
-	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
-	h.Set("Cross-Origin-Resource-Policy", "same-origin")
-	h.Set("Cache-Control", "private, no-cache")
-	w.Write(data)
-}
-
-// apiArtGet serves the stored type, never one the uploader named.
-func (a *App) apiArtGet(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	p, ok := a.panelFor(w, r, cl, false)
-	if !ok {
-		return
-	}
-	data, art, found := a.panels.artData(p.ID, r.PathValue("art"))
-	if !found || !artIDRe.MatchString(art.ID) {
-		apiFail(w, http.StatusNotFound, "not_found", "no such artwork on this panel")
-		return
-	}
-	serveArtBytes(w, art.Type, data)
-}
-
-func (a *App) apiArtDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	p, ok := a.panelFor(w, r, cl, true)
-	if !ok {
-		return
-	}
-	found, err := a.panels.delArt(p.ID, r.PathValue("art"))
-	switch {
-	case err != nil:
-		a.panelStoreFail(w, err)
-	case !found:
-		apiFail(w, http.StatusNotFound, "not_found", "no such artwork on this panel")
-	default:
-		w.WriteHeader(http.StatusNoContent)
-	}
 }

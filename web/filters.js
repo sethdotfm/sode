@@ -1,5 +1,4 @@
-// Recent's Filters dialog, shared by both layouts. Applies as you type; kept per browser
-// (filterstore.js). Share link: transfer.js reads it back through a review sheet.
+// History's Filters dialog, for both layouts. The filter applies while you type. filterstore.js keeps it per browser.
 
 import { $, el, S, on, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
@@ -13,7 +12,6 @@ import {
   pickSet,
   saveLocalSet,
   deleteLocalSet,
-  renameLocalSet,
   setsIn,
   setRef,
   filterSummary,
@@ -23,15 +21,21 @@ import {
 } from './filterstore.js';
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
-import { shareLink, copyLink } from './transfer.js';
-import { filterShare, saveAsName } from './exportfmt.js';
+import { saveAsName } from './exportfmt.js';
 import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
+import { relabelLocalBookmarks } from './bookmarkstore.js';
+import { newPresetId } from './presetref.js';
 import { browserFilters, profileFilters } from './editortargets.js';
 import { FILTER_DEFAULT, normFilter, snapshot, restore } from './filterstore.js';
 import { trapDialog, labeled } from './widgets.js';
 import { editor } from './filtereditor.js';
+import { statusBadge, setStatus } from './brokenview.js';
+import { STATUS_TEXT } from './brokenrules.js';
+import { replaceBox } from './filterreplace.js';
+import { inboxUser } from './inbox.js';
+import { sendCopy } from './sendcopy.js';
 
 const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]);
 const root = $('filters');
@@ -47,8 +51,7 @@ const browser = browserFilters({
   write: setFilter,
   snapshot,
   restore,
-  // A save already sent finishes first (its answer locks up after it); one waiting for the PIN is dropped.
-  onClose: () => saver.close(),
+  onClose: () => saver.close(), // a save already sent finishes first
 });
 let target = browser;
 const curF = () => target.filter();
@@ -97,21 +100,22 @@ function renderButtons() {
     b.classList.toggle('sode__filters-btn--on', lit);
     b.setAttribute('aria-label', aria);
   }
-  // Active sets are selected (click again to take one off; none left is All); * when a single
-  // one's filter was edited since.
+  // * marks a single active set whose filter changed after it was picked.
   const sets = allSets();
   const a = activeSet();
   const chip = (s) => {
-    const on = s.scope === 'all' ? !!a && a.scope === 'all' : isActive(s.scope, s.name);
+    const on = s.scope === 'all' ? !!a && a.scope === 'all' : isActive(s.scope, s.id);
     const edited = on && !!a && a.scope !== 'all' && a.edited;
     const b = el('button', 'pb-chip sode__set', s.name + (edited ? '*' : ''));
+    const badge = s.scope === 'all' ? null : statusBadge(setStatus(s).status);
+    if (badge) b.append(badge);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(on));
     if (edited) b.setAttribute('aria-label', `${s.name} (edited)`);
     b.dataset.pbTip = filterSummary(s.f) + (edited ? ' (edited)' : '');
     b.classList.add('pb-tip--end');
     b.addEventListener('click', () => {
-      toggleSet(s.scope, s.name);
+      toggleSet(s.scope, s.id);
       if (filtersOpen()) reload();
     });
     return b;
@@ -149,7 +153,6 @@ export function openFilters() {
   renderMode();
   loadDialog(filterState());
   $('flt-set-name-row').hidden = true;
-  $('flt-pin-row').hidden = true;
   deleting = false;
   renderSetBar();
   dlg.show();
@@ -201,7 +204,6 @@ function chrome() {
   tSave.hidden = own;
   $('flt-save').hidden = !own;
   $('flt-clear').hidden = !own;
-  $('flt-share-btn').hidden = !own;
   $('filters-title').textContent = target.title;
   tName.value = target.name;
   tNoteSet('');
@@ -238,6 +240,12 @@ tName.addEventListener('keydown', (e) => {
   }
 });
 
+// Edit makes the set active, so the dialog shows it.
+on('editFilterSetAt', (m) => {
+  pickSet(m.scope, m.id);
+  openFilters();
+});
+
 on('openFilterEditor', (m) => {
   const t = editTarget(m, 'filterSets');
   if (!t) return;
@@ -252,8 +260,7 @@ on('openFilterEditor', (m) => {
 
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
 $('flt-done').addEventListener('click', cancelFilters);
-// Save closes after the write has landed (the server's answer for everyone or Me; stays open for
-// a PIN or an error).
+// Save closes after the server answers; an error keeps it open.
 $('flt-save').addEventListener('click', () =>
   saveSet(() => {
     if (filtersOpen()) closeFilters();
@@ -267,24 +274,31 @@ for (const k of ['sode', 'ext', 'hidden']) {
     renderShow();
   });
 }
-// Show filter f in the editors and hide the share row.
 function loadDialog(f) {
   renderShow();
   eds.src.load(f.src);
   eds.dst.load(f.dst);
-  $('flt-share').hidden = true;
+  replace.paint();
 }
 const reload = () => loadDialog(curF());
+// Only the browser's own dialog has an active set; a profile target edits a draft.
+const replace = replaceBox({
+  set: () => {
+    const a = target === browser && activeSet();
+    return a && a.scope !== 'all' ? allSets().find((s) => s.scope === a.scope && s.id === a.id) || null : null;
+  },
+  read: curF,
+  put: putF,
+  reload,
+});
+$('flt-src').before(replace.box);
 
 $('flt-clear').addEventListener('click', () => {
   pickSet('all', 'All');
   reload();
 });
 
-// ---- the set bar. A saved set gets its new name when you edit the name and press Save. Sets for everyone are
-// settings saved on the server, so with a PIN they ask first.
-
-const setKey = (s) => `${s.scope}:${s.name}`;
+const setKey = (s) => `${s.scope}:${s.id}`;
 let deleting = false;
 let nameDirty = false;
 let moveTo = null;
@@ -307,7 +321,8 @@ function renderSetBar() {
     const g = el('optgroup');
     g.label = label;
     for (const s of these) {
-      const o = el('option', null, s.name + (a && setKey(a) === setKey(s) && a.edited ? ' (edited)' : ''));
+      const st = s.scope === 'all' ? '' : setStatus(s).status;
+      const o = el('option', null, s.name + (a && setKey(a) === setKey(s) && a.edited ? ' (edited)' : '') + (st ? `, ${STATUS_TEXT[st]}` : ''));
       o.value = setKey(s);
       g.append(o);
     }
@@ -330,16 +345,15 @@ function renderSetBar() {
   scopeBox.value = moveTo || (named && [...scopeBox.options].some((o) => o.value === a.scope) ? a.scope : 'local');
   scopeBox.disabled = busy || !named;
   $('flt-set-saveas').disabled = busy || stack.length > 0;
-  $('flt-share-btn').disabled = stack.length > 0;
   $('flt-set-del').disabled = busy || !named;
   $('flt-set-del').textContent = deleting && named ? `Delete “${a.name}”?` : 'Delete';
   $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
+  // The saved set goes, not unsaved edits.
+  $('flt-set-send').hidden = !inboxUser();
+  $('flt-set-send').disabled = busy || !named;
   if (busy) return;
   if (stack.length) {
-    return setNote(
-      `Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]}). ` +
-        'Changing a filter leaves the stack, and the share link is off.',
-    );
+    return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]})`);
   }
   if (named && moveTo) return setNote(`Save moves it from ${scopeLabel(a.scope)} to ${scopeLabel(moveTo)}.`);
   setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' (edited)' : ''}` : '');
@@ -349,22 +363,16 @@ const setNote = (text, error = false) => {
   $('flt-set-note').classList.toggle('sode__error-text', error);
 };
 
-// ---- sets for everyone: send the whole list, after the PIN if needed. An unlock lasts while the dialog is open (or until a save sent before it closed is answered).
-
 const saver = globalSaver({
   t: 'filterSets',
   resultT: 'filterSetsResult',
-  pinIn: $('flt-pin'),
-  pinRow: $('flt-pin-row'),
-  pinOk: $('flt-pin-ok'),
   setNote,
   isOpen: filtersOpen,
   failTitle: 'Filter set not saved',
   render: renderSetBar,
 });
-$('flt-pin-cancel').addEventListener('click', saver.cancel);
 const profSaver = profileSaver({ setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar });
-const wireSet = (s) => ({ name: s.name, ...s.f });
+const wireSet = (s) => ({ id: s.id, name: s.name, ...s.f });
 const { saveIn, removeIn } = scopeWriter({
   global: saver,
   user: profSaver,
@@ -372,12 +380,14 @@ const { saveIn, removeIn } = scopeWriter({
   key: 'filterSets',
   globalKey: 'sets',
   listOf: (scope) => setsIn(scope).map(wireSet),
+  keyOf: (s) => s.id,
   same: (a, b) => a === b,
   dropLocal: deleteLocalSet,
 });
-// fn maps the scope's sets as { name, f }; the result goes out in wire shape.
-const sharedWith = (scope, fn) => fn(setsIn(scope).map((s) => ({ name: s.name, f: s.f }))).map(wireSet);
-const refTo = (scope, name, base) => ({ ...setRef(scope, name), base });
+// fn maps the scope's sets as { id, name, f }; the result goes out in wire shape. The page makes a new set's id, so the
+// active set can name it before the save lands.
+const sharedWith = (scope, fn) => fn(setsIn(scope).map((s) => ({ id: s.id, name: s.name, f: s.f }))).map(wireSet);
+const refTo = (scope, id, base) => ({ ...setRef(scope, id), base });
 
 $('flt-set').addEventListener('change', (e) => {
   const [scope, ...rest] = e.target.value.split(':');
@@ -408,8 +418,8 @@ $('flt-set-cur').addEventListener('keydown', (e) => {
   }
 });
 
-function removeSet(scope, name, done = () => {}) {
-  removeIn(scope, name, () => {
+function removeSet(scope, id, done = () => {}) {
+  removeIn(scope, id, () => {
     landed();
     done();
   });
@@ -438,47 +448,53 @@ function saveSet(done = () => {}) {
     }
   }
   flushEds();
+  // The set keeps its id through a rename and a move, so a rename moves no bookmark.
   if (moving) {
     const to = moveTo,
-      from = a.scope,
-      was = a.name;
-    if (to === 'user' && !profileName()) return setNote('Sign in to save a set for yourself.', true);
+      from = a.scope;
+    if (to === 'user' && !profileName()) return setNote('Sign in to save to Me.', true);
     nameDirty = false;
     moveTo = null;
     if (to === 'local') {
-      saveLocalSet(name);
-      return removeSet(from, was, done);
+      saveLocalSet(name, a.id);
+      return removeSet(from, a.id, done);
     }
     const f = filterState();
     return saveIn(
       to,
-      sharedWith(to, (l) => [...l, { name, f }]),
+      sharedWith(to, (l) => [...l, { id: a.id, name, f }]),
       () => {
-        adoptFilter(f, refTo(to, name, f));
-        removeSet(from, was, done);
+        adoptFilter(f, refTo(to, a.id, f));
+        removeSet(from, a.id, done);
       },
     );
   }
   if (a.scope === 'local') {
-    if (renamed) renameLocalSet(a.name, name);
     nameDirty = false;
-    saveLocalSet(name);
+    saveLocalSet(name, a.id);
+    // The key stays; only the stored label follows, as for a preset.
+    if (renamed) relabelLocalBookmarks(`filterSet:local:${a.id}`, name);
     landed();
     return done();
   }
   const f = filterState();
   saveIn(
     a.scope,
-    sharedWith(a.scope, (l) => l.map((s) => (s.name === a.name ? { ...s, name, f } : s))),
+    sharedWith(a.scope, (l) => l.map((s) => (s.id === a.id ? { ...s, name, f } : s))),
     () => {
       nameDirty = false;
-      adoptFilter(f, refTo(a.scope, name, f));
+      adoptFilter(f, refTo(a.scope, a.id, f));
       landed();
       done();
     },
   );
 }
 
+$('flt-set-send').addEventListener('click', () => {
+  const a = activeSet();
+  const set = a && setsIn(a.scope).find((s) => s.id === a.id);
+  if (set) sendCopy({ filterSets: [set] }, set.name);
+});
 $('flt-set-del').addEventListener('click', () => {
   const a = activeSet();
   if (!a || a.scope === 'all') return;
@@ -488,7 +504,7 @@ $('flt-set-del').addEventListener('click', () => {
     return;
   }
   deleting = false;
-  removeIn(a.scope, a.name, () => {
+  removeIn(a.scope, a.id, () => {
     if (a.scope !== 'local') adoptFilter(filterState());
     landed();
     $('flt-set').focus();
@@ -529,12 +545,14 @@ function saveName() {
     return landed();
   }
   const fNow = filterState();
-  if (scope === 'user' && !profileName()) return setNote('Sign in to save a set for yourself.', true);
+  if (scope === 'user' && !profileName()) return setNote('Sign in to save to Me.', true);
+  // Save as… over a taken name keeps that set's id, as for a preset.
+  const id = setsIn(scope).find((s) => s.name.toLowerCase() === name.toLowerCase())?.id || newPresetId();
   saveIn(
     scope,
-    sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
+    sharedWith(scope, (l) => [...l.filter((s) => s.id !== id), { id, name, f: fNow }]),
     () => {
-      adoptFilter(fNow, refTo(scope, name, fNow));
+      adoptFilter(fNow, refTo(scope, id, fNow));
       landed();
     },
   );
@@ -559,16 +577,11 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 });
 
 const dlg = trapDialog(root, dialog, cancelFilters);
-
-// ---- share links: the filter as one item in a #share= link (exportfmt.js). The old ?f= link still opens.
-
-const shareUI = { box: $('flt-share'), input: $('flt-share-url'), status: $('flt-share-status'), copy: $('flt-share-copy') };
-$('flt-share-btn').addEventListener('click', () => {
-  flushEds();
-  const a = activeSet();
-  shareLink(filterShare(a && a.scope !== 'all' ? a.name : '', filterState()), shareUI);
+on('locking', () => filtersOpen() && cancelFilters());
+// The filter changes live while the dialog is open, and a close goes back: the Palette does not open over it.
+on('unsavedAsk', (a) => {
+  if (filtersOpen()) a.unsaved = true;
 });
-$('flt-share-copy').addEventListener('click', () => copyLink(shareUI));
 
 on('filters', renderButtons);
 on('prefs', () => {

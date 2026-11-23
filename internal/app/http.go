@@ -1,13 +1,13 @@
 package app
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -27,22 +27,21 @@ type client struct {
 	// secure: the upgrade request came through a trusted proxy marked HTTPS (ADR 0005).
 	secure bool
 
-	// pin: Advanced Settings PIN hash this connection unlocked, guarded by App.mu; a changed or
-	// removed PIN stops matching.
-	pin string
-
-	// sent: a /log page receiving sent-log entries. Guarded by App.mu.
+	// sent: a /log page that gets Communication Log rows. Guarded by App.mu.
 	sent bool
 
 	// api: set for a caller that is not a browser session; its Actor and Rights replace
 	// the lookup callerOf does for a browser.
 	api *apiCtx
 
-	u connUser // page type, unlocked user, session token (users.go)
+	u connUser // page type, signed-in user, session token (users.go)
 }
 
 // wsReadLimit: see TestMessageSizes (largest are a Settings save and a presets save).
 const wsReadLimit = 64 << 10
+
+// A page sends one message per action. Past this a socket is closed, since each refusal writes a log row.
+const wsMsgsPerSec = 100
 
 func (a *App) Handler(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
@@ -81,6 +80,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		}
 		panelPage(w, r)
 	})
+	worker := &shellWorker{fsys: static}
+	mux.HandleFunc("GET /sw.js", worker.serve)
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
@@ -92,7 +93,18 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		json.NewEncoder(w).Encode(st)
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
-	mux.HandleFunc("/api/yaml", a.serveYAML)
+	mux.HandleFunc("POST /api/log/download", a.serveLogDownload)
+	mux.HandleFunc("POST /api/export", a.serveExport)
+	mux.HandleFunc("POST /api/export/size", a.serveExportSize)
+	mux.HandleFunc("GET /api/export/items", a.serveExportItems)
+	mux.HandleFunc("POST /api/import", a.serveImportCheck)
+	mux.HandleFunc("POST /api/import/apply", a.serveImportApply)
+	mux.HandleFunc("POST /api/own/export", a.serveOwnExport)
+	mux.HandleFunc("POST /api/own/export/size", a.serveOwnExportSize)
+	mux.HandleFunc("GET /api/own/export/items", a.serveOwnExportItems)
+	mux.HandleFunc("POST /api/own/import", a.serveOwnImportCheck)
+	mux.HandleFunc("POST /api/own/import/apply", a.serveOwnImportApply)
+	mux.HandleFunc("POST /api/setup/restore", a.serveSetupRestore)
 	a.mountAPI(mux)
 	return a.httpsGate(secureHeaders(mux))
 }
@@ -143,8 +155,7 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(healthMsg{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
 }
 
-// clientIP: a hop that is not an address ends the search at the peer rather than trusting
-// what lies beyond.
+// clientIP: a hop that is not an address ends the search at the peer. Sode does not trust what lies beyond it.
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	host, ok := trustedPeer(r, trusted)
 	if !ok {
@@ -185,8 +196,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.CloseNow()
-	budget := newReadBudget(conn.SetReadLimit)
-	cc := &connCtx{budget: budget}
+	conn.SetReadLimit(wsReadLimit)
 
 	c := &client{ip: clientIP(r, a.r().proxies), secure: secureRequest(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
@@ -214,7 +224,12 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			delete(a.clients, c)
 			close(c.send)
 		}
+		if c.u.step != nil {
+			a.stepOutRowMu(c, "closed")
+		}
+		a.cardsSyncMu() // a page close cancels its request
 		a.mu.Unlock()
+		a.setupLeft(c)
 		log.Printf("ws %s: disconnected", c.ip)
 		e := event(kindBrowser, "disconnect", c.ip, "disconnected")
 		e.Note = "connected " + time.Since(connected).Round(time.Second).String()
@@ -266,11 +281,19 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	var win time.Time
+	n := 0
 	for {
 		_, data, err := conn.Read(ctx)
-		budget.Reset()
 		if err != nil {
 			gone = err
+			return
+		}
+		if now := time.Now(); now.Sub(win) >= time.Second {
+			win, n = now, 0
+		}
+		if n++; n > wsMsgsPerSec {
+			conn.Close(websocket.StatusPolicyViolation, "too many messages")
 			return
 		}
 		var m inMsg
@@ -280,6 +303,13 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		rl, known := policy[m.T]
 		if !known {
 			continue // closed: an unlisted type is never dispatched
+		}
+		// In line, like stepIn: the approver's PIN is checked before this message is admitted.
+		if m.Approval != nil {
+			if err := a.approve(c, rl, &m); err != nil {
+				a.refuse(c, m.T, rl.forMsg(&m), &m, err)
+				continue
+			}
 		}
 		rl = rl.forMsg(&m)
 		if err := a.admit(c, rl); err != nil {
@@ -294,7 +324,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			}
 			m.done = done
 		}
-		rl.handle(a, c, &m, cc)
+		rl.handle(a, c, &m)
 	}
 }
 
@@ -303,9 +333,10 @@ func (a *App) serveTake(c *client, m *inMsg) {
 		n := len(m.Items)
 		a.command(c, takeWhy(m.Items), "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
 	}
-	if name := cleanPresetName(cmp.Or(m.Preset, m.Salvo)); name != "" {
+	name, id := cleanPresetName(m.Preset), cleanPresetName(m.PresetID)
+	if name != "" || id != "" {
 		for i := range m.Items {
-			m.Items[i].Preset = name
+			m.Items[i].Preset, m.Items[i].PresetID = name, id
 		}
 	}
 	go func() {
@@ -320,10 +351,10 @@ func (a *App) serveConfig(c *client, m *inMsg) {
 		return
 	}
 	// Who saved, not what (settings hold the PIN hash).
-	go func(cfg json.RawMessage, pin string, clearPin bool) {
+	go func(cfg json.RawMessage) {
 		defer m.finish()
-		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin))
-	}(m.Config, m.Pin, m.ClearPin)
+		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg))
+	}(m.Config)
 }
 
 func present(r json.RawMessage) bool { return r != nil && string(r) != "null" }
@@ -332,7 +363,7 @@ func outcome(err error) string {
 	switch {
 	case err == nil:
 		return "ok"
-	case errors.Is(err, errLocked), errors.Is(err, errPageLocked):
+	case errors.Is(err, errPageLocked):
 		return "locked"
 	}
 	return "error"
@@ -340,44 +371,58 @@ func outcome(err error) string {
 
 // inMsg: every type read here must be in policy.go.
 type inMsg struct {
-	T          string             `json:"t"`
-	done       func()             // ends the shutdown count for a write (rule.write); see finish
-	Before     int                `json:"before"`
-	N          int                `json:"n"`    // history page size; 0 = the default
-	From       int64              `json:"from"` // uptime range, unix ms
-	To         int64              `json:"to"`
-	Slot       int64              `json:"slot"`   // ...and its slot length, ms
-	Config     json.RawMessage    `json:"config"` // decoded in saveSettings, over the live config
-	Pin        string             `json:"pin"`
-	User       string             `json:"user"` // userUnlock: the username (Username and PIN mode)
-	ClearPin   bool               `json:"clearPin"`
-	ID         int                `json:"id"` // echoed by unlock and save replies
-	Items      []routeReq         `json:"items"`
-	Preset     string             `json:"preset"` // take: the preset that was fired, if any
-	Salvo      string             `json:"salvo"`  // the same, from a page loaded before presets were renamed
-	Sets       []config.FilterSet `json:"sets"`
-	Prefs      map[string]string  `json:"prefs"`
-	FilterSets []config.FilterSet `json:"filterSets"`
-	Presets    []config.Preset    `json:"presets"`
-	PinOrder   []string           `json:"pinOrder"`
-	Page       string             `json:"page"`  // hi: main | log
-	Token      string             `json:"token"` // hi: session token of a persistent user or a tab login
-	Tab        bool               `json:"tab"`   // userUnlock: no lock on, wants a tab session token
-	Name       string             `json:"name"`  // userSignOutAll, profileSave, profileGet
-	Old        string             `json:"old"`
-	New        string             `json:"new"`
-	UsersReq   *usersReq          `json:"usersReq"`
-	Pins       bool               `json:"pins"`    // configExport: include the PIN hashes
-	YAML       string             `json:"yaml"`    // configImport: the file
-	Size       int                `json:"size"`    // configImportBegin: the file's size in bytes
-	KeyName    string             `json:"keyName"` // keyCreate, keyCreateFor
-	KeyID      string             `json:"keyId"`   // keyRevoke, keyRevokeAny
-	Expires    int64              `json:"expires"` // key expiry, unix ms; 0 = never
-	Owner      *keyOwner          `json:"owner"`   // keyCreateFor, keyRevokeAll
-	APISet     *apiSettingsReq    `json:"apiSettings"`
-	Panel      string             `json:"panel"`    // panelAlarm: the panel id
-	Action     string             `json:"action"`   // panelAlarm: clear | stop
-	Instance   string             `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
+	T      string               `json:"t"`
+	done   func()               // ends the shutdown count for a write (rule.write); see finish
+	Before int                  `json:"before"`
+	N      int                  `json:"n"`    // history page size; 0 = the default
+	From   int64                `json:"from"` // uptime range, unix ms
+	To     int64                `json:"to"`
+	Slot   int64                `json:"slot"`   // ...and its slot length, ms
+	Config json.RawMessage      `json:"config"` // decoded in saveSettings, over the live config
+	Fields map[string]fieldEdit `json:"fields"` // settingsSave, settingsReview: changed fields only
+	// AccessPreset: settingsSave, the Access preset staged into it, for the Settings saves row.
+	AccessPreset string             `json:"accessPreset"`
+	Pin          string             `json:"pin"`
+	User         string             `json:"user"` // userSignIn: the user's name (name and PIN mode)
+	ID           int                `json:"id"`   // echoed by save replies
+	Items        []routeReq         `json:"items"`
+	Preset       string             `json:"preset"`   // take: the preset that was fired, if any
+	PresetID     string             `json:"presetId"` // ...and its hidden id
+	Sets         []config.FilterSet `json:"sets"`
+	Prefs        map[string]string  `json:"prefs"`
+	FilterSets   []config.FilterSet `json:"filterSets"`
+	Presets      []config.Preset    `json:"presets"`
+	Bookmarks    []config.Bookmark  `json:"bookmarks"`    // bookmarks (Everyone), profileSave (Me)
+	PalettePicks []string           `json:"palettePicks"` // profileSave: the Palette's last picks
+	Page         string             `json:"page"`         // hi: main | log
+	Token        string             `json:"token"`        // hi: session token of a persistent user or a tab sign-in
+	Tab          bool               `json:"tab"`          // userSignIn: no lock on, wants a tab session token
+	Name         string             `json:"name"`         // userSignOutAll, profileSave, profileGet
+	Old          string             `json:"old"`
+	New          string             `json:"new"`
+	Remove       bool               `json:"remove"`   // userSetPin: remove my PIN
+	KeyName      string             `json:"keyName"`  // keyCreate, keyCreateFor
+	KeyID        string             `json:"keyId"`    // keyRevoke, keyRevokeAny
+	Expires      int64              `json:"expires"`  // key expiry, unix ms; 0 = never
+	Owner        *keyOwner          `json:"owner"`    // keyCreateFor, keyRevokeAll
+	Panel        string             `json:"panel"`    // panelAlarm: the panel id
+	Action       string             `json:"action"`   // panelAlarm: clear | stop
+	Instance     string             `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
+	MyClient     *myClientReq       `json:"client"`   // myClientSave
+	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
+	approver     *config.User       // approve sets it after it checks the Approval's PIN
+	Router       string             `json:"router"`  // setupRouter: the address typed
+	Setup        *setupReq          `json:"setup"`   // setupFinish
+	TakeOver     bool               `json:"take"`    // setupClaim: Take control from the browser that runs setup
+	For          *inMsg             `json:"for"`     // approvalAsk: the action to approve
+	Request      string             `json:"request"` // approvalAnswer
+	Approve      bool               `json:"approve"` // approvalAnswer: false denies
+	On           bool               `json:"on"`      // approvalCards
+	asRole       string             // Request approval: the requester's Role when sent (approvalrequest.go)
+	Inbox        *inboxReq          `json:"inbox"`   // the inbox messages (inboxsend.go)
+	Swap         *swapReq           `json:"swap"`    // swapList, swapMine (swap.go)
+	Mine         bool               `json:"mine"`    // brokenCount: only the user's own items
+	Protect      *protectReq        `json:"protect"` // protectSet, protectClear
 }
 
 func plural(n int, one, many string) string {
@@ -411,7 +456,17 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	return m
 }
 
-func locked(err error) *bool {
-	l := errors.Is(err, errLocked)
-	return &l
+// KeepAliveListener probes an idle connection after 2 s, every 1 s, and drops it after 3 misses. So a
+// peer that vanished without a FIN (power cut, lost Wi-Fi) ends its stream in about 5 s. The kernel
+// default is 2 hours. A proxy in front only gets this on its own leg of the connection.
+func KeepAliveListener(ln net.Listener) net.Listener { return keepAliveLn{ln} }
+
+type keepAliveLn struct{ net.Listener }
+
+func (l keepAliveLn) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if tc, ok := c.(*net.TCPConn); ok && err == nil {
+		_ = tc.SetKeepAliveConfig(net.KeepAliveConfig{Enable: true, Idle: 2 * time.Second, Interval: time.Second, Count: 3})
+	}
+	return c, err
 }

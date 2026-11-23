@@ -2,9 +2,10 @@
 import { KINDS } from './panelrules.js';
 import { saved, createGrid, DEFAULT_ROWS, DEFAULT_COLS } from './gridmodel.js';
 import { pagesOf, pageView, storedPages } from './panelpages.js';
-import { chord } from './keys.js';
+import { chord, modChord, keyLabel } from './keys.js';
 import { nameMismatch } from './panellook.js';
 import { isGridPanel } from './gridpaneledges.js';
+import { edgesOut } from './gridedgerefs.js';
 
 // The Cell tab's lines about Default artwork. d is the item's default or null, and own is whether the cell sets
 // artwork of its own. routerName is the router's name for the cell's number now ('' when not known).
@@ -12,20 +13,19 @@ export function defaultNote(d, own, routerName) {
   if (!d) return { text: '', warn: '' };
   const what = d.kind === 'preset' ? 'preset' : d.kind;
   const text = own ? `This cell's own artwork shows instead of the Default artwork of its ${what}.` : `This cell shows the Default artwork of its ${what}.`;
-  const warn = nameMismatch(d, routerName)
-    ? `It is possible that this default is for another item: it was set for ${d.name}, and the router now names this ${what} ${routerName}.`
-    : '';
+  const warn = nameMismatch(d, routerName) ? `Default set for ${d.name}. The router now names this ${what} ${routerName}.` : '';
   return { text, warn };
 }
 
 // Whether a cell's item can carry Default artwork. Me presets cannot: the set is shared, so the server refuses them.
 export const takesDefault = (c) =>
-  !!c && (c.kind === 'preset' ? c.scope === 'everyone' && !!c.name : (c.kind === 'source' || c.kind === 'destination') && Number.isInteger(c.n));
+  !!c && (c.kind === 'preset' ? c.scope === 'everyone' && (!!c.id || !!c.name) : (c.kind === 'source' || c.kind === 'destination') && Number.isInteger(c.n));
 
 // The body of PUT (set) or DELETE (clear) /default-artwork for a cell's item. Set sends the cell's own artwork and
-// Hide text, and the panel an uploaded image is on, which the server copies.
+// Hide text, and the panel an uploaded image is on, which the server copies. The server finds a preset by id first.
 export function defaultBody(cell, panelId, set) {
-  const item = cell.kind === 'preset' ? { kind: cell.kind, scope: cell.scope, name: cell.name } : { kind: cell.kind, n: cell.n };
+  const item =
+    cell.kind === 'preset' ? { kind: cell.kind, scope: cell.scope, ...(cell.id ? { id: cell.id } : {}), name: cell.name } : { kind: cell.kind, n: cell.n };
   if (!set) return item;
   return { ...item, art: cell.art || '', artB: cell.artB || '', hideText: cell.hideText === true, panel: panelId };
 }
@@ -83,7 +83,7 @@ const edgeKey = (e) => {
 
 // PUT replaces the panel, so what the editor does not own goes back as it came (settings, sharing, unknown fields).
 // fields is the sidebar's edits: {settings, acts, clientRights}, each present only after an edit. clientRights is
-// left out otherwise so the server keeps the stored Rights (it is possible that an administrator widened them). grid is Page 1 as
+// left out otherwise so the server keeps the stored Rights (it is possible that an Administrator widened them). grid is Page 1 as
 // stored, whichever Page has focus. pages is the Page list with every Page's edits, and the server refuses a body
 // with both pages and cells.
 export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {
@@ -97,7 +97,14 @@ export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded
     delete rest.rows;
     delete rest.cols;
     const base = newPanel('grid');
-    return { ...rest, name: name.trim(), pages: [], sources: rest.sources ?? base.sources, destinations: rest.destinations ?? base.destinations, ...edits };
+    return edgesOut({
+      ...rest,
+      name: name.trim(),
+      pages: [],
+      sources: rest.sources ?? base.sources,
+      destinations: rest.destinations ?? base.destinations,
+      ...edits,
+    });
   }
   const { rows, cols, cells } = saved(grid);
   return { ...rest, name: name.trim(), rows, cols, pages: storedPages(pages, cells, rows, cols), ...edits };
@@ -143,6 +150,14 @@ export function placeMenu(rect, menu, area, gap) {
   return { side: 'below', left: Math.max(area.left, Math.min(rect.left, area.right - menu.w)), top: rect.bottom + gap };
 }
 
+// The Live Editor's Smart menu on a Source bar name: above the name, over the band, so it keeps off the crosspoints. Else
+// below it when there is no room above. Lined up with the name's left edge, inside the area.
+export function placeAbove(rect, menu, area, gap) {
+  const left = Math.max(area.left, Math.min(rect.left, area.right - menu.w));
+  if (rect.top - gap - menu.h >= area.top) return { side: 'above', left, top: rect.top - gap - menu.h };
+  return { side: 'below', left, top: rect.bottom + gap };
+}
+
 // The box the menu and its flyouts stay inside: the viewport, cut at the sidebar when the sidebar sits beside the
 // grid. The sidebar edits the selected cell, so the menu must not cover it. Under the grid, in the narrow layout, it does
 // not bound them. side and grid are screen rects, or side is null.
@@ -166,6 +181,9 @@ export function subSide(at, menuW, subW, area, gap) {
   return roomRight >= roomLeft ? 'right' : 'left';
 }
 
+// Pixels a flyout or menu keeps from the viewport edge.
+export const EDGE_GAP = 8;
+
 // How far a flyout (Find) must move to sit inside the viewport, in pixels; {x: 0, y: 0} when it already does. The
 // top and left edges win over the bottom and right, so the box at the top stays reachable when it is too tall.
 export function flyoutShift(rect, vp, gap) {
@@ -183,10 +201,10 @@ export function flyoutShift(rect, vp, gap) {
 export const menuChord = (items, e) => items.find((it) => it.chord && chord(e) === `ctrl+${it.chord}` && !it.disabled) ?? null;
 
 // U+2303 is the Mac's Control sign.
-export const chordText = (letter, mac) => (mac ? `\u2303${letter.toUpperCase()}` : `Ctrl+${letter.toUpperCase()}`);
+export const chordText = (letter, mac) => keyLabel(`ctrl+${letter}`, mac);
 
-// Ctrl or Cmd+S saves the panel instead of the browser saving the page. By e.code (chord), so any keyboard layout.
-export const saveChord = (e) => ['ctrl+s', 'meta+s'].includes(chord(e));
+// Ctrl+S, or Cmd+S on a Mac, saves the panel instead of the browser saving the page. By e.code, so any keyboard layout.
+export const saveChord = (e, isMac) => modChord(e, isMac) === 'mod+s';
 
 // The note and button above the editor for a sign-in step (sessionStep, plus 'ended', 'refused' and 'offline').
 // err is Sode's reason when it refused the page's key. Steps with nothing to say ('ready', 'wait' behind the page
@@ -198,11 +216,11 @@ export function signInNote(step, err = '') {
     case 'no-users':
       return { text: 'Panels need a user, and Sode has none. Add one in Settings, Users.', button: '' };
     case 'ended':
-      return { text: "This page's sign-in key was ended. Sign in again to keep editing.", button: 'Sign in again' };
+      return { text: 'Sign-in ended.', button: 'Sign in again' };
     case 'refused':
-      return { text: `Sode would not open the editor for this sign-in${err ? `: ${err}` : ''}. Sign in again.`, button: 'Sign in again' };
+      return { text: `Sign-in refused${err ? `: ${err}` : ''}.`, button: 'Sign in again' };
     case 'offline':
-      return { text: 'Sode is not answering. The page keeps trying. If this continues, check the network.', button: '' };
+      return { text: 'Sode is not answering. Reconnecting…', button: '' };
     default:
       return { text: '', button: '' };
   }
@@ -210,9 +228,9 @@ export function signInNote(step, err = '') {
 
 // Why a panel could not be opened, from jsonCall's error, and what to do about it.
 export function openFailNote(e) {
-  if (e.status === 0) return 'Sode did not answer, so the panel could not be opened. Check the network, then choose the panel again.';
-  if (e.status === 404) return 'No panel here that you can use. Choose another panel, or ask its owner to share it with you.';
-  if (e.status === 401) return 'Your sign-in for this page ended. Sign in again, then choose the panel again.';
+  if (e.status === 0) return 'Sode did not answer. Choose the panel again.';
+  if (e.status === 404) return 'No panel here that you can use.';
+  if (e.status === 401) return 'Sign-in ended. Sign in again.';
   return e.message || `The panel could not be opened (${e.status}).`;
 }
 
@@ -244,6 +262,17 @@ export const kindChoices = ({ fixed = false } = {}) =>
   [...KINDS, ''].map((kind) =>
     fixed && kind === 'destination' ? { kind, label: kindLabel(kind), disabled: true, hint: 'Fixed destination is on' } : { kind, label: kindLabel(kind) },
   );
+
+// The editor belongs to the access it opened with (lock.js `access`). owner is null until a user signs in. A sign-out,
+// another user or another Role leaves the editor. A Lock does not. lock.js sends a held Lock with no user (raiseLock).
+// Only the holder's PIN ends it, so the page waits under the pad. A reload there played the Lock twice.
+export function editorAccess(owner, a) {
+  const now = { user: a.user || '', role: a.role || '' };
+  if (!owner) return { owner: now.user ? now : null, leave: false };
+  if (a.held) return { owner, leave: false };
+  if (now.user !== owner.user) return { owner, leave: true };
+  return { owner, leave: !a.locked && !a.held && !!now.role && now.role !== owner.role };
+}
 
 // The tip beside the grip while it is dragged: how many squares, and the first and last name placed.
 export function gripTip(plan, nameOf) {

@@ -1,0 +1,3 @@
+- Every page header (Home, Settings, /panels, the panel editor and /log) has the same buttons in this order: Home, Panels, Palette and Settings. On Home, the Grid popup takes the place of Home. A rule comes before the buttons and between Inbox and the status.
+- The Server and Router status shows a symbol, not a square. A check is up, a turning spinner is connecting and a cross is down.
+- The Lock button and "Signed in as" scroll with the top bar and stay on its line.

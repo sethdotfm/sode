@@ -11,8 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Templates in the panel editor: a layout saved to Me comes back through REST without cell contents. Applying it
-// leaves the cells unassigned and the panel unsaved. Everyone asks a user who is not Trusted for the PIN.
 func TestChromeEditorTemplates(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -37,6 +35,7 @@ func TestChromeEditorTemplates(t *testing.T) {
 	}
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -53,10 +52,9 @@ func TestChromeEditorTemplates(t *testing.T) {
 		t.Fatalf("the template kept cell contents or lost its layout: %s", body)
 	}
 
-	// Everyone is for a Trusted user or the PIN; Ana is neither, so the dialog asks for the PIN.
 	b.eval(`document.getElementById('tpl-name').value = 'For all'; document.getElementById('tpl-scope-everyone').click(); document.getElementById('tpl-save').click()`)
-	b.waitFor("PIN asked", `!document.querySelector('.sode-tpl__pin').hidden && document.querySelector('.sode-tpl .pb-modal__footer').textContent.includes('Trusted user')`)
-	b.shot("pin")
+	b.waitFor("refused", `document.querySelector('.sode-tpl .pb-modal__footer').textContent.includes('Trusted user') && !document.querySelector('.sode-tpl input[type="password"]')`)
+	b.shot("refused")
 
 	b.eval(`document.querySelector('[data-apply]').click()`)
 	b.waitFor("applied with the cells unassigned", `!document.getElementById('tpl-save') && document.getElementById('ed-state').textContent === 'Unsaved changes'`)
@@ -68,9 +66,6 @@ func TestChromeEditorTemplates(t *testing.T) {
 	}
 }
 
-// A template stored with Sources keeps the Sources and leaves the Destinations unassigned when applied to another panel.
-// A template stored with both brings both back. The toolbar counts empty squares with the unassigned cells. The Panel tab's theme
-// reaches the editor's preview and the stored settings.
 func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b, a, ana, id := editorTab(t, `{"name":"Full","rows":2,"cols":3,"cells":[
 		{"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":1,"caption":"Cam one"},
@@ -114,13 +109,11 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b.waitFor("Sources came back, Destinations did not", `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && !document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
 	apply("Both")
 	b.waitFor("both came back", `document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
-	// The settings stored with it (theme dark) came with the cells.
 	b.waitFor("settings applied with the contents", `document.getElementById('ed-set-theme').value === 'dark' && document.getElementById('ed-grid').style.colorScheme === 'dark'`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
 	b.waitSaved("blank panel saved")
 
-	// Applying it back onto the first panel after a cell was removed restores the cell.
 	b.eval(`location.href = location.origin + '/panels/editor?panel=` + id + `'`)
 	b.waitFor("first panel loaded", `document.getElementById('ed-name')?.value === 'Full' && !!document.getElementById('ed-templates')`)
 	b.eval(`const g = document.getElementById('ed-grid'); const k = (key) => g.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })); k('ArrowDown'); k('ArrowDown'); k('Delete')`)

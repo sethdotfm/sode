@@ -15,15 +15,10 @@ func asGrid(b *tab, all bool) {
 	b.waitFor("the lists show", `!!document.getElementById('ed-sources-col')?.offsetParent`)
 	if all {
 		b.eval(`for (const k of ['sources', 'destinations']) { const s = document.getElementById('ed-' + k + '-all'); s.click(); s.click(); } true`)
-		b.waitFor("both lists hold every router item, not following", `!document.getElementById('ed-sources-all').checked && !document.getElementById('ed-destinations-all').checked && document.getElementById('ed-sources-following').hidden`)
+		b.waitFor("both lists hold every router item, not following", `!document.getElementById('ed-sources-all').checked && !document.getElementById('ed-destinations-all').checked && document.getElementById('ed-lists-following').hidden`)
 	}
 }
 
-// The Grid editor at 2500 sources. Sources and Destinations are side by side on the left. The Cell, Panel and Access
-// sidebar is on the right, at most 85% of the window high, and scrolls inside itself. In the panel's
-// list, click, Shift-click and Ctrl-click select rows. The Cell tab sets Icon A on every selected row. It runs Icon B
-// down them in the order the panel page draws them, pinned rows first. A drag from a grip moves the selection as a
-// block, and so do Alt+arrows, Ctrl+arrows and Cmd+Shift+arrows. A row's Pin and Remove act on the whole selection.
 func TestChromeGridPanelEditorSelect(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t, "SIM_SOURCES=2500", "SIM_DESTS=750")
@@ -44,9 +39,10 @@ func TestChromeGridPanelEditorSelect(t *testing.T) {
 		return s.width > 0 && s.right <= d.left && d.right <= side.left && Math.abs(s.top - d.top) < 4 && side.width <= innerWidth / 3 + 1;
 	})()`)
 	b.waitFor("the sidebar keeps Cell, Panel and Access", `[...document.querySelectorAll('#ed-side .pb-tab')].map((x) => x.textContent).join() === 'Cell,Panel,Access'`)
-	b.waitFor("the sidebar is at most 85% of the window and scrolls inside itself", `(() => {
+	b.waitFor("the sidebar ends inside the window and scrolls inside itself, and the page does not scroll", `(() => {
 		const s = document.getElementById('ed-side');
-		return s.getBoundingClientRect().height <= innerHeight * 0.85 + 1 && s.scrollHeight > s.clientHeight && getComputedStyle(s).overflowY === 'auto';
+		return s.getBoundingClientRect().bottom <= innerHeight + 1 && s.scrollHeight > s.clientHeight && getComputedStyle(s).overflowY === 'auto'
+			&& document.scrollingElement.scrollHeight <= innerHeight + 1;
 	})()`)
 	b.shot("lists-wide")
 	if n := int(b.eval(`document.getElementsByTagName('*').length`).(float64)); n > 8000 {
@@ -63,7 +59,6 @@ func TestChromeGridPanelEditorSelect(t *testing.T) {
 	b.eval(`pick(2); pick(5, { shiftKey: true }); pick(8, { ctrlKey: true }); true`)
 	b.waitFor("click, Shift-click and Ctrl-click select five rows, and the Cell tab opens on them", `picked() === '2,3,4,5,8' && document.getElementById('ed-sources-sel').textContent === '5 selected' && document.getElementById('tab-ed-cell').getAttribute('aria-selected') === 'true' && document.getElementById('ed-cell-kind').textContent === '5 sources selected'`)
 
-	// The Cell tab: Icon A on all five, then Icon B from 7 down the rows in list order. The bar's Artwork opens its picker.
 	b.eval(`document.getElementById('tab-ed-panel').click(); document.getElementById('ed-sources-sel-art').click(); true`)
 	b.waitFor("Artwork selects the Cell tab with Icon A choices open", `document.getElementById('tab-ed-cell').getAttribute('aria-selected') === 'true' && !!cellTab().querySelector('button[aria-label="camera"]')?.offsetParent`)
 	b.eval(`cellTab().querySelector('button[aria-label="camera"]').click(); cellTab().querySelector('[role="group"][aria-label="Icon B"] button[aria-label="7"]').click(); true`)
@@ -72,13 +67,11 @@ func TestChromeGridPanelEditorSelect(t *testing.T) {
 	b.waitFor("Hide text on the rows sets it on all five, and the button turns to Show text", `[...cellTab().querySelectorAll('.pb-btn')].some((x) => x.textContent === 'Show text' && !x.hidden)`)
 	b.shot("selected")
 
-	// A selection in Destinations ends the one in Sources, so the Cell tab has one target.
 	b.eval(`document.querySelector('#ed-destinations-list li[data-id="1"] .sode-pages__name').click(); true`)
 	b.waitFor("the Cell tab moves to the destination", `picked() === '' && document.getElementById('ed-cell-kind').textContent.startsWith('Destination 2')`)
 	b.eval(`pick(2); pick(5, { shiftKey: true }); pick(8, { ctrlKey: true }); true`)
 	b.waitFor("the five are selected again", `picked() === '2,3,4,5,8'`)
 
-	// A drag from the grip of a selected row moves all five, in list order, before row 0 (the top half of row 0).
 	b.eval(`(() => {
 		const dt = new DataTransfer();
 		const to = li(0);
@@ -99,29 +92,29 @@ func TestChromeGridPanelEditorSelect(t *testing.T) {
 		t.Errorf("a drag starts on the row itself or a button, want only on its grip and its text")
 	}
 
-	// From the keyboard: Alt+Down and Cmd+Shift+Down move the block down a row each; Ctrl+Shift+Up moves it back.
 	key := func(k string, mods string) {
 		b.eval(fmt.Sprintf(`document.getElementById('ed-sources-list').focus(); document.getElementById('ed-sources-list').dispatchEvent(new KeyboardEvent('keydown', { key: %q, bubbles: true, cancelable: true, %s })); true`, k, mods))
 	}
 	key("ArrowDown", "altKey: true")
-	key("ArrowDown", "metaKey: true, shiftKey: true")
-	b.waitFor("Alt+Down and Cmd+Shift+Down move the block past two rows", order+` === '0,1,2,3,4,5,8,6,7'`)
-	key("ArrowUp", "ctrlKey: true, shiftKey: true")
-	b.waitFor("Ctrl+Shift+Up moves it back a row", order+` === '0,2,3,4,5,8,1,6,7'`)
+	key("ArrowDown", "altKey: true")
+	b.waitFor("Alt+Down twice moves the block past two rows", order+` === '0,1,2,3,4,5,8,6,7'`)
+	key("ArrowUp", "altKey: true")
+	b.waitFor("Alt+Up moves it back a row", order+` === '0,2,3,4,5,8,1,6,7'`)
+	// Only Alt moves rows: were Ctrl or Ctrl+Shift to move them too, the Alt+Down after them would pass a third row.
 	key("ArrowDown", "ctrlKey: true")
-	b.waitFor("Ctrl+Down moves it down a row", order+` === '0,1,2,3,4,5,8,6,7'`)
-	key("ArrowUp", "ctrlKey: true")
-	b.waitFor("Ctrl+Up moves it back", order+` === '0,2,3,4,5,8,1,6,7'`)
+	key("ArrowDown", "ctrlKey: true, shiftKey: true")
+	key("ArrowDown", "altKey: true")
+	b.waitFor("Ctrl+Down and Ctrl+Shift+Down move nothing", order+` === '0,1,2,3,4,5,8,6,7'`)
+	key("ArrowUp", "altKey: true")
+	b.waitFor("Alt+Up moves it back", order+` === '0,2,3,4,5,8,1,6,7'`)
 	key("Home", "altKey: true")
 	b.waitFor("Alt+Home moves it to the top", order+` === '2,3,4,5,8,0,1,6,7'`)
 
-	// A row's Pin and Remove act on the whole selection when the row is in it.
 	b.eval(`li(3).querySelector('[data-act="pin"]').click(); true`)
 	b.waitFor("a row's Pin pins the five", `[2, 3, 4, 5, 8].every((n) => li(n).querySelector('[data-act="pin"]').getAttribute('aria-pressed') === 'true') && li(0).querySelector('[data-act="pin"]').getAttribute('aria-pressed') === 'false'`)
 	b.eval(`li(3).querySelector('[data-act="pin"]').click(); true`)
 	b.waitFor("and Unpin unpins them", `[2, 3, 4, 5, 8].every((n) => li(n).querySelector('[data-act="pin"]').getAttribute('aria-pressed') === 'false')`)
 
-	// Icon B runs in the order the panel page draws the rows: a pinned row first, though it is later in the list.
 	key("Escape", "")
 	b.eval(`li(1).querySelector('[data-act="pin"]').click(); true`)
 	b.waitFor("row 1 alone is pinned", `li(1).querySelector('[data-act="pin"]').getAttribute('aria-pressed') === 'true' && picked() === ''`)
@@ -143,7 +136,6 @@ func TestChromeGridPanelEditorSelect(t *testing.T) {
 	key("Escape", "")
 	b.waitFor("Esc selects none", `picked() === '' && document.getElementById('ed-sources-sel-pin').disabled`)
 
-	// A selection of every row: Ctrl+A and an Icon A for 2500 rows stay quick.
 	// The best of three, so one slow frame on a loaded runner does not fail it. An odd count leaves the camera on.
 	ms := b.eval(`(async () => {
 		let best = Infinity;
@@ -165,17 +157,15 @@ func TestChromeGridPanelEditorSelect(t *testing.T) {
 	b.waitFor("Ctrl+A selects all 2500", `document.getElementById('ed-sources-sel').textContent === '2500 selected'`)
 	key("Escape", "")
 
-	// Remove on a row in a selection of two takes both.
 	b.eval(`pick(4); pick(5, { shiftKey: true }); li(5).querySelector('[data-act="delete"]').click(); true`)
 	b.waitFor("a row's Remove takes the selection", `!li(4) && !li(5) && !!li(3) && picked() === ''`)
 
 	b.eval(`document.getElementById('ed-name').value = 'Selected grid'; document.getElementById('ed-name').dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('ed-save').click(); true`)
 	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved' && location.search.startsWith('?panel=')`)
 	id := regexp.MustCompile(`panel=([\w-]+)`).FindStringSubmatch(b.eval(`location.search`).(string))[1]
-	srcs, _ := readPanel(t, a, ana, id)["sources"].(map[string]any)
+	srcs := gridEdgeNums(t, readPanel(t, a, ana, id), "sources")
 	members, _ := srcs["members"].([]any)
 	head, _ := json.Marshal(members[:6])
-	// Row 1 went to the top when pinned and stayed there when unpinned.
 	if len(members) != 2498 || string(head) != `[1,2,3,8,0,6]` {
 		t.Errorf("members start %s (%d), want [1,2,3,8,0,6] of 2498", head, len(members))
 	}

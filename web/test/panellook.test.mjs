@@ -1,4 +1,3 @@
-// Panel look and device settings (panellook.js, panelfeel.js) and the pulse rules in panels.css.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -123,9 +122,7 @@ test('one animated grid property drives every pulse, so no cell has an animation
   assert.match(css, /--panel-pulse-floor:\s*72%/);
 });
 
-// An inherited registered property animated on :root restyles the whole document every frame, on every page that
-// loads panels.css. The editor idled at 27% CPU, and renderer memory rose. The pulse runs on the grid, and only
-// while a cell is in a pulsing state.
+// An inherited registered property animated on :root restyles the whole document each frame, on each page that loads panels.css.
 test('the pulse runs on a panel grid with a pulsing cell, never on the root', () => {
   assert.doesNotMatch(css, /:root\s*\{[^}]*animation/);
   const rule = /\.sode-panel__grid:has\(([^)]*)\)\s*\{[^}]*animation:\s*sode-panel-pulse[^;]*infinite/.exec(css);
@@ -186,7 +183,7 @@ test('hidden text stays readable by screen readers, on the panel page and in the
   );
 });
 
-// Icon B is a digit 0 to 16 or a letter A to Z drawn beside Icon A, so a cell can read "[camera] 2".
+// Icon B is a number 0 to 16 or a letter A to Z, drawn beside Icon A.
 test('Icon B is one of the fixed glyphs, and anything else is dropped', async () => {
   const { artBOf, textHidden, ART_B_CHOICES } = await import('../panellook.js');
   assert.deepEqual(ART_B_CHOICES.slice(0, 3), ['0', '1', '2']);
@@ -200,8 +197,6 @@ test('Icon B is one of the fixed glyphs, and anything else is dropped', async ()
   assert.equal(textHidden({ hideText: true, artB: 'bogus' }), false);
 });
 
-// An uploaded image fills the cell and Icon B draws as a corner badge over it. Beside a vendored icon, Icon B keeps
-// its place in the row.
 test('Icon B is a corner badge over an image and sits in the row beside an icon', async () => {
   const { artBOf, artBBadge } = await import('../panellook.js');
   assert.equal(artBOf({ art: 'a-0123abcd', artB: '2' }), '2');
@@ -213,7 +208,6 @@ test('Icon B is a corner badge over an image and sits in the row beside an icon'
   assert.equal(artBBadge({ art: 'https://x/y.png', artB: '2' }), false);
 });
 
-// Artwork always draws with contain, never cover; an image fills the whole row and the badge sits in a corner.
 test('an image fills the row with contain and the badge is held in a corner', () => {
   assert.match(css, /\.sode-panel__art-a \{[^}]*object-fit: contain/);
   assert.doesNotMatch(css, /object-fit: cover/);
@@ -226,15 +220,13 @@ test('the artwork row sizes Icon B from the cell, so it scales with the square',
   assert.match(css, /\.sode-panel__art-b \{[^}]*cqh/);
 });
 
-// Side by side, Icon A takes 40% of the row and Icon B 60%; alone, either fills the row as before.
 test('Icon A and Icon B share the row 40 to 60, and each alone fills it', () => {
   assert.match(css, /\.sode-panel__art-a:not\(:only-child\) \{[^}]*flex: 0 1 40%/);
   assert.match(css, /\.sode-panel__art-b:not\(:only-child\) \{[^}]*flex: 0 1 60%/);
   assert.match(css, /\.sode-panel__art-b--wide \{[^}]*font-size: min\(/);
 });
 
-// With the text hidden nothing sits over the artwork. So it is drawn at full strength in the cell, the editor square
-// and the sidebar preview alike.
+// With the text hidden, nothing covers the artwork, so it draws at full strength.
 test('artwork is dimmed under text and at full strength when the text is hidden', () => {
   assert.match(css, /\.sode-panel__art \{[^}]*opacity: 0\.3/);
   assert.match(css, /\[data-hide-text\] > \.sode-panel__art \{[^}]*opacity: 1/);

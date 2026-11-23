@@ -1,0 +1,1 @@
+- **Bookmarks go in the export file.** Export & Import has a Bookmarks category that holds Everyone bookmarks as one item, so Back up everything and its restore keep them. An import writes the list whole: a live list that differs is a clash, and a list with an unsafe web address is refused. This browser's bookmarks go with This browser's values.

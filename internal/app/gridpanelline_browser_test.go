@@ -6,9 +6,6 @@ import (
 	"testing"
 )
 
-// A Drawn line on a Grid panel in Take mode, with real mouse events. A drag down one column numbers its targets and
-// skips the protected row; release stages them and the line goes, and Enter takes them. A press that barely moves
-// stays a click. Clear and Esc leave no line. v draws a line from the keys, Esc drops it, and Space stages it.
 func TestChromeGridPanelLine(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -18,7 +15,7 @@ func TestChromeGridPanelLine(t *testing.T) {
 	id := makePanel(t, a, ana, `{"name":"Line grid","type":"grid","settings":{"mode":"take","levels":[1]}}`)
 	waitNamesAndTally(t, a, ana)
 	a.mu.Lock()
-	a.router.protect[3] = map[int]int{1: 9}
+	a.router.protect[3] = map[int]protHold{1: {9, 1}}
 	a.mu.Unlock()
 
 	// Tall enough that destination 4 is clear of the edge zone, where a drag scrolls the grid.
@@ -95,7 +92,6 @@ func TestChromeGridPanelLine(t *testing.T) {
 		t.Error("the protected row was taken")
 	}
 
-	// A staged line and Clear, then a staged line and Esc: no line is left.
 	x0, y0 = at(9, 1, 0)
 	_, y1 = at(9, 2, 0)
 	drag(x0, y0, x0, y1)
@@ -110,7 +106,6 @@ func TestChromeGridPanelLine(t *testing.T) {
 	mouse("mouseReleased", x0, y1)
 	b.waitFor("the release after Esc stages nothing", `!document.querySelector('.sode-gridpanel__xp[data-s="staged"]') && `+lineGone)
 
-	// From the keys: the pointer places the cursor, v starts a line there, Esc drops it, and Space stages one.
 	px, py := at(5, 0, 0)
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": px, "y": py})
 	gridCursorOn(b, "the pointer places the cursor", 0, 5)
@@ -134,7 +129,6 @@ func TestChromeGridPanelLine(t *testing.T) {
 	// The router can confirm before the page has the POST's answer.
 	b.waitFor("nothing staged after the take", `!document.querySelector('.sode-gridpanel__xp[data-s="staged"]')`)
 
-	// A drag across names picks them: along the Source bar from 2 to 5 and back to 4, then down the Destination bar.
 	name := func(kind string, n int) (float64, float64) {
 		r := b.eval(fmt.Sprintf(`(() => { const r = document.querySelector('.sode-gridpanel__%s[data-%s="%d"]:not([hidden])').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`, kind, kind, n)).([]any)
 		return r[0].(float64), r[1].(float64)

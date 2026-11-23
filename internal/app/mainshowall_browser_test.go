@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Show all destinations stays at one place, the bottom right of the Destination box, with 0, 3 and 12
-// destinations added with +. The chips start below it, and a press at its centre reaches it. The router and server status is not fixed.
 func TestChromeMainShowAllBelowChips(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -25,6 +23,11 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 
 	b.open(srv.URL + "/")
 	b.waitFor("Destination box", `!!document.getElementById('dst')`)
+	// Both show from the first load with no box focused, so a user with only a mouse has a place to start.
+	b.eval(`document.activeElement?.blur(); true`)
+	for _, k := range []string{"src", "dst"} {
+		b.waitFor("Show all "+k+" shown with no focus", `!document.getElementById('`+k+`-all').hidden && !!document.querySelector('#`+k+`-all button').offsetParent && document.activeElement !== document.getElementById('`+k+`')`)
+	}
 	names := []string{"PGM", "PVW", "DSM1", "DSM2", "DSM3", "DSM4", "DSM5", "Rec B", "MV 2", "TX 1", "TX 2", "Rec A"}
 	const pos = `(() => {
 		const all = document.querySelector('#dst-all button').getBoundingClientRect();
@@ -36,7 +39,24 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 		return b.eval(pos).(string)
 	}
 	b.waitFor("fonts loaded", `document.fonts.status === 'loaded'`)
+	// The server has the names before the page does. Ctrl+J in a box with no names opens no list, so wait for them here.
+	b.waitFor("names on the page", `(() => { const t = document.getElementById('dst'); t.value = 'PGM'; t.dispatchEvent(new Event('input', {bubbles: true})); const ok = !!document.getElementById('dst-opt-0'); t.value = ''; t.dispatchEvent(new Event('input', {bubbles: true})); return ok; })()`)
+	b.eval(`document.activeElement?.blur(); document.querySelector('#src-all button').click(); true`)
+	b.waitFor("a click on Show all sources with no focus lists the sources", `!document.getElementById('src-menu').hidden && document.activeElement === document.getElementById('src') && document.getElementById('src-all').hidden`)
+	realKeyMods(b, "Escape", "Escape", 27, 0)
+	b.waitFor("source list closed and Show all sources back", `document.getElementById('src-menu').hidden && !document.getElementById('src-all').hidden`)
 	want := shown("with no destinations added")
+	// Ctrl+J and Ctrl+K open Show all in an empty box, as the arrows do.
+	for _, k := range []struct {
+		key, code string
+		vk        int
+	}{{"j", "KeyJ", 'J'}, {"k", "KeyK", 'K'}} {
+		b.eval(`document.getElementById('dst').focus(); true`)
+		realKeyMods(b, k.key, k.code, k.vk, modCtrl)
+		b.waitFor("Ctrl+"+k.key+" opens the destination list", `!document.getElementById('dst-menu').hidden`)
+		realKeyMods(b, "Escape", "Escape", 27, 0)
+		b.waitFor("destination list closed", `document.getElementById('dst-menu').hidden`)
+	}
 	added := 0
 	for _, n := range []int{3, 12} {
 		for ; added < n; added++ {
@@ -44,7 +64,7 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 			b.waitFor(name+" match list", `(() => { const t = document.getElementById('dst'); t.focus(); t.value = '`+name+`'; t.dispatchEvent(new Event('input', {bubbles: true})); return !!document.getElementById('dst-opt-0'); })()`)
 			b.eval(`document.getElementById('dst-add').click(); true`)
 		}
-		b.waitFor("destinations added", `document.querySelectorAll('#dst-chips > .pb-chip').length === `+strconv.Itoa(n))
+		b.waitFor("destinations added", `document.querySelectorAll('#dst-chips > .sode__dst-chip').length === `+strconv.Itoa(n))
 		if got := shown(strconv.Itoa(n) + " added"); got != want {
 			t.Fatalf("Show all destinations is at %v with %d destinations added, want %v as with none", got, n, want)
 		}
@@ -70,7 +90,6 @@ func TestChromeMainShowAllBelowChips(t *testing.T) {
 	})()`); got != true {
 		t.Fatal("Show all destinations is not at the right of its box")
 	}
-	// The status at the top right is not fixed to the window.
 	if got := b.eval(`getComputedStyle(document.getElementById('conn')).position`); got == "fixed" || got == "sticky" {
 		t.Fatalf("router and server status is %v, want it to scroll with the page", got)
 	}

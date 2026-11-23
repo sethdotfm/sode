@@ -1,21 +1,14 @@
-// The editor grid's Cmd/Ctrl commands. Pure apart from keys.js. Both modifiers on every OS, as saveChord does; an
-// exact chord(e) match leaves out any extra modifier. Keys are spelled as chord() names them (Cmd+Shift+Z is
-// 'shift+meta+z'); paneleditor.js maps each command name to what it does.
-import { chord } from './keys.js';
+// The editor grid's commands: Ctrl, or Cmd on a Mac, as saveChord. Pure apart from keys.js. Keys are spelled as
+// modChord() names them, so an extra modifier is no match. paneleditor.js maps each command name to what it does.
+import { modChord } from './keys.js';
 
 export const GRID_CHORDS = {
-  'ctrl+a': 'selectAll',
-  'meta+a': 'selectAll',
-  'ctrl+c': 'copy',
-  'meta+c': 'copy',
-  'ctrl+x': 'cut',
-  'meta+x': 'cut',
-  'ctrl+v': 'paste',
-  'meta+v': 'paste',
-  'ctrl+z': 'undo',
-  'meta+z': 'undo',
-  'ctrl+shift+z': 'redo',
-  'shift+meta+z': 'redo',
+  'mod+a': 'selectAll',
+  'mod+c': 'copy',
+  'mod+x': 'cut',
+  'mod+v': 'paste',
+  'mod+z': 'undo',
+  'mod+shift+z': 'redo',
 };
 
 // Inputs that take typing; a checkbox or button does not, so the grid command still runs from one.
@@ -25,4 +18,4 @@ export const typing = (t) =>
   !!t && (t.isContentEditable || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && TEXT_INPUTS.has((t.type || '').toLowerCase())));
 
 // The command name for a keydown, or null. A focused text field keeps its own cut, copy, paste, select all and undo.
-export const gridCommand = (e) => (typing(e.target) ? null : (GRID_CHORDS[chord(e)] ?? null));
+export const gridCommand = (e, isMac) => (typing(e.target) ? null : (GRID_CHORDS[modChord(e, isMac)] ?? null));

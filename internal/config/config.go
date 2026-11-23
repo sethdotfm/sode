@@ -2,90 +2,73 @@
 package config
 
 import (
-	"bytes"
-	"cmp"
 	"errors"
 	"fmt"
-	"io"
-	"log"
-	"net"
-	"net/netip"
 	"os"
-	"path/filepath"
-	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
-	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Config is everything editable from the settings dialog. Process-level
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
-	Router string `yaml:"router" json:"router" guard:"router"`
+	Format int `yaml:"format" json:"-"`
+	// Never changes: Item links and import identify this install by it.
+	InstallUID string `yaml:"installUid" json:"-"`
+	// The file holds it as the only entry of routers (router.go).
+	Router `yaml:"-"`
 	// Brand fields are display only.
-	BrandText       string `yaml:"brandText,omitempty" json:"brandText" guard:"open"`
-	BrandBorder     string `yaml:"brandBorder,omitempty" json:"brandBorder" guard:"open"`
-	RouterName      string `yaml:"routerName" json:"routerName" guard:"open"`
-	RouterShow      string `yaml:"routerShow" json:"routerShow" guard:"open"`
-	Matrix          int    `yaml:"matrix" json:"matrix" guard:"router"`
-	Levels          int    `yaml:"levels" json:"levels" guard:"router"`
-	LevelWireOffset int    `yaml:"levelWireOffset" json:"levelWireOffset" guard:"router"`
-	DefaultLevels   string `yaml:"defaultLevels" json:"defaultLevels" guard:"open"`
-	NameLength      int    `yaml:"nameLength" json:"nameLength" guard:"router"`
-	NameRequests    string `yaml:"nameRequests" json:"nameRequests" guard:"router"`
-	// SalvoGroup (0-127): the router's list is shared by every client, so use one only Sode uses.
-	FireMode             string   `yaml:"fireMode" json:"fireMode" guard:"pin"`
-	SalvoGroup           int      `yaml:"salvoGroup" json:"salvoGroup" guard:"pin"`
-	NumberOffset         int      `yaml:"numberOffset" json:"numberOffset" guard:"open"`
-	ConfirmLockoutMs     int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs" guard:"open"`
-	ResultDismissSeconds int      `yaml:"resultDismissSeconds" json:"resultDismissSeconds" guard:"open"`
-	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter" guard:"open"`
-	NameRefreshSeconds   int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds" guard:"open"`
-	TallyResyncSeconds   int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds" guard:"open"`
-	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
-	// HiddenDsts is a History filter expression (web/filter.js) hiding Externals on these destinations; still recorded.
-	HiddenDsts string      `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
-	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
-	Presets    []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
-	// LegacyPresets: pre-1.5 key "salvos"; Normalize moves it to Presets.
-	LegacySalvos []Preset `yaml:"salvos,omitempty" json:"-" guard:"open"`
-	// Grid: ignored; kept so old files load.
-	LegacyGrids       any `yaml:"grids,omitempty" json:"-" guard:"open"`
-	LegacyGridConfirm any `yaml:"gridConfirm,omitempty" json:"-" guard:"open"`
-	// HideDsts: unused; kept so old files load.
-	HideDsts []int `yaml:"hideDsts,omitempty" json:"-" guard:"open"`
+	BrandText            string   `yaml:"brandText,omitempty" json:"brandText"`
+	BrandBorder          string   `yaml:"brandBorder,omitempty" json:"brandBorder"`
+	ConfirmLockoutMs     int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs"`
+	ResultDismissSeconds int      `yaml:"resultDismissSeconds" json:"resultDismissSeconds"`
+	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter"`
+	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies"`
+	// HiddenDsts is a History filter expression (web/filter.js) that hides Externals on these destinations; Sode
+	// records them anyway.
+	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts"`
+	// HiddenDstsRouter: the router UID whose numbers HiddenDsts's number and range terms mean; blank is the one router.
+	HiddenDstsRouter string      `yaml:"hiddenDstsRouter,omitempty" json:"hiddenDstsRouter,omitempty"`
+	FilterSets       []FilterSet `yaml:"filterSets,omitempty" json:"filterSets"`
+	Presets          []Preset    `yaml:"presets,omitempty" json:"presets"`
+	// Bookmarks is Everyone's list (GLOSSARY.md, Bookmark).
+	Bookmarks []Bookmark `yaml:"bookmarks,omitempty" json:"bookmarks"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
-	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
-	// LevelNumbering: "1" (1-17), "0" (0-16) or "va" (V, 1-16).
-	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering" guard:"open"`
-	// LevelTypedBase: unused; kept so old files load.
-	LevelTypedBase int            `yaml:"levelTypedBase,omitempty" json:"-" guard:"open"`
-	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
-	PinMaxTries    int            `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
-	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
-	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (saveSettings).
-	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
-	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
-	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
+	LevelColors []string `yaml:"levelColors" json:"levelColors"`
+	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
+	PinWaits       bool           `yaml:"pinWaits" json:"pinWaits"`
+	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults"`
+	Users          []User         `yaml:"users,omitempty" json:"users"`
+	// NewUserDefaults has no value in Defaults: a file from before it loads both off, as new users started then.
+	NewUserDefaults NewUserDefaults `yaml:"newUserDefaults" json:"newUserDefaults"`
+	Locks           Locks           `yaml:"locks" json:"locks"`
+	AutoLockMinutes int             `yaml:"autoLockMinutes" json:"autoLockMinutes"`
 	// MaxPinLen is the longest user PIN (4-12).
-	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
-	// SignInMode: SignInPin or SignInUsername. Saved with the users (SaveUsers), so changing it
-	// needs the Advanced Settings PIN.
-	SignInMode string `yaml:"signInMode" json:"signInMode" owned:"true"`
-	// API settings, clients, Guest rights and scopes change only through their own admin
-	// messages. Clients and Guest rights stay out of JSON: never sent before the PIN.
-	API            APISettings `yaml:"api" json:"api" owned:"true"`
-	APIClients     []APIClient `yaml:"apiClients,omitempty" json:"-" owned:"true"`
-	GuestRights    Rights      `yaml:"guestRights,omitempty" json:"-" owned:"true"`
-	GuestAPIScopes []string    `yaml:"guestApiScopes" json:"-" owned:"true"`
+	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen"`
+	// Clients, Guest rights and scopes stay out of JSON: never sent before the PIN.
+	API         APISettings `yaml:"api" json:"api"`
+	APIClients  []APIClient `yaml:"apiClients,omitempty" json:"-"`
+	GuestRights Rights      `yaml:"guestRights,omitempty" json:"-"`
+	// GuestRole: RoleStandard or RoleTrusted, never RoleAdministrator.
+	GuestRole      string   `yaml:"guestRole" json:"guestRole"`
+	GuestAPIScopes []string `yaml:"guestApiScopes" json:"-"`
+	// Off: no panel hands out a Public key (panelpublic.go).
+	PublicPanels bool `yaml:"publicPanels" json:"publicPanels"`
+	// Prefills a blank new panel's acts only.
+	NewPanelActs string `yaml:"newPanelActs" json:"newPanelActs"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
-	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
+	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
-	Extra map[string]any `yaml:",inline" json:"-" owned:"true"`
+	Extra map[string]any `yaml:",inline" json:"-"`
+	// idsFilled: Normalize gave a user an id; Load writes it back, or the next start makes new ones.
+	idsFilled bool
 }
+
+// PanelActs are a panel's Authentication modes as stored (acts); keep in step with panelActs* in
+// internal/app/panelstore.go.
+var PanelActs = []string{"session", "api", "both", "public"}
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
 const MaxFilterSetsBytes = 48 << 10
@@ -115,6 +98,20 @@ func BrandColorByName(name string) (BrandColor, bool) {
 	return BrandColors[i], true
 }
 
+var customHex = regexp.MustCompile(`^#[0-9a-f]{6}$`)
+
+// BrandHex is the tile and border colour of a brandBorder value: a BrandColors name, or a custom "#rrggbb"
+// (lowercase, as Normalize leaves it).
+func BrandHex(v string) (string, bool) {
+	if c, ok := BrandColorByName(v); ok {
+		return c.Hex, true
+	}
+	if customHex.MatchString(v) {
+		return v, true
+	}
+	return "", false
+}
+
 func BrandNames() []string {
 	out := make([]string, len(BrandColors))
 	for i, c := range BrandColors {
@@ -125,53 +122,79 @@ func BrandNames() []string {
 
 // DeviceDefaults mirrors the per-browser prefs in web/prefs.js.
 type DeviceDefaults struct {
-	Theme         string         `yaml:"theme" json:"theme"`
-	Layout        string         `yaml:"layout" json:"layout"`
-	Clock         string         `yaml:"clock" json:"clock"`
-	Flip          bool           `yaml:"flip" json:"flip"`
-	ScrollTop     bool           `yaml:"scrollTop" json:"scrollTop"`
-	SearchFilters bool           `yaml:"searchFilters" json:"searchFilters"`
-	SetStack      string         `yaml:"setStack" json:"setStack"`
-	NextMode      string         `yaml:"nextMode" json:"nextMode"`
-	StackGap      string         `yaml:"stackGap" json:"stackGap"`
-	Compact       bool           `yaml:"compact" json:"compact"`
-	Extra         map[string]any `yaml:",inline" json:"-"`
+	Theme         string `yaml:"theme" json:"theme"`
+	Layout        string `yaml:"layout" json:"layout"`
+	Clock         string `yaml:"clock" json:"clock"`
+	Flip          bool   `yaml:"flip" json:"flip"`
+	ScrollTop     bool   `yaml:"scrollTop" json:"scrollTop"`
+	SearchFilters bool   `yaml:"searchFilters" json:"searchFilters"`
+	SetStack      string `yaml:"setStack" json:"setStack"`
+	NextMode      string `yaml:"nextMode" json:"nextMode"`
+	StackGap      string `yaml:"stackGap" json:"stackGap"`
+	Compact       bool   `yaml:"compact" json:"compact"`
+	// PaletteChar is one of PaletteChars, or "off" for no Palette character.
+	PaletteChar string         `yaml:"paletteChar" json:"paletteChar"`
+	Extra       map[string]any `yaml:",inline" json:"-"`
 }
 
+// deviceEnums: the string device defaults. Allowed values are PrefValues; empty means the Defaults value.
+var deviceEnums = []struct {
+	pref, msg string
+	get       func(*DeviceDefaults) *string
+}{
+	{"theme", "default theme must be system, light or dark", func(d *DeviceDefaults) *string { return &d.Theme }},
+	{"layout", "default layout must be auto, phone or desktop", func(d *DeviceDefaults) *string { return &d.Layout }},
+	{"clock", "default clock must be 24, 12 or locale", func(d *DeviceDefaults) *string { return &d.Clock }},
+	{"setStack", "default set stacking must be and or or", func(d *DeviceDefaults) *string { return &d.SetStack }},
+	{"nextMode", "default next must be number or fuzzy", func(d *DeviceDefaults) *string { return &d.NextMode }},
+	{"stackGap", "default stacked rows gap must be 0, 10, 30, 60, 120 or 300 seconds", func(d *DeviceDefaults) *string { return &d.StackGap }},
+	{"paletteChar", "default Palette character must be one of " + PaletteChars + " or off", func(d *DeviceDefaults) *string { return &d.PaletteChar }},
+}
+
+// Router: blank is the one router. ID is hidden and stays through a rename, as a preset's does. Bookmarks and the
+// active set name a set by it.
 type FilterSet struct {
+	ID     string         `yaml:"id" json:"id"`
 	Name   string         `yaml:"name" json:"name"`
+	Router string         `yaml:"router,omitempty" json:"router,omitempty"`
 	Src    string         `yaml:"src,omitempty" json:"src"`
 	Dst    string         `yaml:"dst,omitempty" json:"dst"`
 	Sode   bool           `yaml:"sode" json:"sode"`
 	Ext    bool           `yaml:"ext" json:"ext"`
 	Hidden bool           `yaml:"hidden,omitempty" json:"hidden"`
+	Broken []Missing      `yaml:"broken,omitempty" json:"broken,omitempty"`
 	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 
 func Defaults() Config {
 	return Config{
-		RouterShow:           "address",
-		Matrix:               0,
-		Levels:               17,
-		LevelWireOffset:      -1,
-		NameLength:           12,
-		NameRequests:         "std",
-		FireMode:             "sequential",
-		SalvoGroup:           127,
-		NumberOffset:         1,
+		Format: Format,
+		Router: Router{
+			Prefix:             "A",
+			RouterShow:         "address",
+			Matrix:             0,
+			Levels:             17,
+			LevelWireOffset:    -1,
+			NameLength:         12,
+			NameRequests:       "std",
+			FireMode:           "sequential",
+			SalvoGroup:         127,
+			NumberOffset:       1,
+			NameRefreshSeconds: 60,
+			TallyResyncSeconds: 300,
+			LevelNumbering:     "1",
+		},
 		ConfirmLockoutMs:     500,
 		ResultDismissSeconds: 8,
-		NameRefreshSeconds:   60,
-		TallyResyncSeconds:   300,
 		TrustedProxies:       []string{},
 		LevelColors:          []string{},
-		LevelNumbering:       "1",
-		PinMaxTries:          10,
+		PinWaits:             true,
+		PublicPanels:         true,
+		NewPanelActs:         "public",
 		MaxPinLen:            DefaultMaxPinLen,
-		SignInMode:           SignInPin,
 		API:                  DefaultAPISettings(),
 		GuestAPIScopes:       slices.Clone(DefaultGuestScopes),
-		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30"},
+		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", PaletteChar: PaletteDefault},
 	}
 }
 
@@ -193,7 +216,7 @@ func FromEnv(c Config) (Config, error) {
 			*dst = n
 		}
 	}
-	str("SODE_ROUTER", &c.Router)
+	str("SODE_ROUTER", &c.Address)
 	num("SODE_MATRIX", &c.Matrix)
 	num("SODE_LEVEL_COUNT", &c.Levels)
 	num("SODE_LEVEL_WIRE_OFFSET", &c.LevelWireOffset)
@@ -205,10 +228,9 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_NUM_OFFSET", &c.NumberOffset)
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
 	num("SODE_RESULT_DISMISS_S", &c.ResultDismissSeconds)
-	num("SODE_NAME_REFRESH_S", &c.NameRefreshSeconds)
+	num("SODE_NAME_REREAD_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
-	num("SODE_PIN_MAX_TRIES", &c.PinMaxTries)
 	num("SODE_MAX_PIN_LEN", &c.MaxPinLen)
 	boolean := func(k string, dst *bool) {
 		if v := os.Getenv(k); v != "" {
@@ -231,13 +253,28 @@ func FromEnv(c Config) (Config, error) {
 	return c, errors.Join(errs...)
 }
 
+// For the "Filled from" hints. Keep in step with FromEnv, AccessPresetFromEnv and web/setupwizardrules.js keys.
+func WizardEnv() map[string]string {
+	out := map[string]string{}
+	for _, f := range [][2]string{
+		{"router", "SODE_ROUTER"}, {"levels", "SODE_LEVEL_COUNT"}, {"levelNumbering", "SODE_LEVEL_NUMBERING"},
+		{"numberOffset", "SODE_NUM_OFFSET"}, {"fireMode", "SODE_FIRE_MODE"}, {"group", "SODE_SALVO_GROUP"},
+		{"preset", "SODE_ACCESS_PRESET"},
+	} {
+		if strings.TrimSpace(os.Getenv(f[1])) != "" {
+			out[f[0]] = f[1]
+		}
+	}
+	return out
+}
+
 // Clone shares no slices, so Normalize cannot touch a config others read.
 func (c Config) Clone() Config {
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Presets = ClonePresets(c.Presets)
-	c.HideDsts = slices.Clone(c.HideDsts)
+	c.Bookmarks = CloneBookmarks(c.Bookmarks)
 	c.Users = slices.Clone(c.Users)
 	for i := range c.Users {
 		c.Users[i].Profile = c.Users[i].Profile.Clone()
@@ -254,11 +291,26 @@ func (c Config) Clone() Config {
 }
 
 func (c *Config) Normalize() {
-	c.Router = strings.TrimSpace(c.Router)
-	c.RouterName = strings.TrimSpace(c.RouterName)
+	c.Address = strings.TrimSpace(c.Address)
+	c.Title = strings.TrimSpace(c.Title)
+	if c.UID == "" {
+		c.UID = newRouterUID()
+	}
+	c.InstallUID = strings.TrimSpace(c.InstallUID)
+	if c.InstallUID == "" {
+		c.InstallUID = newRouterUID()
+	}
+	c.Prefix = strings.ToUpper(strings.TrimSpace(c.Prefix))
+	if c.Prefix == "" {
+		c.Prefix = "A"
+	}
 	c.BrandText = strings.TrimSpace(c.BrandText)
+	if c.NewPanelActs = strings.ToLower(strings.TrimSpace(c.NewPanelActs)); c.NewPanelActs == "" {
+		c.NewPanelActs = "public"
+	}
 	c.normalizeUsers()
 	c.normalizeAPI()
+	c.dropRetiredKeys()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
 	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
 	if c.RouterShow == "" {
@@ -282,40 +334,17 @@ func (c *Config) Normalize() {
 	if c.LevelColors == nil {
 		c.LevelColors = []string{}
 	}
-	d := &c.DeviceDefaults
-	d.Theme = strings.ToLower(strings.TrimSpace(d.Theme))
-	d.Layout = strings.ToLower(strings.TrimSpace(d.Layout))
-	d.Clock = strings.ToLower(strings.TrimSpace(d.Clock))
-	d.SetStack = strings.ToLower(strings.TrimSpace(d.SetStack))
-	d.NextMode = strings.ToLower(strings.TrimSpace(d.NextMode))
-	d.StackGap = strings.TrimSpace(d.StackGap)
-	if d.Theme == "" {
-		d.Theme = "system"
-	}
-	if d.Layout == "" {
-		d.Layout = "auto"
-	}
-	if d.Clock == "" {
-		d.Clock = "24"
-	}
-	if d.SetStack == "" {
-		d.SetStack = "and"
-	}
-	if d.NextMode == "" {
-		d.NextMode = "number"
-	}
-	if d.StackGap == "" {
-		d.StackGap = "30"
+	def := Defaults().DeviceDefaults
+	for _, e := range deviceEnums {
+		v := e.get(&c.DeviceDefaults)
+		if *v = strings.ToLower(strings.TrimSpace(*v)); *v == "" {
+			*v = *e.get(&def)
+		}
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
-	c.LegacyGrids, c.LegacyGridConfirm, c.Locks.LegacyGrid = nil, nil, nil
-	if len(c.Presets) == 0 && len(c.LegacySalvos) > 0 {
-		c.Presets = c.LegacySalvos
-	}
-	c.LegacySalvos = nil
-	c.HideDsts = nil
 	c.FilterSets = normalizeFilterSets(c.FilterSets)
 	c.normalizePresets()
+	c.Bookmarks = normalizeBookmarks(c.Bookmarks)
 	c.normalizeProfiles()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
@@ -336,156 +365,6 @@ func normColor(v string) string {
 		return v
 	}
 	return "#" + h
-}
-
-func (c Config) Validate() error {
-	var errs []error
-	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
-
-	if c.Router != "" {
-		host, port, err := net.SplitHostPort(c.Router)
-		if p, perr := strconv.Atoi(port); err != nil || host == "" || perr != nil || p < 1 || p > 65535 {
-			bad("router must be host:port, for example 10.0.0.50:8910")
-		}
-	}
-	switch c.NameRequests {
-	case "std":
-		// Standard messages carry the matrix in a 4-bit field.
-		if c.Matrix < 0 || c.Matrix > 15 {
-			bad("matrix must be 0-15 with standard name requests")
-		}
-	case "ext":
-		if c.Matrix < 0 || c.Matrix > 255 {
-			bad("matrix must be 0-255")
-		}
-	default:
-		bad("name requests must be std or ext")
-	}
-	switch c.FireMode {
-	case "sequential":
-	case "native":
-		// Group salvos carry the matrix in a 4-bit field.
-		if c.Matrix < 0 || c.Matrix > 15 {
-			bad("native salvos need matrix 0-15")
-		}
-	default:
-		bad("fire mode must be sequential or native")
-	}
-	if c.SalvoGroup < 0 || c.SalvoGroup > 127 {
-		bad("salvo group must be 0-127")
-	}
-	if c.Levels < 1 || c.Levels > 256 {
-		bad("levels must be 1-256")
-	} else if lo, hi := 1+c.LevelWireOffset, c.Levels+c.LevelWireOffset; lo < 0 || hi > 255 {
-		bad("level wire offset puts levels at wire %d-%d; they must fall within 0-255", lo, hi)
-	} else if _, err := ParseLevels(c.DefaultLevels, c.Levels); err != nil {
-		bad("default levels: %v", err)
-	}
-	switch c.NameLength {
-	case 4, 8, 12, 16:
-	default:
-		bad("name length must be 4, 8, 12 or 16")
-	}
-	if c.NumberOffset < 0 || c.NumberOffset > 1 {
-		bad("number offset must be 0 or 1")
-	}
-	if c.ConfirmLockoutMs < 0 || c.ConfirmLockoutMs > 10000 {
-		bad("confirm lockout must be 0-10000 ms")
-	}
-	if c.ResultDismissSeconds < 0 || c.ResultDismissSeconds > 3600 {
-		bad("result dismiss must be 0 (never) or 1-3600 seconds")
-	}
-	if s := c.NameRefreshSeconds; s != 0 && (s < 10 || s > 86400) {
-		bad("name refresh must be 0 (off) or 10-86400 seconds")
-	}
-	if s := c.TallyResyncSeconds; s != 0 && (s < 30 || s > 86400) {
-		bad("tally resync must be 0 (off) or 30-86400 seconds")
-	}
-	switch c.LevelNumbering {
-	case "0", "1", "va":
-	default:
-		bad("level numbering must be 0, 1 or va")
-	}
-	switch c.RouterShow {
-	case "address", "name", "none":
-	default:
-		bad("router status must show address, name or none")
-	}
-	if n := len([]rune(c.RouterName)); n > 32 {
-		bad("router name must be at most 32 characters")
-	}
-	if n := len([]rune(c.BrandText)); n > 24 {
-		bad("logo text must be at most 24 characters")
-	}
-	if _, ok := BrandColorByName(c.BrandBorder); c.BrandBorder != "" && !ok {
-		bad("border colour must be one of %s", strings.Join(BrandNames(), ", "))
-	}
-	if c.PinMaxTries < 0 || c.PinMaxTries > 1000 {
-		bad("PIN tries before lockout must be 0 (never) or 1-1000")
-	}
-	switch c.DeviceDefaults.Theme {
-	case "system", "light", "dark":
-	default:
-		bad("default theme must be system, light or dark")
-	}
-	switch c.DeviceDefaults.Layout {
-	case "auto", "phone", "desktop":
-	default:
-		bad("default layout must be auto, phone or desktop")
-	}
-	switch c.DeviceDefaults.Clock {
-	case "24", "12", "locale":
-	default:
-		bad("default clock must be 24, 12 or locale")
-	}
-	switch c.DeviceDefaults.SetStack {
-	case "and", "or":
-	default:
-		bad("default set stacking must be and or or")
-	}
-	switch c.DeviceDefaults.NextMode {
-	case "number", "fuzzy":
-	default:
-		bad("default next must be number or fuzzy")
-	}
-	switch c.DeviceDefaults.StackGap {
-	case "0", "10", "30", "60", "120", "300":
-	default:
-		bad("default stacked rows gap must be 0, 10, 30, 60, 120 or 300 seconds")
-	}
-	for i, v := range c.LevelColors {
-		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
-			bad("level %d color %q must be a hex color like #3a7bd5", i+1, v)
-		}
-	}
-	if n := len([]rune(c.HiddenDsts)); n > 500 {
-		bad("globally hidden destinations must be at most 500 characters")
-	}
-	errs = append(errs, validateFilterSets(c.FilterSets)...)
-	errs = append(errs, c.validatePresets()...)
-	if _, err := c.Proxies(); err != nil {
-		bad("trusted proxies: %v", err)
-	}
-	errs = append(errs, c.validateUsers()...)
-	errs = append(errs, c.validateAPI()...)
-	errs = append(errs, c.validateProfiles()...)
-	return errors.Join(errs...)
-}
-
-func (c Config) Proxies() ([]netip.Prefix, error) {
-	var out []netip.Prefix
-	for _, s := range c.TrustedProxies {
-		if p, err := netip.ParsePrefix(s); err == nil {
-			out = append(out, p.Masked())
-			continue
-		}
-		a, err := netip.ParseAddr(s)
-		if err != nil {
-			return nil, fmt.Errorf("%q is not an IP or CIDR", s)
-		}
-		out = append(out, netip.PrefixFrom(a.Unmap(), a.Unmap().BitLen()))
-	}
-	return out, nil
 }
 
 var DefaultLevelColors = []string{
@@ -532,250 +411,4 @@ func (c Config) LevelLabel(ui int) string {
 		return strconv.Itoa(ui - 1)
 	}
 	return strconv.Itoa(ui)
-}
-
-func ParseLevels(s string, max int) ([]int, error) {
-	seen := map[int]bool{}
-	var out []int
-	for _, part := range strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' }) {
-		a, b, isRange := strings.Cut(part, "-")
-		lo, err1 := strconv.Atoi(a)
-		hi := lo
-		var err2 error
-		if isRange {
-			hi, err2 = strconv.Atoi(b)
-		}
-		if err1 != nil || err2 != nil {
-			return nil, fmt.Errorf("%q is not a level or range", part)
-		}
-		if lo > hi {
-			lo, hi = hi, lo
-		}
-		if lo < 1 || hi > max {
-			return nil, fmt.Errorf("%q is outside 1-%d", part, max)
-		}
-		for i := lo; i <= hi; i++ {
-			if !seen[i] {
-				seen[i] = true
-				out = append(out, i)
-			}
-		}
-	}
-	if len(out) == 0 {
-		return nil, errors.New("no levels")
-	}
-	return out, nil
-}
-
-// Load reads path over the defaults. exists is false if there is no file.
-func Load(path string) (c Config, exists bool, err error) {
-	c = Defaults()
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return c, false, nil
-	}
-	if err != nil {
-		return c, false, err
-	}
-	c, err = Parse(b)
-	if err != nil {
-		return c, true, fmt.Errorf("%s: %w", path, err)
-	}
-	if err := c.Validate(); err != nil {
-		return c, true, fmt.Errorf("%s: %w", path, err)
-	}
-	return c, true, nil
-}
-
-// Parse is Load's decoder (also config import). Unknown keys are kept (see UnknownKeys) and legacy
-// keys load. It does not Validate, so a caller can merge PIN hashes first.
-func Parse(b []byte) (Config, error) {
-	c := Defaults()
-	dec := yaml.NewDecoder(bytes.NewReader(b))
-	dec.KnownFields(true)
-	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
-		return c, err
-	}
-	c.Normalize()
-	return c, nil
-}
-
-// UnknownKeysProblem is the startup warning for UnknownKeys, or "" when there are none.
-// Names only: a newer release's key could hold a secret.
-func (c Config) UnknownKeysProblem() string {
-	keys := c.UnknownKeys()
-	if len(keys) == 0 {
-		return ""
-	}
-	return "config.yaml has keys this release does not know, kept as is: " + NameKeys(keys)
-}
-
-// maxNamedKeys bounds key lists in the startup row and the import reply.
-const maxNamedKeys = 10
-
-// NameKeys joins keys for a message, naming at most maxNamedKeys.
-func NameKeys(keys []string) string {
-	if len(keys) == 0 {
-		return "none"
-	}
-	if len(keys) <= maxNamedKeys {
-		return strings.Join(keys, ", ")
-	}
-	return fmt.Sprintf("%s and %d more", strings.Join(keys[:maxNamedKeys], ", "), len(keys)-maxNamedKeys)
-}
-
-// UnknownKeys lists the keys Parse kept in Extra fields, as sorted paths named like the file
-// (users[0].futureField).
-func (c Config) UnknownKeys() []string {
-	var out []string
-	var walk func(v reflect.Value, path string)
-	walk = func(v reflect.Value, path string) {
-		switch v.Kind() {
-		case reflect.Pointer:
-			if !v.IsNil() {
-				walk(v.Elem(), path)
-			}
-		case reflect.Slice, reflect.Array:
-			for i := range v.Len() {
-				walk(v.Index(i), fmt.Sprintf("%s[%d]", path, i))
-			}
-		case reflect.Struct:
-			t := v.Type()
-			for i := range t.NumField() {
-				f := t.Field(i)
-				if !f.IsExported() {
-					continue
-				}
-				name, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")
-				if f.Name == "Extra" {
-					for k := range v.Field(i).Interface().(map[string]any) {
-						out = append(out, joinKey(path, k))
-					}
-					continue
-				}
-				if name == "-" {
-					continue
-				}
-				walk(v.Field(i), joinKey(path, cmp.Or(name, strings.ToLower(f.Name))))
-			}
-		}
-	}
-	walk(reflect.ValueOf(c), "")
-	for i, u := range c.Users {
-		for k := range u.Profile.Prefs {
-			if !knownPref(k) {
-				out = append(out, fmt.Sprintf("users[%d].profile.prefs.%s", i, k))
-			}
-		}
-	}
-	slices.Sort(out)
-	return out
-}
-
-func joinKey(path, k string) string {
-	if path == "" {
-		return k
-	}
-	return path + "." + k
-}
-
-const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"
-
-func Save(path string, c Config) error {
-	b, err := yaml.Marshal(c)
-	if err != nil {
-		return err
-	}
-	if err := copyFile(path, path+".prev"); err != nil {
-		log.Printf("config: keeping %s.prev: %v", path, err)
-	}
-	return AtomicWrite(path, []byte(header), b)
-}
-
-// BackupOnce keeps the file as it was before this release touched it, so a rollback can restore it.
-// The backup holds PIN hashes, so AtomicWrite's private mode matters.
-func BackupOnce(path, label string) error {
-	dst := path + ".before-" + label
-	if _, err := os.Stat(dst); err == nil {
-		return nil
-	}
-	return copyFile(path, dst)
-}
-
-// After a rollback .before-<version> often exists already and .prev lasts
-// one save. A copy equal to the newest one is skipped, so a restart loop does not fill the disk.
-func BackupUnknown(path string, now time.Time) error {
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	c, err := Parse(b)
-	if err != nil || len(c.UnknownKeys()) == 0 {
-		return err
-	}
-	older, err := filepath.Glob(path + ".unknown-*")
-	if err != nil {
-		return err
-	}
-	if len(older) > 0 {
-		if last, err := os.ReadFile(slices.Max(older)); err == nil && bytes.Equal(last, b) {
-			return nil
-		}
-	}
-	return AtomicWrite(path+".unknown-"+now.UTC().Format("20060102T150405Z"), b)
-}
-
-// copyFile treats a missing source as nothing to copy.
-func copyFile(src, dst string) error {
-	b, err := os.ReadFile(src)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return AtomicWrite(dst, b)
-}
-
-// AtomicWrite: private temp file, fsync, rename, dir sync; used for config and the session token file.
-// syncWrites is false only under UseTestCosts.
-var syncWrites = true
-
-// SyncWrites says whether saves fsync; app's history writer follows it too.
-func SyncWrites() bool { return syncWrites }
-
-func AtomicWrite(path string, parts ...[]byte) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".sode-*.tmp")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	for _, p := range parts {
-		if _, err = tmp.Write(p); err != nil {
-			break
-		}
-	}
-	if err == nil && syncWrites {
-		err = tmp.Sync()
-	}
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return err
-	}
-	if !syncWrites {
-		return nil
-	}
-	if d, err := os.Open(filepath.Dir(path)); err == nil {
-		d.Sync()
-		d.Close()
-	}
-	return nil
 }

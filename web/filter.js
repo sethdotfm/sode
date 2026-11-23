@@ -1,4 +1,4 @@
-// Recent filter language for sources and destinations. No imports (Node tests).
+// History filter language for sources and destinations. No imports (Node tests).
 // Comma-separated terms are OR'd, then ! terms remove; only ! terms means everything but those.
 // Terms: 65, 1-50 (also "1 thru 50", "through", "to"), PIP (name contains), 'NOT USED' ('' = quote), "CAM 1" (exact).
 // Also /re/ (flags optional) and !term ("not" works before a number, quote or regex).
@@ -144,7 +144,6 @@ const fold = (s) =>
     .replace(/[^a-z0-9]+/g, '')
     .replace(/(^|[a-z])0+(?=\d)/g, '$1');
 
-// Every word of the fuzzy text is in the folded name.
 function fuzzy(text) {
   const words = text.split(/\s+/).map(fold).filter(Boolean);
   return (num, name) => {
@@ -153,12 +152,14 @@ function fuzzy(text) {
   };
 }
 
-function test(r, fuzzyNames) {
+// router: the set's router UID; its number and range terms match only an entry on that router.
+function test(r, fuzzyNames, router) {
+  const on = (at) => !router || at === router;
   switch (r.kind) {
     case 'num':
-      return (num) => num === r.a;
+      return (num, name, at) => on(at) && num === r.a;
     case 'range':
-      return (num) => num >= r.a && num <= r.b;
+      return (num, name, at) => on(at) && num >= r.a && num <= r.b;
     case 're': {
       const re = new RegExp(r.text, stateless(r.flags) || 'i');
       return (num, name) => re.test(name);
@@ -176,11 +177,19 @@ function test(r, fuzzyNames) {
   }
 }
 
-// No rules matches everything; fuzzy makes bare name terms fuzzy (for searching).
-export function compileFilter(rules, { fuzzy = false } = {}) {
-  const inc = rules.filter((r) => !r.not).map((r) => test(r, fuzzy));
-  const exc = rules.filter((r) => r.not).map((r) => test(r, fuzzy));
-  return (num, name = '') => (!inc.length || inc.some((f) => f(num, name))) && !exc.some((f) => f(num, name));
+// fuzzy: bare name terms match fuzzily (search). With router set, the matcher takes the entry's router UID third.
+export function compileFilter(rules, { fuzzy = false, router = '' } = {}) {
+  const inc = rules.filter((r) => !r.not).map((r) => test(r, fuzzy, router));
+  const exc = rules.filter((r) => r.not).map((r) => test(r, fuzzy, router));
+  return (num, name = '', at = '') => (!inc.length || inc.some((f) => f(num, name, at))) && !exc.some((f) => f(num, name, at));
+}
+
+// After a second router exists, a set with no router has no number to mean, so only name, exact and regex terms pass.
+export function routerTermsProblem(text, router, routers) {
+  if (router || routers < 2) return '';
+  const p = parseFilter(text || '');
+  if (!p.rules || !p.rules.some((r) => r.kind === 'num' || r.kind === 'range')) return '';
+  return 'Number terms need a router.';
 }
 
 export function filterFn(text, opts) {
@@ -188,11 +197,12 @@ export function filterFn(text, opts) {
   return p.rules ? compileFilter(p.rules, opts) : null;
 }
 
-// Filter sets: x = ext (made elsewhere); sn/sname/dn/dname = source/destination number+name; hiddenDst = Settings hides that destination.
+// Filter sets: x = ext (made elsewhere); sn/sname/dn/dname = source/destination number+name; router = the entry's router UID;
+// hiddenDst = Settings hides that destination.
 export function entryAllows(f, { srcOk, dstOk }, x) {
   if (x.ext ? !f.ext : !f.sode) return false;
   if (x.ext && !f.hidden && x.hiddenDst) return false;
-  return srcOk(x.sn, x.sname) && dstOk(x.dn, x.dname);
+  return srcOk(x.sn, x.sname, x.router) && dstOk(x.dn, x.dname, x.router);
 }
 
 // 'or': any set allows it; else every set must. Excludes and kinds count only within their set.

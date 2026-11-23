@@ -1,0 +1,3 @@
+- Every user has one Role, set in Manage users: Administrator, Trusted user or Standard user. A Standard user patches within their Rights and keeps their own Profile and panels. A Trusted user also changes shared Settings, filter sets, presets, every Profile and panel, the Icon library and Default artwork. Administrator actions need an Administrator signed in on that browser.
+- Guest role (Standard user or Trusted user, default Standard user) is the Role of a browser with nobody signed in, set in Manage users. Guest Rights still limit what it routes.
+- Sode refuses any save or import that would leave no Administrator with a PIN, and says why. Until the setup wizard comes, a config with no users lets every browser act as an Administrator.

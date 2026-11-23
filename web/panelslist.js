@@ -19,19 +19,26 @@ import {
   editHref,
   listKey,
   stepPanel,
+  emptyText,
 } from './panelsrules.js';
-import { resultStep, mac } from './keys.js';
+import { resultStep, mac, keyLabel } from './keys.js';
 import { openShare } from './panelshare.js';
-import './panelkeytab.js';
 import { openPush } from './panelpush.js';
-import { artLeftOut } from './panelrules.js';
+import { artLeftOut, SIGN_IN_ENDED } from './panelrules.js';
 import { openAssign, askName } from './panelassign.js';
 import { clashOf, renameRefusal } from './panelassignrules.js';
 import { isGridPanel } from './gridpaneledges.js';
+import { sendCopy } from './sendcopy.js';
+import { layout, onLayout } from './layout.js';
+import { desktopOnly } from './desktoponly.js';
+import { statusBadge, panelStatus } from './brokenbadge.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
 let disarm = 0;
+// The list belongs to the user who loaded it: a sign-out or another user clears it, and the next key loads again.
+let keyed = false;
+let shownFor = null;
 
 const say = (text) => {
   const n = $('panels-note');
@@ -66,16 +73,16 @@ function thumb(p, small) {
     i.style.gridArea = `${c.r} / ${c.c} / span ${c.rs} / span ${c.cs}`;
     box.append(i);
   }
-  // A Grid panel's counts are tiles in its two bars. A Buttons panel's picture has no bars, so its count is text on the picture.
-  if (g) {
-    for (const t of g.tiles) {
-      const i = el('i', `sode-ov__k-${t.kind} sode-ov__tile sode-ov__tile--${t.kind}${t.half ? ' sode-ov__tile--half' : ''}`, t.label);
-      i.style.gridArea = `${t.r} / ${t.c} / span ${t.rs} / span ${t.cs}`;
-      box.append(i);
-    }
-  } else box.append(el('span', 'sode-ov__count', `${p.cols} \u00d7 ${p.rows}`));
+  // A Grid panel's counts are tiles in its two bars. A Buttons panel's size is the caption under the large picture only.
+  for (const t of g ? g.tiles : []) {
+    const i = el('i', `sode-ov__k-${t.kind} sode-ov__tile sode-ov__tile--${t.kind}${t.half ? ' sode-ov__tile--half' : ''}`, t.label);
+    i.style.gridArea = `${t.r} / ${t.c} / span ${t.rs} / span ${t.cs}`;
+    box.append(i);
+  }
   return box;
 }
+
+const shownIds = () => groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((p) => p.id));
 
 const owner = (p) => (p.owner.toLowerCase() === S.me.toLowerCase() ? 'You' : p.owner);
 
@@ -84,10 +91,18 @@ function row(p) {
   b.type = 'button';
   b.dataset.id = p.id;
   b.setAttribute('aria-current', String(p.id === S.cur));
-  // Empty hook for the online dot, so monitoring can fill it without reshaping the row.
   const online = el('span', 'sode-ov__online');
   online.dataset.online = p.id;
-  b.append(thumb(p, true), el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsShort(p)}`)), online);
+  const sub = `${owner(p)}, ${actsShort(p)}`;
+  const who = el(
+    'span',
+    'sode-ov__who',
+    el('strong', { class: 'sode-ov__line', title: p.name }, p.name),
+    el('span', { class: 'sode-ov__muted sode-ov__line', title: sub }, sub),
+  );
+  const badge = statusBadge(panelStatus(p));
+  if (badge) who.append(badge);
+  b.append(thumb(p, true), who, online);
   return b;
 }
 
@@ -98,7 +113,7 @@ function list(groups) {
     nav.append(el('h2', 'sode-ov__group', g.title));
     for (const p of g.panels) nav.append(row(p));
   }
-  if (!groups.length) nav.append(el('p', 'sode-ov__muted sode-ov__empty', S.loaded ? 'No panel matches.' : ''));
+  if (!groups.length) nav.append(el('p', 'sode-ov__muted sode-ov__empty', emptyText(S.loaded, S.panels.length > 0)));
 }
 
 function button(label, ico, cls, act, id) {
@@ -120,47 +135,59 @@ function detail(p) {
   const box = $('panels-detail');
   box.replaceChildren();
   if (!p) return;
-  const acts = actionsFor(p);
-  const bar = el('div', 'sode-ov__acts');
-  bar.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), mac ? '⌘↵' : 'Ctrl+Enter'));
-  if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id), mac ? '⌘E' : 'Ctrl+E'));
-  if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
-  if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
-  if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
-  // The server decides: a Trusted user, or the Advanced Settings PIN the modal asks for.
-  if (S.trusted || p.canEdit) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
-  // Link with key goes here.
-  const slot = el('span', 'sode-ov__more');
-  slot.id = 'panels-more';
-  bar.append(slot);
-  if (acts.includes('delete')) bar.append(button(S.armed === p.id ? 'Delete? Press again' : 'Delete', 'trash-2', 'pb-btn--ghost', 'delete', p.id));
+  // The phone keeps Launch and Open now (docs/panels-design.md, Phone and touch).
+  const phone = layout() === 'phone';
+  const acts = phone ? [] : actionsFor(p);
+  const main = el('div', 'sode-ov__acts-main');
+  main.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), keyLabel('mod+enter')));
+  if (acts.includes('edit')) main.append(link('Edit', 'pencil', '', editHref(p.id), keyLabel('mod+e')));
+  if (acts.includes('copy')) main.append(button('Save a copy', 'copy', '', 'copy', p.id));
+  if (acts.includes('delete'))
+    main.append(button(S.armed === p.id ? 'Delete? Press again' : 'Delete', 'trash-2', 'pb-btn--ghost sode-ov__delete', 'delete', p.id));
+  const more = el('div', 'sode-ov__acts-more');
+  if (acts.includes('push')) more.append(button('Push to panels', 'send', '', 'push', p.id));
+  if (!phone && S.me) more.append(button('Send a copy', 'forward', '', 'send', p.id));
+  if (!phone && (S.trusted || p.canEdit)) more.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
+  if (acts.includes('share')) more.append(button('Share', 'share-2', '', 'share', p.id));
+  const bar = el('div', 'sode-ov__acts', main, more.childElementCount ? more : null);
   const kv = el(
     'dl',
     'sode-ov__kv',
     el('dt', '', 'Owner'),
-    el('dd', '', owner(p) + (p.canEdit ? '' : ' (you can use it, not change it)')),
+    el('dd', '', owner(p) + (p.canEdit ? '' : ' (read only)')),
     el('dt', '', 'Acts as'),
     el('dd', '', actsLabel(p).replace('Acts as ', '') + launchNote(p)),
     el('dt', '', 'Shared with'),
     el('dd', '', shareLabel(p.share)),
   );
   box.append(
-    el('h1', 'sode-ov__title', p.name),
+    el('h1', 'sode-ov__title', p.name, statusBadge(panelStatus(p)) || ''),
     el(
       'div',
       'sode-ov__big',
       el('div', '', thumb(p), el('p', 'pb-hint', isGridPanel(p) ? gridSize(p) : sizeText(p.rows, p.cols))),
-      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p, { setWatch, setHide, rename })),
+      el(
+        'div',
+        'sode-ov__pane',
+        bar,
+        phone ? desktopOnly('edit, share, assign or delete panels and manage their keys') : null,
+        kv,
+        watchBox(p, setWatch),
+        openNow(p, openHandlers()),
+      ),
     ),
   );
 }
 
 function draw() {
+  $('panels-new').hidden = layout() === 'phone';
   const groups = groupPanels(S.panels, S.me, S.trusted, S.filter);
   const shown = groups.flatMap((g) => g.panels);
   if (!shown.some((p) => p.id === S.cur)) S.cur = shown[0]?.id || '';
   list(groups);
+  const act = document.activeElement?.closest('#panels-detail [data-act]')?.dataset.act;
   detail(shown.find((p) => p.id === S.cur));
+  if (act) $('panels-detail').querySelector(`[data-act="${act}"]`)?.focus();
   paintOnline(S.panels);
 }
 
@@ -197,14 +224,15 @@ async function setHide(id, instance, on) {
 }
 
 // Renames the instance's device name: the page hears it down its stream (POST .../instances/rename). Answers null after
-// it is sent, or after a clash is handed to the name dialog, else renameRefusal's {why, pin}.
-async function rename(id, instance, name, pin = '') {
+// it is sent, or after a clash is handed to the name dialog, else renameRefusal's {why}. keyless names a keyless
+// page by its id; it has no watch and no name check.
+async function rename(id, instance, name, keyless = '') {
   const p = S.panels.find((x) => x.id === id);
   try {
     await api(`api/v1/panels/${id}/instances/rename`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instance, name, pin }),
+      body: JSON.stringify(keyless ? { keyless, name } : { instance, name }),
     });
     // The server moved the watch with the name; the poll does not carry watches.
     if (p) p.watchingInstances = (p.watchingInstances || []).map((d) => (d === instance.toLowerCase() ? name.toLowerCase() : d));
@@ -213,32 +241,45 @@ async function rename(id, instance, name, pin = '') {
   } catch (e) {
     const suggest = clashOf(e);
     if (suggest === null) return renameRefusal(e);
-    askName(p || { name: 'This panel' }, name, suggest, (chosen) => rename(id, instance, chosen, pin).then((r) => r && say(r.why)), 'rename');
+    askName(p || { name: 'This panel' }, name, suggest, (chosen) => rename(id, instance, chosen).then((r) => r && say(r.why)), 'rename');
     return null;
   }
 }
 
+// Reload from the Open now list: target is {instance}, {keyless} or {all: true}. The page reloads on its own.
+async function reload(id, target) {
+  try {
+    await api(`api/v1/panels/${id}/instances/reload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(target) });
+    refreshOnline();
+  } catch (e) {
+    say(e.message);
+  }
+}
+
+const openHandlers = () => ({ setWatch, setHide, rename, reload, trusted: S.trusted });
+
 // Online marks and the Open now list change without a redraw, so a button that a person presses is not rebuilt.
 async function refreshOnline() {
-  if (!S.loaded || document.hidden) return;
+  if (!S.loaded || !keyed || document.hidden) return;
   try {
     const next = (await api('api/v1/panels')).panels;
     for (const p of next) {
       const old = S.panels.find((x) => x.id === p.id);
       if (old) {
-        const { online, instances, instancesOnline, instancesKnown, hiddenInstances } = p;
-        Object.assign(old, { online, instances, instancesOnline, instancesKnown, hiddenInstances });
+        const { online, instances, keyless, instancesOnline, instancesKnown, hiddenInstances } = p;
+        Object.assign(old, { online, instances, keyless, instancesOnline, instancesKnown, hiddenInstances });
       }
     }
     paintOnline(S.panels);
     paintOpenNow(
       S.panels.find((x) => x.id === S.cur),
-      { setWatch, setHide, rename },
+      openHandlers(),
     );
   } catch {}
 }
 
 async function load(pick) {
+  shownFor = S.me;
   try {
     S.panels = (await api('api/v1/panels')).panels;
     S.loaded = true;
@@ -264,12 +305,18 @@ async function act(kind, id) {
     }
     if (kind === 'share') {
       const p = S.panels.find((x) => x.id === id);
-      if (p) openShare(p, { api, onSaved: (saved) => load(saved.id) });
+      // The redraw replaces the Share button, so focus goes to the new one.
+      if (p) openShare(p, { api, onSaved: (saved) => load(saved.id).then(() => document.querySelector('#panels-detail [data-act="share"]')?.focus()) });
       return;
     }
     if (kind === 'push') {
       const p = S.panels.find((x) => x.id === id);
       if (p) openPush(p, { api, panels: S.panels, me: S.me, trusted: S.trusted, onDone: () => load(id) });
+      return;
+    }
+    if (kind === 'send') {
+      const p = S.panels.find((x) => x.id === id);
+      if (p) sendCopy({ panels: [p] }, p.name);
       return;
     }
     if (kind === 'assign') {
@@ -290,13 +337,14 @@ async function act(kind, id) {
 }
 
 export function runPanelsList() {
+  $('panels-new').hidden = layout() === 'phone';
   $('panels-signin').addEventListener('click', signInAgain);
   $('panels-find').addEventListener('input', (e) => {
     S.filter = e.target.value;
     draw();
   });
   $('panels-find').addEventListener('keydown', (e) => {
-    const ids = groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((p) => p.id));
+    const ids = shownIds();
     const step = resultStep(e, ids.length > 0);
     if (step) {
       e.preventDefault();
@@ -316,7 +364,7 @@ export function runPanelsList() {
     const what = listKey(e, mac);
     if (!what) return;
     if (what === 'next' || what === 'prev') {
-      const ids = groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((x) => x.id));
+      const ids = shownIds();
       e.preventDefault();
       S.cur = stepPanel(ids, S.cur, what === 'next' ? 1 : -1);
       S.armed = '';
@@ -325,7 +373,7 @@ export function runPanelsList() {
       return;
     }
     const p = S.panels.find((x) => x.id === S.cur);
-    if (!p || (what === 'edit' && !actionsFor(p).includes('edit'))) return;
+    if (!p || (what === 'edit' && (layout() === 'phone' || !actionsFor(p).includes('edit')))) return;
     e.preventDefault();
     location.href = what === 'edit' ? editHref(p.id) : launchHref(p.id);
   });
@@ -345,19 +393,22 @@ export function runPanelsList() {
   on('access', (a) => {
     S.me = a.user || '';
     S.trusted = !!a.trusted && !!a.user;
+    if (shownFor === null || shownFor === S.me) return;
+    shownFor = null;
+    Object.assign(S, { panels: [], cur: '', armed: '', loaded: false });
+    draw();
+    if (keyed && S.me) load();
   });
-  let first = true;
   onSessionKey((k, step) => {
+    keyed = !!k;
     $('panels-signin').hidden = step !== 'sign-in';
     if (k) {
-      if (first) {
-        first = false;
-        load();
-      }
-    } else if (step === 'ended') say("This page's sign-in key was ended. Reload the page to sign in again.");
-    else if (step === 'sign-in') say('Sign in with your PIN to see your panels.');
+      if (shownFor === null) load();
+    } else if (step === 'ended') say(SIGN_IN_ENDED);
+    else if (step === 'sign-in') say('Sign in to see your panels.');
     else if (step === 'no-users') say('Panels need a user, and Sode has none.');
   });
+  onLayout(draw);
   setInterval(refreshOnline, MON_POLL_MS);
   startSession();
 }

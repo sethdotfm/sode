@@ -12,7 +12,8 @@
    To enlarge it (a control-room monitor read from a distance), set
    html { font-size: 125%; } in page CSS. Do not use `zoom`, and do not
    combine the two. Hairlines (borders, rims, bars, scrollbars) stay px so
-   they remain crisp. @media breakpoints in rem follow the browser's initial
+   they remain crisp; the large scrollbar (pb-scroll--lg) is rem so it
+   grows with the UI. @media breakpoints in rem follow the browser's initial
    font size, not html's.
 
    Load order matters:
@@ -127,8 +128,10 @@
   --pb-source-hover:     light-dark(#b0cec1, #4a6a5e);
   --pb-dest:             light-dark(#e2d7c0, #5c5340);  /* khaki   */
   --pb-dest-hover:       light-dark(#d5c7aa, #685e49);
-  --pb-tieline:          light-dark(#d3d2e8, #4c4a6c);  /* slate   */
-  --pb-tieline-hover:    light-dark(#c1c0de, #58567b);
+  --pb-level:            light-dark(#d8cfeb, #594f6d);  /* lilac   */
+  --pb-level-hover:      light-dark(#c9c0dc, #665c7a);
+  --pb-tieline:          light-dark(#d4e8be, #586647);  /* fern    */
+  --pb-tieline-hover:    light-dark(#c6d9af, #5e6c4e);
 
 
   /* ----------------------------------------------------------------------
@@ -171,6 +174,11 @@
   --pb-glyph-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%2314131f' stroke-width='2.5' stroke-linecap='square' d='M3.5 8.5 6.4 11.4 12.5 5'/%3E%3C/svg%3E");
   --pb-glyph-dash:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%2314131f' stroke-width='2.5' d='M4 8h8'/%3E%3C/svg%3E");
   --pb-glyph-radio: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='3.5' fill='%2314131f'/%3E%3C/svg%3E");
+
+  /* Windows High Contrast (forced-colors: active) system colours; the OS
+     picks the values, so they need no contrast audit. */
+  --pb-forced-ink:    CanvasText;
+  --pb-forced-select: Highlight;
 
 
   /* ----------------------------------------------------------------------
@@ -245,8 +253,16 @@
   --pb-state-border-w: 3px;
 
   --pb-scroll-w:       10px;
+  --pb-scroll-inset:   3px;   /* track showing round the thumb */
   --pb-scroll-thumb:   #6e6e6e;
+  --pb-scroll-thumb-hover: var(--pb-text-muted);
   --pb-scroll-track:   transparent;
+  /* Least thumb length, so a list of thousands still has one to grab.
+     Chrome and Safari only; Firefox draws its own. */
+  --pb-scroll-thumb-min: 3rem;
+  /* pb-scroll--lg: for touch screens and screens read from across a room. */
+  --pb-scroll-w-lg:     1.125rem;
+  --pb-scroll-inset-lg: 0.1875rem;
 
   --pb-split-w:        9px;
 
@@ -257,6 +273,9 @@
   /* iOS zooms into any field under 16px computed. Deliberately px: a rem
      value would drop below 16px under a smaller root font size. */
   --pb-touch-text:     16px;
+  /* Floor under every field's text: 0 here, --pb-touch-text on touch
+     screens (below). */
+  --pb-field-text-min: 0px;
 
 
   /* ----------------------------------------------------------------------
@@ -269,6 +288,8 @@
   --pb-motion-theme:   400ms;  /* light/dark crossfade */
   --pb-motion-enter:   400ms;  /* a new row or card arriving */
   --pb-ease:           cubic-bezier(0.25, 0.1, 0.25, 1);
+  --pb-motion-spin:    0.9s;   /* one spinner turn */
+  --pb-motion-sweep:   1.4s;   /* one indeterminate bar pass */
 
 
   /* ----------------------------------------------------------------------
@@ -296,6 +317,18 @@
   --bs-gutter-x:       0;
 }
 
+/* iOS zooms into a focused field under 16px and does not zoom back out. */
+@media (pointer: coarse) {
+  :root { --pb-field-text-min: var(--pb-touch-text); }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --pb-scroll-thumb:       var(--pb-text-strong);
+    --pb-scroll-thumb-hover: var(--pb-text);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --pb-motion-fast:   0ms;
@@ -303,6 +336,9 @@
     --pb-motion-drawer: 0ms;
     --pb-motion-theme:  0ms;
     --pb-motion-enter:  0ms;
+    /* Slowed, not stopped: the motion is the only sign of work. */
+    --pb-motion-spin:   3s;
+    --pb-motion-sweep:  4.2s;
   }
 }
 

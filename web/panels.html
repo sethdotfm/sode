@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
 <link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="bar.css">
+<link rel="stylesheet" href="palette.css">
 <link rel="stylesheet" href="panels.css">
 <link rel="stylesheet" href="panelmon.css">
 <link rel="stylesheet" href="touch.css">
@@ -22,9 +24,10 @@
 
 <main class="sode-panels sode-ov">
   <header class="sode-panels__head">
-    <h1 class="sode-panels__title"><span class="sode-logo sode-panels__logo" aria-hidden="true"></span>Sode Panels</h1>
+    <!-- The links and the status join it (panelsbar.js). -->
+    <h1 class="sode-panels__title" data-page="Panels">Sode Panels</h1>
     <span class="sode-panels__spacer"></span>
-    <a class="pb-btn pb-btn--outline pb-btn--sm" href="./">Back to Sode</a>
+    <span class="sode-inbox__slot" data-inbox></span>
   </header>
   <p class="sode__hint" id="panels-note" role="status" hidden></p>
   <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
@@ -32,7 +35,7 @@
     <nav class="sode-ov__list" aria-label="Panels">
       <div class="sode-ov__find">
         <input class="pb-input" id="panels-find" type="search" placeholder="Find a panel" aria-label="Find a panel" autocomplete="off">
-        <button class="pb-btn pb-btn--ok pb-btn--sm" id="panels-new" type="button">New panel</button>
+        <button class="pb-btn pb-btn--ok" id="panels-new" type="button">New panel</button>
       </div>
       <div id="panels-list"></div>
     </nav>

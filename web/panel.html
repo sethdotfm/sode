@@ -20,6 +20,8 @@
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
 <link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="bar.css">
+<link rel="stylesheet" href="palette.css">
 <link rel="stylesheet" href="panels.css">
 <link rel="stylesheet" href="panelmon.css">
 <link rel="stylesheet" href="gridpanel.css">
@@ -30,7 +32,7 @@
 
 <main class="sode-panels">
   <header class="sode-panels__head">
-    <h1 class="sode-panels__title" id="panel-title">Sode Panel</h1>
+    <h1 class="sode-panels__title" id="panel-title"><span class="sode-bar__site">Sode</span> Panel</h1>
     <span id="panel-instance" hidden></span>
     <span class="sode-panels__spacer"></span>
     <button class="pb-btn pb-btn--outline pb-btn--sm pb-btn--icon pb-tip--end" id="panel-kiosk" type="button" aria-pressed="false" aria-label="Kiosk mode" data-pb-tip="Kiosk mode"></button>
@@ -39,12 +41,11 @@
   </header>
   <p class="sode__hint" id="panels-note"></p>
   <div class="sode-panel__device" id="panel-device" hidden>
-    <label for="panel-device-name">Name this instance, so its owner can tell it from the others
+    <label for="panel-device-name">Instance name
       <input class="pb-input" id="panel-device-name" type="text" maxlength="40" autocomplete="off" placeholder="Lobby tablet">
     </label>
     <button class="pb-btn pb-btn--ok" type="button">Save</button>
   </div>
-  <!-- A kiosk fixes this box to the bottom of the viewport (panels.css), so nothing here moves the grid. -->
   <div class="sode-panel__foot" id="panel-foot">
     <p class="sode-panel__status" id="panel-status" role="status" hidden></p>
     <div class="sode-panel__update" id="panel-update" role="status" hidden>
@@ -73,9 +74,8 @@
   </div>
   <!-- Landscape setting: iOS cannot lock the turn, so portrait gets this cover (panels.css). -->
   <div class="sode-panel__turn" id="panel-turn" role="alert">
-    <p class="sode-panel__turn-text">Turn your device sideways to use this panel.</p>
+    <p class="sode-panel__turn-text">Turn to landscape</p>
   </div>
-  <!-- The way home, bottom left like Sode's main page; a kiosk hides it. -->
   <footer class="sode-panels__home" id="panel-home">
     <a class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" href="panels" aria-label="Panels" data-pb-tip="Panels"><span class="sode-logo" aria-hidden="true"></span></a>
   </footer>
@@ -88,7 +88,7 @@
     <div class="pb-modal__body sode__confirm" id="confirm-body"></div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="confirm-cancel">Cancel</button>
-      <button type="button" class="pb-btn pb-btn--danger" id="confirm-ok">Take</button>
+      <button type="button" class="pb-btn pb-btn--danger sode__confirm-ok" id="confirm-ok">Take</button>
     </div>
   </div>
 </div>
@@ -101,26 +101,26 @@
       <div class="sode__label">Cursor</div>
       <dl>
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></dt><dd>Move the cursor</dd>
-        <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd> <kbd data-mac="⌥↑ ↓ ← →">Alt+↑ ↓ ← →</kbd></dt><dd>Move the cursor as far as the grid shows</dd>
+        <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd> <kbd data-key="alt">Alt</kbd>+<kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Move one window</dd>
         <dt><kbd>Home</kbd></dt><dd>The corner</dd>
         <dt><kbd>End</kbd></dt><dd>The last destination</dd>
-        <dt><kbd data-mac="⌘Home">Ctrl+Home</kbd> <kbd data-mac="⌘End">Ctrl+End</kbd></dt><dd>The first or last source</dd>
+        <dt><kbd data-key="mod+home">Ctrl+Home</kbd> <kbd data-key="mod+end">Ctrl+End</kbd></dt><dd>The first or last source</dd>
       </dl>
       <div class="sode__label">Source bar and Destination bar</div>
       <dl>
         <dt><kbd>Space</kbd></dt><dd>Pick the name; a second Space removes the pick</dd>
         <dt><kbd>x</kbd></dt><dd>Add the name to the picks, or remove it</dd>
-        <dt><kbd>⇧</kbd>+move</dt><dd>Pick a range along the bar. A move into the crosspoints goes to the start of the range</dd>
+        <dt><kbd>⇧</kbd>+move</dt><dd>Pick a range along the bar</dd>
       </dl>
       <div class="sode__label">Crosspoints</div>
       <dl>
-        <dt><kbd>Space</kbd></dt><dd>Stage the route, or the Diagonal when names are picked. When that is already staged, Take it, as Enter does</dd>
+        <dt><kbd>Space</kbd></dt><dd>Stage the route, or the Diagonal of the picks. Staged already: Take</dd>
         <dt><kbd>⇧</kbd>+move</dt><dd>Pick the names the cursor crosses: sources for a move across, destinations for a move up or down</dd>
         <dt><kbd>v</kbd></dt><dd>Draw a line from the cursor: move to stretch it, Space stages it</dd>
-        <dt><kbd>Enter</kbd></dt><dd>Take the staged routes. The take confirm opens first, unless the panel is set to Stage + Take</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Take the staged routes</dd>
         <dt><kbd>f</kbd></dt><dd>Levels box</dd>
         <dt><kbd>Esc</kbd></dt><dd>Remove the line, then the picks, then the staged routes</dd>
-        <dt><kbd>Delete</kbd> <kbd>Backspace</kbd>, right-click, <kbd data-mac="⌥">Alt</kbd>+click</dt><dd>Unstage only the route at the cursor or the click</dd>
+        <dt><kbd>Delete</kbd> <kbd>Backspace</kbd>, right-click, <kbd data-key="alt">Alt</kbd>+click</dt><dd>Unstage only the route at the cursor or the click</dd>
         <dt><kbd>g</kbd></dt><dd>Go along the row to its source on the lowest level in the Levels box</dd>
         <dt><kbd>⇧g</kbd></dt><dd>Go down the column to the next destination that has the source</dd>
         <dt><kbd>u</kbd></dt><dd>Stage this panel's Undo</dd>
@@ -128,15 +128,19 @@
       <div class="sode__label">Find</div>
       <dl>
         <dt><kbd>s</kbd> <kbd>d</kbd></dt><dd>Source bar or Destination bar search box</dd>
-        <dt><kbd>Enter</kbd> <kbd>⇧Enter</kbd>, <kbd>n</kbd> <kbd>N</kbd> on the grid</dt><dd>Next or previous match</dd>
-        <dt><kbd data-mac="⌃N">Ctrl+N</kbd> <kbd data-mac="⌃P">Ctrl+P</kbd> in the box</dt><dd>Next or previous match (Windows and Linux browsers keep Ctrl+N)</dd>
-        <dt><kbd data-mac="⌃/">Ctrl+/</kbd></dt><dd>Change between Find and Filter</dd>
+        <dt><kbd>Enter</kbd> <kbd>⇧Enter</kbd>, <kbd>n</kbd> <kbd>⇧n</kbd> on the grid</dt><dd>Next or previous match</dd>
+        <dt><kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd> in the box</dt><dd>Next or previous match</dd>
+        <dt><kbd data-key="ctrl+/">Ctrl+/</kbd></dt><dd>Change between Find and Filter</dd>
         <dt><kbd>Tab</kbd></dt><dd>The other search box</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the box and go back to the cursor</dd>
       </dl>
       <div class="sode__label">Anywhere</div>
       <dl>
-        <dt><kbd>?</kbd> <kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
+        <dt><kbd>?</kbd> <kbd data-key="ctrl+?">Ctrl+?</kbd></dt><dd>This list</dd>
+        <dt><kbd data-key="alt+shift+h">Alt+Shift+h</kbd></dt><dd>Home. Not on a Kiosk panel</dd>
+        <dt><kbd data-key="alt+shift+t">Alt+Shift+t</kbd></dt><dd>Theme: light or dark. Not on a Kiosk panel, or a panel with its own theme</dd>
+        <dt><kbd data-key="ctrl+shift+p">Ctrl+Shift+p</kbd></dt><dd>Palette, as your own sign-in. Not on a Kiosk panel. Firefox on Windows and Linux keeps this key for a private window</dd>
+        <dt><kbd data-key="ctrl+shift+l">Ctrl+Shift+l</kbd></dt><dd>Sign out, after a Confirm. While you are stepped in: Step out. Not on a Kiosk panel</dd>
       </dl>
     </div>
     <div class="pb-modal__footer">

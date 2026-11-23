@@ -1,0 +1,1 @@
+- When the Grid popup closes, the cursor goes to the first empty patch box, or else to Levels. So the next Enter takes.

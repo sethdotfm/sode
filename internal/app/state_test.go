@@ -9,7 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// fillRouterDerived puts something in every router-derived field.
 func fillRouterDerived(a *App) {
 	until := time.Now().Add(time.Minute)
 	a.mu.Lock()
@@ -19,12 +18,19 @@ func fillRouterDerived(a *App) {
 	a.router.tally[5] = map[int]int{1: 7}
 	a.router.tallyGen = 1
 	a.router.namesGen = 1
-	a.router.protect[5] = map[int]int{1: 9}
+	a.router.protect[5] = map[int]protHold{1: {9, 1}}
+	a.router.protSeen[[2]int{5, 1}] = true
+	a.router.protExt[protExtKey{dst: 5, dev: 9, kind: 1, set: true}] = &protExtLevels{levels: map[int]bool{1: true}, first: time.Now()}
+	a.router.protAt = [2]time.Time{time.Now(), time.Now()}
 	a.router.seenAt[[2]int{5, 1}] = time.Now()
 	a.router.pend = []routeChange{{5, 1, 7}}
-	a.router.pendProt = []routeChange{{5, 1, 9}}
+	a.router.pendProt = []protChange{{5, 1, 9, 1}}
 	a.router.newSrc, a.router.newDst = map[int]string{1: "x"}, map[int]string{2: "y"}
 	a.router.namesAt = time.Now()
+	a.router.savedAt = time.Now()
+	a.router.lastPoll = &namePoll{map[int]string{7: "CAM 7"}, map[int]string{5: "MON 5"}}
+	a.router.faultSeen = true
+	a.router.renamedTo = [2]map[string]string{{"cam 7": "CAM C"}, {"mon 5": "MON E"}}
 	a.ext.add(extChange{xp: swp08.Crosspoint{Dst: 5, Level: 0, Src: 7}, ui: 1, old: 3, known: true, at: time.Now()})
 	a.ext.own[ownKey{5, 0, 7}] = until
 	a.ext.late[ownKey{5, 0, 9}] = until
@@ -52,10 +58,7 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	a := newTestApp(t)
 	cfg := a.r().cfg
 	cl := &client{ip: "10.0.0.9", send: make(chan []byte, 16)}
-	if err := a.SaveSettings(cl, cfg, "2468", false); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.Unlock(cl, "2468"); err != nil {
+	if err := a.SaveSettings(cl, cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SaveFilterSets(cl, []config.FilterSet{{Name: "mine", Src: "CAM"}}); err != nil {
@@ -90,13 +93,13 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	a.mu.Lock()
 	if len(a.router.tally) != 1 || len(a.router.srcNames) != 1 || len(a.ext.pending) != 1 || len(a.ext.own) != 1 ||
-		len(a.ext.lateRoute) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Router {
+		len(a.ext.lateRoute) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Address {
 		a.mu.Unlock()
 		t.Fatal("a settings change that is not router-side cleared state")
 	}
 	a.mu.Unlock()
 
-	cur.Router = "127.0.0.1:1"
+	cur.Address = "127.0.0.1:1"
 	if err := a.ApplyConfig(cur); err != nil {
 		t.Fatal(err)
 	}
@@ -137,10 +140,7 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 		t.Fatal("name/dump clock changed")
 	}
 	got := a.r().cfg
-	if len(got.FilterSets) != 1 || got.FilterSets[0].Name != "mine" || got.SettingsPin == "" || got.DeviceDefaults.Theme != "dark" {
+	if len(got.FilterSets) != 1 || got.FilterSets[0].Name != "mine" || got.DeviceDefaults.Theme != "dark" {
 		t.Fatalf("config not kept: %+v", got)
-	}
-	if cl.pin != got.SettingsPin {
-		t.Fatal("unlock lost")
 	}
 }

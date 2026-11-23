@@ -9,22 +9,22 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Renaming an instance from the panels page (docs/panels-design.md): the new device name goes down the instance's
-// held stream as its last line. The page applies it as its own header rename does and reopens under it. The
-// instance's key is renamed so the key list and the instances agree. The name is the device name itself.
+// Rename of an instance from the panels page (docs/panels-design.md): the new device name goes down the held stream
+// as its last line.
+// Sode renames the instance's key too, so the key list and the instances agree.
 
 func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/instances/rename", config.ScopePanelsManage, (*App).apiPanelRename})
 }
 
-const renameMsg = "only the panel's owner, a Trusted user or the Advanced Settings PIN can rename an instance"
+const renameMsg = "only the panel's owner or a Trusted user can rename an instance"
 
 type renameLine struct {
 	T        string `json:"t"` // "rename"
 	Instance string `json:"instance"`
 }
 
-// deviceNames lists every instance name the monitor holds for the panel, offline ones included.
+// Offline instances are included.
 func (m *panelMon) deviceNames(id string) []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -35,7 +35,6 @@ func (m *panelMon) deviceNames(id string) []string {
 	return out
 }
 
-// followRename moves every user's watch of the old instance name to the new one.
 func (m *panelMon) followRename(id, old, name string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -59,7 +58,6 @@ func (m *panelMon) followRename(id, old, name string) {
 	}
 }
 
-// renameInstance renames the owner's key or pending setup link named old, and says whether one was.
 func (s *keyStore) renameInstance(o keyOwner, old, name string) bool {
 	s.mu.Lock()
 	found := false
@@ -87,14 +85,18 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	var in struct {
 		Instance string `json:"instance"`
+		Keyless  string `json:"keyless"` // a keyless page's id, in place of instance
 		Name     string `json:"name"`
-		Pin      string `json:"pin"`
 	}
 	if err := json.Unmarshal(body, &in); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"instance":"<its name now>","name":"<its new name>"}`)
 		return
 	}
 	device, name := cleanDevice(in.Instance), instanceName(strings.TrimSpace(in.Name))
+	if in.Keyless != "" && name != "" {
+		a.renameKeyless(w, r, cl, in.Keyless, name)
+		return
+	}
 	if device == "" || name == "" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "name the instance in instance and its new name in name")
 		return
@@ -104,8 +106,8 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusNotFound, "not_found", "no panel "+r.PathValue("id"))
 		return
 	}
-	if !strings.EqualFold(p.Owner, cl.Actor.Name) {
-		if err := a.mayEveryone(cl, in.Pin, renameMsg); err != nil {
+	if cl.Actor.User == "" || p.Owner != cl.Actor.User {
+		if err := a.mayEveryone(cl, renameMsg); err != nil {
 			failWith(w, err)
 			return
 		}
@@ -122,7 +124,7 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	c, has := clientOfPanel(a.r().cfg, p)
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
-	// Offline names count: reusing a lost instance's name would read as that instance coming back.
+	// Offline names count. If a page had a lost instance's name, it would read as that instance back online.
 	devs := a.mon.deviceNames(p.ID)
 	// cfgMu is never held while the monitor locks, as in an Assign.
 	a.cfgMu.Lock()
@@ -150,6 +152,38 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	a.mon.followRename(p.ID, old, name)
-	a.apiEvent(cl.Actor, "rename", "ok", panelTag(p, old)+" to "+name, nil)
+	a.apiEvent(cl.Actor, "rename", "ok", panelTag(p, old)+" to "+name+atAddr(a.mon.streamAddr(p.ID, old)), nil)
 	apiJSON(w, map[string]any{"panel": p.ID, "from": old, "instance": name})
+}
+
+func (m *panelMon) streamAddr(id, device string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if in := m.inst[id][strings.ToLower(device)]; in != nil {
+		return in.who.addr
+	}
+	return ""
+}
+
+// A keyless page has no key and no watch, so the name lives only in its browser. A name clash waits for the Assign.
+func (a *App) renameKeyless(w http.ResponseWriter, r *http.Request, cl *apiCtx, kid, name string) {
+	if err := a.mayEveryone(cl, renameMsg); err != nil {
+		failWith(w, err)
+		return
+	}
+	p, ok := a.panels.get(r.PathValue("id"))
+	if !ok || !validPanelID(p.ID) {
+		apiFail(w, http.StatusNotFound, "not_found", "no panel "+r.PathValue("id"))
+		return
+	}
+	line, _ := json.Marshal(renameLine{T: "rename", Instance: name})
+	sent := a.mon.lineToKeyless(kid, refsOf(p), line)
+	if len(sent) == 0 {
+		apiFail(w, http.StatusConflict, "offline", "Offline: that page holds no stream now, so it cannot be told a new name")
+		return
+	}
+	// The page opens again under the new name, which is a new entry.
+	a.mon.dropKeyless(kid)
+	a.apiEvent(cl.Actor, "rename", "ok", panelTag(p, sent[0].device)+" to "+name+", keyless"+atAddr(sent[0].addr), nil)
+	apiJSON(w, map[string]any{"panel": p.ID, "from": sent[0].device, "instance": name})
 }

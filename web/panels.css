@@ -13,7 +13,12 @@ body {
   max-width: 100rem;
   padding: var(--pb-space-8);
 }
-.sode-panels__head {
+/* /panels and the editor start their header (base.css .sode-bar) on the Lock bar's top, under the lost-link banner. */
+.sode-panels:is(.sode-ov, .sode-ed) {
+  padding-top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
+}
+/* A panel page's header. The page header of /panels and the editor is .sode-bar (base.css). */
+.sode-panels__head:not(.sode-bar) {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
@@ -22,14 +27,14 @@ body {
 /* lock.css fixes the Lock bar top left, over the page, so it adds no height. It sits beside the header row (bar bottom
    = the page's top padding plus one control), never over the grid: the header clears its width (--sode-who-w, set by
    lockchip.js). Keep in step with .sode-lock__who and its bar; a kiosk hides it. */
-[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels__head {
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels__head:not(.sode-bar) {
   padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-4));
 }
 [data-sode-kiosk] .sode-lock__who {
   display: none;
 }
-/* The Panels link sits bottom left as the main page's footer does (desktop.css .sode__footer): fixed on the desktop
-   layout, with the page padded so it never covers the grid, and in the flow on a phone. A kiosk hides it. */
+/* The Panels link sits bottom left: fixed on the desktop layout, with the page padded so it never covers the grid, and
+   in the flow on a phone. A kiosk hides it. */
 .sode-panels__home {
   display: flex;
   padding-top: var(--pb-space-6);
@@ -60,7 +65,6 @@ body {
 .sode-panels__spacer {
   flex: 1 1 auto;
 }
-
 /* A panel's grid. One animated number on the grid drives every pulse, so cells stay in phase. It runs only while a
    cell pulses: an inherited registered property animated higher up restyles everything under it every frame, and
    on :root it cost the idle editor 27% CPU and growing renderer memory. */
@@ -80,7 +84,7 @@ body {
 }
 :root {
   --panel-pulse-s: 2s;
-  --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state colour */
+  --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state color */
 }
 .sode-panel__grid:has([data-s="staged"], [data-s="pending"], .sode-panel__take--armed) {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
@@ -166,6 +170,13 @@ body {
   position: absolute;
   translate: -50% 0;
 }
+/* A Broken or Name moved cell (panelview.js statusIcon). */
+.sode-panel__status-mark {
+  color: var(--pb-status-warn-fill);
+  inset-block-start: var(--pb-space-1);
+  inset-inline-start: var(--pb-space-1);
+  position: absolute;
+}
 .sode-panel__staged {
   font-size: var(--pb-text-xs);
   font-weight: var(--pb-weight-bold);
@@ -176,7 +187,7 @@ body {
 }
 
 /* Cell states. Viewed destination: solid orange. Current source: solid green. Staged destination and
-   pending source: a static ring plus a fill that swells between the idle colour and the state colour. */
+   pending source: a static ring plus a fill that swells between the idle color and the state color. */
 .sode-panel__cell--source[data-s="idle"] {
   background-color: var(--pb-current-idle);
 }
@@ -268,7 +279,6 @@ body {
   transition: transform var(--wait-ms, 800ms) linear;
 }
 
-/* Full width, and Offline: the grid blurs under a framed message. */
 .sode-panels--full {
   max-width: none;
   padding: var(--pb-space-3);
@@ -278,8 +288,16 @@ body {
   pointer-events: none;
   user-select: none;
 }
+/* A Public page that stopped (panelstopped.js): the grid stays, inert and greyed, under its status. */
+.sode-panels--stopped .sode-panel__grid,
+.sode-panels--stopped .sode-gridpanel__levels {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+/* No pb-state-offline pulse: the offline red stays still on every page, as the Lost link banner's break does. */
 .sode-panel__offline {
   align-items: center;
+  animation-name: none;
   background-color: color-mix(in oklab, var(--pb-surface-base) 55%, transparent);
   display: flex;
   flex-direction: column;
@@ -326,7 +344,7 @@ body {
 }
 
 /* Look: font size scales from the panel's --panel-fs and the cell's --cell-fs (both multipliers). Artwork sits
-   dimmed behind the caption so the state colour still reads; it is only ever an <img> or a CSS background. */
+   dimmed behind the caption so the state color still reads; it is only ever an <img> or a CSS background. */
 .sode-panel__grid {
   font-size: calc(var(--pb-text-md) * var(--panel-fs, 1));
 }
@@ -358,11 +376,7 @@ body {
 .sode-panel__take {
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
 }
-/* The artwork row: Icon A (a sprite icon or an image) then Icon B (a glyph) side by side, each scaled to the row.
-   The row is a size container so the glyph follows the square's height (cqh), as the icon does. Alone, either
-   fills the row; beside a sprite icon Icon A takes 40% of its width and Icon B 60% (both shrink alike for the gap,
-   so the ratio holds). An image fills the row (--fill, always contain) and Icon B is a corner badge over it.
-   With the text hidden nothing sits over the artwork, so it is drawn at full strength. */
+/* Icon A, then Icon B. The row is a size container, so a glyph follows the square's height (cqh). An image fills the row and Icon B is a badge over it. */
 .sode-panel__art {
   align-items: center;
   color: var(--pb-text-strong);
@@ -413,7 +427,7 @@ body {
   flex: 1 1 100%;
   width: 100%;
 }
-/* An Icon library SVG (artImage in panelview.js): its shape in the text colour, as the Panels logo in base.css. */
+/* An Icon library SVG (artImage in panelview.js): its shape in the text color, as the Panels logo in base.css. */
 .sode-panel__art-mask {
   background-color: currentColor;
   display: inline-block;
@@ -435,7 +449,7 @@ body {
   font-size: min(30cqh, 18cqw);
 }
 
-/* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
+/* The panels page. Cell colors follow the panel's kinds: a source reads green, a destination orange. */
 .sode-ov__cols {
   display: grid;
   gap: var(--pb-space-5);
@@ -455,6 +469,16 @@ body {
   display: flex;
   gap: var(--pb-space-3);
   padding-bottom: var(--pb-space-3);
+}
+/* One height for the row: the Find box and New panel. */
+.sode-ov__find > .pb-input,
+.sode-ov__find > .pb-btn {
+  flex: none;
+  height: var(--sode-h-action);
+}
+.sode-ov__find > .pb-input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .sode-ov__group {
   color: var(--pb-text-muted);
@@ -486,6 +510,16 @@ body {
   flex-direction: column;
   min-width: 0;
 }
+.sode-ov__line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-ov__status {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-2);
+}
 .sode-ov__muted {
   color: var(--pb-text-muted);
 }
@@ -515,8 +549,30 @@ body {
 }
 .sode-ov__acts {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--pb-space-3);
+  margin-bottom: var(--pb-space-3);
+}
+.sode-ov__acts .pb-btn {
+  height: var(--sode-h-action);
+  min-width: 0;
+}
+/* Both rows share two equal columns, so a key hint or a long label does not change a width. Delete stays apart
+   at the end of the first row. */
+.sode-ov__acts-main,
+.sode-ov__acts-more {
+  --sode-ov-act: minmax(0, 13rem);
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: repeat(2, var(--sode-ov-act));
+}
+.sode-ov__acts-main {
+  grid-template-columns: repeat(2, var(--sode-ov-act)) 1fr;
+}
+.sode-ov__delete {
+  grid-column: 3;
+  justify-self: end;
 }
 .sode-ov__kbd {
   color: var(--pb-text-muted);
@@ -593,25 +649,6 @@ body {
 .sode-ov__thumb i {
   background: var(--pb-surface-control);
 }
-/* The count sits over the picture on its own plate so it stays legible on any squares. */
-.sode-ov__count {
-  background: var(--pb-surface-base);
-  border: var(--pb-border-w) solid var(--pb-border);
-  color: var(--pb-text-strong);
-  font-family: var(--pb-font-num);
-  font-size: var(--pb-text-sm);
-  left: 50%;
-  line-height: 1;
-  padding: var(--pb-space-1) var(--pb-space-2);
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  white-space: nowrap;
-}
-.sode-ov__thumb--sm .sode-ov__count {
-  font-size: var(--pb-text-xs);
-  padding: 0 var(--pb-space-1);
-}
 /* A Grid panel's picture has three sizes with one square size (--sode-ov-sq): the picture grows with its squares
    (--sode-ov-cols). The width counts the gaps, padding and border (border-box). In the list the Large picture is 6rem
    and a margin pads the others to it, so the names line up. */
@@ -637,8 +674,8 @@ body {
   background: var(--pb-hue-red);
 }
 
-/* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never colour alone. */
-/* Groups keep related controls together and a rule between them; a wrapped bar breaks between groups first. */
+/* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never color alone. */
+/* Groups keep related controls together; a wrapped bar breaks between groups first. */
 .sode-ed__bar {
   align-items: center;
   flex-wrap: wrap;
@@ -650,10 +687,6 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
-}
-.sode-ed__grp + .sode-ed__grp {
-  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
-  padding-inline-start: var(--pb-space-5);
 }
 .sode-ed__pick {
   font-size: var(--pb-text-md);
@@ -673,6 +706,16 @@ body {
   flex: 1 1 14rem;
   font-family: var(--pb-font-mono);
   min-width: 0;
+}
+.sode-linkrow__text--path {
+  flex-basis: 8rem;
+  font-family: var(--pb-font);
+}
+.sode-linkrow__qr .sode__qr {
+  display: block;
+  height: auto;
+  margin-top: var(--pb-space-3);
+  width: 12rem;
 }
 .sode-ov__sharebody {
   display: flex;
@@ -698,7 +741,7 @@ body {
   white-space: nowrap;
 }
 /* A hidden copy of the longest state holds the slot's width, so the toolbar never re-wraps when the state changes.
-   Keep in step with refresh() in paneleditor.js. */
+   Keep in step with paintToolbar() in editortoolbar.js. */
 .sode-ed__state::before {
   content: "Unsaved changes";
   height: 0;
@@ -761,6 +804,7 @@ body {
 }
 
 .sode-ed__menu {
+  list-style: none;
   position: fixed;
 }
 .sode-ed__menu li:focus-within > .pb-menu__sub {
@@ -821,7 +865,6 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* The Panel tab's Fixed destination field: chosen Destinations, then the picker's box and results. */
 .sode-fixed__chosen {
   display: flex;
   flex-direction: column;
@@ -896,9 +939,7 @@ body {
 .sode-tpl__row > .pb-btn:first-of-type {
   margin-left: auto;
 }
-.sode-tpl__field,
-.sode-tpl__pin,
-.sode-side__pin {
+.sode-tpl__field {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-1);
@@ -990,13 +1031,47 @@ body {
 .sode-live .sode-panel__offline-title {
   font-size: 3rem;
 }
-/* A Grid panel runs as on /panels/<id>: the editor's own bars hide and the run fills the window. gridpanel.css lays
-   out .sode-panels:has(.sode-gridpanel), which is the editor's main here. */
+/* While a panel runs, the editor's own bars hide, except the page header: the Live Editor's bar holds the way back
+   (editorlive.js sets data-live). */
+.sode-ed[data-live] > :not(#ed-live-view, .sode-bar) {
+  display: none;
+}
+#ed-live-view .sode-panels__head[hidden] {
+  display: none;
+}
+/* A Buttons panel fits the room under the bar, as wide as that lets it be, so the page does not scroll. --sode-cols and
+   --sode-rows are the grid's size (panelview.js). */
+@media (min-width: 64.0625rem) {
+  :root:not([data-layout="phone"]) #ed-live-view {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--pb-space-5);
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) #ed-live-view > .sode-live {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-live__fit {
+    container-type: size;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-live__fit > .sode-panel__grid {
+    margin-inline: auto;
+    width: min(100%, 100cqh * var(--sode-cols) / var(--sode-rows));
+  }
+}
+/* A Grid panel runs as on /panels/<id> and fills the window. gridpanel.css lays out .sode-panels:has(.sode-gridpanel),
+   which is the editor's main here. It has no padding, so the header gets the deck's edges (base.css --sode-head-x) and
+   the Lock bar's top. */
 .sode-ed:has(> #ed-live-view .sode-gridpanel) {
   padding-bottom: 0;
 }
-.sode-ed:has(> #ed-live-view .sode-gridpanel) > :not(#ed-live-view) {
-  display: none;
+.sode-ed:has(> #ed-live-view .sode-gridpanel) > .sode-bar {
+  flex: none;
+  margin: calc(var(--pb-space-4) + var(--sode-down-h, 0px)) var(--sode-head-x) var(--pb-space-2);
 }
 :is(#ed-live-view, .sode-live):has(.sode-gridpanel) {
   display: flex;
@@ -1025,14 +1100,11 @@ body {
   transition: none;
 }
 .sode-live__bar {
+  align-items: center;
   flex-wrap: wrap;
   position: static;
 }
-/* The Lock bar sits at the window's top left, so the bar clears its width as the header does above. The panel's own
-   header is under the bar, so its title goes back to the left corner. */
-[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-live__bar {
-  padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-5));
-}
+/* The Live Editor's own head sits under the page header, so it does not clear the Lock bar. */
 [data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) #ed-live-view .sode-panels__head {
   padding-inline-start: 0;
 }
@@ -1041,10 +1113,6 @@ body {
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
   margin: 0;
-}
-/* The run's Settings link leaves the editor for the main page, so the Live Editor does not show it. */
-#ed-live-view .sode-gridpanel__settings {
-  display: none;
 }
 .sode-live__state {
   color: var(--pb-text-muted);
@@ -1102,7 +1170,7 @@ body {
 .sode-live__tab .sode-edge__on {
   flex: 3 1 0;
 }
-.sode-live__tab .sode-edge__add {
+.sode-live__tab .sode-edge__add:has(> .sode-rlist:not([hidden])) {
   flex: 2 1 0;
 }
 .sode-live__tab :is(.sode-edge__list, .sode-rlist) {
@@ -1116,7 +1184,7 @@ body {
   align-items: start;
   display: grid;
   gap: var(--pb-space-5);
-  grid-template-columns: minmax(0, 1fr) 22rem;
+  grid-template-columns: minmax(0, 1fr) 26rem;
 }
 @media (max-width: 64rem) {
   .sode-ed__body {
@@ -1129,55 +1197,102 @@ body {
   display: none;
 }
 .sode-ed[data-type="grid"] .sode-ed__body {
-  grid-template-columns: minmax(0, 2fr) minmax(22rem, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(26rem, 1fr);
 }
 .sode-ed[data-type="grid"] .sode-ed__lists {
   align-items: start;
   display: grid;
-  gap: var(--pb-space-7);
+  gap: var(--pb-space-4) var(--pb-space-7);
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto;
   min-width: 0;
+}
+/* The one Follow the router note (editorside.js) sits over both lists, which keep the row under it when it hides. */
+.sode-ed__follow {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.sode-ed[data-type="grid"] .sode-ed__lists > .sode-edge {
+  grid-row: 2;
 }
 @media (max-width: 64rem) {
   .sode-ed[data-type="grid"] .sode-ed__body,
   .sode-ed[data-type="grid"] .sode-ed__lists {
     grid-template-columns: minmax(0, 1fr);
   }
+  .sode-ed[data-type="grid"] .sode-ed__lists > .sode-edge {
+    grid-row: auto;
+  }
 }
-/* On a desktop the Grid editor is one window high and the page does not scroll. Each list column has fixed shares
-   for the panel's list and Add from the router, each scrolling inside, so an add never moves the rows under the
-   pointer. The status line keeps its height for the same reason. */
+/* On a desktop the editor is one window high and the page does not scroll: only the sidebar, the Pages list and a
+   Grid panel's lists scroll, each inside itself. The status line keeps its height, so a message never moves the grid.
+   The grid fits its room by width and by height (.sode-ed__fit). In a Grid panel's lists the panel's list takes the
+   free height and Add from the router opens only for search results (editorgridlist.js), so an add never moves the
+   rows under the pointer. */
 @media (min-width: 64.0625rem) {
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] {
+  :root:not([data-layout="phone"]) .sode-ed {
     box-sizing: border-box;
     height: 100dvh;
     padding-bottom: var(--pb-space-5);
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] > #ed-status {
+  :root:not([data-layout="phone"]) .sode-ed > #ed-status {
     min-height: 1lh;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] > #ed-status[hidden] {
+  :root:not([data-layout="phone"]) .sode-ed > #ed-status[hidden] {
     display: block;
     visibility: hidden;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__body {
+  :root:not([data-layout="phone"]) .sode-ed__body {
     align-items: stretch;
     flex: 1 1 0;
     grid-template-rows: minmax(0, 1fr);
     min-height: 0;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__lists {
+  /* Relative, so what is absolute in it (patchbay's hidden radio inputs) scrolls with it and never makes the page scroll. */
+  :root:not([data-layout="phone"]) .sode-ed__side {
+    max-height: none;
+    position: relative;
+    top: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed__main {
     align-items: stretch;
     grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__side {
-    align-self: start;
-    max-height: min(85dvh, 100%);
+  :root:not([data-layout="phone"]) .sode-pages {
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-pages__list {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  :root:not([data-layout="phone"]) .sode-ed__open {
+    grid-auto-rows: minmax(0, 1fr);
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed__frame {
+    min-height: 0;
+  }
+  /* A square grows to 10rem at most, so a small panel does not turn into a wall of huge squares. --sode-cols and
+     --sode-rows are the grid's size (editorview.js). */
+  :root:not([data-layout="phone"]) .sode-ed__fit {
+    container-type: size;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  :root:not([data-layout="phone"]) .sode-ed__fit > .sode-ed__grid {
+    width: min(100%, 100cqh * var(--sode-cols) / var(--sode-rows), var(--sode-cols) * 10rem);
+  }
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__lists {
+    align-items: stretch;
+    grid-template-rows: auto minmax(0, 1fr);
   }
   :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__on {
     flex: 3 1 0;
   }
-  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__add {
+  :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__add:has(> .sode-rlist:not([hidden])) {
     flex: 2 1 0;
   }
   :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] :is(.sode-edge__list, .sode-rlist) {
@@ -1186,7 +1301,7 @@ body {
     max-height: none;
   }
 }
-/* One list (editorgridlist.js): its head, the panel's items with their bar, and Add from the router. */
+/* One list (editorgridlist.js). */
 .sode-edge {
   display: flex;
   flex-direction: column;
@@ -1232,7 +1347,6 @@ body {
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);
   padding-top: var(--pb-space-4);
 }
-/* The bar over the panel's list: the selection count, then icon buttons that act on the selection. */
 .sode-edge__acts {
   align-items: center;
   display: flex;
@@ -1258,7 +1372,7 @@ body {
 .sode-edge__empty > p {
   margin: 0;
 }
-:is(.sode-edge__acts, .sode-edge__list, .sode-edge__empty)[hidden] {
+:is(.sode-edge__part, .sode-edge__acts, .sode-edge__list, .sode-edge__empty, .sode-rlist)[hidden] {
   display: none;
 }
 .sode-rlist__bar {
@@ -1329,7 +1443,7 @@ body {
 .sode-ed[data-type="grid"] #ed-templates {
   display: none;
 }
-/* A row is one line, as in the prototype: grip, number, artwork, name, then Pin, Move and Remove. */
+/* A row is one line: grip, number, artwork, name, then Pin, Move and Remove. */
 .sode-pages__row.sode-edge__row {
   align-items: center;
   border: 0;
@@ -1396,7 +1510,7 @@ body {
   align-items: start;
   display: grid;
   gap: var(--pb-space-5);
-  grid-template-columns: 12rem minmax(0, 1fr);
+  grid-template-columns: 14rem minmax(0, 1fr);
   min-width: 0;
 }
 @media (max-width: 48rem) {
@@ -1426,6 +1540,10 @@ body {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+/* Tips here are placed by tooltip.js: the list scrolls, and a CSS tip would make it overflow. */
+.sode-pages__list [data-pb-tip]::after {
+  display: none;
 }
 .sode-pages__row {
   background: var(--pb-surface-raised);
@@ -1483,6 +1601,14 @@ body {
 }
 .sode-pages__on {
   flex: 0 0 auto;
+  margin-inline-start: var(--pb-space-4);
+}
+/* A disabled row icon keeps a clear background, so the row reads as one line of icons and not as grey boxes. */
+.sode-pages__tools .pb-btn--ghost:disabled {
+  background-color: transparent;
+}
+.sode-pages__tools .pb-btn--ghost:not(:disabled) {
+  color: var(--pb-text-strong);
 }
 .sode-pages__add {
   align-self: flex-start;
@@ -1554,7 +1680,15 @@ body {
   gap: var(--pb-space-4);
 }
 .sode-side__sec[hidden],
-.sode-side__sec .sode__hint:empty {
+.sode-ed__side .sode__hint:empty {
+  display: none;
+}
+.sode-side__artbtns {
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.sode-side__artbtns > [hidden] {
   display: none;
 }
 .sode-side__sec + .sode-side__sec {
@@ -1581,7 +1715,7 @@ body {
   flex-wrap: wrap;
   gap: var(--pb-space-4);
 }
-/* Rows and Columns share one line (TestChromeEditorSidebar). The sidebar had about 4px spare; keep the gap and inputs small so a wider font cannot wrap them. */
+/* Rows and Columns share one line (TestChromeEditorSidebar). Keep the gap and inputs small, so a wider font cannot wrap them. */
 .sode-side__steps {
   align-items: center;
   display: flex;
@@ -1608,7 +1742,7 @@ body {
 .sode-side__sizerow {
   flex-wrap: wrap;
 }
-.sode-side__sizerow > .sode-side__inline {
+.sode-side__sizerow > .sode-side__inline:not(:first-child) {
   border-inline-start: var(--pb-border-w) solid var(--pb-edge);
   padding-inline-start: var(--pb-space-4);
 }
@@ -1632,8 +1766,7 @@ body {
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
 }
-/* The icon picker: Default icons, with Icon A and Icon B side by side, half each, each scrolling on its own; then
-   Uploaded icons across both. */
+/* The icon picker. Icon A and Icon B each scroll on their own. */
 .sode-side__picker {
   display: flex;
   flex-direction: column;
@@ -1678,7 +1811,6 @@ body {
   font-family: var(--pb-font-num);
   font-weight: var(--pb-weight-bold);
 }
-/* Uploaded icons (the Icon library), under the Default icons. */
 .sode-side__lib-sec {
   display: flex;
   flex-direction: column;
@@ -1756,7 +1888,6 @@ body {
   margin: 0;
 }
 
-/* Sidebar additions */
 .sode-side__head {
   align-items: baseline;
   display: flex;
@@ -1781,17 +1912,6 @@ body {
   margin: 0;
   padding-inline-start: var(--pb-space-5);
 }
-.sode-fixed__help {
-  color: var(--pb-text-muted);
-  cursor: help;
-  display: inline-flex;
-  vertical-align: middle;
-}
-/* The sidebar scrolls, so a one-line tip this long would be cut off at its edge. */
-.sode-fixed__help[data-pb-tip]::after {
-  white-space: normal;
-  width: 12rem;
-}
 .sode-ed__side .sode__tabs {
   gap: var(--pb-space-4);
 }
@@ -1804,8 +1924,15 @@ body {
   overscroll-behavior-x: contain;
   padding-bottom: var(--pb-space-1);
 }
+/* Select All is as high as the two rows of picks, without the room their little scroll bar keeps under them. */
+.sode-ed__side .sode__picker {
+  align-items: stretch;
+}
 .sode-ed__side .sode__picker > .sode__all {
+  align-self: stretch;
   flex: none;
+  height: auto;
+  margin-bottom: var(--pb-space-1);
 }
 .sode-side__col-top {
   align-items: center;
@@ -1820,27 +1947,15 @@ body {
   min-width: 0;
   padding-block: var(--pb-space-1);
 }
-/* Classic scroll bars, so the lists show that they scroll even where the system hides overlay bars. */
 .sode-side__icons {
   overflow-y: scroll;
-  scrollbar-color: var(--pb-edge-hard) var(--pb-surface-sunken);
 }
-.sode-side__icons::-webkit-scrollbar {
-  width: 0.75rem;
-}
-.sode-side__icons::-webkit-scrollbar-track {
-  background: var(--pb-surface-sunken);
-}
-.sode-side__icons::-webkit-scrollbar-thumb {
-  background: var(--pb-edge-hard);
-}
-/* Panel picker in the toolbar, with the Rename icon (editorname.js) beside it. The Name field stays hidden. */
+/* The panel picker, with the Rename icon (editorname.js) beside it. */
 .sode-ed__pick {
   padding-inline-start: var(--pb-space-3);
 }
-/* A count has one tile per character. The Destination bar reads from the bottom up, as the Grid page's Sources label does.
-   The text scales with the square. In the list it never goes below 0.55rem, so it still reads; a character may then
-   pass its square. --sode-ov-cols is GRID_SQUARES + 1 (panelsrules.js). */
+/* A count has one tile per character. In the list the text never goes below 0.55rem, so it is possible that a character then
+   passes its square. --sode-ov-cols is GRID_SQUARES + 1 (panelsrules.js). */
 .sode-ov__thumb--grid {
   --sode-ov-cols: 9;
 }
@@ -1878,7 +1993,7 @@ body {
 .sode-ov__thumb--grid:not(.sode-ov__thumb--sm) .sode-ov__tile--half {
   translate: none;
 }
-/* A Grid panel's picture (panelsrules.js gridThumb): the role colours of the grid's bars, a field and routes. */
+/* A Grid panel's picture (panelsrules.js gridThumb): the role colors of the grid's bars, a field and routes. */
 .sode-ov__thumb--grid .sode-ov__k-source {
   background: var(--pb-source);
 }
@@ -1890,4 +2005,10 @@ body {
 }
 .sode-ov__thumb--grid .sode-ov__k-on {
   background: radial-gradient(circle closest-side, var(--pb-text-muted) 70%, var(--pb-surface-sunken) 75%);
+}
+
+/* The Live Editor's Smart menu fades out of the way while a pointer is down on the grid (editorlivemenu.js). */
+.sode-ed__menu[data-away] {
+  opacity: 0;
+  pointer-events: none;
 }

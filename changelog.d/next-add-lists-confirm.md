@@ -1,0 +1,5 @@
+- Directly after an add, `+` or Ctrl+Enter on the empty Destination box adds the next destination. It uses the **Next match behavior** setting, as the Next chip does. Before, it always used the next router number.
+- A range of names in the Destination box can have more name after it: `MV 1-4 PIP 1` adds MV 1 PIP 1 to MV 4 PIP 1. A space between a word and its number is optional (`MV1 PIP1`).
+- The Confirm for a take to many destinations names each destination in its question, with number and name. Past eight, it names the first seven and says how many more.
+- Every Confirm button with the letter (Take, Delete, Confirm) is lower (3rem), on every page. It is still higher than the other buttons.
+- On the phone, `+` empties the Destination box after the add, as the desktop does, and the box shows the next add ("+ adds 12 Rec 2").

@@ -26,7 +26,7 @@ test('topDialog: one hidden by someone else is skipped', () => {
   assert.equal(topDialog([a, b]), b);
 });
 
-import { backdropClose, bringToFront } from '../dialogkeys.js';
+import { backdropClose, bringToFront, onBackdropPress } from '../dialogkeys.js';
 
 test('backdropClose: only when mousedown and mouseup were both on the backdrop', () => {
   const root = {},
@@ -37,6 +37,27 @@ test('backdropClose: only when mousedown and mouseup were both on the backdrop',
   assert.equal(backdropClose(inner, inner, root), false);
   assert.equal(backdropClose(null, root, root), false);
   assert.equal(backdropClose(root, null, root), false);
+});
+
+test('onBackdropPress: a press and release on the backdrop calls fn, a drag out of the box does not', () => {
+  const on = {};
+  const root = { addEventListener: (k, f) => (on[k] = f) };
+  const inner = {};
+  let n = 0;
+  onBackdropPress(root, () => n++);
+  const press = (down, up, click) => {
+    on.mousedown({ target: down });
+    on.mouseup({ target: up });
+    on.click({ target: click });
+  };
+  press(root, root, root);
+  assert.equal(n, 1);
+  press(inner, root, root);
+  press(root, inner, root);
+  assert.equal(n, 1);
+  // A click with no press of its own (a key on a button) is not a backdrop press.
+  on.click({ target: root });
+  assert.equal(n, 1);
 });
 
 test('bringToFront: moves a scrim to the end of its parent, keeps focus', () => {
@@ -78,8 +99,8 @@ test('bringToFront: moves a scrim to the end of its parent, keeps focus', () => 
 
 import { trapDialog, heldDialogs } from '../dialogkeys.js';
 
-// A modal that is built per open (Share, Templates) is removed from the page on close. The Esc stack must let go of
-// it too. If not, every open keeps a whole modal tree alive, and with it the icon sprite its <use> elements reference.
+// A modal built per open (Share, Templates) leaves the page on close. If the Esc stack keeps it, each open leaks a modal
+// tree and the icon sprite its <use> elements reference.
 test('trapDialog: hide drops the dialog from the Esc stack, show puts it back', () => {
   globalThis.document ??= { addEventListener() {} };
   const node = () => ({ hidden: false, isConnected: true, addEventListener() {}, querySelectorAll: () => [] });
@@ -91,9 +112,32 @@ test('trapDialog: hide drops the dialog from the Esc stack, show puts it back', 
   assert.equal(heldDialogs(), before + 1);
   a.show();
   assert.equal(heldDialogs(), before + 2);
-  a.show(); // shown twice holds it once
+  a.show(); // a second show adds no second entry
   assert.equal(heldDialogs(), before + 2);
   a.hide();
   b.hide();
   assert.equal(heldDialogs(), before);
+});
+
+import { closeShown } from '../dialogkeys.js';
+
+test('closeShown: a Lock runs each shown dialog Esc and hides one that stays open', () => {
+  globalThis.document ??= { addEventListener() {} };
+  const node = (hidden = false) => ({ hidden, isConnected: true, addEventListener() {}, querySelectorAll: () => [] });
+  const shut = node();
+  const steps = node();
+  const asleep = node(true);
+  const ran = [];
+  const a = trapDialog(shut, node(), () => {
+    ran.push('shut');
+    a.hide();
+    shut.hidden = true;
+  });
+  const b = trapDialog(steps, node(), () => ran.push('steps'));
+  const c = trapDialog(asleep, node(), () => ran.push('asleep'));
+  closeShown();
+  assert.deepEqual(ran, ['shut', 'steps']);
+  assert.equal(steps.hidden, true);
+  b.hide();
+  c.hide();
 });

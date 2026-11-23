@@ -1,169 +1,81 @@
-// The Assign to modal on the panels page: the open Sode panel pages, and a click sends one to the chosen panel.
-// The server checks who can (a Trusted user or the Advanced Settings PIN) and sends the key to the instance alone.
-import { el, icon, on } from './core.js';
-import { trapDialog } from './dialogkeys.js';
-import { segmented } from './formbits.js';
+// The Assign to modal on the panels page. The server checks who can (a Trusted user or higher) and sends the key to the instance alone.
+import { el, icon } from './core.js';
+import { btn, segmented } from './formbits.js';
+import { question } from './modal.js';
 import { assignRows, assignWays, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
-import { pinNeeded } from './templaterules.js';
 import { MON_POLL_MS } from './panelsmon.js';
+import { INSTANCE_MAX } from './panelkeyrules.js';
 import { resultStep } from './keys.js';
 
-let closeOpen = null;
-let closeName = null;
-let closeAnyway = null;
-on('locking', () => {
-  closeName?.();
-  closeAnyway?.();
-  closeOpen?.();
-});
-
-// The name clash dialog, over the Assign to modal or the panels page's rename: the server's suggestion, editable.
-// go(name) sends again under it; Cancel and Escape close only this dialog.
+// The name clash dialog, over the Assign to modal or the panels page's rename. go(name) sends again under the edited suggestion.
 export function askName(panel, clashed, suggest, go, kind = 'assign') {
   const renaming = kind === 'rename';
-  const opener = document.activeElement;
-  const input = el('input', 'pb-input');
-  input.id = 'assign-name';
-  input.autocomplete = 'off';
-  input.spellcheck = false;
-  input.value = suggest;
-  input.setAttribute('aria-label', `Instance name on ${panel.name}`);
-  const err = el('div', 'pb-note pb-note--error');
-  err.setAttribute('role', 'alert');
-  err.hidden = true;
-  const cancel = el('button', 'pb-btn pb-btn--outline', 'Cancel');
-  cancel.type = 'button';
-  const ok = el('button', 'pb-btn pb-btn--ok', icon(renaming ? 'text-cursor-input' : 'send'), renaming ? ' Rename' : ' Assign');
-  ok.type = 'button';
-  ok.id = 'assign-name-go';
-
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  const dialog = el('div', 'pb-modal');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'assign-name-title');
-  dialog.tabIndex = -1;
-  dialog.append(
-    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Choose another name'), { id: 'assign-name-title' })),
-    el(
-      'div',
-      'pb-modal__body',
-      el(
-        'p',
-        'sode__hint',
-        `${panel.name} already has an instance named ${clashed}. The instance uses this name as its device name${renaming ? '' : ' there'}.`,
-      ),
-      input,
-      err,
-    ),
-    el('div', 'pb-modal__footer', cancel, ok),
-  );
-  root.append(dialog);
-  document.body.append(root);
-  const dlg = trapDialog(root, dialog, close);
-  function close() {
-    closeName = null;
-    dlg.hide();
-    root.remove();
-    if (opener?.isConnected) opener.focus();
-  }
-  closeName = close;
+  const input = el('input', {
+    class: 'pb-input',
+    id: 'assign-name',
+    autocomplete: 'off',
+    spellcheck: false,
+    value: suggest,
+    maxLength: INSTANCE_MAX,
+    'aria-label': `Instance name on ${panel.name}`,
+  });
+  const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
   function submit() {
     const problem = assignNameProblem(input.value, clashed);
     err.textContent = problem;
     err.hidden = !problem;
     if (problem) return input.focus();
-    close();
+    q.close(null);
     go(input.value.trim());
   }
-  cancel.addEventListener('click', close);
-  ok.addEventListener('click', submit);
+  const q = question({
+    back: document.activeElement,
+    titleId: 'assign-name-title',
+    title: `Name taken on ${panel.name}`,
+    body: [input, err],
+    foot: [
+      btn('pb-btn--outline', 'Cancel', () => q.close(null)),
+      btn('pb-btn--ok', [icon(renaming ? 'text-cursor-input' : 'send'), renaming ? ' Rename' : ' Assign'], submit, 'assign-name-go'),
+    ],
+  });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       submit();
     }
   });
-  dlg.show();
   input.focus();
   input.select();
 }
 
-// A user who cannot open the target: the device would sign in and find no panel there for them. Answers true for
-// Send anyway; Cancel, Escape and the Lock answer false.
+// Answers true for Send anyway; Cancel, Escape and the Lock answer null.
 function askAnyway(panel, row) {
-  return new Promise((done) => {
-    const opener = document.activeElement;
-    const cancel = el('button', 'pb-btn pb-btn--outline', 'Cancel');
-    cancel.type = 'button';
-    const ok = el('button', 'pb-btn', icon('send'), ' Send anyway');
-    ok.type = 'button';
-    ok.id = 'assign-anyway';
-    const root = el('div', 'pb-modal-backdrop sode__scrim');
-    const dialog = el('div', 'pb-modal');
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-labelledby', 'assign-anyway-title');
-    dialog.tabIndex = -1;
-    dialog.append(
-      el(
-        'div',
-        'pb-modal__header',
-        Object.assign(el('span', 'pb-modal__title', `${panel.name} is not shared with ${row.user}`), { id: 'assign-anyway-title' }),
-      ),
-      el(
-        'div',
-        'pb-modal__body',
-        el(
-          'p',
-          'sode__hint',
-          `${row.device} is signed in as ${row.user}, who cannot open ${panel.name}. The device will open the panel and show that there is no panel there to use.`,
-        ),
-      ),
-      el('div', 'pb-modal__footer', cancel, ok),
-    );
-    root.append(dialog);
-    document.body.append(root);
-    const dlg = trapDialog(root, dialog, () => close(false));
-    function close(go) {
-      closeAnyway = null;
-      dlg.hide();
-      root.remove();
-      if (opener?.isConnected) opener.focus();
-      done(go);
-    }
-    closeAnyway = () => close(false);
-    cancel.addEventListener('click', () => close(false));
-    ok.addEventListener('click', () => close(true));
-    dlg.show();
-    cancel.focus();
+  const cancel = btn('pb-btn--outline', 'Cancel', () => q.close(null));
+  const q = question({
+    back: document.activeElement,
+    titleId: 'assign-anyway-title',
+    title: `${panel.name} is not shared with ${row.user}`,
+    body: [el('p', 'sode__hint', `${row.device} is signed in as ${row.user}. It will show no panel.`)],
+    foot: [cancel, btn('', [icon('send'), ' Send anyway'], () => q.close(true), 'assign-anyway')],
   });
+  cancel.focus();
+  return q.answer;
 }
 
 // ctx: {api, panels() (every panel the page has, with instances where the user can edit them), onDone() (re-reads them)}.
 export function openAssign(panel, ctx) {
   const opener = document.activeElement;
   let busy = false;
-  const note = el('span', 'sode__hint');
-  note.setAttribute('role', 'status');
+  const note = el('span', { class: 'sode__hint', role: 'status' });
   const say = (t) => (note.textContent = t);
-  const closeBtn = el('button', 'pb-btn pb-btn--outline', 'Close');
-  closeBtn.type = 'button';
-
-  const pin = el('input', 'pb-input');
-  pin.type = 'password';
-  pin.autocomplete = 'off';
-  pin.id = 'assign-pin';
-  pin.setAttribute('aria-label', 'Advanced Settings PIN');
-  const pinRow = el('label', 'sode-tpl__pin', 'Assign needs a Trusted user or the Advanced Settings PIN', pin);
-  pinRow.hidden = true;
-
-  const find = el('input', 'pb-input');
-  find.type = 'search';
-  find.id = 'assign-find';
-  find.placeholder = 'Find an instance';
-  find.autocomplete = 'off';
-  find.setAttribute('aria-label', 'Find an instance');
+  const find = el('input', {
+    class: 'pb-input',
+    type: 'search',
+    id: 'assign-find',
+    placeholder: 'Find an instance',
+    autocomplete: 'off',
+    'aria-label': 'Find an instance',
+  });
   let cur = '';
   let shownRows = [];
 
@@ -180,7 +92,7 @@ export function openAssign(panel, ctx) {
     ways.length > 1
       ? segmented(
           'assign-way',
-          'How the instance opens it',
+          'Opens with',
           [
             ['client', 'Its own key'],
             ['user', 'Sign in'],
@@ -207,7 +119,7 @@ export function openAssign(panel, ctx) {
     if (!force && now === shown) return;
     shown = now;
     list.replaceChildren();
-    if (!rows.length) return list.append(el('p', 'sode__hint', all.length ? 'No instance matches.' : 'No Sode panel page was open in the last 24 hours.'));
+    if (!rows.length) return list.append(el('p', 'sode__hint', all.length ? 'No instance matches.' : 'No panel page open in the last 24 hours.'));
     for (const r of rows) {
       const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('send'), ' Assign');
       b.type = 'button';
@@ -231,31 +143,17 @@ export function openAssign(panel, ctx) {
     }
   }
 
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  const dialog = el('div', 'pb-modal sode-ov__share');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'assign-title');
-  dialog.tabIndex = -1;
-  dialog.append(
-    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `Assign to ${panel.name}`), { id: 'assign-title' })),
-    el('div', 'pb-modal__body', intro, ...(choice ? [choice.node] : []), find, list, pinRow),
-    el('div', 'pb-modal__footer', note, closeBtn),
-  );
-  root.append(dialog);
-  document.body.append(root);
-  const dlg = trapDialog(root, dialog, close);
-
+  const q = question({
+    back: opener,
+    titleId: 'assign-title',
+    title: `Assign to ${panel.name}`,
+    cls: 'sode-ov__share',
+    body: [intro, ...(choice ? [choice.node] : []), find, list],
+    foot: [note, btn('pb-btn--outline', 'Close', () => q.close(null))],
+  });
+  const { root } = q;
   const timer = setInterval(() => paint(false), MON_POLL_MS);
-  function close() {
-    clearInterval(timer);
-    closeOpen = null;
-    dlg.hide();
-    root.remove();
-    if (opener?.isConnected) opener.focus();
-  }
-  closeOpen = close;
-  closeBtn.addEventListener('click', close);
+  q.answer.then(() => clearInterval(timer));
 
   // name is the instance's name on the target, chosen in the clash dialog; '' keeps its own.
   async function send(row, name = '') {
@@ -270,18 +168,13 @@ export function openAssign(panel, ctx) {
       const r = await ctx.api(`api/v1/panels/${panel.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(row.keyless ? { keyless: row.keyless } : { from: row.panel, instance: row.device }), name, pin: pin.value, as: way }),
+        body: JSON.stringify({ ...(row.keyless ? { keyless: row.keyless } : { from: row.panel, instance: row.device }), name, as: way }),
       });
-      pin.value = '';
       say(`Sent ${r.instance} to ${panel.name}.`);
       await ctx.onDone();
     } catch (err) {
       clash = clashOf(err);
       say(clash === null ? err.message : '');
-      if (pinNeeded(err.status, err.code)) {
-        pinRow.hidden = false;
-        pin.focus();
-      }
     }
     busy = false;
     if (!root.isConnected) return;
@@ -296,7 +189,6 @@ export function openAssign(panel, ctx) {
   });
 
   find.addEventListener('input', () => paint());
-  // The same keys as the panels list's Find: arrows or Ctrl/Cmd+J, K move the highlight, Enter assigns it.
   find.addEventListener('keydown', (e) => {
     const step = resultStep(e, shownRows.length > 0);
     if (step) {
@@ -312,6 +204,5 @@ export function openAssign(panel, ctx) {
   });
 
   paint();
-  dlg.show();
   find.focus();
 }

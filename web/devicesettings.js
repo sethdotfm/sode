@@ -1,13 +1,14 @@
-// This browser section of Settings and the Everyone defaults selects: the same choices (prefs.js). A browser
-// one starts at "Everyone's default (value)" ("My" with their own), which follows the default, and
-// applies immediately. A default one is saved with the form. Also the signed-in user block.
+// The This browser selects and the Everyone default selects offer the same choices (prefs.js). A This browser select
+// applies immediately; a default saves with the form.
 
-import { $, el, on, emit } from './core.js';
+import { $, el, on, emit, S } from './core.js';
+import { listedUser } from './namepickrules.js';
 import { ownPref, globalPref, defaultPref, myPref, setPref, pref } from './device.js';
 import { myDefaultButtons } from './mydefaults.js';
 import { profile, profileName, saveProfile } from './profile.js';
 import { PREFS } from './prefs.js';
 import { signInOffered } from './lockrules.js';
+import { initStepIn } from './stepindialog.js';
 
 // reindex: rebuilds the search index when a my-default button appears (made on the first profile).
 export function initDeviceSettings({ form, reindex }) {
@@ -30,29 +31,37 @@ export function initDeviceSettings({ form, reindex }) {
     const name = select.dataset.pref;
     let mb = myButtons.get(name);
     if (mb) return mb;
-    const mk = (id, label) => {
+    // The search name holds the setting, since each preference has the same two buttons (the Palette, Settings search).
+    const what = form.querySelector(`label[for="${select.id}"]`)?.textContent.trim() || name;
+    const mk = (id, label, findLabel) => {
       const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__my-default', label);
       b.type = 'button';
+      // The id lets a Palette row press it.
+      b.id = id;
       b.dataset.find = id;
-      b.dataset.label = label;
+      b.dataset.label = findLabel;
       return b;
     };
-    const save = mk(`my-default-${name}`, 'Save as my default');
-    const clear = mk(`my-default-clear-${name}`, 'Clear my default');
+    const save = mk(`my-default-${name}`, 'Save as my default', `Save ${what} as my default`);
+    const clear = mk(`my-default-clear-${name}`, 'Clear my default', `Clear my default for ${what}`);
     const note = el('span', 'sode__hint');
     note.hidden = true;
     note.setAttribute('role', 'status');
-    const run = (change, after) => async () => {
+    // btn: the button. Its done event says what changed, for the result banner of a Palette row (palettehome.js).
+    const run = (change, after, btn) => async () => {
       const p = profile();
       if (!p.name) return;
       const prefs = { ...p.prefs };
       change(prefs);
+      const text = btn === save ? `My default for ${what} is ${PREFS[name].values[prefs[name]]} now.` : `${what} uses Everyone's default now.`;
       save.disabled = clear.disabled = true;
       const r = await saveProfile({ prefs });
       save.disabled = clear.disabled = false;
       note.hidden = r.ok;
       note.textContent = r.ok ? '' : r.err || 'Could not save.';
-      if (r.ok) after();
+      if (!r.ok) return;
+      after();
+      emit('myDefaultDone', { id: btn.id, field: select.id, text });
     };
     save.addEventListener(
       'click',
@@ -61,6 +70,7 @@ export function initDeviceSettings({ form, reindex }) {
           prefs[name] = pref(name);
         },
         () => setPref(name, ''),
+        save,
       ),
     );
     clear.addEventListener(
@@ -70,6 +80,7 @@ export function initDeviceSettings({ form, reindex }) {
           delete prefs[name];
         },
         () => renderPrefs(),
+        clear,
       ),
     );
     const row = el('div', 'sode__my-defaults');
@@ -81,7 +92,7 @@ export function initDeviceSettings({ form, reindex }) {
     return mb;
   }
 
-  // On any change of settings in force, so "Global (value)" stays true under an open form, and
+  // Runs on any change of the settings in force, so "Everyone's default (value)" stays true under an open form, and
   // Alt+Shift+T shows.
   function renderPrefs() {
     const user = profileName();
@@ -112,17 +123,24 @@ export function initDeviceSettings({ form, reindex }) {
     const acct = !!L.user || signInOffered(L);
     $('account-name').hidden = !acct;
     $('account-name').replaceChildren(...(L.user ? ['Signed in as ', el('strong', null, L.user)] : ['Not signed in']));
-    for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-keys', 'account-logout']) $(id).hidden = !L.user;
+    for (const id of ['account-profile', 'account-copy', 'account-transfer', 'account-pin', 'account-keys', 'account-clients', 'account-logout'])
+      $(id).hidden = !L.user;
+    // A user without a PIN holds no personal API keys or own API clients.
+    const noPin = listedUser(S.users, L.user)?.len === 0;
+    for (const id of ['account-keys', 'account-clients']) if (noPin) $(id).hidden = true;
     $('account-login').hidden = !!L.user || !acct;
     $('lock-btn').hidden = L.enforced && !L.user;
   });
   $('lock-btn').addEventListener('click', () => emit('localLock'));
   $('account-pin').addEventListener('click', () => emit('changePin'));
   $('account-keys').addEventListener('click', () => emit('openKeys'));
+  $('account-clients').addEventListener('click', () => emit('openClients'));
   $('account-profile').addEventListener('click', () => emit('openProfile', { name: acctUser }));
-  $('account-transfer').addEventListener('click', () => emit('openTransfer', { scope: 'user', user: acctUser }));
+  $('account-copy').addEventListener('click', () => emit('openBrowserCopy'));
+  $('account-transfer').addEventListener('click', () => emit('openOwnExport'));
   $('account-logout').addEventListener('click', () => emit('logout'));
   $('account-login').addEventListener('click', () => emit('login'));
+  initStepIn(); // after the access handler above, which it overrides while stepped in
   for (const s of form.querySelectorAll('select[data-pref]')) s.addEventListener('change', () => setPref(s.dataset.pref, s.value));
   return { renderPrefs };
 }

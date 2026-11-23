@@ -15,20 +15,71 @@
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
 <link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="bar.css">
+<link rel="stylesheet" href="palette.css">
 <link rel="stylesheet" href="desktop.css">
 <link rel="stylesheet" href="mobile.css">
 <link rel="stylesheet" href="history.css">
+<link rel="stylesheet" href="exportimport.css">
 <link rel="stylesheet" href="touch.css">
+<link rel="stylesheet" href="setup.css">
+<link rel="stylesheet" href="gridpanel.css">
+<link rel="stylesheet" href="gridpanelphone.css">
+<link rel="stylesheet" href="gridpopup.css">
 </head>
 <body>
 
 <main class="sode">
-  <div class="sode__conn" id="conn">
-    <span class="pb-status"><span class="pb-dot pb-dot--warn" id="conn-srv-dot" aria-hidden="true"></span><span id="conn-srv-text">Server</span></span>
-    <span class="pb-status"><span class="pb-dot pb-dot--idle" id="conn-rt-dot" aria-hidden="true"></span><span id="conn-rt-text">Router</span></span>
-    <span class="sode__conn-addr" id="conn-addr"></span>
-  </div>
+  <!-- The page header of every page (panelsbar.js). homebar.js adds the links; desktop.js paints #conn. -->
+  <header class="sode-bar sode-home-bar" id="home-bar">
+    <h1 class="sode-panels__title">Sode</h1>
+    <span class="sode-panels__spacer"></span>
+    <span class="sode-inbox__slot" data-inbox></span>
+    <div class="sode__conn" id="conn">
+      <span class="pb-status"><span class="sode__state" id="conn-srv-dot"></span><span id="conn-srv-text">Server</span></span>
+      <span class="sode__conn-routers" id="conn-routers"><span class="pb-status"><span class="sode__state"></span><span>Router</span></span></span>
+      <span class="sode__conn-addr" id="conn-addr"></span>
+    </div>
+  </header>
   <div class="sode__down" id="conn-down" role="alert" hidden></div>
+  <!-- The command keeps in step with recoverCommand in internal/app/roles.go. -->
+  <div class="pb-alert pb-alert--error sode__noadmin" id="no-admin" role="alert" hidden>
+    <div class="sode__lock-help">
+      <div class="pb-alert__title">No Administrator</div>
+      <p>Sode refuses every Administrator action. On the Sode host, in the <code>docker-compose.yml</code> directory, run:</p>
+      <pre><code>docker compose exec sode /sode -make-administrator "NAME" &amp;&amp; docker compose restart sode</code></pre>
+      <p>NAME: an existing user, or a new one (12 users at most).</p>
+    </div>
+  </div>
+
+  <!-- Env-only mode (notsaved.js). The phone view has its own copy. -->
+  <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
+    <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
+    <span class="pb-grow">Not saved: SODE_CONFIG is not set. Settings and users are lost on restart.</span>
+    <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
+  </div>
+
+  <!-- The setup wizard (setupwizard.js): a config file with no users. html[data-sode-setup] hides the rest. -->
+  <div class="sode-setup" id="setup" hidden>
+    <h1 class="sode__mark">Sode</h1>
+    <ol class="sode-setup__steps" id="setup-steps" aria-label="Setup steps"></ol>
+    <!-- The wait page: another browser runs setup, or this is a phone, which never runs it. -->
+    <div class="pb-modal sode-setup__dialog" id="setup-wait" role="region" aria-labelledby="setup-wait-title" hidden>
+      <div class="pb-modal__header"><h2 class="pb-modal__title" id="setup-wait-title"></h2></div>
+      <div class="pb-modal__body sode-setup__wait" id="setup-wait-body"></div>
+    </div>
+    <div class="pb-modal sode-setup__dialog" id="setup-dialog" role="dialog" aria-labelledby="setup-title">
+      <div class="pb-modal__header"><h2 class="pb-modal__title" id="setup-title"></h2></div>
+      <div class="pb-modal__body" id="setup-body"></div>
+      <div class="pb-modal__footer" id="setup-foot">
+        <button type="button" class="pb-btn pb-btn--outline" id="setup-back">Back</button>
+        <button type="button" class="pb-btn pb-btn--outline" id="setup-restore">Restore from a backup</button>
+        <span class="pb-grow"></span>
+        <span class="sode-setup__err" id="setup-err" role="alert"></span>
+        <button type="button" class="pb-btn pb-btn--ok" id="setup-next">Next</button>
+      </div>
+    </div>
+  </div>
 
   <div class="sode__view" id="patch-view">
     <h1 class="sode__mark">Sode</h1>
@@ -36,54 +87,77 @@
     <form class="sode__boxes" autocomplete="off">
       <div class="sode__box sode__box--src">
         <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
-        <span class="sode__keyed">
-          <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
-          <kbd class="sode__key-note" aria-hidden="true">s</kbd>
-        </span>
-        <div class="sode__menu-pop"><ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul><div class="sode__menu-count" id="src-count" aria-hidden="true" hidden></div><div class="sode__menu-all" id="src-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all sources</button></div></div>
+        <div class="sode__entry">
+          <span class="sode__keyed">
+            <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
+            <kbd class="sode__key-note" aria-hidden="true">s</kbd>
+          </span>
+          <div class="sode__menu-pop"><ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul><div class="sode__menu-count" id="src-count" aria-hidden="true" hidden></div></div>
+          <div class="sode__menu-all" id="src-all"><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all sources</button></div>
+        </div>
       </div>
       <div class="sode__box sode__box--to">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
         <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--end sode__to" id="flip" tabindex="-1" aria-label="Show Destination before Source" aria-pressed="false"></button>
       </div>
-      <div class="sode__box sode__box--dst">
-        <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
-        <div class="sode__entry">
+      <!-- The three groups (Source, Destination with +, Levels with Take and Clear) share one width (desktop.css). -->
+      <div class="sode__group sode__group--dst">
+        <div class="sode__box sode__box--dst">
+          <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
+          <div class="sode__entry">
+            <span class="sode__keyed">
+              <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
+              <span class="sode__armed" id="dst-armed" aria-hidden="true" hidden></span>
+              <kbd class="sode__key-note" aria-hidden="true">d</kbd>
+            </span>
+            <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div></div>
+            <div class="sode__menu-all" id="dst-all"><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div>
+          </div>
+          <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations of this plan" hidden></div>
+        </div>
+        <div class="sode__box sode__box--add">
+          <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
+          <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add destination">+</button>
+        </div>
+        <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
+      </div>
+      <div class="sode__group sode__group--levels">
+        <div class="sode__box sode__box--levels">
+          <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
           <span class="sode__keyed">
-            <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
-            <kbd class="sode__key-note" aria-hidden="true">d</kbd>
+            <input id="lvl" class="pb-input sode__input" spellcheck="false">
+            <kbd class="sode__key-note" aria-hidden="true">f</kbd>
           </span>
-          <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div></div>
-          <div class="sode__menu-all" id="dst-all" hidden><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div>
+          <div class="sode__picker">
+            <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
+            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode__all" id="lvl-all" tabindex="-1"><span>Select</span><span>All</span></button>
+          </div>
         </div>
-        <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to take to" hidden></div>
-      </div>
-      <div class="sode__box sode__box--add">
-        <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-pb-tip="Add destination (+, Ctrl+Enter, ⌘Enter)">+</button>
-      </div>
-      <div class="sode__box sode__box--levels">
-        <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
-        <span class="sode__keyed">
-          <input id="lvl" class="pb-input sode__input" spellcheck="false">
-          <kbd class="sode__key-note" aria-hidden="true">f</kbd>
-        </span>
-        <div class="sode__picker">
-          <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode__all" id="lvl-all" tabindex="-1"><span>Select</span><span>All</span></button>
+        <div class="sode__box sode__box--take">
+          <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
+          <!-- The one Take and the one Clear: both act on the boxes and the staged routes (desktop.js). -->
+          <div class="sode__takes">
+            <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
+            <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__clear-all" id="clear-all" tabindex="-1" data-pb-tip="Clear the boxes and the staged routes (Esc)" disabled>Clear</button>
+          </div>
         </div>
-      </div>
-      <div class="sode__box">
-        <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
       </div>
       <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
-      <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
     </form>
 
+    <!-- The Grid popup's staged routes (gridpopup.js), kept in this page's memory only. -->
+    <section class="sode__staged" id="grid-staged" aria-labelledby="grid-staged-head" hidden>
+      <div class="sode__staged-head">
+        <span class="sode__label" id="grid-staged-head">Staged</span>
+        <span class="sode__hint" id="grid-staged-count"></span>
+      </div>
+      <ul class="sode__staged-list" id="grid-staged-list" aria-label="Staged routes"></ul>
+    </section>
     <div class="sode__result" id="result" aria-live="polite"></div>
+    <!-- The Broken banner (brokenbanner.js). The phone view has its own copy. -->
+    <div class="pb-alert pb-alert--warn sode__broken" data-broken role="status" hidden></div>
 
-    <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
+    <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Bookmarks"></div>
 
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__recent-head" id="history-bar">
@@ -92,16 +166,16 @@
       <div class="sode__recent-tools">
         <div class="sode__search" data-search id="history-search">
           <span class="sode__search-box">
-            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
+            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter History by Source" spellcheck="false" autocomplete="off">
             <ul class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
             <kbd class="sode__key-note" aria-hidden="true">⇧s</kbd>
           </span>
           <span class="sode__search-box">
-            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter History by Destination" spellcheck="false" autocomplete="off">
             <ul class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
             <kbd class="sode__key-note" aria-hidden="true">⇧d</kbd>
           </span>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" disabled>Clear</button>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm pb-btn--icon" data-search-clear aria-label="Clear the search" data-pb-tip="Clear the search" disabled><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-x"/></svg></button>
           <span class="sode__hint" data-search-note aria-live="polite"></span>
         </div>
         <div class="sode__sets-bar">
@@ -112,17 +186,13 @@
       <ul class="sode__hist" id="history" tabindex="-1" aria-label="History"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
-
-    <footer class="sode__footer">
-      <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="settings-open" aria-label="Settings" data-pb-tip="Settings"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-settings"/></svg></button>
-      <a class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" id="panels-open" href="panels" aria-label="Sode Panels" data-pb-tip="Sode Panels"><span class="sode-logo" aria-hidden="true"></span></a>
-    </footer>
   </div>
 
   <form class="sode__view sode__settings" id="settings-view" novalidate aria-labelledby="settings-title">
     <div class="sode__settings-head">
       <button type="button" class="pb-btn pb-btn--ghost sode__back" id="settings-back"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-chevron-left"/></svg>Back</button>
       <h2 class="sode__settings-title" id="settings-title">Settings</h2>
+      <span class="sode-inbox__slot" data-inbox></span>
     </div>
 
     <div class="sode__toc">
@@ -135,24 +205,10 @@
       <nav class="pb-tabs" id="settings-toc" aria-label="Settings sections"></nav>
     </div>
 
-    <div class="sode__group sode__lock" id="settings-lock" data-apart>
-      <div class="sode__field">
-        <label for="lock-pin">Advanced Settings</label>
-        <div class="sode__pinrow">
-          <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false" placeholder="Enter the Advanced Settings PIN">
-          <button type="submit" class="pb-btn" id="lock-unlock">Open</button>
-        </div>
-        <div class="sode__pinhelp">
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="lock-help-open">Forgot PIN?</button>
-        </div>
-      </div>
-      <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
-    </div>
-
-    <fieldset class="sode__group sode__device" data-apart>
+    <h3 class="sode__topic" data-topic="preferences" id="topic-preferences">Preferences</h3>
+    <fieldset class="sode__group sode__device" data-apart data-section="this-browser" data-topic="preferences">
       <legend>This browser</legend>
-      <span class="sode__hint">Personal choices, saved in this browser only. Anyone can change them.</span>
-      <div class="sode__fields">
+      <div class="sode__fields sode__prefgrid">
         <div class="sode__field">
           <label for="cfg-theme">Theme</label>
           <span class="pb-select-wrap"><select id="cfg-theme" class="pb-select" data-pref="theme"></select></span>
@@ -182,7 +238,7 @@
           <span class="pb-select-wrap"><select id="cfg-set-stack" class="pb-select" data-pref="setStack"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-stack-gap">Stack quick changes to one destination</label>
+          <label for="cfg-stack-gap">Stack quick changes in History</label>
           <span class="pb-select-wrap"><select id="cfg-stack-gap" class="pb-select" data-pref="stackGap"></select></span>
         </div>
         <div class="sode__field">
@@ -190,31 +246,40 @@
           <span class="pb-select-wrap"><select id="cfg-next-mode" class="pb-select" data-pref="nextMode"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-compact">Compact view (no History, centred)</label>
+          <label for="cfg-compact">Compact view</label>
           <span class="pb-select-wrap"><select id="cfg-compact" class="pb-select" data-pref="compact"></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-palette-char">Palette character</label>
+          <span class="pb-select-wrap"><select id="cfg-palette-char" class="pb-select" data-pref="paletteChar"></select></span>
         </div>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group sode__device" data-apart>
+    <fieldset class="sode__group sode__device" data-apart data-section="my-user" data-topic="preferences">
       <legend>My user</legend>
       <div class="sode__field" id="account" data-find="account" data-label="Me">
         <span class="sode__acct" id="account-name"></span>
         <div class="sode__names sode__names--start">
           <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Sign in" hidden>Sign in</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-stepin" data-find="account-stepin" data-label="Step in" aria-haspopup="dialog" hidden>Step in</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-stepout" data-find="account-stepout" data-label="Step out" hidden>Step out</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-pin" data-find="account-pin" data-label="Change my PIN">Change my PIN</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-keys" data-find="account-keys" data-label="My API keys" aria-haspopup="dialog" hidden>My API keys</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-clients" data-find="account-clients" data-label="My API clients" aria-haspopup="dialog" hidden>My API clients</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-profile" data-find="account-profile" data-label="My profile" aria-haspopup="dialog">My profile</button>
-          <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export / import" aria-haspopup="dialog">Import &amp; Export</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-copy" data-find="account-copy" data-label="Copy this browser to My user" aria-haspopup="dialog">Copy this browser to My user</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export &amp; Import" aria-haspopup="dialog">Export &amp; Import…</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Sign out">Sign out</button>
-          <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="lock-btn" data-find="lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-lock"/></svg>Lock the screen</button>
+          <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="lock-btn" data-find="lock-btn" data-label="Lock"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-lock"/></svg>Lock</button>
         </div>
+        <p class="sode__hint" id="account-step-note" role="status" hidden></p>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Global defaults</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
+    <h3 class="sode__topic" data-topic="look-and-feel" id="topic-look-and-feel">Look and feel</h3>
+    <fieldset class="sode__group" data-section="everyone-defaults" data-topic="look-and-feel">
+      <legend>Everyone's defaults</legend>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="gcfg-theme">Theme</label>
@@ -245,7 +310,7 @@
           <span class="pb-select-wrap"><select id="gcfg-set-stack" class="pb-select" data-gpref="setStack"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-stack-gap">Stack quick changes to one destination</label>
+          <label for="gcfg-stack-gap">Stack quick changes in History</label>
           <span class="pb-select-wrap"><select id="gcfg-stack-gap" class="pb-select" data-gpref="stackGap"></select></span>
         </div>
         <div class="sode__field">
@@ -253,21 +318,91 @@
           <span class="pb-select-wrap"><select id="gcfg-next-mode" class="pb-select" data-gpref="nextMode"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-compact">Compact view (no History, centred)</label>
+          <label for="gcfg-compact">Compact view</label>
           <span class="pb-select-wrap"><select id="gcfg-compact" class="pb-select" data-gpref="compact"></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="gcfg-palette-char">Palette character</label>
+          <span class="pb-select-wrap"><select id="gcfg-palette-char" class="pb-select" data-gpref="paletteChar"></select></span>
         </div>
       </div>
     </fieldset>
 
-    <div class="sode__lock-exit" id="lock-exit">
-      <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
-    </div>
+    <fieldset class="sode__group" data-section="branding" data-topic="look-and-feel">
+      <legend>Branding</legend>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-brandtext">Logo text and page title</label>
+          <input id="cfg-brandtext" class="pb-input" data-key="brandText" placeholder="Sode" maxlength="24" spellcheck="false">
+        </div>
+        <div class="sode__field">
+          <label for="cfg-brandborder">Page border color</label>
+          <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"></select></span>
+          <span class="sode__brand-preview" id="brand-preview">
+            <label class="sode__colorpick" id="cfg-brandcustom-wrap" data-pb-tip="Pick a custom color" hidden>
+              <input type="color" id="cfg-brandcustom" aria-label="Custom page border color">
+            </label>
+            <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
+            <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
+          </span>
+        </div>
+      </div>
+    </fieldset>
 
-    <fieldset class="sode__group">
+    <fieldset class="sode__group" data-section="history" data-topic="look-and-feel">
+      <legend>History</legend>
+      <div class="sode__field sode__field--half">
+        <label for="cfg-hidden">Hidden destinations in History</label>
+        <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
+        <span class="sode__hint" id="cfg-hidden-note"></span>
+      </div>
+      <div class="sode__field" data-find="clear-history" data-label="Clear History">
+        <div class="sode__names" id="clear-step1">
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
+        </div>
+        <div class="sode__names" id="clear-step2" hidden>
+          <span>
+            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Cancel</button>
+            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
+          </span>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group" data-section="level-colors" data-topic="look-and-feel">
+      <legend>Level colors</legend>
+      <div class="sode__colors" id="cfg-colors"></div>
+      <div class="sode__names">
+        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-colors-reset">Reset to default</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group" data-section="confirm" data-topic="look-and-feel">
+      <legend>Confirm and results</legend>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-lockout" data-pb-tip="Delay before the Confirm letter and OK work.">Confirm lockout (ms)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-dismiss" data-pb-tip="0 = stays open. Failures always stay.">Success banner closes after (s)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
+        </div>
+      </div>
+      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms takes</span></label>
+    </fieldset>
+
+    <h3 class="sode__topic" data-topic="routers" id="topic-routers">Routers</h3>
+    <fieldset class="sode__group" data-apart data-section="routers" data-topic="routers">
+      <legend>Routers</legend>
+      <ul class="sode__routers" id="routers-list" aria-label="Routers"></ul>
+    </fieldset>
+
+    <h4 class="sode__router" data-router="1" id="router-1"><span class="sode__router-title" id="router-1-title">Router</span></h4>
+    <fieldset class="sode__group" data-section="router-matrix" data-topic="routers" data-router="1">
       <legend>Router & matrix</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
-      <div class="sode__field">
-        <label for="cfg-router">Address (advanced)</label>
+      <div class="sode__field sode__field--half">
+        <label for="cfg-router">Address</label>
         <input id="cfg-router" class="pb-input" data-key="router" placeholder="10.0.0.50:8910" spellcheck="false">
       </div>
       <div class="sode__fields">
@@ -282,15 +417,15 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-matrix">Matrix (advanced)</label>
+          <label for="cfg-matrix">Matrix</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-matrix" class="pb-input" data-key="matrix" data-type="int" min="0" max="255"></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-levels">Levels (advanced)</label>
+          <label for="cfg-levels">Levels</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-levels" class="pb-input" data-key="levels" data-type="int" min="1" max="256"></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-offset">Level offset (advanced)</label>
+          <label for="cfg-offset">Level offset</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-offset" class="pb-input" data-key="levelWireOffset" data-type="int"></span>
           <span class="sode__hint" id="cfg-offset-note"></span>
         </div>
@@ -302,55 +437,15 @@
           <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-1" value="1"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-1"></label>
           <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-va" value="va"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-va"></label>
         </span>
-        <span class="sode__hint">How levels are shown and typed. V and 0 are the same level.</span>
       </div>
-      <div class="sode__field">
+      <div class="sode__field sode__field--half">
         <label for="cfg-numoff">Source and destination numbers</label>
         <span class="pb-select-wrap"><select id="cfg-numoff" class="pb-select" data-key="numberOffset" data-type="int"><option value="1">Start at 1 (router 0 = 1)</option><option value="0">Start at 0 (as the router)</option></select></span>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Takes</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-default">Default levels</label>
-          <input id="cfg-default" class="pb-input" spellcheck="false">
-          <span class="sode__hint">Used if the Levels input is blank.</span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-lockout" data-pb-tip="The wait before the Confirm letter key and OK work.">Confirm lockout (ms)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-dismiss">Success banner closes after (s)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
-          <span class="sode__hint">At 0s, it stays until you close it.<br>Failures always stay until you close them.</span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-resync">Re-read routes every (s)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
-          <span class="sode__hint">At 0s, Sode does not re-read routes.</span>
-        </div>
-      </div>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-firemode">Multi destination behavior (advanced)</label>
-          <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">Sequential</option><option value="native">Native salvo</option></select></span>
-          <span class="sode__hint">Native stages the changes on the router, then sends a "Take all" command.<br>Sequential sends the routes one after another, in quick succession.</span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-salvogroup">Router salvo group (advanced)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
-        </div>
-      </div>
-      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms takes</span></label>
-    </fieldset>
-
-    <fieldset class="sode__group" data-toc="Router names">
-      <legend>Router Source & Destination Names</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
+    <fieldset class="sode__group" data-section="router-names" data-topic="routers" data-router="1">
+      <legend>Router names</legend>
       <div class="sode__names">
         <span id="names-status"></span>
         <span class="sode__names-refresh">
@@ -360,122 +455,145 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-namerefresh">Re-read every (s)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRefreshSeconds" data-type="int" min="0"></span>
-          <span class="sode__hint">At 0s, Sode does not re-read names.</span>
+          <label for="cfg-namerefresh" data-pb-tip="0 = off">Re-read every (s)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRereadSeconds" data-type="int" min="0"></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-namelen">Name character limit (advanced)</label>
+          <label for="cfg-namelen">Name character limit</label>
           <span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-namereq">Name requests (advanced)</label>
+          <label for="cfg-namereq">Name requests</label>
           <span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select" data-key="nameRequests"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
         </div>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Level colors</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
-      <span class="sode__hint">Hex colors like <code><span class="sode__swatch" style="--sw: #3a7bd5" aria-hidden="true"></span>#3a7bd5</code>. Leave blank for default.</span>
-      <div class="sode__colors" id="cfg-colors"></div>
-      <div class="sode__names">
-        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-colors-reset">Reset to default</button>
-      </div>
-    </fieldset>
-
-    <fieldset class="sode__group">
-      <legend>Branding</legend>
-      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
+    <fieldset class="sode__group" data-section="takes" data-topic="routers" data-router="1">
+      <legend>Takes</legend>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-brandtext">Logo text & Page title</label>
-          <input id="cfg-brandtext" class="pb-input" data-key="brandText" placeholder="Sode" maxlength="24" spellcheck="false">
+          <label for="cfg-default" data-pb-tip="Used when Levels is blank">Default levels</label>
+          <input id="cfg-default" class="pb-input" spellcheck="false">
         </div>
         <div class="sode__field">
-          <label for="cfg-brandborder">Accent Color</label>
-          <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"></select></span>
-          <span class="sode__hint">Adds a colored border to all pages, so they are easy to identify.</span>
-          <span class="sode__brand-preview" id="brand-preview">
-            <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
-            <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
-            <span class="sode__hint" id="brand-name"></span>
-          </span>
+          <label for="cfg-resync" data-pb-tip="0 = off">Re-read routes every (s)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
+        </div>
+      </div>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-firemode">Multi destination</label>
+          <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">One after another</option><option value="native">Router salvo (stage, then Take all)</option></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-salvogroup">Router salvo group</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
         </div>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Access</legend>
-      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
-      <div class="sode__names sode__names--start">
-        <button type="button" class="pb-btn pb-btn--outline" id="cfg-pin-change" aria-expanded="false" aria-controls="cfg-pin-box">Change Advanced PIN</button>
-      </div>
-      <div class="sode__field" id="cfg-pin-box" hidden>
-        <div class="sode__fields">
-          <div class="sode__field">
-            <label for="cfg-pin">Advanced Settings PIN</label>
-            <input type="password" id="cfg-pin" class="pb-input" autocomplete="new-password" spellcheck="false">
-          </div>
-          <div class="sode__field">
-            <label for="cfg-pin2">Confirm PIN</label>
-            <input type="password" id="cfg-pin2" class="pb-input" autocomplete="new-password" spellcheck="false">
-          </div>
+    <fieldset class="sode__group" data-section="protects" data-topic="routers" data-router="1">
+      <legend>Protects</legend>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-protectdevice" data-pb-tip="0 = off. A panel with the same ID can free Sode's Protects, so use a number no panel uses">Sode's device number</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-protectdevice" class="pb-input" data-key="protectDevice" data-type="int" min="0" max="4095"></span>
         </div>
-        <span class="sode__hint" id="cfg-pin-status"></span>
-        <label class="pb-check" id="cfg-pin-clear-row"><input type="checkbox" class="pb-check__input" id="cfg-pin-clear"><span class="pb-check__label">Remove the PIN</span></label>
       </div>
+      <div class="sode__field" data-apart data-find="protects-list" data-label="Protects and Router locks">
+        <span class="sode__label">Protects and Router locks</span>
+        <ul class="sode__protects" id="protects-list"></ul>
+        <div class="sode__protects-acts">
+          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Free Sode's Protects" data-pb-tip="Frees every Protect with Sode's device number, also with no record. Asks your PIN again">Free Sode's Protects</button>
+        </div>
+        <div id="protects-confirm"></div>
+      </div>
+    </fieldset>
+
+    <h3 class="sode__topic" data-topic="access" id="topic-access">Access</h3>
+    <fieldset class="sode__group" data-section="locks" data-topic="access">
+      <legend>Locks</legend>
       <div class="sode__field">
-        <label for="cfg-pin-tries">Lock after wrong PINs</label>
-        <span class="pb-number-wrap"><input type="number" id="cfg-pin-tries" class="pb-input" data-key="pinMaxTries" data-type="int" min="0" max="1000"></span>
+        <label class="pb-check" data-pb-tip="From the 4th wrong PIN: wait doubles, up to 5 min. Administrator names always wait."><input type="checkbox" class="pb-check__input" id="cfg-pin-waits" data-key="pinWaits" data-type="bool"><span class="pb-check__label">Wait after wrong PINs</span></label>
       </div>
       <div class="sode__fields">
         <div class="sode__field" data-find="lock-pages" data-label="Page locks">
-          <span class="sode__label" id="cfg-locks-label">Page locks</span>
+          <span class="sode__label" id="cfg-locks-label" data-pb-tip="Needs a user with a PIN">Page locks</span>
           <div role="group" aria-labelledby="cfg-locks-label">
-            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Lock main screen</span></label>
-            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Lock Communication Log</span></label>
-            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-panel"><span class="pb-check__label">Lock panels</span></label>
+            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Main page</span></label>
+            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Communication Log</span></label>
+            <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-panel"><span class="pb-check__label">Panels</span></label>
           </div>
-          <span class="sode__hint">A locked page asks for a user's PIN before it changes anything. Needs a user (Settings &gt; Users) and an Advanced Settings PIN. Only the Advanced Settings PIN can change these.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-auto-lock">Auto-lock after idle (minutes)</label>
+          <label for="cfg-auto-lock" data-pb-tip="0 = off">Auto-lock after (min)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
         </div>
       </div>
-    </fieldset>
-
-    <fieldset class="sode__group">
-      <legend>History</legend>
-      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
+      <div class="sode__field sode__field--half">
+        <label for="cfg-guest-role" data-pb-tip="Limited by Guest Rights">Guest role</label>
+        <span class="pb-select-wrap"><select id="cfg-guest-role" class="pb-select" data-key="guestRole"><option value="standard">Standard user</option><option value="trusted">Trusted user</option></select></span>
+      </div>
       <div class="sode__field">
-        <label for="cfg-hidden">Hidden destinations in History</label>
-        <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
-        <span class="sode__hint" id="cfg-hidden-note"></span>
-      </div>
-      <div class="sode__field" data-find="clear-history" data-label="Clear History">
-        <span>Advanced setting. Clears History for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect the Communication Log.</span>
-        <div class="sode__names" id="clear-step1">
-          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
-        </div>
-        <div class="sode__names" id="clear-step2" hidden>
-          <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Keep it</button>
-            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm">Clear all history</button>
-          </span>
-        </div>
+        <button type="button" class="pb-btn pb-btn--outline" id="cfg-apply-preset" data-find="apply-preset" data-label="Apply an Access preset" aria-haspopup="dialog" hidden>Apply an Access preset…</button>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
+    <fieldset class="sode__group" id="users-group" data-section="users" data-topic="access">
+      <legend>Users</legend>
+      <div class="sode__field">
+        <button type="button" class="pb-btn pb-btn--outline" id="users-manage" data-find="users-manage" data-label="Manage users" aria-haspopup="dialog">Manage users</button>
+      </div>
+      <div class="sode__field" data-find="new-user-defaults" data-label="New user defaults">
+        <span class="sode__label" id="cfg-new-user-label">New user defaults</span>
+        <div role="group" aria-labelledby="cfg-new-user-label">
+          <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-new-persistent"><span class="pb-check__label">Never sign out</span></label>
+          <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-new-no-auto-lock"><span class="pb-check__label">No auto-lock</span></label>
+        </div>
+      </div>
+      <div class="sode__field" id="users-people" role="group" aria-label="Profiles" hidden></div>
+    </fieldset>
+
+    <fieldset class="sode__group" id="api-group" data-section="api" data-topic="access">
+      <legend>API</legend>
+      <div class="sode__field">
+        <label class="pb-check" data-pb-tip="No key: Keyless scopes within Guest Rights. Guest role does not apply."><input type="checkbox" class="pb-check__input" id="api-guest"><span class="pb-check__label">Keyless API</span></label>
+      </div>
+      <div class="sode__field" data-find="api-scopes" data-label="Keyless scopes">
+        <span class="sode__label" id="api-scopes-label">Keyless scopes</span>
+        <div class="sode__scopes" id="api-scopes" role="group" aria-labelledby="api-scopes-label"></div>
+      </div>
+      <div class="sode__field">
+        <label class="pb-check" data-pb-tip="Off: commands, refusals and key events only"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>
+      </div>
+      <div class="sode__field sode__field--half">
+        <label for="api-rate" data-pb-tip="0 = off">Rate limit (requests/min per key)</label>
+        <span class="pb-number-wrap"><input type="number" id="api-rate" class="pb-input" min="0" max="100000"></span>
+      </div>
+      <div class="sode__field sode__field--half">
+        <label for="api-cap">API takes in flight (max)</label>
+        <span class="pb-number-wrap"><input type="number" id="api-cap" class="pb-input" min="1" max="64"></span>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group" data-section="panels" data-topic="access">
+      <legend>Panels</legend>
+      <div class="sode__field">
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-public-panels" data-key="publicPanels" data-type="bool"><span class="pb-check__label">Public panels allowed</span></label>
+      </div>
+      <div class="sode__field sode__field--half">
+        <label for="cfg-new-panel-acts">New-panel Authentication mode</label>
+        <span class="pb-select-wrap"><select id="cfg-new-panel-acts" class="pb-select" data-key="newPanelActs"><option value="public">Public</option><option value="session">User</option><option value="both">Both</option><option value="api">API</option></select></span>
+      </div>
+    </fieldset>
+
+    <h3 class="sode__topic" data-topic="server" id="topic-server">Server</h3>
+    <fieldset class="sode__group" data-section="proxy" data-topic="server">
       <legend>Proxy</legend>
-      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
       <div class="sode__field">
-        <label for="cfg-proxies">Trusted proxies</label>
-        <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="10.0.0.2, 172.18.0.0/16" spellcheck="false">
-        <span class="sode__hint">Client IPs in history come from <code>X-Forwarded-For</code> only through these.</span>
+        <label for="cfg-proxies" data-pb-tip="X-Forwarded-For counts only from these">Trusted proxies</label>
+        <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" spellcheck="false">
       </div>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-require-https" data-key="requireHttps" data-type="bool"><span class="pb-check__label">Require HTTPS</span></label>
@@ -483,46 +601,27 @@
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Export & import</legend>
-      <div class="sode__field" data-find="transfer-open" data-label="Export & import">
+    <fieldset class="sode__group sode__group--row" data-section="export-import" data-topic="server">
+      <legend>Export & Import</legend>
+      <div class="sode__field" data-find="xi-open" data-label="Export & Import">
         <div class="sode__names">
-          <button type="button" class="pb-btn pb-btn--outline" id="transfer-open">Export & import</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="xi-open">Export & Import…</button>
         </div>
-        <span class="sode__hint">Export and import settings, filter sets, and presets to and from files.<br>Share links for one filter set or preset are in Filters and Presets.</span>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group">
-      <legend>Server backup</legend>
-      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
-      <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the Advanced Settings PIN.</span>
-      <!-- Server config file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
-      <div class="sode__field" id="config-file" data-apart data-find="config-file" data-label="Server backup">
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include Secrets (private backup)</span></label>
-        <span class="sode__hint">If enabled, the file includes the Advanced Settings PIN and every user's PIN hash. Without them, a new server cannot restore the users.</span>
+    <fieldset class="sode__group sode__group--row" data-apart data-section="run-setup-again" data-topic="server">
+      <legend>Run setup again</legend>
+      <div class="sode__field" data-find="setup-again-open" data-label="Run setup again">
         <div class="sode__names">
-          <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="config-export" data-find="config-export" data-label="Export server configuration">Export</button>
-            <button type="button" class="pb-btn pb-btn--outline" id="config-import" data-find="config-import" data-label="Import server configuration">Import</button>
-          </span>
+          <button type="button" class="pb-btn pb-btn--outline" id="setup-again-open" aria-haspopup="dialog" disabled>Run setup again…</button>
         </div>
-        <input type="file" id="config-pick" accept=".yaml,.yml,text/yaml,text/plain" hidden>
-        <div class="sode__field" id="config-confirm" hidden>
-          <div class="pb-note pb-note--warn" id="config-confirm-text" role="alert"></div>
-          <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="config-keep">Keep it</button>
-            <button type="button" class="pb-btn pb-btn--danger" id="config-replace">Replace everything</button>
-          </span>
-        </div>
-        <div class="pb-note pb-note--error" id="config-err" role="alert" hidden></div>
-        <span class="sode__hint" id="config-status" role="status" aria-live="polite"></span>
       </div>
     </fieldset>
 
     <div class="sode__savebar">
       <div class="pb-note pb-note--error" id="settings-err" role="alert" hidden></div>
-      <div class="pb-note pb-note--error" id="settings-unsaved" role="alert" hidden>Unsaved changes. Save them, or exit again to discard them.</div>
+      <div class="pb-note pb-note--error" id="settings-unsaved" role="alert" hidden>Unsaved changes</div>
       <div class="sode__savebar-row">
         <button type="button" class="pb-btn pb-btn--outline" id="settings-exit">Exit</button>
         <span class="sode__hint" id="settings-path"></span>
@@ -535,36 +634,44 @@
   <div class="sode-m" id="mobile-view">
     <header class="sode-m__head">
       <span class="sode-m__mark">Sode</span>
-      <span class="pb-status"><span class="pb-dot pb-dot--warn" id="m-ws-dot" aria-hidden="true"></span><span id="m-ws-text">Server</span></span>
-      <span class="pb-status"><span class="pb-dot pb-dot--idle" id="m-rt-dot" aria-hidden="true"></span><span id="m-rt-text">Router</span></span>
+      <span class="pb-status"><span class="sode__state" id="m-ws-dot"></span><span id="m-ws-text">Server</span></span>
+      <span class="sode__conn-routers" id="m-routers"><span class="pb-status"><span class="sode__state"></span><span>Router</span></span></span>
       <span class="sode__conn-addr sode-m__addr" id="m-rt-addr"></span>
       <span class="sode-m__spacer"></span>
+      <span class="sode-inbox__slot" data-inbox></span>
+      <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" id="m-grid" aria-label="Grid popup"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-grid-3x3"/></svg></button>
       <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" id="m-settings" aria-label="Settings"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-settings"/></svg></button>
     </header>
 
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
+    <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
+      <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
+      <span class="pb-grow">Not saved: SODE_CONFIG is not set. Settings and users are lost on restart.</span>
+      <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
+    </div>
     <div class="sode-m__result" id="m-result" aria-live="polite"></div>
+    <div class="pb-alert pb-alert--warn sode__broken" data-broken role="status" hidden></div>
 
     <div class="sode-m__stage">
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
-      <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
+      <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Bookmarks"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head">
         <div class="sode__recent-head">
-          <span class="sode__label" id="m-recent-head">History <span class="sode__hint">(swipe left to undo, right to redo)</span></span>
+          <span class="sode__label" id="m-recent-head">History</span>
           <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
         <div class="sode__search" data-search>
           <span class="sode__search-box">
-            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
+            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter History by Source" spellcheck="false" autocomplete="off">
             <ul class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
           </span>
           <span class="sode__search-box">
-            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter History by Destination" spellcheck="false" autocomplete="off">
             <ul class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
           </span>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" disabled>Clear</button>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm pb-btn--icon" data-search-clear aria-label="Clear the search" data-pb-tip="Clear the search" disabled><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-x"/></svg></button>
           <span class="sode__hint" data-search-note aria-live="polite"></span>
         </div>
         <ul class="sode-m__recent-list" id="m-recent-list"></ul>
@@ -590,7 +697,7 @@
         <input id="m-dst" class="pb-input sode-m__input" placeholder="Destination" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <span class="sode-m__actions">
-          <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add another destination" hidden>+</button>
+          <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add destination" hidden>+</button>
           <button type="button" class="pb-btn sode-m__go" id="m-go">Next</button>
         </span>
         <div class="sode-m__ops" id="m-ops" role="group" aria-label="Level words" hidden>
@@ -609,7 +716,7 @@
     <div class="pb-modal__body sode__confirm" id="confirm-body"></div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="confirm-cancel">Cancel</button>
-      <button type="button" class="pb-btn pb-btn--danger" id="confirm-ok">Take</button>
+      <button type="button" class="pb-btn pb-btn--danger sode__confirm-ok" id="confirm-ok">Take</button>
     </div>
   </div>
 </div>
@@ -622,29 +729,19 @@
           <label class="sode__fld"><span class="sode__label">Filter set</span><span class="pb-select-wrap"><select id="flt-set" class="pb-select" aria-label="Filter set"></select></span></label>
         </div>
         <div class="sode__filters-set">
-          <label class="sode__fld"><span class="sode__label">Name</span><input class="pb-input" id="flt-set-cur" maxlength="32" placeholder="Name" aria-label="Name of the set" autocomplete="off"></label>
+          <label class="sode__fld"><span class="sode__label">Name</span><input class="pb-input" id="flt-set-cur" maxlength="32" placeholder="Name" aria-label="Filter set name" autocomplete="off"></label>
           <label class="sode__fld sode__filters-scope"><span class="sode__label">Save for</span><span class="pb-select-wrap"><select class="pb-select" id="flt-set-cur-scope" aria-label="Save for"></select></span></label>
           <button type="button" class="pb-btn pb-btn--outline" id="flt-set-saveas">Save as…</button>
-          <button type="button" class="pb-btn pb-btn--outline" id="flt-share-btn">Share</button>
           <button type="button" class="pb-btn pb-btn--outline" id="flt-set-del">Delete</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="flt-set-send" hidden>Send a copy…</button>
         </div>
         <div class="sode__filters-set" id="flt-set-name-row" hidden>
-          <label class="sode__fld"><span class="sode__label">Name of the copy</span><input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name" aria-label="Set name" autocomplete="off"></label>
+          <label class="sode__fld"><span class="sode__label">Name of the copy</span><input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name" aria-label="Filter set name" autocomplete="off"></label>
           <label class="sode__fld sode__filters-scope" id="flt-set-scope-wrap"><span class="sode__label">Save the copy for</span><span class="pb-select-wrap"><select class="pb-select" id="flt-set-scope" aria-label="Save for"><option value="local">This browser</option><option value="global">Everyone</option></select></span></label>
           <button type="button" class="pb-btn pb-btn--commit" id="flt-set-name-ok">Save</button>
           <button type="button" class="pb-btn pb-btn--ghost" id="flt-set-name-cancel">Cancel</button>
         </div>
-        <div class="sode__filters-set" id="flt-pin-row" hidden>
-          <label class="sode__fld"><span class="sode__label">Advanced Settings PIN</span><input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="PIN" aria-label="Advanced Settings PIN"></label>
-          <button type="button" class="pb-btn pb-btn--ok" id="flt-pin-ok">Enter</button>
-          <button type="button" class="pb-btn pb-btn--ghost" id="flt-pin-cancel">Cancel</button>
-        </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
-        <div class="sode__filters-share" id="flt-share" hidden>
-          <label class="sode__fld"><span class="sode__label">Share link</span><input class="pb-input sode__code" id="flt-share-url" readonly aria-label="Share link"></label>
-          <button type="button" class="pb-btn pb-btn--outline" id="flt-share-copy">Copy link</button>
-          <span class="pb-status" id="flt-share-status"></span>
-        </div>
       </div>
       <fieldset class="sode__filters-show">
         <legend class="sode__label">Show</legend>
@@ -670,21 +767,6 @@
     </div>
   </div>
 </div>
-<div class="pb-modal-backdrop sode__scrim" id="lock-help" hidden>
-  <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="lock-help-title" tabindex="-1" id="lock-help-dialog">
-    <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot the Advanced Settings PIN</span></div>
-    <div class="pb-modal__body sode__lock-help">
-      <p>On the machine running Sode, in the directory with its <code>docker-compose.yml</code>, remove the PIN:</p>
-      <pre><code>docker compose exec sode /sode -reset-pin</code></pre>
-      <p>Then restart Sode to apply it:</p>
-      <pre><code>docker compose restart sode</code></pre>
-      <p>Settings then open without a PIN. Set a new one under Access.</p>
-    </div>
-    <div class="pb-modal__footer">
-      <button type="button" class="pb-btn pb-btn--outline" id="lock-help-close">Close</button>
-    </div>
-  </div>
-</div>
 <div class="pb-modal-backdrop sode__scrim" id="keys" hidden>
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" id="keys-dialog">
     <div class="pb-modal__header"><span class="pb-modal__title" id="keys-title">Keyboard shortcuts</span></div>
@@ -692,47 +774,62 @@
       <div class="sode__label">Patch boxes</div>
       <dl>
         <dt><kbd>Tab</kbd></dt><dd>Next box</dd>
-        <dt><kbd>+</kbd> <kbd data-mac="⌘Enter">Ctrl+Enter</kbd> <kbd data-mac="⌃Enter" hidden></kbd></dt><dd>Add destination</dd>
-        <dt><kbd data-mac="⌘click">Ctrl+click</kbd> <kbd data-mac="⌃click" hidden></kbd></dt><dd>Add a destination from History or the match list</dd>
-        <dt><kbd data-mac="⌃s">Ctrl+s</kbd> <kbd data-mac="⌃d">Ctrl+d</kbd> <kbd data-mac="⌃f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
-        <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Last take's source, destination, the next one (repeat for more)</dd>
-        <dt><kbd>Enter</kbd></dt><dd>Take</dd>
-        <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
-        <dt><kbd>Esc</kbd></dt><dd>Close the match list; clear a box; with all empty, keyboard mode (not in Compact view)</dd>
+        <dt><kbd>+</kbd> <kbd data-key="mod+enter">Ctrl+Enter</kbd></dt><dd>Add destination. The box empties. Directly after an add, on the empty box: add the next destination, which the box shows</dd>
+        <dt><kbd>11-13</kbd> <kbd>Rec 1-4</kbd> <kbd>MV 1-4 PIP 1</kbd> <kbd>MV 1-4 PIP 1-2</kbd></dt><dd>In the Destination box: a list. Two ranges give MV 1 PIP 1, MV 1 PIP 2, MV 2 PIP 1 and so on. The match list selects all of them, and <kbd>Enter</kbd> or <kbd data-key="mod+enter">Ctrl+Enter</kbd> adds them</dd>
+        <dt><kbd data-key="mod">Ctrl</kbd>+click</dt><dd>Add a destination from History or the match list</dd>
+        <dt><kbd data-key="ctrl+s">Ctrl+s</kbd> <kbd data-key="ctrl+d">Ctrl+d</kbd> <kbd data-key="ctrl+f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
+        <dt><kbd data-key="ctrl+shift+s">Ctrl+Shift+s</kbd> <kbd data-key="ctrl+shift+d">Ctrl+Shift+d</kbd></dt><dd>Next source, destination</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Take: the staged routes and the route in the boxes, in one Confirm</dd>
+        <dt><kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take or Free Protect</dd>
+        <dt><kbd data-key="ctrl+e">Ctrl+e</kbd></dt><dd>Grid popup, open or close. It finds what the Source box or the Destination box holds</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Close the match list. Then clear the boxes and the staged routes. Then Keyboard mode</dd>
+      </dl>
+      <div class="sode__label">Grid popup</div>
+      <dl>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></dt><dd>Move the cursor</dd>
+        <dt><kbd>Space</kbd></dt><dd>On a name: pick it. On a crosspoint: stage the route, or the Diagonal of the picks</dd>
+        <dt><kbd>v</kbd></dt><dd>Draw a line from the cursor: move to stretch it, Space stages it</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Take: the staged routes and the route in the boxes, in one Confirm</dd>
+        <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source search, Destination search, Levels box</dd>
+        <dt><kbd>u</kbd> <kbd data-key="mod+z">Ctrl+z</kbd></dt><dd>Undo the last Sode take or Free Protect</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Remove the line, then the picks, then close. The staged routes stay</dd>
       </dl>
       <div class="sode__label">Match lists (Source, Destination)</div>
       <dl>
-        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move through the list; it opens with every item when you enter a box</dd>
-        <dt><kbd>Enter</kbd> <kbd>Tab</kbd></dt><dd>Pick the highlighted match (after typing or moving)</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd></dt><dd>Move through the list</dd>
+        <dt><kbd>Enter</kbd> <kbd>Tab</kbd></dt><dd>Pick the highlighted match</dd>
         <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>A page at a time</dd>
       </dl>
-      <div class="sode__label">Presets</div>
+      <div class="sode__label">Bookmarks and presets</div>
       <dl>
-        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Fire the first nine pinned presets (hold Option or Alt to see the keys on the buttons)</dd>
-        <dt><kbd data-mac="⌥⇧1–9">Alt+Shift+1–9</kbd></dt><dd>Fill the patch boxes from one of them, without a take (like Shift+click)</dd>
-        <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Open the Presets popup (every preset, searchable)</dd>
-        <dt><kbd>Shift</kbd>+click</dt><dd>Fill the patch boxes from a preset, without a take (a preset of several takes fills its first)</dd>
-        <dt><kbd>p</kbd></dt><dd>In keyboard mode: the pinned presets (← → to move, Enter fires, Esc back)</dd>
+        <dt><kbd data-key="alt+1">Alt+1</kbd> to <kbd data-key="alt+9">Alt+9</kbd></dt><dd>Open bookmark 1 to 9. A preset still asks for a Confirm</dd>
+        <dt><kbd data-key="alt+shift+1">Alt+Shift+1</kbd> to <kbd data-key="alt+shift+9">Alt+Shift+9</kbd></dt><dd>Fill the Patch boxes from a preset bookmark, no take</dd>
+        <dt><kbd data-key="mod+g">Ctrl+g</kbd></dt><dd>Presets popup</dd>
+        <dt><kbd>⇧</kbd>+click</dt><dd>Fill the Patch boxes from a preset, no take</dd>
+        <dt><kbd>p</kbd></dt><dd>In Keyboard mode: the bookmarks (← → to move, Enter opens, Esc back)</dd>
+      </dl>
+      <div class="sode__label">Bookmarks editor</div>
+      <dl>
+        <dt><kbd data-key="alt+up">Alt+↑</kbd> <kbd data-key="alt+down">Alt+↓</kbd></dt><dd>Move the focused bookmark up or down</dd>
       </dl>
       <div class="sode__label">Presets popup</div>
       <dl>
-        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move</dd>
-        <dt><kbd>Enter</kbd></dt><dd>Fire (opens the usual confirm)</dd>
-        <dt><kbd>Shift+Enter</kbd></dt><dd>Fill the patch boxes instead, without a take</dd>
-        <dt><kbd data-mac="⌥p">Alt+p</kbd></dt><dd>Pin or unpin</dd>
-        <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd> <kbd data-mac="⌥⌘j">Ctrl+Alt+j</kbd> <kbd data-mac="⌥⌘k">Ctrl+Alt+k</kbd></dt><dd>Move a pinned preset up or down</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd></dt><dd>Move</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Fire</dd>
+        <dt><kbd>⇧Enter</kbd></dt><dd>Fill the Patch boxes, no take</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>
       </dl>
       <div class="sode__label">Keyboard mode (History)</div>
       <dl>
-        <dt><kbd>Esc</kbd></dt><dd>Start it: with the boxes empty (or on a button in History); a click leaves</dd>
+        <dt><kbd data-key="alt+shift+k">Alt+Shift+k</kbd></dt><dd>Start or end. A click ends it too</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source, Destination, Levels</dd>
-        <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous (<kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> work too)</dd>
+        <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous (<kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd> work too)</dd>
         <dt><kbd>⇧j</kbd> <kbd>⇧↓</kbd></dt><dd>Next group</dd>
         <dt><kbd>⇧k</kbd> <kbd>⇧↑</kbd></dt><dd>Latest take</dd>
         <dt><kbd>l</kbd> <kbd>→</kbd> <kbd>Enter</kbd></dt><dd>Open</dd>
         <dt><kbd>h</kbd> <kbd>←</kbd> <kbd>⇧Enter</kbd></dt><dd>Close</dd>
         <dt><kbd>u</kbd></dt><dd>Undo</dd>
+        <dt><kbd>x</kbd> <kbd>⇧x</kbd></dt><dd>Protect the destination in the Patch boxes, or free Sode's Protect on it (Source box empty)</dd>
         <dt><kbd>r</kbd></dt><dd>Retry (failed takes) or Redo (any other)</dd>
         <dt><kbd>/</kbd></dt><dd>Filters</dd>
         <dt><kbd>⇧s</kbd> <kbd>⇧d</kbd></dt><dd>Filter by Source, Destination</dd>
@@ -742,18 +839,30 @@
       </dl>
       <div class="sode__label">Add from Patch Boxes (in the preset editor)</div>
       <dl>
-        <dt><kbd>Enter</kbd></dt><dd>Add the patch in the boxes as a row; Done returns</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Add the plan as a row</dd>
       </dl>
       <div class="sode__label">Settings</div>
       <dl>
-        <dt><kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move through the search results when the search box has some, otherwise step between sections</dd>
+        <dt><kbd data-key="mod+j">Ctrl+j</kbd> <kbd data-key="mod+k">Ctrl+k</kbd></dt><dd>Next, previous search result or section</dd>
       </dl>
       <div class="sode__label">Anywhere</div>
       <dl>
-        <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings</dd>
-        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock the screen</dd>
-        <dt><kbd data-mac="⌥⇧c">Alt+Shift+c</kbd></dt><dd>Compact view on or off: History hidden, the rest centred (This browser)</dd>
-        <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
+        <dt><kbd data-key="alt+shift+h">Alt+Shift+h</kbd></dt><dd>Home: close what is open and go to the Source box. Works on every page</dd>
+        <dt><kbd data-key="ctrl+,">Ctrl+,</kbd></dt><dd>Settings</dd>
+        <dt><kbd data-key="ctrl+l">Ctrl+l</kbd></dt><dd>Lock</dd>
+        <dt><kbd data-key="ctrl+shift+l">Ctrl+Shift+l</kbd></dt><dd>Sign out, after a Confirm. While you are stepped in: Step out</dd>
+        <dt><kbd data-key="alt+shift+c">Alt+Shift+c</kbd></dt><dd>Compact view on or off</dd>
+        <dt><kbd data-key="alt+shift+t">Alt+Shift+t</kbd></dt><dd>Theme: light or dark. Works on every page</dd>
+        <dt><kbd data-key="ctrl+?">Ctrl+?</kbd></dt><dd>This list</dd>
+        <dt><kbd data-key="ctrl+shift+p">Ctrl+Shift+p</kbd></dt><dd>Palette. Firefox on Windows and Linux keeps this key for a private window, so there type the Palette character (default <kbd>&gt;</kbd>) first in an empty Source or Destination box</dd>
+      </dl>
+      <div class="sode__label">Palette</div>
+      <dl>
+        <dt><kbd>&gt;</kbd></dt><dd>First in an empty Source or Destination box: open the Palette. Type it again to search for <kbd>&gt;</kbd>. Settings › This browser sets the character</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Open the row. A preset still asks for a Confirm</dd>
+        <dt><kbd>⇧Enter</kbd></dt><dd>Fill the Patch boxes from a preset, no take. Add a filter set to the stack</dd>
+        <dt><kbd data-key="alt+b">Alt+b</kbd></dt><dd>Bookmark the row: to Me, or to This browser for a Guest</dd>
+        <dt><kbd>Esc</kbd> <kbd>Backspace</kbd></dt><dd>Back one step, then close</dd>
       </dl>
     </div>
     <div class="pb-modal__footer">
@@ -767,12 +876,12 @@
     <div class="sode-m__sheet-body sode__confirm" id="m-sheet-body"></div>
     <div class="sode__slide sode__slide--locked" id="m-slide">
       <span class="sode__slide-label" id="m-slide-label">Slide to take</span>
-      <div class="sode__slide-handle" id="m-slide-handle" role="slider" tabindex="0" aria-label="Slide to confirm" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">→</div>
+      <div class="sode__slide-handle" id="m-slide-handle" role="slider" tabindex="0" aria-label="Slide to take" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">→</div>
     </div>
     <button type="button" class="pb-btn pb-btn--outline pb-btn--block" id="m-sheet-cancel">Cancel</button>
   </div>
 </div>
-<div class="sode__frame pb-dot--pulse" aria-hidden="true"></div>
+<div class="sode__frame" aria-hidden="true"></div>
 <script type="module" src="main.js"></script>
 </body>
 </html>

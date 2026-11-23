@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,32 +20,39 @@ const (
 const gridMembersAll = "all"
 
 // GridEdge is a Grid panel's sources or destinations. Membership stays apart from per-item settings, so a
-// pin or artwork never stops an "all" edge from following the router.
+// pin or artwork never stops an "all" edge from following the router. Every entry is a router reference, which
+// panelrefs.go fills.
 type GridEdge struct {
 	Members GridMembers `yaml:"members" json:"members"`
-	// Hide is only for an "all" edge: router numbers left out of it.
-	Hide []int `yaml:"hide,omitempty" json:"hide,omitempty"`
-	// Items is keyed by the router number in decimal. An entry for a number that is not a member stays, like artwork.
-	Items map[string]GridItem `yaml:"items,omitempty" json:"items,omitempty"`
+	// Hide is only for an "all" edge: items left out of it.
+	Hide []config.Ref `yaml:"hide,omitempty" json:"hide,omitempty"`
+	// Items holds one entry for each item with settings. An entry for an item that is not a member stays, like artwork.
+	Items []GridItem `yaml:"items,omitempty" json:"items,omitempty"`
 }
 
-// GridItem is the settings of one source or destination on a Grid panel. Art, ArtB and HideText have the form of a
-// cell's. HideText false is kept: it shows the name against a Default artwork that hides it.
+// GridItem is the settings of one source or destination on a Grid panel, with its router reference. Art, ArtB and
+// HideText have the form of a cell's. HideText false is kept: it shows the name against a Default artwork that
+// hides it. The reference fields are spelled out, since yaml.v3 drops config.Ref's inline map inside an inline struct.
 type GridItem struct {
+	Router   string `yaml:"router" json:"router"`
+	N        int    `yaml:"n" json:"n"`
+	Name     string `yaml:"name,omitempty" json:"name,omitempty"`
 	Pinned   bool   `yaml:"pinned,omitempty" json:"pinned,omitempty"`
 	Art      string `yaml:"art,omitempty" json:"art,omitempty"`
 	ArtB     string `yaml:"artB,omitempty" json:"artB,omitempty"`
 	HideText *bool  `yaml:"hideText,omitempty" json:"hideText,omitempty"`
 }
 
-// GridMembers is "all" (router order, following the router) or an explicit list of router numbers in panel order.
+func (it GridItem) ref() config.Ref { return config.Ref{Router: it.Router, N: it.N, Name: it.Name} }
+
+// GridMembers is "all" (router order, following the router) or an explicit list of references in panel order.
 // A decoded list is never nil, so a nil List with All false means the members key was missing.
 type GridMembers struct {
 	All  bool
-	List []int
+	List []config.Ref
 }
 
-var errGridMembers = errors.New(`members is "all" or a list of router numbers`)
+var errGridMembers = errors.New(`members is "all" or a list of router references`)
 
 func (m GridMembers) MarshalJSON() ([]byte, error) {
 	if m.All {
@@ -67,7 +74,7 @@ func (m *GridMembers) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 	if bytes.HasPrefix(bytes.TrimSpace(b), []byte("[")) {
-		*m = GridMembers{List: []int{}}
+		*m = GridMembers{List: []config.Ref{}}
 		return json.Unmarshal(b, &m.List)
 	}
 	return errGridMembers
@@ -78,7 +85,7 @@ func (m GridMembers) MarshalYAML() (any, error) {
 		return gridMembersAll, nil
 	}
 	if m.List == nil {
-		return []int{}, nil
+		return []config.Ref{}, nil
 	}
 	return m.List, nil
 }
@@ -89,18 +96,19 @@ func (m *GridMembers) UnmarshalYAML(n *yaml.Node) error {
 		return nil
 	}
 	if n.Kind == yaml.SequenceNode {
-		*m = GridMembers{List: []int{}}
+		*m = GridMembers{List: []config.Ref{}}
 		return n.Decode(&m.List)
 	}
 	return errGridMembers
 }
 
-// shows is whether router number n is a member that is not hidden.
-func (e *GridEdge) shows(n int) bool {
+// shows is whether item n of router uid is a member that is not hidden.
+func (e *GridEdge) shows(uid string, n int) bool {
+	is := func(r config.Ref) bool { return r.Router == uid && r.N == n }
 	if e.Members.All {
-		return !slices.Contains(e.Hide, n)
+		return !slices.ContainsFunc(e.Hide, is)
 	}
-	return slices.Contains(e.Members.List, n)
+	return slices.ContainsFunc(e.Members.List, is)
 }
 
 func allEdge() *GridEdge { return &GridEdge{Members: GridMembers{All: true}} }
@@ -120,7 +128,6 @@ func (p *Panel) normalGrid() {
 	}
 }
 
-// checkGrid judges the type, the parts that belong to the other type, and each edge.
 func checkGrid(p *Panel) error {
 	switch p.Type {
 	case panelTypeButtons:
@@ -156,31 +163,36 @@ func checkGridEdge(e *GridEdge) error {
 	if !e.Members.All && len(e.Hide) > 0 {
 		return errors.New(`hide is only for members "all"`)
 	}
-	if err := checkGridNumbers("members", e.Members.List); err != nil {
+	if err := checkGridRefs("members", e.Members.List); err != nil {
 		return err
 	}
-	if err := checkGridNumbers("hide", e.Hide); err != nil {
+	if err := checkGridRefs("hide", e.Hide); err != nil {
 		return err
 	}
-	for k := range e.Items {
-		// One form for each number, so "7" and "007" never name one item twice.
-		if n, err := strconv.Atoi(k); err != nil || n < 0 || n > dstNumberMax || strconv.Itoa(n) != k {
-			return fmt.Errorf("items key %q is not a router number", k)
-		}
+	refs := make([]config.Ref, len(e.Items))
+	for i, it := range e.Items {
+		refs[i] = it.ref()
 	}
-	return nil
+	return checkGridRefs("items", refs)
 }
 
-func checkGridNumbers(what string, ns []int) error {
-	seen := make(map[int]bool, len(ns))
-	for _, n := range ns {
-		if n < 0 || n > dstNumberMax {
-			return fmt.Errorf("%s: %d is not a router number", what, n)
+type refKey struct {
+	router string
+	n      int
+}
+
+func keyOf(r config.Ref) refKey { return refKey{r.Router, r.N} }
+
+func checkGridRefs(what string, refs []config.Ref) error {
+	seen := make(map[refKey]bool, len(refs))
+	for _, r := range refs {
+		if r.N < 0 || r.N > dstNumberMax {
+			return fmt.Errorf("%s: %d is not a router number", what, r.N)
 		}
-		if seen[n] {
-			return fmt.Errorf("%s: %d is there two times", what, n)
+		if seen[keyOf(r)] {
+			return fmt.Errorf("%s: %d is there two times", what, r.N)
 		}
-		seen[n] = true
+		seen[keyOf(r)] = true
 	}
 	return nil
 }

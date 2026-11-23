@@ -1,10 +1,8 @@
-// The Live Editor: the saved panel runs in place of the grid and sidebar (panelrun.js, embedded), over
-// the editor's own session. It is not an instance of the panel, so it sends no keepalive.
-// A Grid panel gets a bar over it that marks it as a preview. Its drawer holds the editor's own Sources and
-// Destinations lists (editorgridlist.js), moved in for the run and back after it. A list's Artwork button shows the
-// Cell tab's artwork over it (editorliveart.js). Their edits show at once. Names picked on the grid are that list's
-// selection. Its selection bar moves into the bar while the drawer is closed, but the bar keeps it hidden for now
-// (docs/agents/panels.md).
+// The Live Editor: the saved panel runs in place of the grid and sidebar (panelrun.js, embedded), over the editor's own
+// session. It is not an instance of the panel, so it sends no keepalive. Both panel types get one bar that marks the
+// run as a preview and holds Back to editing. The editor's toolbar hides while it runs (panels.css). A Grid panel's bar
+// also holds Save and Edit lists. A Grid panel also gets a drawer for the editor's own lists (editorgridlist.js), moved
+// in for the run.
 import { el, icon } from './core.js';
 import { sessionFetch } from './sessionkey.js';
 import { runPanel } from './panelrun.js';
@@ -12,24 +10,28 @@ import { liveUi } from './panelmount.js';
 import { makeTabs } from './tabs.js';
 import { btn } from './formbits.js';
 import { createLiveArt } from './editorliveart.js';
+import { createLiveMenu } from './editorlivemenu.js';
 
 // host holds the live panel, body is the editor it replaces, button is the toolbar's Live Editor button. ed is
-// { save, dirty, readOnly, edges, lists, cellTab, edgeLists }. edges() is { sources, destinations, rev } as the editor
+// { save, dirty, readOnly, edges, lists, cellTab, edgeLists, leave, editor }. editor is runEditor's seams, for the
+// Smart menu (editorlivemenu.js). leave(href) is the unsaved-edits rule of the
+// Grid head row's links. edges() is { sources, destinations, rev } as the editor
 // has them. lists() gives the two list columns, cellTab() the sidebar's Cell tab and edgeLists() the lists' own apis.
 export function createLive(host, body, button, ed) {
-  const label = button.textContent;
+  const editor = body.parentElement;
   let run = null;
   let grid = null; // the bar and drawer of a Grid panel's run
+  let ui = null;
   const api = {
     on: () => !!run,
     // page is the Page being edited, where the run opens.
     start(id, page = '', isGrid = false) {
       api.stop();
       grid = isGrid ? gridParts(ed) : null;
-      const ui = liveUi(host, () => api.stop(), grid);
+      ui = liveUi(host, () => api.stop(), grid, grid?.bar || liveBar());
       host.hidden = false;
       body.hidden = true;
-      button.textContent = 'Back to editing';
+      editor.dataset.live = '';
       run = runPanel(id, { ui, call: sessionFetch, page });
       grid?.started(run);
       ui.back.focus();
@@ -38,19 +40,36 @@ export function createLive(host, body, button, ed) {
       if (!run) return;
       run.stop();
       run = null;
+      ui.stopScreen();
+      ui = null;
       grid?.stop();
       grid = null;
       host.replaceChildren();
       host.hidden = true;
       body.hidden = false;
-      button.textContent = label;
+      delete editor.dataset.live;
+      button.focus({ preventScroll: true });
     },
+    // A note in the Grid bar's state, in place of "Unsaved changes" until the next change.
+    note: (text) => grid?.note(text),
     // The editor's fields or save state changed.
     changed: () => grid?.changed(),
     // A list's Artwork button: true when the open drawer shows the artwork.
     openArt: () => !!grid?.openArt(),
   };
   return api;
+}
+
+// The bar over a run: "Panel Live Editor", Preview, then end, all from the left. liveUi (panelmount.js) adds
+// Back to editing.
+function liveBar(...end) {
+  const title = el('h2', 'sode-live__title', 'Panel Live Editor');
+  title.id = 'ed-live-title';
+  const bar = el('div', 'pb-banner pb-banner--info sode-live__bar', title, el('span', 'pb-badge pb-badge--info', 'Preview'), ...end);
+  bar.id = 'ed-live-bar';
+  bar.setAttribute('role', 'toolbar');
+  bar.setAttribute('aria-labelledby', title.id);
+  return bar;
 }
 
 function gridParts(ed) {
@@ -68,34 +87,14 @@ function gridParts(ed) {
     paint(err);
   });
   save.id = 'ed-live-save';
-  // A toggle: pressed while the drawer is open (setOpen). Back to editing goes to its left (panelmount.js).
-  const open = btn('pb-btn--lg', '', () => setOpen(!opened));
+  // Back to editing goes to its left (panelmount.js).
+  const open = btn('pb-btn--outline pb-btn--lg', '', () => setOpen(!opened));
   open.id = 'ed-live-lists';
   let openIcon = icon('panel-right-open');
   open.append(openIcon, el('span', null, 'Edit lists'));
   open.setAttribute('aria-controls', 'ed-live-drawer');
   open.hidden = ro;
-  // The selection bar of the list whose names are picked on the grid. Hidden on the owner's request; the drawer keeps
-  // its own copy of the actions.
-  const picked = el('div', 'sode-live__picked');
-  picked.id = 'ed-live-picked';
-  picked.hidden = true;
-  const title = el('h2', 'sode-live__title', 'Panel Live Editor');
-  title.id = 'ed-live-title';
-  const bar = el(
-    'div',
-    'pb-banner pb-banner--info sode-live__bar',
-    title,
-    el('span', 'pb-badge pb-badge--info', 'Preview'),
-    picked,
-    el('span', 'sode-panels__spacer'),
-    state,
-    save,
-    open,
-  );
-  bar.id = 'ed-live-bar';
-  bar.setAttribute('role', 'toolbar');
-  bar.setAttribute('aria-labelledby', title.id);
+  const bar = liveBar(state, save, open);
 
   const close = btn('pb-btn--ghost pb-btn--icon pb-btn--sm', '', () => {
     setOpen(false);
@@ -146,8 +145,7 @@ function gridParts(ed) {
     const next = icon(on ? 'panel-right-close' : 'panel-right-open');
     openIcon.replaceWith(next);
     openIcon = next;
-    open.dataset.pbTip = on ? 'Close the lists' : 'Change the order of the sources and destinations, pin, add and remove them';
-    placeActs();
+    open.dataset.pbTip = on ? 'Close the lists' : 'Order, pin, add, remove';
   }
 
   // Grid picks to list selection. The Cell tab edits one list at a time (editorside.js), so the kind picked last wins.
@@ -157,7 +155,7 @@ function gridParts(ed) {
   let kind = null; // the kind whose grid picks the list holds
   const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   function onPicks(p) {
-    if (!lists) return;
+    if (!lists) return menu.picks(p);
     const changed = KINDS.filter((k) => !same(p[k], had[k]));
     had = { srcs: p.srcs, dsts: p.dsts };
     if (!changed.length) return;
@@ -165,23 +163,13 @@ function gridParts(ed) {
     if (next) lists[next].select(p[next]);
     else if (kind) lists[kind].clearPicks();
     kind = next;
-    placeActs();
+    menu.picks(p);
   }
-  // The list's own bar, so Move, Pin and Artwork are the drawer's buttons. It goes back into the list on a drawer open.
-  const actsHome = new Map();
-  function placeActs() {
-    if (!lists) return;
-    const show = kind && (!opened || artOnly) ? lists[kind].acts : null;
-    for (const k of KINDS) {
-      const a = lists[k].acts;
-      if (a === show || !picked.contains(a)) continue;
-      actsHome.get(a).prepend(a);
-    }
-    if (show && !picked.contains(show)) {
-      actsHome.set(show, show.parentNode);
-      picked.append(show);
-    }
-  }
+  const menu = createLiveMenu(ed.editor(), lists, {
+    kind: () => kind,
+    openArt: () => api.openArt(),
+    drawer: () => (opened ? aside : null),
+  });
   setOpen(false);
 
   let run = null;
@@ -193,16 +181,23 @@ function gridParts(ed) {
   }
   paint();
 
-  return {
+  const api = {
     bar,
     open,
     aside,
+    // The run puts its status slot and Full screen in the editor's page header (gridpanelheadview.js).
+    topBar: document.querySelector('.sode-ed > .sode-bar'),
     onPicks,
+    leave: ed.leave,
+    editKey: (e, ctx) => menu.key(e, ctx),
+    useRun: (r, node) => menu.useRun(r, node),
+    note: paint,
     started(r) {
       run = r;
     },
     changed() {
       paint();
+      menu.changed();
       const now = ed.edges();
       if (now.sources === shown.sources && now.destinations === shown.destinations && now.rev === shown.rev) return;
       const saved = now.rev !== shown.rev;
@@ -225,9 +220,10 @@ function gridParts(ed) {
     },
     stop() {
       art.close();
+      menu.stop();
       kind = null;
-      placeActs();
       home.append(srcs, dsts);
     },
   };
+  return api;
 }

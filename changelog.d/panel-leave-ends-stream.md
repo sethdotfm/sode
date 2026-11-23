@@ -1,0 +1,1 @@
+- A panel page that the browser leaves for another address no longer shows as online on the panels page. Chrome could keep the page in its back/forward cache with the stream open. A return to it reloads the page.

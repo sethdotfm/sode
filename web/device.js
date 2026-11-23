@@ -1,12 +1,11 @@
-// Per-browser prefs (prefs.js): follow cfg.deviceDefaults (cached here for the next load) until this browser picks its own.
-// applyPrefs tells the views ('prefs', 'flip'); layout.js follows.
+// cfg.browserDefaults is cached here for the next load.
 
 import { el, on, emit } from './core.js';
 import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine, cachedProfile } from './prefs.js';
 import { readJSON, writeJSON, readStr, writeStr, readTab } from './store.js';
 
 let globals = readJSON(CACHE_KEY);
-// {user, prefs} of the logged-in user, cached until the profile arrives. Used only while a session token is kept
+// {user, prefs} of the signed-in user, cached until the profile arrives. Used only while a session token is kept
 // (same keys as lock.js TOKEN_KEY / TAB_KEY).
 const cached = cachedProfile(readJSON(PROFILE_CACHE_KEY), !!(readStr('sode-session') || readTab('sode-tab-session')));
 let mineUser = cached.user;
@@ -34,7 +33,7 @@ on('access', (a) => {
   if (mineUser && a.user !== mineUser) setProfilePrefs(null);
 });
 
-// '' or unknown goes back to the global default.
+// '' or unknown goes back to Everyone's default.
 export function setPref(name, v) {
   writeStr(PREFS[name].key, own(name, v) ? v : null);
   applyPrefs();
@@ -45,7 +44,7 @@ function setGlobals(d) {
   writeJSON(CACHE_KEY, globals);
   applyPrefs();
 }
-on('helloCfg', (cfg) => setGlobals(cfg.deviceDefaults));
+on('helloCfg', (cfg) => setGlobals(cfg.browserDefaults));
 
 // View Transition where available, else patchbay's fade class.
 function setTheme(next) {
@@ -55,7 +54,8 @@ function setTheme(next) {
     else root.dataset.theme = next;
   };
   if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.startViewTransition(apply);
+    // A second change before the first has run skips it, and ready then rejects.
+    document.startViewTransition(apply).ready.catch(() => {});
     return;
   }
   const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
@@ -121,23 +121,9 @@ export const timeNodes = (iso) => {
   return [el('span', 'sode__date', `${isoDate(d)} `), timeFormat().format(d)];
 };
 
-// ---- theme
-
-export function initTheme() {
-  const root = document.documentElement;
-  const osDark = matchMedia('(prefers-color-scheme: dark)');
-  const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : osDark.matches);
-
-  // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
-  // Matched by e.code because Option changes e.key on macOS.
-  document.addEventListener(
-    'keydown',
-    (e) => {
-      if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      setPref('theme', isDark() ? 'light' : 'dark');
-    },
-    true,
-  );
+export function isDark() {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
 }
+// The theme key (themekey.js) and the Palette's Theme row.
+export const flipTheme = () => setPref('theme', isDark() ? 'light' : 'dark');

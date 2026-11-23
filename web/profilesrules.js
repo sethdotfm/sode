@@ -1,43 +1,14 @@
 // Pure parts of the Profiles dialog (profiles.js). No imports but prefs.js.
 
-import { PREFS } from './prefs.js';
+import { PREFS, PREF_LABELS } from './prefs.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-
-const LABELS = {
-  theme: 'Theme',
-  layout: 'Layout',
-  clock: 'Clock',
-  flip: 'Destination before Source',
-  scrollTop: 'Scroll to top',
-  setStack: 'Stacked sets',
-  nextMode: 'Next chip',
-  stackGap: 'Stacked rows gap',
-  searchFilters: 'Quick search uses filters',
-  compact: 'Compact view',
-};
-export function prefRows(prefs) {
-  const out = [];
-  for (const [key, def] of Object.entries(PREFS)) {
-    let v = prefs?.[key];
-    if (typeof v === 'boolean') v = v ? 'on' : 'off';
-    if (typeof v !== 'string' || !Object.hasOwn(def.values, v)) continue;
-    out.push({ key, label: LABELS[key] || key, value: def.values[v] });
-  }
-  return out;
-}
-
-export function withoutPref(prefs, key) {
-  const rest = { ...(prefs || {}) };
-  delete rest[key];
-  return rest;
-}
 
 export function setSummary(s) {
   const bits = [];
   if (s?.src) bits.push(`sources ${s.src}`);
   if (s?.dst) bits.push(`destinations ${s.dst}`);
-  const kinds = [s?.sode === false && 'Sode takes', s?.ext === false && 'changes made elsewhere'].filter(Boolean);
+  const kinds = [s?.sode === false && 'Sode takes', s?.ext === false && 'Externals'].filter(Boolean);
   if (kinds.length) bits.push(`hides ${kinds.join(' and ')}`);
   if (s?.hidden === true) bits.push('shows hidden destinations');
   return bits.length ? bits.join('; ') : 'Shows everything';
@@ -46,7 +17,7 @@ export function setSummary(s) {
 export function presetSummary(p) {
   const items = Array.isArray(p?.items) ? p.items : [];
   const dsts = items.reduce((n, it) => n + (Array.isArray(it?.dsts) ? it.dsts.length : 0), 0);
-  return `${plural(items.length, 'take')}, ${plural(dsts, 'destination')}`;
+  return `${plural(items.length, 'row')}, ${plural(dsts, 'destination')}`;
 }
 
 export const without = (list, i) => (Array.isArray(list) ? list.filter((_, j) => j !== i) : []);
@@ -54,11 +25,9 @@ export const without = (list, i) => (Array.isArray(list) ? list.filter((_, j) =>
 export const profileButtonOff = (was, typed) => !was || String(typed).trim() !== was;
 
 // Shown in the Profile dialog, for the user's own Profile too (My profile opens the same dialog).
-export const PROFILE_NOTICE = 'A Profile is not private. Trusted users and the Advanced Settings PIN can see and edit every Profile.';
+export const PROFILE_NOTICE = 'Visible to Trusted users and Administrators.';
 
-export const canSeeProfiles = (names, trusted, unlocked) => (names?.length || 0) > 0 && !!(trusted || unlocked);
-
-// ---- profile edits
+export const canSeeProfiles = (names, trusted) => (names?.length || 0) > 0 && !!trusted;
 
 // value '' = Not set (also for an invalid one); options are [value, text] pairs, Not set first.
 export function prefFields(prefs) {
@@ -68,7 +37,7 @@ export function prefFields(prefs) {
     const ok = typeof v === 'string' && Object.hasOwn(def.values, v);
     return {
       key,
-      label: LABELS[key] || key,
+      label: PREF_LABELS[key],
       value: ok ? v : '',
       options: [['', 'Not set'], ...Object.entries(def.values)],
     };
@@ -101,15 +70,15 @@ export const findByName = (list, name) => (Array.isArray(list) ? list : []).find
 // Applied when a change is made, not when the save returns, so a second change builds on the first.
 export const withParts = (prof, parts) => ({ ...(prof || {}), ...parts });
 
-// Server caps a whole profile at 48 KiB (socket read limit is 64).
+// The server limits a whole Profile to 48 KiB (the socket read limit is 64 KiB).
 export const PROFILE_MAX_BYTES = 48 * 1024;
 
 export function profileProblem(p, parts) {
-  const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, pinOrder: p.pinOrder, ...parts };
+  const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, bookmarks: p.bookmarks, ...parts };
   // UTF-8 bytes as the server counts them: Go's json.Marshal also writes < > & as 6-byte escapes.
   const json = JSON.stringify(next);
   const bytes = new TextEncoder().encode(json).length + 5 * (json.match(/[<>&]/g) || []).length;
   return bytes > PROFILE_MAX_BYTES
-    ? `Your profile is too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${PROFILE_MAX_BYTES / 1024} KiB). Delete something first.`
+    ? `Profile too big: ${Math.ceil(bytes / 1024)} KiB, at most ${PROFILE_MAX_BYTES / 1024} KiB. Delete a preset or a filter set.`
     : '';
 }

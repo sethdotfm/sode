@@ -10,8 +10,6 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// Router state reads: names, tally, protected destinations, status, panel layouts.
-
 func init() {
 	registerAPI(
 		apiRoute{"GET", apiBase + "/names", config.ScopeNames, (*App).apiNames},
@@ -19,7 +17,20 @@ func init() {
 		apiRoute{"GET", apiBase + "/protected", config.ScopeProtected, (*App).apiProtected},
 		apiRoute{"GET", apiBase + "/status", config.ScopeStatus, (*App).apiStatus},
 		apiRoute{"GET", apiBase + "/layouts", config.ScopeLayouts, (*App).apiLayouts},
+		apiRoute{"GET", apiBase + "/routers", "", (*App).apiRouters},
 	)
+}
+
+// The router parameter is the UID, never Prefix.
+type apiRouter struct {
+	UID    string `json:"uid"`
+	Prefix string `json:"prefix"`
+	Title  string `json:"title"`
+}
+
+func (a *App) apiRouters(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
+	c := a.r().cfg
+	apiJSONTagged(w, r, map[string][]apiRouter{"routers": {{c.UID, c.Prefix, c.Title}}})
 }
 
 type apiName struct {
@@ -45,7 +56,7 @@ func namesOf(m map[int]string, ok func(int) bool) []apiName {
 	return out
 }
 
-// namesSnapshot is the names as v shows them. Caller holds mu.
+// Caller holds mu.
 func (a *App) namesSnapshot(v apiView) apiNames {
 	return apiNames{
 		NumberOffset: a.r().cfg.NumberOffset,
@@ -55,9 +66,8 @@ func (a *App) namesSnapshot(v apiView) apiNames {
 	}
 }
 
-// namesBody is the names read as every caller that is not hidden sees it, built once per change,
-// as tallyBody is. A panel page asks every 30 s; on a 2500 by 750 router a build is about 455 KB
-// of garbage. Guarded by App.mu.
+// Built one time per change for every caller that is not hidden, as tallyBody is. A panel page asks every 30 s, and
+// on a 2500 by 750 router a build is about 455 KB of garbage. Guarded by App.mu.
 type namesBody struct {
 	rs   *routerState // a router change replaces it
 	rt   *runtime     // numberOffset
@@ -104,14 +114,16 @@ type apiRouteRow struct {
 	Src   int `json:"src"`   // -1 = nothing routed
 }
 
-// apiProtectedRow: router.protect maps dst and level to a device, which is not a source. So
-// the row carries no value, and visibility asks about the destination only.
+// router.protect maps dst and level to a device, not a source. So visibility asks about dst only.
 type apiProtectedRow struct {
-	Dst   int `json:"dst"`
-	Level int `json:"level"` // UI level
+	Dst      int    `json:"dst"`
+	Level    int    `json:"level"` // UI level
+	Kind     string `json:"kind"`  // protect or routerLock
+	Device   int    `json:"device"`
+	SodeUser string `json:"sodeUser,omitempty"` // on a Protect Sode set: who set it
 }
 
-// routeRows lists a dst to level to value map in a stable order, keeping what v shows.
+// Stable order.
 func routeRows(m map[int]map[int]int, v apiView) []apiRouteRow {
 	out := []apiRouteRow{}
 	for d, t := range m {
@@ -137,7 +149,7 @@ type apiLevel struct {
 	Color  string `json:"color,omitempty"` // wins over Swatch
 }
 
-// tallySnapshot is the levels and routes as v shows them. Caller holds mu.
+// Caller holds mu.
 func (a *App) tallySnapshot(v apiView) map[string]any {
 	levels := []apiLevel{}
 	for _, l := range a.r().levels {
@@ -150,9 +162,8 @@ func (a *App) tallySnapshot(v apiView) map[string]any {
 	}
 }
 
-// tallyBody is the tally as every caller that is not hidden sees it, built once per change. Each
-// panel page polls it every 2 s, and on a 2500 by 750 router a build is about 400 KB of JSON.
-// Guarded by App.mu.
+// Built one time per change for every caller that is not hidden. Each panel page polls it every 2 s, and on a
+// 2500 by 750 router a build is about 400 KB of JSON. Guarded by App.mu.
 type tallyBody struct {
 	rs   *routerState // a router change replaces it
 	rt   *runtime     // levels and level numbering
@@ -194,6 +205,11 @@ func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 }
 
 func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	rt := a.r()
+	by := map[int]protectBy{}
+	for _, b := range a.protectByList(rt) {
+		by[b.Dst] = b
+	}
 	a.mu.Lock()
 	v := cl.view()
 	rows := []apiProtectedRow{}
@@ -201,8 +217,13 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		if !v.Destination(d) {
 			continue
 		}
-		for l := range t {
-			rows = append(rows, apiProtectedRow{d, l})
+		for l, h := range t {
+			row := apiProtectedRow{Dst: d, Level: l, Kind: holdKindWord(h.kind), Device: h.dev}
+			// The rule of protectLevelsMu. A Sode hold with no record has no name, so sodeUser stays empty.
+			if b, ok := by[d]; ok && sodesHold(h, rt.cfg.ProtectDevice, b.Device) {
+				row.SodeUser = b.By
+			}
+			rows = append(rows, row)
 		}
 	}
 	a.mu.Unlock()
@@ -215,9 +236,8 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	apiJSONTagged(w, r, map[string]any{"protected": rows})
 }
 
-// linkStatus is the Router link as any caller with the status scope sees it. The router
-// address and the error text (which quotes it) go only to a caller with the log scope. This is
-// the same rule as for the Communication Log's raw router rows.
+// The router address and the error text (which quotes it) go only to a caller with the log scope.
+// The raw router rows of the Communication Log do the same.
 func linkStatus(s statusMsg, withDetail bool) map[string]any {
 	m := map[string]any{"router": s.Router, "routerUp": s.Router == string(swp08.StateUp), "error": s.Err != ""}
 	if withDetail {
@@ -226,7 +246,6 @@ func linkStatus(s statusMsg, withDetail bool) map[string]any {
 	return m
 }
 
-// apiStatus: the Server link and the Router link, as /api/health reports them.
 func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	a.mu.Lock()
 	st := a.status
@@ -236,7 +255,6 @@ func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	apiJSON(w, m)
 }
 
-// apiLayouts: the content is not defined yet; the endpoint exists so clients can ask.
 func (a *App) apiLayouts(w http.ResponseWriter, _ *http.Request, _ *apiCtx) {
 	apiJSON(w, map[string]any{"layouts": []any{}})
 }

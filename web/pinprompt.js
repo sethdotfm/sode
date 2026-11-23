@@ -1,111 +1,95 @@
-// Popup for the Advanced Settings PIN when something asks mid-session (users, config file, clear history, refused save).
-// askPin() resolves true after it is accepted, false if cancelled or closed.
+// The PIN prompts (Step in, Approval, PIN recheck): an optional name, a PIN and an error line. Enter in the PIN sends.
+import { el, S, on, sentence, LINK_DOWN } from './core.js';
+import { btn } from './formbits.js';
+import { namePicker } from './namepick.js';
+import { modal } from './modal.js';
+import { pinShow, hidePin } from './pinshow.js';
 
-import { el, S, on } from './core.js';
-import { unlock, lostUnlock } from './pin.js';
-import { trapDialog } from './dialogkeys.js';
-
-let ui = null;
-let done = null; // resolves the askPin in flight
-
-function settle(ok) {
-  const d = done;
-  done = null;
-  d?.(ok);
-}
-
-function close(ok) {
-  if (!ui) return;
-  ui.dlg.hide();
-  ui.input.value = '';
-  ui.err.hidden = true;
-  ui.go.disabled = false;
-  settle(ok);
-}
-
-async function submit() {
-  if (ui.go.disabled) return;
-  ui.err.hidden = true;
-  ui.go.disabled = true;
-  const r = await unlock(ui.input.value);
-  if (r.superseded) return;
-  ui.go.disabled = false;
-  if (r.stale) return;
-  if (!r.ok) {
-    ui.err.textContent = r.err || 'Wrong PIN.';
-    ui.err.hidden = false;
-    ui.input.select();
-    return;
+// name: {placeholder, label, missing} adds a name picker. send(pin, name) returns false when it could not send; the
+// caller then calls fail or close. onClose(sent) runs on every close. dropCloses: a socket drop loses the answer.
+export function pinPrompt({ id, title, go: goText, name, pin: pinProps, extra = [], send, onClose = () => {}, dropCloses = false }) {
+  let back = null;
+  let open = false;
+  const picker = name && namePicker({ id: `${id}-name`, users: () => S.users || [], onInput: () => {}, onPick: () => pin.focus() });
+  if (picker) {
+    picker.input.placeholder = name.placeholder;
+    picker.input.setAttribute('aria-label', name.label);
+    // Esc closes the name list, not the popup.
+    picker.input.addEventListener('keydown', (e) => {
+      if (!picker.key(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    });
   }
-  close(true);
-}
-
-function build() {
-  if (ui) return;
-  const input = el('input', 'pb-input');
-  input.type = 'password';
-  input.id = 'pinprompt-pin';
-  input.autocomplete = 'current-password';
-  input.spellcheck = false;
-  input.placeholder = 'Enter the Advanced Settings PIN';
-  input.setAttribute('aria-label', 'Advanced Settings PIN');
-  const why = el('p', 'sode__hint');
-  const err = el('div', 'pb-note pb-note--error');
-  err.setAttribute('role', 'alert');
-  err.hidden = true;
-  const cancel = el('button', 'pb-btn pb-btn--outline', 'Cancel');
-  cancel.type = 'button';
-  cancel.id = 'pinprompt-cancel';
-  cancel.addEventListener('click', () => close(false));
-  const go = el('button', 'pb-btn', 'Open');
-  go.type = 'button';
-  go.addEventListener('click', submit);
-
-  const root = el('div', 'pb-modal-backdrop sode__scrim');
-  root.hidden = true;
-  const dialog = el('div', 'pb-modal sode__filters sode__pinprompt');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'pinprompt-title');
-  dialog.tabIndex = -1;
-  dialog.append(
-    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Advanced Settings'), { id: 'pinprompt-title' })),
-    el('div', 'pb-modal__body', why, input, err),
-    el('div', 'pb-modal__footer', cancel, go),
-  );
-  input.addEventListener('keydown', (e) => {
+  const pin = el('input', { class: 'pb-input', type: 'password', inputMode: 'numeric', id: `${id}-pin`, autocomplete: 'off', ...pinProps });
+  const why = el('p', { class: 'sode__hint', hidden: true });
+  const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
+  const go = btn('', goText, submit, `${id}-go`);
+  const m = modal({
+    titleId: `${id}-title`,
+    title,
+    cls: 'sode__filters sode__pinprompt',
+    body: [why, ...(picker ? [picker.root] : []), pinShow(pin), err, ...extra],
+    foot: [btn('pb-btn--outline', 'Cancel', () => close(false), `${id}-cancel`), go],
+    onEsc: () => close(false),
+  });
+  pin.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     submit();
   });
-  root.append(dialog);
-  document.body.append(root);
-  ui = { root, dialog, input, why, err, go, dlg: trapDialog(root, dialog, () => close(false)) };
-}
 
-export function askPin(text = '') {
-  build();
-  settle(false); // a second ask replaces the first
-  ui.why.textContent = text;
-  ui.why.hidden = !text;
-  ui.dlg.show();
-  ui.input.focus();
-  return new Promise((resolve) => {
-    done = resolve;
-  });
-}
+  function close(ok) {
+    if (!open) return;
+    open = false;
+    m.hide();
+    pin.value = '';
+    hidePin(pin);
+    err.hidden = true;
+    go.disabled = false;
+    if (back?.isConnected) back.focus();
+    back = null;
+    onClose(ok);
+  }
 
-// Refused for want of the PIN: ask again; true after it is entered, so the caller retries.
-export function reask(text) {
-  lostUnlock();
-  return askPin(text);
-}
+  // Selected, not cleared: the next key replaces a wrong PIN, and a missing name keeps the typed PIN.
+  function fail(text, field = pin) {
+    if (!open) return;
+    go.disabled = false;
+    err.textContent = sentence(text);
+    err.hidden = false;
+    field.focus();
+    if (field === pin) pin.select();
+  }
 
-// A lock or socket drop closes the popup; the PIN removed (hello without one) lets the asker go ahead.
-on('locking', () => close(false));
-on('conn', () => {
-  if (S.wsState !== 'up') close(false);
-});
-on('hello', () => {
-  if (!S.pinSet) close(true);
-});
+  function submit() {
+    if (go.disabled) return;
+    const who = picker ? picker.value().trim() : '';
+    if (picker && !who) return fail(name.missing, picker.input);
+    err.hidden = true;
+    if (!send(pin.value, who)) return fail(LINK_DOWN);
+    go.disabled = true;
+  }
+
+  if (dropCloses)
+    on('conn', () => {
+      if (S.wsState !== 'up') close(false);
+    });
+
+  return {
+    open(text = '') {
+      back ||= document.activeElement;
+      open = true;
+      why.textContent = text;
+      why.hidden = !text;
+      err.hidden = true;
+      picker?.set('');
+      m.show();
+      (picker ? picker.input : pin).focus();
+    },
+    close,
+    fail,
+    shown: () => open,
+    err,
+  };
+}

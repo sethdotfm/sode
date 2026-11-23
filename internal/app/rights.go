@@ -10,22 +10,22 @@ import (
 
 const actorGuest = "guest" // a browser with nobody signed in
 
-// callerOf is who a take acts as. An API caller brings its own (client.api). A browser is its signed-in user (rights read live from the
-// config, so an edit applies at once). It is Guest when nobody is signed in or the Lock is on.
+// callerOf is who a take, a Protect or a panel's Undo acts as, all behind the main page lock. An API caller brings its
+// own (client.api). A browser gets what actingMu gives, with Rights read live from the config, so an edit applies at
+// once.
 func (a *App) callerOf(c *client) (Actor, config.Rights) {
+	act := a.caller(c)
+	return act.Actor, act.rights
+}
+
+// caller: callerOf with the Role; an API caller has none.
+func (a *App) caller(c *client) acting {
 	if c.api != nil {
-		return c.api.Actor, c.api.Rights
+		return acting{Actor: c.api.Actor, rights: c.api.Rights}
 	}
-	cfg := a.r().cfg
 	a.mu.Lock()
-	ok := a.userOKMu(c, cfg)
-	a.mu.Unlock()
-	if u := c.u.user.Load(); ok && u != nil {
-		if cur, found := cfg.FindUser(u.Name); found {
-			return Actor{Kind: actorUser, Name: cur.Name}, cur.Rights
-		}
-	}
-	return Actor{Kind: actorGuest, Name: "Guest"}, cfg.GuestRights
+	defer a.mu.Unlock()
+	return a.actingMu(c, needMain)
 }
 
 type myRightsMsg struct {
@@ -33,19 +33,15 @@ type myRightsMsg struct {
 	Rights *config.Rights `json:"rights,omitempty"`
 }
 
-// pushRightsMu tells a signed-in connection its own user's Rights so the page can grey out
-// what the server would refuse. Never in the hello or lock state (ADR 0004); a guest or a
-// Lock-covered page gets nothing, and a clear follows a loss. The server stays the
-// authority. Caller holds mu.
+// pushRightsMu tells a connection the Rights it acts with, a user's or the guest's, so the page can grey out what the
+// server would refuse. Never in the hello or lock state (ADR 0004); a Lock-covered page gets nothing, and a clear
+// follows a loss. The server stays the authority, so the page's own gate is enough here. Caller holds mu.
 func (a *App) pushRightsMu(c *client) {
-	cfg := a.r().cfg
 	var msg string
-	if a.userOKMu(c, cfg) {
-		if u, ok := cfg.FindUser(c.u.user.Load().Name); ok {
-			rt := u.Rights.Clone()
-			j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &rt})
-			msg = string(j)
-		}
+	if act := a.actingMu(c, 0); act.Kind == actorUser || act.role != "" {
+		r := act.rights.Clone()
+		j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &r})
+		msg = string(j)
 	}
 	if msg == c.u.rights {
 		return
@@ -58,7 +54,7 @@ func (a *App) pushRightsMu(c *client) {
 	a.deliver(c, []byte(msg))
 }
 
-// takeWhy names a batch for the log: undo and retry win over a plain take.
+// takeWhy names a take for the log: undo and retry win over a plain take.
 func takeWhy(items []routeReq) string {
 	why := "take"
 	for _, it := range items {
@@ -106,12 +102,12 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 	}
 	for _, it := range items {
 		switch {
-		case it.Preset != "" && !rt.AllowsPreset(it.Preset):
+		case (it.Preset != "" || it.PresetID != "") && !rt.AllowsPreset(it.PresetID):
 			if quiet {
 				return "preset is outside your rights"
 			}
 			return fmt.Sprintf("preset %q is outside your rights", it.Preset)
-		case !rt.AllowsDst(it.Dst):
+		case !rt.AllowsDst(config.Ref{N: it.Dst}):
 			return kind("destination", it.Dst+off)
 		}
 		for _, ui := range it.Levels {
@@ -119,16 +115,15 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 				return fmt.Sprintf("level %s is outside your rights", r.cfg.LevelLabel(ui))
 			}
 		}
-		if !rt.AllowsSource(it.Src) && !a.undoMatches(it) {
+		if !rt.AllowsSource(config.Ref{N: it.Src}) && !a.undoMatches(it) {
 			return kind("source", it.Src+off)
 		}
 	}
 	return ""
 }
 
-// rightsPass refuses the whole take, before anything is sent, if any route is outside the
-// caller's rights. Each item gets the failed result a refused route gets, with no History
-// entry (nothing happened), and one `api` row records it. Returns the refusal, or "".
+// rightsPass refuses the whole take before anything is sent. Each item gets a failed result with no History
+// entry, and one
 func (a *App) rightsPass(r *runtime, c *client, items []routeReq) string {
 	if len(items) == 0 {
 		return ""

@@ -1,4 +1,3 @@
-// Rights, protection and other sources on a Grid panel (gridpanelrights.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { otherSources, otherText, pressRefusal, stageable, skippedText, refusalText, leftOut, keepLive, leftOutText, leftOutLine } from '../gridpanelrights.js';
@@ -78,7 +77,7 @@ test('a Diagonal skips protected destinations and stages the rest; all protected
   assert.deepEqual(stageable([], env), { pairs: [], err: null });
 });
 
-// Staged routes against polled state. A world is what the last polls said: env, the viewer's Rights, GET /names.
+// A world is what the last polls said: env, the viewer's Rights, GET /names.
 const staged = (...presses) => presses.reduce((st, [src, dst, levels = [1, 2]]) => pressCrosspoint(st, { src, dst }, levels).st, createStage());
 const world = ({ routes = [], prot = [], rights = null, names = namesReply(), levels } = {}) => ({
   env: envFrom(tallyReply({ routes, ...(levels ? { levels } : {}) }), { protected: prot.map(([dst, level]) => ({ dst, level })) }),
@@ -159,6 +158,6 @@ test('the reason names what changed', () => {
       ],
       names,
     ),
-    'Left out of the take: 2 staged routes that are protected, outside Rights or not on the router',
+    'Left out of the take: 2 staged routes',
   );
 });

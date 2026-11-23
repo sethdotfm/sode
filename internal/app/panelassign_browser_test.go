@@ -12,12 +12,10 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Assign from the panels page: a running panel page in another tab switches to the target with no prompt. It keeps
-// its instance name and kiosk and drops the old key from its address. Its address and stored key open the target again.
 func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -27,7 +25,7 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 
 	ana := userKey(t, a, "Ana")
 	from := makePanel(t, a, ana, `{"name":"Studio A","acts":"api"}`)
-	to := makePanel(t, a, ana, `{"name":"Studio B","acts":"api","slug":"studio-b","settings":{"fixedDests":[2]}}`)
+	to := makePanel(t, a, ana, `{"name":"Studio B","acts":"api","slug":"studio-b","settings":{"fixedDests":[{"n":2}]}}`)
 	both := makePanel(t, a, ana, `{"name":"Studio C","acts":"both"}`)
 	rec := apiSend(a, "POST", "/api/v1/panels/"+from+"/key", ana, `{"instance":"Lobby"}`)
 	if rec.Code != 201 {
@@ -51,13 +49,13 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 
 	b.open(srv.URL + "/panels")
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(`document.querySelector('.sode-lock__key[data-key="` + string(d) + `"]').click()`)
 	}
 	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	b.waitFor("Lock overlay gone", `!document.documentElement.hasAttribute('data-sode-lock')`)
 
-	// A panel that acts as both offers its key first, or the device's own sign-in.
 	b.waitFor("row of the both panel", `!!document.querySelector('[data-id="`+both+`"].sode-ov__item')`)
 	b.eval(`document.querySelector('[data-id="` + both + `"].sode-ov__item').click()`)
 	b.waitFor("Assign to on the both panel", `document.querySelector('[data-act="assign"]')?.dataset.id === '`+both+`'`)
@@ -73,7 +71,7 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b.waitFor("Assign to", `!!document.querySelector('[data-act="assign"]')`)
 	b.eval(`document.querySelector('[data-act="assign"]').click()`)
 	row := `document.querySelector('#assign-list [data-instance="Lobby"][data-from="` + from + `"]')`
-	b.waitFor("the open page in the list", `!!`+row+` && !`+row+`.disabled && `+row+`.closest('.sode-ov__cp').textContent.includes('Studio A') && `+row+`.closest('.sode-ov__cp').textContent.includes("Signed in as the panel's client, up ")`)
+	b.waitFor("the open page in the list", `!!`+row+` && !`+row+`.disabled && `+row+`.closest('.sode-ov__cp').textContent.includes('Studio A') && `+row+`.closest('.sode-ov__cp').textContent.includes("Signed in as the panel's API client, up ")`)
 	b.eval(row + `.click()`)
 	b.waitFor("the Assign was sent", `document.querySelector('.sode-ov__share [role="status"]').textContent.includes('Sent Lobby to Studio B')`)
 
@@ -103,12 +101,10 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b.check()
 }
 
-// Assign to a panel that acts as a user: the running page drops its key, opens the target and shows its own sign-in.
-// The person at the device then types their own PIN.
 func TestChromeAssignToAUserModePanelShowsTheDevicesSignIn(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleTrusted })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -141,7 +137,7 @@ func TestChromeAssignToAUserModePanelShowsTheDevicesSignIn(t *testing.T) {
 	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", ana, `{"from":"`+from+`","instance":"Lobby"}`); rec.Code != 200 {
 		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
 	}
-	b.waitFor("the device shows its own sign-in", `location.pathname.endsWith('/panels/desk') && document.getElementById('panels-note')?.textContent.includes('Sign in with your PIN')`)
+	b.waitFor("the device shows its own sign-in", `location.pathname.endsWith('/panels/desk') && document.getElementById('panels-note')?.textContent.includes('Sign in to open this panel')`)
 	b.waitFor("the address keeps its name and kiosk without a key", `location.search === '?instance=Lobby' && location.hash === '#kiosk=1'`)
 	b.waitFor("no key is stored for the target", `localStorage.getItem('sode-panel-key-desk') === null`)
 	b.check()

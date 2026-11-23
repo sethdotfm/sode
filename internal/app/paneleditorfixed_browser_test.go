@@ -13,16 +13,13 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Fixed destination from the editor to the router: the Panel tab's picker sets the list. The list sets aside the
-// Destination cell, greys Destination in Type and turns off Stage several Destinations. A cleared list brings
-// them back. Saved, the panel page patches a Source press and a Preset press to the fixed destinations only.
 func TestChromeEditorFixedDests(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	// The simulator starts with d routed from d, so the Preset's route to elsewhere is seen not to happen.
 	const other, elsewhere, presetSrc = 5, 8, 3
 	a := simApp(t, sim, func(c *config.Config) {
-		c.Presets = append(c.Presets, config.Preset{Name: "Pair", Items: []config.PresetItem{{Src: presetSrc, Dsts: []int{simDst, elsewhere}}, {Src: presetSrc, Dsts: []int{other}}}})
+		c.Presets = append(c.Presets, config.Preset{Name: "Pair", Items: []config.PresetItem{presetItem(presetSrc, nil, simDst, elsewhere), presetItem(presetSrc, nil, other)}})
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -65,6 +62,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -111,14 +109,14 @@ func TestChromeEditorFixedDests(t *testing.T) {
 			} `json:"cells"`
 		} `json:"pages"`
 		Settings struct {
-			FixedDests []int `json:"fixedDests"`
+			FixedDests []config.Ref `json:"fixedDests"`
 		} `json:"settings"`
 	}
 	raw := apiSend(a, "GET", "/api/v1/panels/"+id, ana, "").Body.Bytes()
 	if err := json.Unmarshal(raw, &stored); err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(stored.Settings.FixedDests) != fmt.Sprint([]int{simDst, other}) {
+	if !refsAre(&stored.Settings.FixedDests, simDst, other) {
 		t.Errorf("fixedDests not stored in order: %s", raw)
 	}
 	kept := false
@@ -136,6 +134,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the panel or its PIN pad", `!!document.querySelector('.sode-panel__cell--source') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == "true" {
+		b.padName("Ana")
 		for _, d := range "1234" {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}
@@ -163,8 +162,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	b.check()
 }
 
-// A Destination cell set aside by Fixed destination is dropped when the grid shrinks past it or a merge covers its
-// square. The status note counts it, so a save never loses a cell without a word.
+// The status note counts a dropped set-aside cell, so a save never loses a cell without a word.
 func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -180,10 +178,11 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":3,"cells":[
 		{"r":1,"c":1,"kind":"destination","n":8},
 		{"r":1,"c":2,"kind":"take"},
-		{"r":2,"c":3,"kind":"destination","n":5}],"settings":{"fixedDests":[%d]}}`, simDst))
+		{"r":2,"c":3,"kind":"destination","n":5}],"settings":{"fixedDests":[{"n":%d}]}}`, simDst))
 
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -200,7 +199,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 		const grid = document.getElementById('ed-grid');
 		grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
 		grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', code: 'KeyM', ctrlKey: true, bubbles: true })); true`)
-	b.waitFor("a merge over a set-aside cell says it was removed", `/^Removed 1 Destination cell /.test(`+status+`)`)
+	b.waitFor("a merge over a set-aside cell says it was removed", `/^Removed 1 Destination cell:/.test(`+status+`)`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
 	b.waitSaved("saved")
@@ -221,8 +220,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 		t.Errorf("stored %s", raw)
 	}
 
-	// Undo brings back the set-aside cells the merge and the resize dropped, each once, still set aside.
-	b.eval(`const g = document.getElementById('ed-grid'); g.focus(); g.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: true, bubbles: true, cancelable: true })); true`)
+	b.eval(`const g = document.getElementById('ed-grid'); g.focus(); g.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("merge undone", status+` === 'Undid merge.'`)
 	b.eval(`document.getElementById('ed-grid').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("resize undone, Destination cells still set aside", status+` === 'Undid resize.' && document.getElementById('ed-cols').value === '3' && !document.querySelector('#ed-grid .sode-ed__sq--destination')`)

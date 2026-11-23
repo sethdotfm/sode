@@ -9,8 +9,6 @@ import (
 	"testing"
 )
 
-// REST seam for a panel's Pages (ADR 0007): the stored shape, its checks, and every copy of a layout carrying them.
-
 func pagesOf(t *testing.T, p map[string]any) []map[string]any {
 	t.Helper()
 	raw, ok := p["pages"].([]any)
@@ -24,7 +22,6 @@ func pagesOf(t *testing.T, p map[string]any) []map[string]any {
 	return out
 }
 
-// page1Cells is the cells of a read panel or template's first Page.
 func page1Cells(p map[string]any) []any {
 	return p["pages"].([]any)[0].(map[string]any)["cells"].([]any)
 }
@@ -46,7 +43,7 @@ const twoPages = `"pages":[
 func TestPagesOldFileLoadsAsOnePageAndSavesOnlyPages(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "panels"), 0o755)
-	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, n: 4}\nsettings:\n    mode: instant\n")
+	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, router: r1, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, router: r1, n: 4}\nsettings:\n    mode: instant\n")
 	path := filepath.Join(dir, "panels", "p-0000abcd.yaml")
 	os.WriteFile(path, old, 0o644)
 
@@ -84,7 +81,6 @@ func TestPagesRoundTripOverREST(t *testing.T) {
 		t.Fatalf("an unnamed Page carries a name: %v", pages[1])
 	}
 
-	// A Page sent without id or enabled gets a fresh id and is on; one with no pages at all is one empty Page.
 	id2 := makePanel(t, a, ana, `{"name":"New","pages":[{"cells":[]},{"name":" Two "}]}`)
 	p2 := pagesOf(t, readPanel(t, a, ana, id2))
 	if len(p2) != 2 || p2[0]["id"] == "" || p2[0]["id"] == p2[1]["id"] || p2[0]["enabled"] != true || p2[1]["name"] != "Two" {
@@ -130,7 +126,6 @@ func TestPagesValidation(t *testing.T) {
 	}
 }
 
-// An API client from before Pages sends cells: they are Page 1's, and the other Pages stay.
 func TestPagesCellsOnlyBodyIsPageOne(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -171,7 +166,7 @@ func TestPagesTravelWithPushCopyRestoreSetAndTemplate(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	src := makePanel(t, a, ana, `{"name":"Src",`+twoPages+`}`)
-	dst := makePanel(t, a, ana, `{"name":"Dst","pages":[{"id":"mine","cells":[{"r":1,"c":1,"kind":"current"}]}],"settings":{"fixedDests":[3]}}`)
+	dst := makePanel(t, a, ana, `{"name":"Dst","pages":[{"id":"mine","cells":[{"r":1,"c":1,"kind":"current"}]}],"settings":{"fixedDests":[{"n":3}]}}`)
 
 	if code, body := pushTo(a, ana, src, dst); code != 200 {
 		t.Fatalf("push %d %v", code, body)
@@ -229,7 +224,6 @@ func TestPagesTravelWithPushCopyRestoreSetAndTemplate(t *testing.T) {
 	}
 }
 
-// An old template file and an old checkpoint hold cells: each comes back as one Page.
 func TestPagesOldTemplateAndCheckpointLoadAsOnePage(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "templates", "me"), 0o755)
@@ -242,13 +236,12 @@ func TestPagesOldTemplateAndCheckpointLoadAsOnePage(t *testing.T) {
 	s := loadPanels(filepath.Join(dir, "config.yaml"))
 	p, _ := s.create(Panel{Name: "A", Owner: "Ana", Rows: 1, Cols: 1})
 	lay := panelLayout{Rows: 1, Cols: 1, LegacyCells: []map[string]any{{"r": 1, "c": 1, "kind": "take"}}}
-	q, _, err := s.applyLayout(p.ID, lay, "Ana", "test")
+	q, _, err := s.applyLayout(p.ID, lay, "Ana", "test", nil)
 	if err != nil || len(q.Pages) != 1 || len(q.Pages[0].Cells) != 1 || q.LegacyCells != nil {
 		t.Fatalf("old layout %+v %v", q, err)
 	}
 }
 
-// Icon uses and Default artwork read every Page, not only the first.
 func TestPagesIconUsesCountEveryPage(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")

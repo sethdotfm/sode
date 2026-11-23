@@ -1,7 +1,6 @@
-// The editor's Pages bar rules (editorpagerules.js) and undo across Pages (gridundo.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addPage, movePage, renamePage, enablePage, deletePage, leadsTo, copyPage, openClick, OPEN_MAX } from '../editorpagerules.js';
+import { addPage, movePage, renamePage, enablePage, deletePage, leadsTo, copyPage, openClick, OPEN_MAX, settle } from '../editorpagerules.js';
 import { PAGE_MAX } from '../panelpages.js';
 import { emptyUndo, record, undo, redo, pageSnap, samePages, restorePages, rekeyUndo, rekeySaved } from '../gridundo.js';
 
@@ -13,6 +12,17 @@ const three = () => [
   { id: 'c', enabled: false, cells: [src(2, 2, 3)] },
 ];
 const ids = (pages) => pages.map((p) => p.id);
+
+test('settle keeps focus and open on Pages that exist', () => {
+  const pages = three();
+  assert.deepEqual(settle({ pages, focus: 'b', open: ['a', 'b'] }), { pages, focus: 'b', open: ['a', 'b'] });
+  // A gone focus falls back to the first Page, which then is the only one open.
+  assert.deepEqual(settle({ pages, focus: 'x', open: ['b'] }), { pages, focus: 'a', open: ['a'] });
+  assert.deepEqual(settle({ pages, focus: 'c', open: ['x', 'c', 'y'] }).open, ['c']);
+  // A focus that is not open opens alone.
+  assert.deepEqual(settle({ pages, focus: 'c', open: ['a', 'b'] }).open, ['c']);
+  assert.deepEqual(settle({ pages, focus: '', open: [] }), { pages, focus: 'a', open: ['a'] });
+});
 
 test('Add Page appends an enabled empty Page with a new id and stops at 16', () => {
   const p = addPage(three(), 'd');
@@ -29,7 +39,6 @@ test('a move puts the Page at the new place and keeps every id, so Go to Page ta
   assert.deepEqual(ids(movePage(three(), 0, 2)), ['b', 'c', 'a']);
   assert.deepEqual(ids(movePage(three(), 2, 0)), ['c', 'a', 'b']);
   assert.deepEqual(ids(movePage(three(), 1, 1)), ['a', 'b', 'c']);
-  // Move up on the first Page and Move down on the last change nothing.
   assert.deepEqual(ids(movePage(three(), 0, -1)), ['a', 'b', 'c']);
   assert.deepEqual(ids(movePage(three(), 2, 3)), ['a', 'b', 'c']);
   assert.equal(movePage(three(), 0, 2)[2].cells[1].page, 'c');
@@ -93,7 +102,6 @@ test('a plain click opens one Page; Cmd or Ctrl-click adds or removes one, up to
 test('undo covers a cell edit on any Page and leaves Page names, order and deletions as they are', () => {
   let pages = three();
   let h = emptyUndo();
-  // An edit on Page 2 while Page 1 is in view.
   const before = pageSnap(pages, 4, 8);
   pages = pages.map((p) => (p.id === 'b' ? { ...p, cells: [src(1, 1, 9)] } : p));
   assert.equal(samePages(before, pageSnap(pages, 4, 8)), false);

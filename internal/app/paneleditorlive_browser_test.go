@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-// The Live Editor mounts the saved panel inside the editor: no new tab, and a take works from there. The editor
-// session is the auth, no instance shows as online, and Back to editing returns to the grid. Share sits in the toolbar.
 func TestChromeEditorLive(t *testing.T) {
 	b, a, ana, id := editorTab(t, fmt.Sprintf(`{"name":"Wall","rows":4,"cols":8,"cells":[
 		{"r":1,"c":1,"kind":"destination","n":%d},

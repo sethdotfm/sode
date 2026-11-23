@@ -9,8 +9,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Share modal on /panels: Ana names Bo, and Bo can use the panel and not change it. Then Ana
-// goes back to Only me and Bo loses it. The router is the simulator, which the page never uses here.
 func TestChromeShareModalPeople(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -37,6 +35,7 @@ func TestChromeShareModalPeople(t *testing.T) {
 	b.open(srv.URL + "/panels")
 
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(`document.querySelector('.sode-lock__key[data-key="` + string(d) + `"]').click()`)
 	}

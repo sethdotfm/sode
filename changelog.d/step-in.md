@@ -1,0 +1,1 @@
+- Step in: in Settings > My user, a user with a PIN can step in at another person's browser with their name and PIN. That tab then acts as them until Step out. A step-in also ends after 5 minutes with no activity, at a Lock and on a reload. A save that changes that user ends it too. Nothing goes into the browser's storage, so the browser's own sign-in stays.

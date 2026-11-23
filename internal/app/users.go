@@ -4,11 +4,12 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -19,9 +20,6 @@ import (
 // the lock screen messages.
 
 var errPageLocked = errors.New("locked; unlock with your PIN first")
-
-//lint:ignore ST1005 Settings shows this as is
-var errNeedAdminPin = errors.New("Set an Advanced Settings PIN first: users and locks are administered with it")
 
 type gate int
 
@@ -57,6 +55,21 @@ type connUser struct {
 	rights string
 	// offline: last panelsOffline message sent (under mu); "" = none.
 	offline string
+	// inbox: an inbox message went out (under mu), so losing the user sends an empty one.
+	inbox   bool
+	recheck recheck // under mu (recheck.go)
+	step    *stepIn // under mu; nil when not stepped in (stepin.go)
+	// cards: this page shows Approval cards (approvalCards); approvers: the last approvers
+	// message sent. Both under mu (approvalrequest.go).
+	cards     bool
+	approvers string
+}
+
+func (c *client) userID() string {
+	if u := c.u.user.Load(); u != nil {
+		return u.ID
+	}
+	return ""
 }
 
 func (c *client) who() string {
@@ -76,13 +89,24 @@ func (a *App) userSameMu(c *client, cfg config.Config) bool {
 	if was == nil {
 		return false
 	}
-	u, ok := cfg.FindUser(was.Name)
+	u, ok := cfg.FindUserByID(was.ID)
 	return ok && u.Pin == was.Pin
 }
 
-// userOKMu: signed in and not under the Lock. Caller holds mu.
-func (a *App) userOKMu(c *client, cfg config.Config) bool {
-	return !c.u.lockedMu() && a.userSameMu(c, cfg)
+// pageGate: the lock of the page c declared in its hi. The page names itself, so use it only for what informs that
+// page. An action behind another page's lock uses that lock (gateFor).
+func (c *client) pageGate() gate { return pageGates[cmp.Or(c.u.page, "main")] }
+
+// userOKMu: userOKOnMu on c's own page. Caller holds mu.
+func (a *App) userOKMu(c *client, cfg config.Config) bool { return a.userOKOnMu(c, cfg, c.pageGate()) }
+
+// userOKOnMu: signed in and not under the Lock, for an action behind g. A user without a PIN opens no page lock, so
+// under g's lock they count as nobody. Caller holds mu.
+func (a *App) userOKOnMu(c *client, cfg config.Config, g gate) bool {
+	if c.u.lockedMu() || !a.userSameMu(c, cfg) {
+		return false
+	}
+	return c.u.user.Load().HasPin() || !g.on(cfg.Locks)
 }
 
 // heldMu: the session's Lock is on and its user can still resume it. Caller holds mu.
@@ -104,13 +128,27 @@ func (a *App) endDeadHeldMu() {
 	}
 }
 
+// History after a rename shows the new name. Caller holds mu.
+func (a *App) renameSignedInMu() {
+	cfg := a.r().cfg
+	for cl := range a.clients {
+		was := cl.u.user.Load()
+		if was == nil {
+			continue
+		}
+		if u, ok := cfg.FindUserByID(was.ID); ok && u.Pin == was.Pin && u.Name != was.Name {
+			cl.u.user.Store(&u)
+		}
+	}
+}
+
 // Caller holds mu.
 func (a *App) pageAllowedMu(c *client, g gate) bool {
 	cfg := a.r().cfg
 	if a.heldMu(c, cfg) {
 		return false
 	}
-	return !g.on(cfg.Locks) || a.userOKMu(c, cfg)
+	return !g.on(cfg.Locks) || a.userOKOnMu(c, cfg, g)
 }
 
 type lockStateMsg struct {
@@ -122,20 +160,22 @@ type lockStateMsg struct {
 	// that user's PIN resumes it.
 	Held bool   `json:"held,omitempty"`
 	User string `json:"user,omitempty"`
-	// Mode: sign-in mode, so the sign-in screen knows whether to ask for a username.
-	Mode string `json:"mode"`
-	// Lens: PIN lengths in use; rides every lock state so a pad is never stale.
+	// Lens: PIN lengths in use, in every lock state, so a pad is never stale.
 	Lens []int `json:"lens,omitempty"`
-	// Names: for "by Ana" in history; not sent to locked pages.
-	Names []string `json:"names,omitempty"`
 	// Hi: answer to the page's own hi; it is possible that an unsolicited state arrives
 	// first, and it says nothing about the token.
 	Hi bool `json:"hi,omitempty"`
-	// Trusted: low-risk settings without the Advanced Settings PIN; the server decides.
-	Trusted    bool `json:"trusted,omitempty"`
-	Persistent bool `json:"persistent,omitempty"`
+	// "" under a Lock.
+	Role       string `json:"role,omitempty"`
+	Trusted    bool   `json:"trusted,omitempty"`
+	Persistent bool   `json:"persistent,omitempty"`
 	// NoAutoLock: to the signed-in user only, so the page's idle timer skips them.
 	NoAutoLock bool `json:"noAutoLock,omitempty"`
+	// PinNeeded: to the signed-in user only, so the page asks them to set a PIN.
+	PinNeeded bool `json:"pinNeeded,omitempty"`
+	// StepGuest: Step out returns to Guest.
+	StepIn    bool `json:"stepIn,omitempty"`
+	StepGuest bool `json:"stepGuest,omitempty"`
 }
 
 // Caller holds mu.
@@ -147,23 +187,21 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	}
 	m := lockStateMsg{T: "lockState", Page: page, Enforced: pageGates[page].on(cfg.Locks)}
 	m.Held = a.heldMu(c, cfg)
-	m.Mode = cfg.SignInMode
 	if a.userOKMu(c, cfg) {
-		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the sign-in copy
-		m.User, m.Trusted, m.Persistent, m.NoAutoLock = u.Name, u.Trusted, u.Persistent, u.NoAutoLock
+		u, _ := cfg.FindUserByID(c.u.user.Load().ID) // live flags, not the sign-in copy
+		m.User, m.Persistent, m.NoAutoLock, m.PinNeeded = u.Name, u.Persistent, u.NoAutoLock, u.PinNeeded
 	}
+	m.Role = a.roleMu(c)
+	m.Trusted = config.RoleAtLeast(m.Role, config.RoleTrusted)
 	m.Locked = m.Held || m.Enforced && m.User == ""
 	m.Lens = cfg.PinLens()
-	if !m.Locked {
-		for _, u := range cfg.Users {
-			m.Names = append(m.Names, u.Name)
-		}
+	if st := c.u.step; st != nil {
+		m.StepIn, m.StepGuest = true, st.orig == nil
 	}
 	return m
 }
 
-// Queues c's lock state and stops the sent-log feed if c can no longer read it. Caller
-// holds mu.
+// Also stops the Communication Log feed if c cannot read it. Caller holds mu.
 func (a *App) syncAccessMu(c *client) { a.pushAccessMu(c, false) }
 
 // pushAccessMu: hi marks the answer to a hi.
@@ -178,6 +216,8 @@ func (a *App) pushAccessMu(c *client, hi bool) {
 	a.pushProfileMu(c) // only to the user it belongs to
 	a.pushRightsMu(c)
 	a.pushPanelsOfflineMu(c)
+	a.cardsSyncMu()
+	a.pushInboxMu(c, nil)
 }
 
 func (a *App) syncAccess(c *client) {
@@ -218,8 +258,8 @@ func (a *App) Hi(c *client, page, token string) {
 	}
 }
 
-// dummyPinHash gives a wrong username the same PBKDF2 cost as a right one, so timing
-// cannot reveal which usernames exist.
+// dummyPinHash gives a wrong name the same PBKDF2 cost as a right one, so timing
+// cannot reveal which names exist.
 var dummyPinHash = sync.OnceValue(func() string {
 	h, _ := config.HashPin("0000")
 	return h
@@ -227,80 +267,64 @@ var dummyPinHash = sync.OnceValue(func() string {
 
 func burnPinCheck(pin string) { config.CheckPin(dummyPinHash(), pin) }
 
-// matchPin finds the user a PIN signs in, or nil. Pure: it reads only cfg. Candidates are
-// the holder of a Lock (only their PIN counts), the user a username names, or in PIN only
-// mode everyone. Exactly one must match, so a PIN several users hold (left over from
-// Username and PIN mode) signs nobody in. A username that names nobody, or someone other
-// than the holder, burns a check so it costs what a right one does.
-func matchPin(cfg config.Config, holder *config.User, username, pin string) *config.User {
-	byName := cfg.SignInMode == config.SignInUsername
-	var cands []config.User
-	switch {
-	case holder != nil:
-		if named, ok := cfg.FindUsername(username); byName && username != "" && (!ok || named.Name != holder.Name) {
-			break
+// pinCandidate: the holder of a Lock (an empty name, or the holder's own), else the named user. Pure.
+func pinCandidate(cfg config.Config, holder *config.User, name string) *config.User {
+	var cand config.User
+	ok := false
+	if holder != nil {
+		if named, found := cfg.FindUserByName(name); name == "" || found && named.ID == holder.ID {
+			cand, ok = cfg.FindUserByID(holder.ID) // the live hash, not the sign-in copy
 		}
-		if u, ok := cfg.FindUser(holder.Name); ok { // the live hash, not the sign-in copy
-			cands = []config.User{u}
-		}
-	case byName:
-		if u, ok := cfg.FindUsername(username); ok {
-			cands = []config.User{u}
-		}
-	default:
-		cands = cfg.Users
+	} else if name != "" {
+		cand, ok = cfg.FindUserByName(name)
 	}
-	if len(cands) == 0 {
-		burnPinCheck(pin)
+	if !ok {
 		return nil
 	}
-	n := utf8.RuneCountInString(pin)
-	var found []config.User
-	for _, u := range cands {
-		// Username mode hashes whatever the length: PIN lengths are public, so skipping it
-		// would tell a known username from an unknown one.
-		if !byName && u.Len != n {
-			continue
-		}
-		if config.CheckPin(u.Pin, pin) && u.Len == n {
-			found = append(found, u)
-		}
-	}
-	if len(found) != 1 {
-		return nil
-	}
-	return &found[0]
+	return &cand
 }
 
-// UserUnlockAs: PIN only mode ignores username and finds the user by PIN. Username and PIN
-// mode compares the PIN with the named user's hash only. A held Lock resumes with its own
-// user's PIN whatever the mode, and a username there must be that user's. Every try
-// counts in the users' pool, like an Advanced Settings PIN.
-func (a *App) UserUnlockAs(c *client, username, pin string) error {
+// With no candidate it still hashes, so timing matches a real check.
+func pinMatches(cand *config.User, pin string) bool {
+	if cand == nil {
+		burnPinCheck(pin)
+		return false
+	}
+	if !cand.HasPin() { // public in the hello (len 0), so there is nothing to hide by hashing
+		return pin == ""
+	}
+	// Hashed whatever the length: PIN lengths are public, so skipping it would tell a known name
+	// from an unknown one.
+	return config.CheckPin(cand.Pin, pin) && cand.Len == utf8.RuneCountInString(pin)
+}
+
+// A held Lock resumes only with its holder's PIN. Every try counts toward that name's wait.
+func (a *App) UserUnlockAs(c *client, name, pin string) error {
 	cfg := a.r().cfg
 	a.mu.Lock()
+	if c.u.step != nil {
+		a.mu.Unlock()
+		return errors.New("you are stepped in: step out first")
+	}
 	var holder *config.User
 	if c.u.lockedMu() {
 		holder = c.u.user.Load()
 	}
 	a.mu.Unlock()
-	var hit *config.User
-	err := a.tryPin(&a.userPin, c.ip, func() bool {
-		hit = matchPin(cfg, holder, username, pin)
-		return hit != nil
-	})
-	if err != nil {
+	hit := pinCandidate(cfg, holder, name)
+	// A held Lock's PIN pad is its holder's, whatever name is typed.
+	if err := a.provePin(c, holder, hit, pin); err != nil {
 		return err
 	}
 	a.mu.Lock()
-	cfg = a.r().cfg // the PIN check can wait minutes: it is possible that the user changed since
-	if u, ok := cfg.FindUser(hit.Name); !ok || u.Pin != hit.Pin {
+	cfg = a.r().cfg
+	if _, ok := a.livePinMu(hit); !ok {
 		a.mu.Unlock()
 		return errors.New("that PIN changed; try again")
 	}
 	held := c.u.user.Load()
 	if c.u.lockedMu() && held != nil {
-		if held.Name != hit.Name {
+		if held.ID != hit.ID {
 			// Locked by another tab while the PIN was being checked: only the holder resumes it.
 			a.mu.Unlock()
 			return errors.New("wrong PIN")
@@ -311,240 +335,51 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 		return nil
 	}
 	defer a.mu.Unlock()
+	if !hit.HasPin() && pageGates[cmp.Or(c.u.page, "main")].on(cfg.Locks) {
+		return fmt.Errorf("%s has no PIN, and this page's lock needs a user with a PIN", hit.Name)
+	}
 	// A token-X connection signing in as Y leaves X's session, or Y's Lock would end X's.
 	c.u.sess = &session{seen: a.now()}
+	c.u.recheck = recheck{}
 	c.u.user.Store(hit)
 	a.syncAccessMu(c)
 	return nil
 }
 
-// SignOutAll needs the Advanced Settings PIN (a trusted user is not enough).
-func (a *App) SignOutAll(c *client, name string) error {
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c, false); err != nil {
-		return err
-	}
-	if _, ok := a.r().cfg.FindUser(name); !ok {
-		return errors.New("no such user")
-	}
-	a.tokens.dropUser(name)
-	a.endSessionKeys()
-	a.mu.Lock()
-	for cl := range a.clients {
-		if u := cl.u.user.Load(); u != nil && strings.EqualFold(u.Name, name) {
-			a.signOutMu(cl)
-		}
-	}
-	a.mu.Unlock()
-	return nil
-}
-
-// backToPinRefusal: salted hashes hide whether saved users share a PIN. So a change back to PIN only
-// needs a new PIN typed for every user, all different. Compares plaintext within the request.
-func backToPinRefusal(users []userEdit) error {
-	var missing []string
-	byPin := map[string][]string{}
-	for _, e := range users {
-		name := strings.TrimSpace(e.Name)
-		if e.Pin == "" {
-			missing = append(missing, name)
-		} else {
-			byPin[e.Pin] = append(byPin[e.Pin], name)
-		}
-	}
-	if len(missing) > 0 {
-		return errors.New("PIN only needs every PIN different, and Sode cannot tell whether saved PINs match: give a new PIN to " + strings.Join(missing, ", "))
-	}
-	var clash []string
-	for _, e := range users {
-		if names := byPin[e.Pin]; len(names) > 1 {
-			clash = append(clash, strings.TrimSpace(e.Name))
-		}
-	}
-	if len(clash) > 0 {
-		return errors.New("PIN only needs every PIN different, and these users got the same new PIN: " + strings.Join(clash, ", "))
+// Keep in step with config Validate's name rules.
+func userNameRefusal(name string) error {
+	switch n := utf8.RuneCountInString(name); {
+	case n == 0:
+		return errors.New("every user needs a name")
+	case n > config.MaxUserName:
+		return fmt.Errorf("the name %q is too long: at most %d characters", name, config.MaxUserName)
+	case strings.IndexFunc(name, func(r rune) bool { return !unicode.IsPrint(r) }) >= 0:
+		return fmt.Errorf("the name %q has a character that cannot be shown", name)
 	}
 	return nil
 }
 
-// userEdit: Was is the old name (rename keeps the PIN), Pin a new PIN ("" keeps).
-type userEdit struct {
-	Name string `json:"name"`
-	Was  string `json:"was"`
-	// Username: nil keeps the user's current one.
-	Username   *string `json:"username"`
-	Pin        string  `json:"pin"`
-	Trusted    bool    `json:"trusted"`
-	Persistent bool    `json:"persistent"`
-	// Rights and NoAutoLock: nil keeps the user's current value, so a page that does not
-	// know them cannot erase them.
-	Rights     *config.Rights `json:"rights"`
-	NoAutoLock *bool          `json:"noAutoLock"`
-}
-
-type usersReq struct {
-	Users  []userEdit `json:"users"`
-	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// SignInMode: "" keeps the current one. Saved here so it needs
-	// the Advanced Settings PIN.
-	SignInMode string `json:"signInMode"`
-	// API clients, Guest rights and Guest scopes: nil keeps the current ones. They ride this
-	// save so they need the Advanced Settings PIN.
-	APIClients  *[]config.APIClient `json:"apiClients"`
-	GuestRights *config.Rights      `json:"guestRights"`
-	GuestScopes *[]string           `json:"guestScopes"`
-	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
-	Locks    json.RawMessage `json:"locks"`
-	AutoLock json.RawMessage `json:"autoLockMinutes"`
-}
-
-// SaveUsers needs the Advanced Settings PIN only (not the main lock). PINs unique across users.
-func (a *App) SaveUsers(c *client, req usersReq) error {
-	if present(req.Locks) || present(req.AutoLock) {
-		return errors.New("the lock settings moved to Settings > Access: reload this page")
-	}
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	if a.r().cfg.SettingsPin == "" {
-		return errNeedAdminPin
-	}
-	if err := a.guardSave(c, false); err != nil {
-		return err
-	}
-	before := a.r().cfg
-	err := a.applyConfig(func(cur *config.Config) error {
-		if req.MaxPin != 0 {
-			cur.MaxPinLen = req.MaxPin
-		}
-		maxLen := cur.MaxPinLen
-		wasUsername := cur.SignInMode == config.SignInUsername
-		if req.SignInMode != "" {
-			cur.SignInMode = req.SignInMode
-		}
-		if len(req.Users) == 0 && cur.Locks.Any() {
-			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
-		}
-		old := map[string]config.User{}
-		for _, u := range cur.Users {
-			old[strings.ToLower(u.Name)] = u
-		}
-		var out []config.User
-		inherited := map[string]bool{} // rows keep a hash only from their own, one row each
-		fresh := map[string]string{}   // new PINs by user name
-		kept := map[string]bool{}      // profiles carried over, one row each
-		for _, e := range req.Users {
-			u := config.User{Name: strings.TrimSpace(e.Name), Trusted: e.Trusted, Persistent: e.Persistent}
-			if u.Name == "" {
-				return errors.New("every user needs a name")
-			}
-			// The profile follows Was (rename keeps it); removed users lose theirs; a new
-			// row starts empty.
-			was := cmp.Or(e.Was, e.Name)
-			pk := strings.ToLower(strings.TrimSpace(was))
-			if o, ok := old[pk]; ok && !kept[pk] && (e.Was != "" || e.Pin == "") {
-				kept[pk] = true
-				u.Profile = o.Profile.Clone()
-				u.Extra = o.Extra
-				u.Username = o.Username
-				u.Rights, u.NoAutoLock = o.Rights.Clone(), o.NoAutoLock
-			}
-			if e.Username != nil {
-				u.Username = strings.TrimSpace(*e.Username)
-			}
-			if e.Rights != nil {
-				u.Rights = e.Rights.WithExtraOf(u.Rights)
-			}
-			if e.NoAutoLock != nil {
-				u.NoAutoLock = *e.NoAutoLock
-			}
-			if e.Pin != "" {
-				if err := config.CheckUserPinRules(e.Pin, maxLen); err != nil {
-					return err
-				}
-				h, err := config.HashPin(e.Pin)
-				if err != nil {
-					return err
-				}
-				u.Pin, u.Len = h, len(e.Pin)
-				fresh[u.Name] = e.Pin
-			} else {
-				key := pk
-				o, ok := old[key]
-				if !ok {
-					return errors.New("give " + u.Name + " a PIN")
-				}
-				if inherited[key] {
-					return errors.New("two rows keep the same user's PIN; give one of them a new PIN")
-				}
-				inherited[key] = true
-				u.Pin, u.Len = o.Pin, o.Len
-			}
-			out = append(out, u)
-		}
-		if wasUsername && cur.SignInMode == config.SignInPin {
-			if err := backToPinRefusal(req.Users); err != nil {
-				return err
-			}
-		}
-		for name, pin := range fresh {
-			if cur.SignInMode == config.SignInUsername {
-				break // the username says whose PIN it is
-			}
-			for _, u := range out {
-				if u.Name == name || u.Len != len(pin) {
-					continue
-				}
-				if p2, isNew := fresh[u.Name]; isNew && p2 == pin || !isNew && config.CheckPin(u.Pin, pin) {
-					return errors.New("that PIN cannot be used")
-				}
-			}
-		}
-		cur.Users = out
-		if req.APIClients != nil {
-			cur.APIClients = keepPanelClients(cur.APIClients, config.WithAPIClientExtras(*req.APIClients, cur.APIClients))
-		}
-		if req.GuestRights != nil {
-			cur.GuestRights = req.GuestRights.WithExtraOf(cur.GuestRights)
-		}
-		if req.GuestScopes != nil {
-			cur.GuestAPIScopes = slices.Clone(*req.GuestScopes)
-		}
-		return nil
-	})
-	if err == nil {
-		a.auditRights(c, before, a.r().cfg)
-		a.panelsFollowUsers(before.Users, req.Users)
-	}
-	return err
-}
-
-// panelsFollowUsers keeps panel owner and sharing in step with a saved Users list. Rows keep
-// a user by Was (or Name), like profiles above.
-func (a *App) panelsFollowUsers(before []config.User, rows []userEdit) {
+// panelsFollowUsers keeps panel sharing (by name) in step with a saved Users list, and drops a
+// removed user's watches. Owners are ids, so a rename leaves them.
+func (a *App) panelsFollowUsers(before, after []config.User) {
 	renames := map[string]string{}
-	kept := map[string]bool{}
-	for _, e := range rows {
-		name := strings.TrimSpace(e.Name)
-		pk := strings.ToLower(strings.TrimSpace(cmp.Or(e.Was, e.Name)))
-		kept[pk] = true
-		if e.Was != "" && strings.TrimSpace(e.Was) != name {
-			renames[pk] = name
-		}
-	}
-	removed := map[string]bool{}
+	removedIDs, removedNames := map[string]bool{}, map[string]bool{}
+	now := config.Config{Users: after}
 	for _, u := range before {
-		if k := strings.ToLower(u.Name); !kept[k] {
-			removed[k] = true
+		nu, ok := now.FindUserByID(u.ID)
+		switch {
+		case !ok:
+			removedIDs[u.ID], removedNames[strings.ToLower(u.Name)] = true, true
+		case nu.Name != u.Name:
+			renames[strings.ToLower(u.Name)] = nu.Name
 		}
 	}
-	if len(renames) == 0 && len(removed) == 0 {
+	if len(renames) == 0 && len(removedIDs) == 0 {
 		return
 	}
-	a.templates.followUsers(renames)
-	a.panels.sets.followUsers(renames)
-	a.mon.followUsers(renames, removed)
-	n, err := a.panels.followUsers(renames, removed)
+	a.mon.dropUsers(removedIDs)
+	a.inboxFollowUsers(removedIDs)
+	n, err := a.panels.followUsers(renames, removedNames)
 	if err != nil {
 		log.Printf("panels: user change reached %d panels, then: %v", n, err)
 		return
@@ -563,17 +398,17 @@ type userResult struct {
 	Tab   bool   `json:"tab,omitempty"` // Token is a sign-in without a page lock's: for this tab only
 }
 
-// Sign-ins run inline like the Advanced Settings PIN entry, so a later lock is handled after.
+// Sign-ins run inline, so the hub handles a later lock after this one.
 func (a *App) serveUserUnlock(c *client, m *inMsg) {
-	res := userResult{T: "userUnlockResult", OK: true, ID: m.ID}
+	res := userResult{T: "userSignInResult", OK: true, ID: m.ID}
 	err := a.UserUnlockAs(c, m.User, m.Pin)
 	if err != nil {
 		res.OK, res.Err = false, err.Error()
-		a.command(c, "userUnlock", "refused", "", err)
+		a.command(c, "userSignIn", "refused", "", err)
 	} else {
-		a.command(c, "userUnlock", "ok", "", nil)
+		a.command(c, "userSignIn", "ok", "", nil)
 		if res.Token = a.issueToken(c, m.Tab); res.Token != "" {
-			if us, _ := a.r().cfg.FindUser(c.who()); !us.Persistent {
+			if us, _ := a.r().cfg.FindUserByID(c.userID()); !us.Persistent {
 				res.Tab = true
 			}
 			a.mu.Lock()
@@ -582,117 +417,4 @@ func (a *App) serveUserUnlock(c *client, m *inMsg) {
 		}
 	}
 	a.reply(c, res)
-}
-
-func (a *App) serveUserSetPin(c *client, m *inMsg) {
-	err := a.UserSetPin(c, m.Old, m.New)
-	if err != nil {
-		a.command(c, "userSetPin", "refused", "", err)
-	} else {
-		a.command(c, "userSetPin", "ok", "", nil)
-	}
-	a.reply(c, opResultFor("userSetPin", &m.ID, err))
-}
-
-// Len: whether a PIN is set (0 = none); never a hash.
-type usersListMsg struct {
-	T     string     `json:"t"` // "usersListResult"
-	ID    int        `json:"id"`
-	OK    bool       `json:"ok"`
-	Users []userView `json:"users"`
-	Mode  string     `json:"signInMode"`
-	// Rights and API clients: needAdmin only, never before the PIN.
-	APIClients  []config.APIClient `json:"apiClients"`
-	GuestRights config.Rights      `json:"guestRights"`
-	GuestScopes []string           `json:"guestScopes"`
-}
-
-type userView struct {
-	Name       string `json:"name"`
-	Username   string `json:"username,omitempty"`
-	Len        int    `json:"len"`
-	Trusted    bool   `json:"trusted,omitempty"`
-	Persistent bool   `json:"persistent,omitempty"`
-	NoAutoLock bool   `json:"noAutoLock,omitempty"`
-	// Rights has no omitempty: an unset list is "all", an empty one "none".
-	Rights config.Rights `json:"rights"`
-	// PanelClients are the panel clients this user's panels have, for the Rights editor to list.
-	PanelClients []panelClientNote `json:"panelClients"`
-}
-
-func (a *App) usersList(id int) usersListMsg {
-	cfg := a.r().cfg.Clone()
-	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode,
-		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes}
-	if m.APIClients == nil {
-		m.APIClients = []config.APIClient{}
-	}
-	for _, u := range cfg.Users {
-		pc := a.panelClientsOf(cfg, u)
-		if pc == nil {
-			pc = []panelClientNote{}
-		}
-		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights, pc})
-	}
-	return m
-}
-
-// UserSetPin needs the user's own PIN, not the Advanced Settings PIN; the old PIN counts as a try
-// (same pool). Other connections of the user relock; c stays signed in.
-func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
-	who := c.u.user.Load()
-	if who == nil {
-		return errors.New("unlock with your PIN first")
-	}
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	a.mu.Lock()
-	cur := a.r().cfg
-	ok := a.userOKMu(c, cur)
-	a.mu.Unlock()
-	if !ok {
-		return errors.New("unlock with your PIN first")
-	}
-	u, _ := cur.FindUser(who.Name)
-	if err := config.CheckUserPinRules(newPin, cur.MaxPinLen); err != nil {
-		return err
-	}
-	if err := a.tryPin(&a.userPin, c.ip, func() bool { return config.CheckPin(u.Pin, oldPin) }); err != nil {
-		return err
-	}
-	if oldPin == newPin {
-		return errors.New("the new PIN is the same as the old one")
-	}
-	h, err := config.HashPin(newPin)
-	if err != nil {
-		return err
-	}
-	err = a.commit(func(cfg *config.Config) error {
-		for i := range cfg.Users {
-			if !strings.EqualFold(cfg.Users[i].Name, who.Name) {
-				continue
-			}
-			if cfg.Users[i].Pin != u.Pin {
-				return errors.New("your PIN changed; unlock again")
-			}
-			for j, o := range cfg.Users {
-				if cfg.SignInMode == config.SignInPin && j != i && o.Len == len(newPin) && config.CheckPin(o.Pin, newPin) {
-					return errors.New("that PIN cannot be used")
-				}
-			}
-			cfg.Users[i].Pin, cfg.Users[i].Len = h, len(newPin)
-			return nil
-		}
-		return errors.New("unlock with your PIN first")
-	}, func(_, nr *runtime) {
-		if nu, ok := nr.cfg.FindUser(who.Name); ok {
-			c.u.user.Store(&nu)
-		}
-		a.syncAccessAllMu() // the user's other connections relock
-	})
-	if err != nil {
-		return err
-	}
-	a.catchUpSessions() // c's old tokens died with the old hash
-	return nil
 }

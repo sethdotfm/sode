@@ -1,0 +1,2 @@
+- The setup wizard's Restore from a backup brings back a Back up everything file on a fresh install in one step, with no remap. It brings every category, and the router keeps its UID and names table. A file with no PINs asks for a new PIN for its first Administrator. With the router not cabled yet, the file's names table checks the references, so nothing arrives Broken.
+- An export made before the router answered gives the names table the time it was saved, not a blank one.

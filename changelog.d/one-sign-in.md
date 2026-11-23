@@ -1,0 +1,2 @@
+- **One sign-in, name then PIN**: every sign-in (Main page, Settings, the Communication Log and panel pages) asks for your name, then your PIN. The name box finds a user as you type and lists every user; pick with the arrow keys and Enter, or click. The browser remembers the last name. Two users can have the same PIN. The Lock of a signed-in user still asks for the PIN only.
+- **Sign-in mode removed**: the *Sign-in mode* box in Manage users and the `signInMode` config key are gone.

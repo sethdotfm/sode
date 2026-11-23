@@ -1,16 +1,16 @@
-// Desktop Recent list: history rows, folders, followers, the pager and keyboard mode (single keys on the list).
+// Desktop History list: rows, Groups, External follows, the pager and keyboard mode (single keys on the list).
 
-import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem, dstItem } from './core.js';
-import { mac, pickOrAdd } from './keys.js';
-import { levelBar } from './levelview.js';
+import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem } from './core.js';
+import { listStep, pickOrAdd } from './keys.js';
+import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
-import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupTitle, groupLevels, groupIds } from './history.js';
-import { rowUndoPlan, planEmpty, showResult, againPlan } from './plans.js';
+import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupLevels, groupIds, routeNote } from './history.js';
+import { planEmpty, showResult } from './plans.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
 import { emptyNote } from './searchbox.js';
-import { rowActions, disclosureAria, followersHead } from './historyrows.js';
+import { rowView, rowActions, disclosureAria, followersHead } from './historyrows.js';
 import { isPicked, picking, pickBox, togglePick, bindPick } from './historypick.js';
 import {
   byLabel,
@@ -26,28 +26,29 @@ import {
   arrivals,
 } from './widgets.js';
 
-// What it takes from desktop.js: select(k, item), focusBox(input), openConfirm(plan), focusSearch(k),
-// openKeys() (the shortcut list, built after this), boxes (for the two inputs) and active().
-// The module owns the Recent state: expanded rows, open folders and followers, the arrival marks,
-// the keyboard cursor.
-export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys, boxes, active }) {
+// From desktop.js: select(k, item), focusBox(input), openConfirm(plan), focusSearch(k), openKeys() (built after this),
+// boxes, active() and protect(set), the route view's Protect key (false when it offers none). The module owns the list state: expanded rows, open Groups and External follows, the arrival
+// marks, the keyboard cursor.
+export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSearch, openKeys, boxes, active, protect }) {
   const expanded = new Set();
   const openGroups = new Set();
   const openFollowers = new Set();
   const arrived = arrivals();
 
   function histRow(e) {
-    const src = srcItem(e.src, e.srcName),
-      dst = dstItem(e.dst, e.dstName);
+    const view = rowView({ e });
+    const r = view.route(e);
+    const dst = r.dst;
     const known = e.levels.filter((u) => S.levelBy.has(u));
 
-    const acts = rowActions({ e });
+    const acts = view.actions(e);
     const btn = undoButton(acts.undo.plan, acts.undo.label, openConfirm, { text: acts.undo.text, tip: acts.undo.tip });
     const retry = againButton(acts.again.plan, acts.again.label, openConfirm);
 
     const open = expanded.has(e.id);
     const detailId = `hist-before-${e.id}`;
-    const disc = disclosure(open, e.chain ? `${e.chain.length}` : 'Before', detailId, () => {
+    const groups = beforeGroups(e);
+    const disc = disclosure(open, e.chain ? `${e.chain.length}` : view.disc(e, groups), detailId, () => {
       toggle(expanded, e.id);
       renderHistory();
     });
@@ -59,7 +60,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', e.chain ? `#${e.chain[e.chain.length - 1].id}–#${e.id}` : `#${e.id}`),
       histTime(e.time),
       levelBar(known),
-      el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...routeBoxes(src, dst), entryNote(e), byLabel(e)),
+      el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...routeNodes(r), entryNote(e), byLabel(e)),
       statusNode({ e }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`e${e.id}`)] : [retry, btn])),
@@ -76,10 +77,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
               el('div', 'sode__label', `Changes on ${dst.label}`),
               ...stackSteps(e, { restore: openConfirm, pickSrc: useRowSrc, pickDst: useRowDst, addDst: addEnd }),
             ]
-          : [
-              el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
-              ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc)),
-            ]),
+          : [el('div', 'sode__label', view.detail(e, dst, groups)), ...groups.map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc))]),
         ...failureRows(e),
         ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst, addEnd))] : []),
       );
@@ -91,15 +89,21 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     return row;
   }
 
-  const routeBoxes = (src, dst, all) => [routeBox('src', src), el('span', 'sode__arrow', '→'), routeBox('dst', dst, all)];
-  // all: the folder's destinations; a chip that names several adds them all, with any click.
+  // r: rowView's route. A lead (a Protect chip) stands where the source box is, with no arrow.
+  const words = (x) => (typeof x === 'string' ? document.createTextNode(x) : x);
+  const routeNodes = (r) => [
+    ...(r.lead ? [r.lead] : [routeBox('src', words(r.src)), el('span', 'sode__arrow', '→')]),
+    routeBox('dst', words(r.dst), r.many),
+    routeNote(r.notes),
+  ];
+  // all: the Group's destinations; a chip that names several adds them all, with any click.
   function routeBox(k, it, all) {
     const cls = `sode__end sode__end--${k}`;
     if (it instanceof Node && all?.length) {
       const b = el('button', `${cls} sode__end--pick`, it);
       b.type = 'button';
       b.tabIndex = -1;
-      b.title = 'Add all as destinations';
+      b.dataset.pbTip = 'Add all as destinations';
       b.addEventListener('mousedown', (e) => e.preventDefault());
       pickOrAdd(
         b,
@@ -112,7 +116,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     const b = el('button', `${cls} sode__end--pick`, labelNode(it));
     b.type = 'button';
     b.tabIndex = -1;
-    b.title = `Use as ${k === 'src' ? 'source' : 'destination'}`;
+    b.dataset.pbTip = `Use as ${k === 'src' ? 'source' : 'destination'}`;
     b.addEventListener('mousedown', (e) => e.preventDefault());
     pickOrAdd(b, () => useEnd(k, it), k === 'dst' && (() => addEnd(it)));
     return b;
@@ -127,18 +131,11 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
   const useRowDst = (it) => useEnd('dst', it);
 
-  function manyDsts(f) {
-    const seen = new Map(f.entries.map((e) => [e.dst, e.dstName]));
-    return seen.size > 1 ? [...seen].map(([n, name]) => dstItem(n, name)) : null;
-  }
-
   function groupRow(f) {
     const open = openGroups.has(f.group);
     const kidsId = `hist-folder-${f.group}`;
-    const title = groupTitle(f);
-    const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
-
-    const acts = rowActions({ f });
+    const view = rowView({ f });
+    const acts = view.actions(f);
     const undo = undoButton(acts.undo.plan, acts.undo.label, openConfirm, { text: acts.undo.text, tip: acts.undo.tip });
     const retry = againButton(acts.again.plan, acts.again.label, openConfirm);
 
@@ -147,7 +144,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       autoOpen.delete(f.group); // opened by hand: stays open
       renderHistory();
     });
-    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, 'takes'));
+    disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, view.noun));
 
     const row = el(
       'li',
@@ -155,13 +152,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', groupIds(f)),
       histTime(f.entries[0].time),
       levelBar(groupLevels(f)),
-      el(
-        'span',
-        'sode__hist-route sode__hist-route--boxes',
-        ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild, manyDsts(f)),
-        ...title.slice(3),
-        byLabel(f),
-      ),
+      el('span', 'sode__hist-route sode__hist-route--boxes', ...routeNodes(view.route(f)), byLabel(f)),
       statusNode({ f }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [retry, undo])),
@@ -177,8 +168,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     return row;
   }
 
-  // Followers: changes made elsewhere that seem to follow the confirm; a keyboard cursor stop
-  // like a folder (key w<group>).
+  // External follows: Externals that seem to follow the confirm. A keyboard cursor stop, as a Group is (key w<group>).
   function followerRows(f) {
     if (!f.followers?.length) return [];
     const open = openFollowers.has(f.group);
@@ -195,7 +185,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id'),
       el('span', 'sode__hist-time'),
       el('span'),
-      el('span', 'sode__hist-route', 'Followers'),
+      el('span', 'sode__hist-route', 'External follow entries'),
       el('span'),
       disc,
       el('span', 'sode__hist-actions'),
@@ -225,7 +215,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   function renderHistory(scroll = false) {
     const list = pager.list();
     if (cursor && !stops(list).some((x) => x.key === cursor)) {
-      // Its row left the page: drop the cursor and close the folders it opened.
+      // Its row left the page: drop the cursor and close the Groups it opened.
       cursor = null;
       for (const g of autoOpen) openGroups.delete(g);
       autoOpen.clear();
@@ -235,8 +225,8 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     if (scroll === true && keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
   }
 
-  // ---- keyboard mode: focus on the history list, where single keys act.
-  // Cursor is 'e<id>' on a take, 'f<group>' on a folder. Keyboard entry only; any click leaves it.
+  // Keyboard mode: focus on the History list, where single keys act. Cursor is 'e<id>' on a take, 'f<group>' on a
+  // Group. Keyboard entry only; any click leaves it.
 
   let cursor = null;
   const autoOpen = new Set();
@@ -263,14 +253,14 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     'pointerdown',
     (e) => {
       setKeys(false);
-      // Clicking a row moves the hidden cursor there so the next key starts on it.
+      // A click on a row moves the hidden cursor there, so the next key starts on it.
       const row = histList.contains(e.target) && e.target.closest('[data-key]');
       if (row) cursor = row.dataset.key;
     },
     true,
   );
 
-  // top: the row's (or its folder's) index in the pager's list.
+  // top: the index of the row (or of its Group) in the pager's list.
   function stops(list = pager.list()) {
     const out = [];
     list.forEach((r, top) => {
@@ -366,7 +356,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   function retryCur() {
     const s = curStop();
     if (!s) return;
-    const plan = againPlan(s.f ? { f: s.f } : { e: s.e });
+    const plan = rowActions(s.f ? { f: s.f } : { e: s.e }).again.plan;
     if (plan.items.length) openConfirm(plan);
     else showResult('info', 'Nothing to redo', 'This row has no source or level to take again.');
   }
@@ -382,15 +372,15 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   const BOXES = { s: 'src', d: 'dst', f: 'lvl' };
 
   function onListKey(e) {
-    const jk = e.ctrlKey !== e.metaKey && (e.ctrlKey || mac) && !e.altKey && !e.shiftKey && /^Key[JK]$/.test(e.code) ? e.code[3].toLowerCase() : '';
+    const jk = { 1: 'j', [-1]: 'k' }[listStep(e)] || '';
     if (!jk && (e.ctrlKey || e.metaKey || e.altKey)) return false;
     const k = jk || e.key;
-    if (BOXES[k]) {
+    if (BOXES[k] && (k !== 'f' || levelsShown())) {
       focusBox($(BOXES[k]));
       return true;
     }
     if (k === ',') {
-      $('settings-open').click();
+      emit('settingsOpen');
       return true;
     }
     if (k === '/') {
@@ -409,11 +399,13 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       emit('presetStrip');
       return true;
     }
+    // x Protects the route view's destination, Shift+x frees Sode's Protect; only in Keyboard mode.
+    if ((k === 'x' || k === 'X') && keyMode()) return protect(k === 'x');
     if (k === 'Escape') {
       focusBox(boxes.src.input);
       return true;
     }
-    // Choosing takes for a preset: Space/Enter ticks the row, nothing else acts.
+    // While takes are picked for a preset, Space/Enter ticks the row and nothing else acts.
     if (picking()) {
       if (keyMode() && (k === ' ' || k === 'Enter')) {
         if (cursor) togglePick(cursor);
@@ -446,10 +438,10 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
     else act();
     return true;
   }
-  // Undo the newest take made in Sode (a whole folder); other panels' changes are skipped
-  // whatever the filters show.
+  // Undo the newest take made in Sode (a whole Group). Externals are skipped, whatever the filters show.
   function undoLast() {
-    const last = S.hist.find((x) => !x.ext);
+    // A Free Protect counts (its Undo sets the Protect again); a Protect does not, since its Undo frees one.
+    const last = S.hist.find((x) => !x.ext && x.protect !== 'set');
     if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
     const e = attachFollows(last);
     const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group).map(attachFollows);
@@ -457,17 +449,19 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
   }
 
   function undoRow(row) {
-    const plan = rowUndoPlan(row);
-    if (planEmpty(plan)) {
-      const what = row.f ? groupIds(row.f) : `#${row.e.id}`;
-      return showResult('warn', 'Nothing to undo', `${what} had nothing routed before it, so there is nothing to restore.`);
-    }
+    const view = rowView(row);
+    const x = row.f || row.e;
+    const plan = view.actions(x).undo.plan;
+    if (planEmpty(plan)) return showResult('warn', 'Nothing to undo', view.empty(x));
     openConfirm(plan);
   }
+
+  // The Palette's Undo row.
+  on('undoLast', undoLast);
 
   function histArea(n) {
     return !!n && (histList.contains(n) || $('history-more').contains(n));
   }
 
-  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, pager };
+  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, pager, useEnd };
 }

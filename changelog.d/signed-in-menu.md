@@ -1,0 +1,3 @@
+- "Signed in as" in the Lock bar is plain text again, with the name in bold and the accent colour.
+- The Lock button has a drop-down: point at it or give it the keyboard focus. It has Sign out, and on Home Step in…, or Step out while you are stepped in. On a touch screen, tap the arrow beside the Lock button; a tap on the Lock button still locks. Sign out from the drop-down asks no Confirm and signs out every tab that shares the sign-in. Change PIN is in Settings > My user.
+- Ctrl+Shift+L signs out after a Confirm with the churning letter. While you are stepped in, it steps out. The key list and Settings search show it.

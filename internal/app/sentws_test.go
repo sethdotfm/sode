@@ -50,7 +50,7 @@ func TestSentPagesOverWebSocket(t *testing.T) {
 				t.Fatal(err)
 			}
 			var m sentPageMsg
-			if json.Unmarshal(b, &m) == nil && m.T == "sentPage" {
+			if json.Unmarshal(b, &m) == nil && m.T == "logPage" {
 				return m
 			}
 		}
@@ -58,7 +58,7 @@ func TestSentPagesOverWebSocket(t *testing.T) {
 	before, got := int64(-1), 0
 	var prev int64 = -1
 	for i := 0; i < 100; i++ {
-		b, _ := json.Marshal(map[string]any{"t": "sent", "before": before, "n": 100})
+		b, _ := json.Marshal(map[string]any{"t": "log", "before": before, "n": 100})
 		if err := c.Write(ctx, websocket.MessageText, b); err != nil {
 			t.Fatal(err)
 		}

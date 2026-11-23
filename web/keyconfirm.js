@@ -1,13 +1,21 @@
 // Desktop confirm dialog (#confirm): churning key, lockout, Esc. The page wires its keys and decides what a close or send does.
 // The caller supplies the plan with its wording and summary, so a page without the plan module can use it.
 
-import { $, el } from './core.js';
+import { $, el, on } from './core.js';
 import { lockout } from './lockout.js';
 import { churnKey } from './lockrules.js';
 
 // verb(plan) is the word for the title and button; summary(plan, { prot, spaceHint }) the body nodes. spaceHint: the
 // undo's follows box says Space ticks it. enter(): Enter also confirms. cfg(): settings with confirmLockoutMs, else
 // S.cfg. viaKeys: answered from the keyboard. refocus: a close puts focus back where it was.
+// The open confirm, which a Lock closes.
+let shown = null;
+on('locking', () => shown?.close());
+// The Palette closes an open confirm before it opens.
+export const closeOpenConfirm = () => shown?.close();
+// The Grid popup leaves its keys to an open confirm.
+export const confirmShown = () => shown != null;
+
 export function keyConfirm({ prompt, verb: verbOf, summary, enter = () => false, cfg = () => undefined, spaceHint = false, refocus = false, onTake, onClose }) {
   let cur = null; // { plan, prot, key, lock }
   let lastKey = '';
@@ -17,6 +25,7 @@ export function keyConfirm({ prompt, verb: verbOf, summary, enter = () => false,
     const c = cur;
     c?.lock.cancel();
     cur = null;
+    if (shown === api) shown = null;
     const a = document.activeElement;
     const inside = !a || a === document.body || $('confirm').contains(a);
     $('confirm').hidden = true;
@@ -42,6 +51,7 @@ export function keyConfirm({ prompt, verb: verbOf, summary, enter = () => false,
       $('confirm-ok').textContent = `${verb[0].toUpperCase()}${verb.slice(1)} (${key.toUpperCase()})`;
       $('confirm-ok').disabled = true;
       $('confirm').hidden = false;
+      shown = api;
       $('confirm-dialog').focus();
       cur = {
         plan,

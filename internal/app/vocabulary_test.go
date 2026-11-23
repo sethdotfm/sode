@@ -12,9 +12,8 @@ import (
 	"testing"
 )
 
-// Keeps the repo in step with GLOSSARY.md. Every retired word (the _Avoid_ lines) has a row in
-// retiredWords. A scope with a pending ticket is skipped until that ticket lands, and its
-// ticket then clears the field, so the list only shrinks. Kept names go in vocabAllow.
+// Keeps the repo in step with GLOSSARY.md (AGENTS.md, Vocabulary). A finished sweep clears its ticket,
+// so the pending list only shrinks. Kept names go in vocabAllow.
 
 // A word is matched as the whole token: not inside an identifier, class, key or path.
 const (
@@ -43,7 +42,6 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"layer"}, Re: wordRe(`(?i)signal layers?`)},
 	{Terms: []string{"label"}, Re: wordRe(`(?i)(?:router|source|destination) labels?`)},
 	{Terms: []string{"refresh"}, Re: wordRe(`(?i)names? refreshe?s?|refresh(?:es|ed|ing)? (?:of )?(?:the )?(?:router )?names?`)},
-	{Terms: []string{"protect"}, Re: wordRe(`(?i)protects|the protect|protect (?:flag|state|status|badge|icon)`)},
 	{Terms: []string{"locked"}, Re: wordRe(`(?i)locked (?:destination|dst)s?`)},
 	{Terms: []string{"batch"}, Re: wordRe(`(?i)batch(?:es)?`)},
 	{
@@ -58,7 +56,7 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"panel change"}, Re: wordRe(`(?i)panel[ -](?:changes?|entr(?:y|ies)|rows?)|changes? (?:from|on) (?:a |the )?(?:hardware )?panel`)},
 	{Terms: []string{"external change"}, Re: wordRe(`(?i)external changes?`)},
 	{Terms: []string{"reset import", "merge import"}, Re: wordRe(`(?i)(?:reset|merge) imports?`)},
-	{Terms: []string{"share link"}, Re: wordRe(`(?i)share links?`), Docs: "#375", UI: "#375", Ident: "#375"},
+	{Terms: []string{"share link"}, Re: wordRe(`(?i)share links?`)},
 	{Terms: []string{"outside change"}, Re: wordRe(`(?i)outside changes?`)},
 	{Terms: []string{"follows"}, Re: wordRe(`(?i)follows`)},
 	{Terms: []string{"automation"}, Re: wordRe(`(?i)automation`)},
@@ -77,14 +75,15 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"screen"}, Re: wordRe(`(?i)(?:this|that|one|each|every|per|no|watched|named|lost an?) screens?|screens?(?:'s)? (?:names?|offline|drops|signs? out|signed out|has opened|of (?:one|a|the) panel)|panels? (?:and|or) screens?`)},
 	{Terms: []string{"What this stops"}, Re: wordRe(`(?i)what this (?:save )?stops`)},
 	{Terms: []string{"anonymous panel"}, Re: wordRe(`(?i)anonymous panels?`)},
+	{Terms: []string{"command palette"}, Re: wordRe(`(?i)command palettes?`)},
 	{Terms: []string{"Test it live"}, Re: wordRe(`(?i)test it live`)},
 	{Terms: []string{"open panel"}, Why: "an open panel page is any panel page that is open, so a scan cannot tell it from a Public panel; a reviewer judges it by hand"},
+	{Terms: []string{"pinned preset", "preset pin"}, Re: wordRe(`(?i)pinned presets?|preset pins?`)},
+	{Terms: []string{"server uptime"}, Re: wordRe(`(?i)server uptimes?`)},
 }
 
-// vocabMask blanks phrases that contain a retired word but stay: the Advanced Settings PIN,
-// the router's own salvo and the native group-send fire mode.
+// vocabMask keeps phrases with a retired word that are correct: the router's own `salvo` and fireMode `native`.
 var vocabMask = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)advanced settings pin`),
 	regexp.MustCompile(`(?i)\bas follows\b`),
 	regexp.MustCompile(`(?i)\b(?:native|router'?s?(?: own)?) salvos?\b`),
 	regexp.MustCompile(`(?i)\bfire salvo \d+`),
@@ -97,17 +96,16 @@ var vocabAllow = []allowEntry{
 	{"salvo", "docs/agents/salvos.md", ".", "the native group-send fire mode and the router's salvos"},
 	{"account", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"log in", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
+	{"log in", "web/palettecatalogue.js", `^log (in|out)$`, "the Palette's search words keep the retired words so a search for them still finds Sign in and Sign out"},
+	{"log in", "web/palettematch.js", `^log in$`, "the Palette's search words keep the retired words so a search for them still finds Sign out"},
 	{"unlock", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
-	{"Settings PIN", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"hand lock", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"This device", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"", ".js", `^(?:login|logout|unlock|unlocked)$`, "bus and wire event names, which do not change"},
 	{"unlock", "", "`unlock(?:ed)?`", "wire message and bus event names keep this name"},
 	{"log in", "", "`[^`]*log-?(?:in|out)[^`]*`", "bus event names keep this name"},
-	{"salvo", "docs/agents/presets.md", "Old data still loads", "legacy data keys keep the old name so old files load"},
-	{"batch", "", "`batch`", "the wire message type and command kind keep this name"},
-	{"batch", "web/plans.js", `^batch$`, "the wire message type keeps this name"},
-	{"batch", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
+	{"log in", "web/lockchip.js", `^log-out$`, "the lucide icon name for Sign out"},
+	{"batch", "", "`batch`", "the v1 wire message name, quoted where docs list the v2 renames"},
 	{"salvo", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"operator", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"", "docs/vocabulary-plan.md", `^\|`, "the checklist tables quote the old words by design"},
@@ -118,13 +116,13 @@ var vocabAllow = []allowEntry{
 // identAllow exempts web identifiers only, so a UI string or a doc line gets no pass. Wire message
 // types and `sode-*` keys are strings and never reach that scan; these names hold a wire or logged value.
 var identAllow = []allowEntry{
-	{"Recent", "web/core.js", `m\.recent`, "the `recent` message carries its entries under this field"},
-	{"refresh", "web/logkinds.js", `^\s*refreshNames:`, "`log` command kind, as the server logs it"},
-	{"salvo", "web/log.js", `^\s*salvos?(?:Stage|Go)?:`, "`log` command kinds and the router's own salvo"},
-	{"salvo", "web/logkinds.js", `^\s*salvos?:`, "`log` command kinds, as the server logs them"},
+	{"salvo", "web/logkinds.js", `^\s*salvos?(?:Stage|StageExt|Go)?:`, "`log` command kinds and the router's own salvo, as the server logs them"},
 	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
-	{"unlock", "web/logkinds.js", `^\s*(?:unlock|userUnlock|adminUnlock):`, "`log` command kinds, as the server logs them"},
-	{"unlock", "", `\b(?:unlock|unlocked|isUnlocked|lostUnlock|sendUnlock)\b`, "names for the `unlock` and `userUnlock` messages and the access they grant (pin.js, lock.js); they hold a wire value, not a UI word"},
+	{"salvo", "web/savereviewrules.js", `^\s*salvoGroup:`, "the router's own salvo group, a Config JSON key"},
+	{"salvo", "web/setupwizardrules.js", `cfg\.salvoGroup`, "the router's own salvo group, a Config JSON key"},
+	{"salvo", "web/test/setupwizardrules.test.mjs", `salvoGroup: \d+`, "the router's own salvo group, a Config JSON key"},
+	{"unlock", "web/logkinds.js", `^\s*adminUnlock:`, "a `log` command kind, as old rows hold it"},
+	{"unlock", "", `\bunlocked\b`, "the access a `userSignIn` grants (lock.js); it holds a wire value, not a UI word"},
 	{"follows", ".js", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 	{"follows", ".mjs", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 }
@@ -422,8 +420,8 @@ func TestVocabularyScanMechanics(t *testing.T) {
 		}
 	}
 	pin := wordRe(`(?i)settings pin`)
-	if len(scanLines("Settings PIN", "a.md", "the Advanced Settings PIN", pin, nil)) > 0 {
-		t.Error("Advanced Settings PIN is kept")
+	if len(scanLines("Settings PIN", "a.md", "the Advanced Settings PIN", pin, nil)) == 0 {
+		t.Error("the Advanced Settings PIN is retired")
 	}
 	if len(scanLines("Settings PIN", "a.md", "the Settings PIN", pin, nil)) == 0 {
 		t.Error("a bare Settings PIN is retired")
@@ -491,9 +489,7 @@ var (
 	identParts = regexp.MustCompile(`[A-Z]+[a-z0-9]*|[a-z0-9]+`)
 )
 
-// jsCode returns a script with its comments and string literals blanked, line breaks kept,
-// so what is left is identifiers and punctuation. Wire types and `sode-*` keys are strings
-// and so never reach the identifier scan.
+// jsCode blanks comments and string literals and keeps line breaks, so identifiers and punctuation are left.
 func jsCode(src string) string {
 	b := []byte(src)
 	blank := func(from, to int) {
@@ -558,8 +554,6 @@ func identRe(w retiredWord) *regexp.Regexp {
 	return regexp.MustCompile("(?i)" + w.Re.String())
 }
 
-// identFiles returns the code of every web script and test, and every file name under web/
-// and web/test/.
 func identFiles(t *testing.T) (code map[string]string, names []string) {
 	t.Helper()
 	code = map[string]string{}
@@ -602,13 +596,12 @@ func TestIdentifierScanMechanics(t *testing.T) {
 	if strings.Contains(code, "'Recent'") {
 		t.Error("string literal not blanked")
 	}
-	if !identRe(retiredWords[7]).MatchString("send batch") || !identRe(retiredWords[11]).MatchString("recent row") {
+	if !identRe(retiredWords[6]).MatchString("send batch") || !identRe(retiredWords[10]).MatchString("recent row") {
 		t.Error("identRe does not match identifier words")
 	}
 }
 
-// TestIdentifiersUseGlossaryWords scans names, not text: variables, functions, properties
-// and file names. Wire message types and `sode-*` keys are strings and stay out of scope.
+// Scans names, not text: variables, functions, properties and file names.
 func TestIdentifiersUseGlossaryWords(t *testing.T) {
 	code, names := identFiles(t)
 	files := make([]string, 0, len(code))

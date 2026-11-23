@@ -66,17 +66,18 @@ func TestUnknownPrefNamedOnStartRow(t *testing.T) {
 }
 
 // One unknown key on each kind of list item, and a second item beside it with none.
-const futureLists = `filterSets:
+const futureLists = `routers: [{uid: r1, address: 127.0.0.1:8910}]
+filterSets:
   - {name: A, sode: true, ext: true, futureF: 1}
   - {name: B, sode: true, ext: true}
 presets:
   - name: P
     futureP: 1
     items:
-      - {src: 1, dsts: [2], futureI: 1}
+      - {src: {router: r1, n: 1}, dsts: [{router: r1, n: 2}], futureI: 1}
   - name: Q
     items:
-      - {src: 3, dsts: [4]}
+      - {src: {router: r1, n: 3}, dsts: [{router: r1, n: 4}]}
 guestRights:
   futureG: 1
 apiClients:
@@ -93,10 +94,10 @@ users:
         - name: P
           futureP: 1
           items:
-            - {src: 1, dsts: [2], futureI: 1}
+            - {src: {router: r1, n: 1}, dsts: [{router: r1, n: 2}], futureI: 1}
         - name: Q
           items:
-            - {src: 3, dsts: [4]}
+            - {src: {router: r1, n: 3}, dsts: [{router: r1, n: 4}]}
   - name: b
 `
 
@@ -124,11 +125,10 @@ func browserFilterSets() []config.FilterSet {
 }
 
 func browserPresets() []config.Preset {
-	off := false
 	planted := map[string]any{"browserKey": 1}
 	return []config.Preset{
-		{Name: "Q", Items: []config.PresetItem{{Src: 3, Dsts: []int{4, 5}, Extra: planted}}},
-		{Name: "P", Pinned: &off, Items: []config.PresetItem{{Src: 1, Dsts: []int{2}}}, Extra: planted},
+		{Name: "Q", Items: []config.PresetItem{withItemExtra(presetItem(3, nil, 4, 5), planted)}},
+		{Name: "P", Items: []config.PresetItem{presetItem(1, nil, 2)}, Extra: planted},
 	}
 }
 
@@ -142,24 +142,20 @@ func TestWholeListSavesKeepUnknownKeys(t *testing.T) {
 		},
 		"profile lists": func(t *testing.T, a *App) error {
 			ana := watched(t, a, "10.0.0.1", "1234")
-			_, err := a.ProfileSave(ana, profileReq{Name: "Ana", FilterSets: browserFilterSets(), Presets: browserPresets(),
-				PinOrder: []string{"user:q", "user:p"}})
+			_, err := a.ProfileSave(ana, profileReq{Name: "Ana", FilterSets: browserFilterSets(), Presets: browserPresets()})
 			return err
 		},
 		"users editor": func(t *testing.T, a *App) error {
 			planted := map[string]any{"browserKey": 1}
-			src := []int{1, 2}
+			src := *nums(1, 2)
 			rights := config.Rights{Sources: &src, Extra: planted}
-			clients := []config.APIClient{
-				{Name: "other", Scopes: []string{"names", "tally"}, Extra: planted},
-				{Name: "CAM", Scopes: []string{"names"}, Rights: rights},
-			}
-			req := usersReq{
-				Users:       []userEdit{{Name: "Bo"}, {Name: "Ana", Rights: &rights}},
-				APIClients:  &clients,
-				GuestRights: &rights,
-			}
-			return a.SaveUsers(adminClient(t, a), req)
+			mustSave(t, a, adminClient(t, a), map[string]any{
+				ukey(a, "Ana", "rights"): rights,
+				"client/other/scopes":    []string{"names", "tally"},
+				"client/cam/rights":      rights,
+				"guestRights":            rights,
+			})
+			return nil
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -1,6 +1,6 @@
-// A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
-
-import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, linked, srcItem, dstItem, labelNode, tallyText, LINK_DOWN } from './core.js';
+import { protectedText } from './protectrules.js';
+import { protectSummary, sendProtect, holdsAt, holdBadge } from './protects.js';
 import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
@@ -9,7 +9,11 @@ import { failureGroups } from './history.js';
 import { resolvePreset } from './presetstore.js';
 import { showResult, setResult } from './banner.js';
 import { writeJSON, writeStr } from './store.js';
+import { onMyRights } from './editorrights.js';
+import { nextAfter } from './boxlist.js';
+import { strong, destPart, takeQuestion, planItemHead } from './confirmtext.js';
 export { showResult, resultNode } from './banner.js';
+export { nameStem } from './boxlist.js';
 
 let takeSeq = 0;
 const takes = new Map();
@@ -60,6 +64,21 @@ const againItem = (e) =>
     e.ok ? null : e,
   );
 
+// The Grid popup's staged routes (routesOf, gridpanelstage.js) as one take: one item for each destination, one group
+// for each source on it. Route ends are router numbers. A route with box set is the patch boxes' route (One Take,
+// gridpopup.js). Then the plan is mixed and each group says if it is staged, so the Confirm keeps the two apart.
+export function gridPlan(routes, warnings) {
+  const mixed = routes.some((r) => r.box);
+  const by = new Map();
+  for (const r of routes) {
+    if (!by.has(r.dst)) by.set(r.dst, []);
+    const g = { src: srcItem(r.src), levels: r.levels };
+    by.get(r.dst).push(mixed ? { ...g, staged: !r.box } : g);
+  }
+  const plan = { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(dstItem(dst), groups)) };
+  return mixed ? { ...plan, mixed } : plan;
+}
+
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
   items: dsts.map((dst) => routeItem(dst, [{ src, levels }])),
@@ -71,23 +90,25 @@ export const boxPatch = (src, dsts, lvl) => (src && dsts.length ? { src, dsts, l
 // What the router does not have is left out and listed in warnings. Validated at save
 // (presetProblem), not here.
 export function presetPlan(preset, defaults) {
+  // The shown names keep a gone number's old name, so the server's Broken mark decides.
+  const marked = (kind, n) => (preset.broken || []).some((m) => m?.kind === kind && m?.ref?.n === n);
   const r = resolvePreset(
     preset,
     {
-      src: (n) => S.srcBy.has(n),
-      dst: (n) => S.dstBy.has(n),
+      src: (n) => S.srcBy.has(n) && !marked('source', n),
+      dst: (n) => S.dstBy.has(n) && !marked('destination', n),
       level: (u) => S.levelBy.has(u),
     },
     defaults,
   );
-  const warnings = r.missing.map(
-    (m) =>
-      (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) +
-      ' on the router now',
-  );
+  // The Broken banner (brokenbanner.js) names a marked part.
+  const warnings = r.missing
+    .filter((m) => !marked(m.kind, m.n))
+    .map((m) => `${m.kind === 'level' ? `Level ${m.n}` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()}`}: not on the router`);
   return {
     verb: 'preset',
     preset: preset.name,
+    presetId: preset.id,
     title: `Preset: ${preset.name}`,
     warnings,
     items: r.routes.map((t) =>
@@ -108,6 +129,7 @@ function withFollows(plan, follows) {
 }
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
+// A take's plans; a Protect row's Undo is its own (protects.js PROTECT_ENTRY, PROTECT_GROUP).
 export const groupUndoPlan = (f) =>
   withFollows(
     { verb: 'undo', items: f.entries.map(undoItem) },
@@ -122,7 +144,6 @@ export function againPlan(row) {
   const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
   return use.some((e) => e.undo) ? { ...plan, ofUndo: true } : plan;
 }
-export const rowUndoPlan = (row) => (row.f ? groupUndoPlan(row.f) : undoPlan(row.e));
 
 // The one table of verb wording. busy: banner while it sends; resets: whether a send clears the
 // patch boxes (only a new patch does).
@@ -132,10 +153,14 @@ export const VERBS = {
   retry: { word: 'retry', ask: 'retry the take of', busy: 'Retrying…', resets: false },
   redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
   preset: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
+  // The Grid popup's staged routes (gridpopup.js). They are not the patch boxes, so a send leaves the boxes alone.
+  grid: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
+  // A Protect is no take: protects.js sends it (plan.protect).
+  protect: { word: 'protect', ask: 'protect', busy: 'Protecting…', resets: false },
+  unprotect: { word: 'free protect', ask: 'free the Protect on', busy: 'Freeing…', resets: false },
 };
 export const planVerb = (plan) => VERBS[plan.verb].word;
-export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
-// ---- results
+export const planEmpty = (plan) => !plan.protect && !plan.items.some((i) => i.groups.length);
 
 function routeText(t, already = []) {
   return (
@@ -197,7 +222,7 @@ export function failureBanner(t, hist = S.hist) {
   if (!open.length) {
     const n = t.items.length;
     const title = `${what} resolved: ${n === 1 ? 'the take' : `all ${n} takes`} confirmed`;
-    return { kind: 'ok', title, key: title, text: 'The router confirmed after all, or a retry went through.' };
+    return { kind: 'ok', title, key: title, text: 'Late Result, or a retry went through.' };
   }
   const lines = new Map();
   for (const it of open) {
@@ -232,11 +257,12 @@ export function planBlocked(plan) {
   if (!linked()) {
     return { block: { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' }, prot };
   }
+  if (plan.protect) return { block: null, prot };
   const outside = planOutside(S.myRights, plan, off(), levelLabel);
-  if (outside) return { block: { kind: 'error', title: 'Outside your rights', text: outside }, prot };
+  if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   for (const i of live) {
-    const p = protectedOn(
+    const p = holdsAt(
       i.dst.n,
       i.groups.flatMap((g) => g.levels),
     );
@@ -251,7 +277,7 @@ export function planBlocked(plan) {
       block: {
         kind: 'error',
         title: 'Destination protected',
-        text: `${i.dst.label} is protected on levels ${levelText(p.levels)} by device ${p.devices.join(', ')}.`,
+        text: `${i.dst.label}: ${protectedText(p)}.`,
       },
       prot,
     };
@@ -263,47 +289,27 @@ export function planBlocked(plan) {
 }
 
 function planQuestion(plan) {
-  const strong = (t) => el('strong', null, t);
-  const n = plan.items.length;
-  const to = n === 1 ? ['Destination ', strong(labelNode(plan.items[0].dst))] : [strong(`${n} destinations`)];
+  const to = destPart(plan.items.map((i) => i.dst));
   const uniq = (its) => [...new Map(its.map((it) => [it.n, it])).values()];
   if (plan.at) {
-    return el(
-      'div',
-      null,
-      'Are you sure you want to go back to ',
-      strong(labelNode(srcItem(plan.at.src, plan.at.srcName))),
-      ' on ',
-      ...to,
-      `, as at ${fmtClock(plan.at.time)}?`,
-    );
+    return el('div', null, 'Go back to ', strong(labelNode(srcItem(plan.at.src, plan.at.srcName))), ' on ', ...to, `, as at ${fmtClock(plan.at.time)}?`);
   }
-  const stack = n === 1 && plan.items[0].undo?.chain;
+  const stack = plan.items.length === 1 && plan.items[0].undo?.chain;
   if (stack) {
-    return el('div', null, `Are you sure you want to undo ${stack.length} changes on `, ...to, `, back to before ${fmtClock(stack[stack.length - 1].time)}?`);
+    return el('div', null, `Undo ${stack.length} changes on `, ...to, `, back to before ${fmtClock(stack[stack.length - 1].time)}?`);
   }
   if (plan.verb === 'undo') {
     const srcs = uniq(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName)));
-    return el(
-      'div',
-      null,
-      'Are you sure you want to undo the take of ',
-      srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`,
-      ' to ',
-      ...to,
-      '?',
-    );
+    return el('div', null, 'Undo the take of ', srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`, ' to ', ...to, '?');
   }
   const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
-  const what = VERBS[plan.verb].ask;
-  return el(
-    'div',
-    null,
-    `Are you sure you want to ${what} `,
-    ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]),
-    ' to ',
-    ...to,
-    '?',
+  // A mixed plan names the destinations in the order mixedParts shows them: the boxes' destinations first.
+  const boxed = (i) => i.groups.some((g) => !g.staged);
+  const order = plan.mixed ? [...plan.items.filter(boxed), ...plan.items.filter((i) => !boxed(i))] : plan.items;
+  return takeQuestion(
+    VERBS[plan.verb].ask,
+    srcs,
+    order.map((i) => i.dst),
   );
 }
 
@@ -338,15 +344,8 @@ function itemSummary(item, boxed, prot, since) {
     ...(since ? changedSince(item) : []).map((r) =>
       el('div', 'sode__route', levelBar(r.levels), el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`),
     ),
-    alreadyThere(item)
-      ? el(
-          'div',
-          'sode__route',
-          el('span', 'pb-badge pb-badge--info', 'Already there'),
-          'the destination already has this source on every level; this changes nothing.',
-        )
-      : null,
-    prot ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(prot.devices)), 'will be refused') : null,
+    alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there')) : null,
+    prot ? el('div', 'sode__route', levelBar(prot.levels), ...prot.holds.map(holdBadge), 'will be refused') : null,
     item.untouched?.length
       ? el(
           'div',
@@ -366,6 +365,7 @@ function itemSummary(item, boxed, prot, since) {
 }
 
 export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
+  if (plan.protect) return protectSummary(plan);
   // Restore goes back past newer changes on purpose; other undos warn.
   const since = plan.verb === 'undo' && !plan.at;
   const head = [
@@ -378,21 +378,42 @@ export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) 
         )
       : null,
   ];
+  if (plan.mixed) return [...head, planQuestion(plan), ...mixedParts(plan, prot)].filter(Boolean);
   if (plan.items.length === 1)
     return [...head, planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
   return [
     ...head,
     planQuestion(plan),
-    ...plan.items.map((i, n) =>
-      el(
-        'section',
-        'sode__plan-item',
-        el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
-        ...itemSummary(i, true, prot.get(i), since),
-      ),
-    ),
+    ...plan.items.map((i, n) => planItemBox(i, `${n + 1}/${plan.items.length}`, prot.get(i), since)),
     extraBox(plan, spaceHint),
   ].filter(Boolean);
+}
+
+function planItemBox(item, count, prot, since, badge = null) {
+  return el('section', 'sode__plan-item', planItemHead(count, item.dst, badge), ...itemSummary(item, true, prot, since));
+}
+
+// One Take with staged routes and the patch boxes' route (gridPlan, mixed). The boxes' route shows first, under its own
+// label. Then each staged route shows with a Staged badge. A destination in both shows in both parts, each with what it
+// replaces on its own levels. Its protected levels show once, in the first part.
+function mixedParts(plan, prot) {
+  const part = (staged) => plan.items.map((i) => ({ i, staged, groups: i.groups.filter((g) => !!g.staged === staged) })).filter((x) => x.groups.length);
+  const box = part(false);
+  const staged = part(true);
+  const total = box.length + staged.length;
+  const shown = new Set();
+  const itemBox = (x, n) => {
+    const p = shown.has(x.i) ? null : prot.get(x.i);
+    shown.add(x.i);
+    const badge = x.staged ? el('span', 'pb-badge sode__plan-staged', 'Staged') : null;
+    return planItemBox({ ...x.i, groups: x.groups }, `${n + 1}/${total}`, p, false, badge);
+  };
+  return [
+    box.length ? el('div', 'sode__label', 'Patch boxes') : null,
+    ...box.map((x, n) => itemBox(x, n)),
+    staged.length ? el('div', 'sode__label', staged.flatMap((x) => x.groups).length === 1 ? 'Staged route' : 'Staged routes') : null,
+    ...staged.map((x, n) => itemBox(x, box.length + n)),
+  ];
 }
 
 function extraBox(plan, spaceHint) {
@@ -413,7 +434,7 @@ function extraBox(plan, spaceHint) {
     el(
       'span',
       'pb-check__label',
-      `Also undo ${n} external follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
+      `Also undo ${n} External follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
     ),
   );
 }
@@ -436,8 +457,10 @@ const validLast = (t) =>
   !!t && isPair(t.src) && Array.isArray(t.dsts) && t.dsts.length > 0 && t.dsts.every(isPair) && Array.isArray(t.levels) && t.levels.every(isNum);
 
 // A redo counts when all its routes share one source and one set of levels; Retry, Preset and
-// undo never set Last. Null means leave Last as it is.
+// undo never set Last. Null means leave Last as it is. lastOf is the patch inside a larger take that
+// sets Last (the Grid popup's One Take, gridpopup.js).
 export function lastFromPlan(p) {
+  if (p.lastOf) return lastFromPlan(p.lastOf);
   if ((p.verb !== 'patch' && p.verb !== 'redo') || p.ofUndo) return null;
   const gs = p.items.flatMap((i) => i.groups.map((g) => ({ dst: i.dst, g })));
   if (!gs.length) return null;
@@ -495,31 +518,16 @@ export function resetNext() {
   run = { src: null, dsts: null };
 }
 
-// ("Cam 3" → "Cam", "Prmpt A" → "Prmpt", "Mon 2 B" → "Mon"): trailing digits and single letters
-// set apart by a space.
-export function nameStem(name) {
-  let s = name.trim();
-  for (let prev = ''; s !== prev; ) {
-    prev = s;
-    s = s.replace(/\s+[A-Za-z]$/, '').replace(/[\s\d]+$/, '');
-  }
-  return s;
+// The name search nextAfter (boxlist.js) uses for the Next match behavior setting: null for Next number. The Next chip
+// and the next add both take it, so they use the one setting.
+export function nextFind(items) {
+  return pref('nextMode') === 'fuzzy' ? (q) => search(items, q, items.length) : null;
 }
 
-// number + 1, or with nextMode fuzzy the next router-order match on the name's text. Falls back
-// to the number when the name is only a counter or no higher match is left.
+// The next number, or with Next match of the name the next router-order match on the name's text.
 function nextOf(it, by) {
-  if (pref('nextMode') === 'fuzzy') {
-    const q = nameStem(it.name || '');
-    if (q) {
-      const all = [...by.values()];
-      const hit = search(all, q, all.length)
-        .filter((x) => x.n > it.n)
-        .sort((a, b) => a.n - b.n)[0];
-      if (hit) return hit;
-    }
-  }
-  return by.get(it.n + 1) || null;
+  const all = [...by.values()];
+  return nextAfter(it, all, { find: nextFind(all) });
 }
 
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -535,6 +543,7 @@ export function lastChip(t, state) {
 }
 
 export function sendTakes(p) {
+  if (p.protect) return sendProtect(p);
   const take = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
   for (const it of [...p.items, ...(p.extra?.on ? p.extra.items : [])]) {
@@ -547,17 +556,15 @@ export function sendTakes(p) {
       take.byId.set(id, { dst: it.dst, g });
     }
   }
-  const out = { t: 'batch', items };
-  if (p.verb === 'preset' && p.preset) out.preset = p.preset;
+  const out = { t: 'take', items };
+  if (p.verb === 'preset' && p.preset) Object.assign(out, { preset: p.preset, presetId: p.presetId });
   if (!wsSend(out)) {
-    showResult(
-      'error',
-      'Not sent',
-      'The patch was NOT sent: the connection to the Sode server was lost. The page reconnects by itself; try again in a moment.',
-    );
+    showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
     return false;
   }
   for (const id of take.byId.keys()) takes.set(id, take);
+  // The Grid popup drops its staged routes only once they went out.
+  p.onSent?.();
   const last = lastFromPlan(p);
   if (last) {
     lastPatch = last;
@@ -582,12 +589,12 @@ export const applyMyRights = (r) => {
   emit('myRights');
 };
 export const rightsOff = (kind, n) => !allowed(S.myRights, kind, n);
-onMsg('myRights', (m) => applyMyRights(m.rights));
-on('wsclose', () => applyMyRights(null));
+// editorrights.js owns the message on every page, so the Palette reads the same Rights.
+onMyRights(applyMyRights);
 
 onMsg('takeResult', takeResult);
 on('wsclose', () => {
   if (!takes.size) return;
   takes.clear();
-  showResult('warn', 'Connection lost', 'The take was sent but its result is unknown. Check History after the page reconnects.');
+  showResult('warn', 'Connection lost', 'Take sent, Result unknown. Check History.');
 });

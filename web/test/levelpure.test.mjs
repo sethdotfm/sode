@@ -1,4 +1,4 @@
-// Level display and parsing as pure functions: levels and numbering come in as arguments (a panel page has no socket).
+// Levels and numbering come in as arguments: a panel page has no socket.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { levelLabelOf, levelStyle, parseLevelsIn, levelInputOf, levelTextOf, relabelLevelsFor } from '../levels.js';
@@ -18,7 +18,7 @@ test('levelLabelOf: the level own label, a mode preview, or the numbering', () =
   assert.equal(levelLabelOf([], '0', 5), '4');
 });
 
-test('levelStyle: a hex colour gets black or white ink, a swatch gets a token', () => {
+test('levelStyle: a hex color gets black or white ink, a swatch gets a token', () => {
   assert.deepEqual(levelStyle({ color: '#ffffff', swatch: '01' }), { color: '#ffffff', ink: '#000' });
   assert.deepEqual(levelStyle({ color: '#000000', swatch: '01' }), { color: '#000000', ink: '#fff' });
   assert.deepEqual(levelStyle({ swatch: '03' }), { color: 'var(--pb-signal-03)', ink: null });

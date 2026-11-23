@@ -1,33 +1,137 @@
-/* Sode page layout. Tokens only; components come from patchbay. */
-
-/* Whole-UI scale: sizes are rem, so the root font size scales everything (never zoom); the phone layout stays at 100%.
-   A Grid panel's page and its Live Editor preview are 112.5%: the owner asked for the size of 125% at 90% zoom. The
-   :not() keeps this rule from winning over the phone's 100%. */
+/* The root font size scales the whole UI (AGENTS.md, Frontend): 100%, and 90% on a Grid panel's page and its Live
+   Editor so more of the grid shows. The phone stays at 100% on every page. Only a grid in a panel page's main counts:
+   the Grid popup's grid on the main page must not resize the page behind it. */
 html {
-  font-size: 125%;
-}
-[data-layout="phone"] {
   font-size: 100%;
 }
-:root:not([data-layout="phone"]):has(.sode-gridpanel) {
-  font-size: 112.5%;
+:root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) {
+  font-size: 90%;
+}
+/* A desktop window wider than 2400 px is a big screen with no OS scale, so the root grows by 1px for each 360 px over
+   2400, to 125% at 3840 px. The Grid panel page grows the same way from its 90%, to 112.5%. At 2400 px both stay as
+   above, so the size has no step. Most 4K screens have an OS scale and are not this wide. */
+@media (min-width: 2400px) {
+  html:not([data-layout="phone"]) {
+    font-size: min(125%, 100% + (100vw - 2400px) / 360);
+  }
+  :root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel) {
+    font-size: min(112.5%, 90% + (100vw - 2400px) / 400);
+  }
 }
 :root {
+  /* The three control heights. field: the big patch boxes. action: anything used live (patching, panels, Take, chips,
+     list rows that take a press); nothing used live is lower. compact: toolbars and forms away from the patch flow.
+     confirm: the churning-letter Confirm button, between action and field. */
+  --sode-h-field: 4rem;
+  --sode-h-confirm: 3rem;
+  --sode-h-action: 2.5rem;
+  --sode-h-compact: 2rem;
   --sode-side-w: 0.3125rem;
   --sode-bigscroll-w: 1.4rem;
   --sode-littlescroll-w: 0.7rem;
   /* The page's big scroll bar width while it shows, so fixed items at the right edge keep clear of it. */
   --sode-page-bar: 0rem;
+  /* The main page's width. Up to a 1920 px window it is 75rem, as before. On a wider window it grows with the window and
+     keeps 69rem of side space, so a 3840 px window uses about 64% of its width. */
+  --sode-main-w: max(75rem, 100vw - var(--sode-page-bar) - 69rem);
   --sode-motion-enter: 400ms;
   --sode-motion-found: 600ms;
   --sode-motion-reveal: 250ms;
+  /* A popup that closes goes out over out (the Palette). */
+  --sode-motion-out: 100ms;
   --pb-font-num: var(--pb-font);
+  /* Edges are twice patchbay's, so a field, a button and a box show at a glance in both themes. The grid canvas keeps
+     patchbay's thin lines (gridpanel.css). */
+  --pb-border-w: 2px;
+  --pb-accent-bar-w: 4px;
+}
+/* Patchbay's switch knob offset suits a 1px edge, so the knob sits off centre on Sode's wider edge. These numbers keep
+   in step with patchbay's track (1.125rem high) and knob (0.75rem). A wider track sets only --sode-switch-w. */
+.pb-switch__input {
+  --sode-knob-gap: calc((1.125rem - 2 * var(--pb-border-w) - 0.75rem) / 2);
+  width: var(--sode-switch-w, 2rem);
+}
+.pb-switch__input::after {
+  left: var(--sode-knob-gap);
+  top: var(--sode-knob-gap);
+}
+.pb-switch__input:checked::after {
+  transform: translateX(calc(var(--sode-switch-w, 2rem) - 2 * var(--pb-border-w) - 0.75rem - 2 * var(--sode-knob-gap)));
+}
+/* A field is a sunken well with a bright edge. A button is a filled control (an outline button too) whose edge shows
+   on hover. Text has no edge and no fill. Only the resting edge changes: focus, invalid and disabled keep patchbay's. */
+:is(.pb-input, .pb-select, .pb-textarea, .pb-chip-input) {
+  --pb-edge: var(--pb-text-muted);
+}
+.pb-btn--outline {
+  background-color: var(--pb-surface-hover);
+  border-color: transparent;
+}
+.pb-btn--outline:hover {
+  background-color: var(--pb-surface-hover);
+  border-color: var(--pb-text-muted);
+}
+/* Patchbay's chip edge is a dark overlay, which shows nothing on a dark page: a chip gets the full edge of a field. */
+.pb-chip:not(.pb-chip--selected, [aria-pressed="true"]) {
+  border: var(--pb-border-w) solid var(--pb-edge);
+}
+/* The owner wants no colored square in a badge or a status. The word gives the status, with a badge's text, edge and
+   fill color. The Server and Router status shows a state glyph (.sode__state, bar.css). */
+.pb-badge::before {
+  content: none;
+}
+/* Pull to load (widgets.js pullToLoad): the Load more button fills as the pull goes on. A tint of the accent, since
+   Sode's outline button fill is the hover grey. Registered so the fill eases between wheel steps; one tile from the
+   border edge, or a repeat shows as a line at the right. */
+@property --sode-pull {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+:is(.sode__hist-more, .sode-m__recent-more, .sode-log__more) > .pb-btn {
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--pb-accent) 35%, transparent) calc(var(--sode-pull) * 100%),
+    transparent calc(var(--sode-pull) * 100%)
+  );
+  background-origin: border-box;
+  background-repeat: no-repeat;
+  transition:
+    --sode-pull var(--pb-motion-normal) var(--pb-ease),
+    background-color var(--pb-motion-fast) var(--pb-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.sode__hist-more, .sode-m__recent-more, .sode-log__more) > .pb-btn {
+    transition: none;
+  }
+}
+/* Patchbay's control sizes on the desktop layout: plain and small controls are compact, large ones are actions, and an
+   icon button is square. A page part used live lifts its controls to the action height (below). The phone keeps
+   patchbay's own sizes (mobile.css sets its touch sizes). */
+:root:not([data-layout="phone"]) {
+  --pb-control-h: var(--sode-h-compact);
+  --pb-control-h-sm: var(--sode-h-compact);
+  --pb-control-h-lg: var(--sode-h-action);
+  --pb-icon-btn-w: var(--sode-h-compact);
+}
+/* The patch page is used live, so its buttons (Edit, Filters, Clear, Select None and the others) are actions. :where()
+   keeps these at patchbay's weight, so a button with its own size (Take, the field-high + and arrow) keeps it. A
+   History row is the press target and is an action high with compact buttons in it, so they stay compact. */
+:where(:root:not([data-layout="phone"]) #patch-view) .pb-btn:where(:not(#history *)) {
+  height: var(--sode-h-action);
+}
+:where(:root:not([data-layout="phone"]) #patch-view) .pb-btn--icon:where(:not(#history *)) {
+  width: var(--sode-h-action);
+}
+:where(:root:not([data-layout="phone"]) #patch-view) .sode__search-box {
+  --sode-search-h: var(--sode-h-action);
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
     --sode-motion-enter: 0ms;
     --sode-motion-found: 0ms;
     --sode-motion-reveal: 0ms;
+    --sode-motion-out: 0ms;
   }
 }
 
@@ -40,6 +144,16 @@ html {
 .sode--enter {
   animation: sode-enter var(--sode-motion-enter) var(--pb-ease);
 }
+/* A popup's close (palette.css; fadeOut in modal.js hides the node when the fade ends). */
+@keyframes sode-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+.sode-fade-out {
+  animation: sode-fade-out var(--sode-motion-out) var(--pb-ease) forwards;
+  pointer-events: none;
+}
 
 .sode {
   align-items: center;
@@ -47,7 +161,7 @@ html {
   flex-direction: column;
   gap: var(--pb-space-8);
   margin: 0 auto;
-  max-width: 75rem;
+  max-width: var(--sode-main-w);
   padding: calc(10vh + var(--sode-down-h, 0px)) var(--pb-space-8) var(--sode-pad-bottom);
   --sode-pad-bottom: var(--pb-space-8);
 }
@@ -55,9 +169,10 @@ html {
 .sode__conn {
   align-items: center;
   background: var(--pb-surface-base);
-  color: var(--pb-text-muted);
+  color: var(--pb-text);
   display: flex;
-  font-size: var(--pb-text-xs);
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-medium);
   gap: var(--pb-space-4);
   padding: var(--pb-space-2) var(--pb-space-3);
   position: absolute;
@@ -79,59 +194,151 @@ html {
   display: flex;
   flex-direction: column;
   font-size: var(--pb-text-md);
-  gap: var(--pb-space-4);
-  padding: var(--pb-space-7) var(--pb-space-8);
+  gap: var(--pb-space-5);
+  padding: var(--pb-space-5) var(--pb-space-8);
   position: fixed;
   top: 0;
   width: 100%;
   z-index: calc(var(--pb-z-toast) + 2); /* over the Lock (toast) and its chip (toast + 1), menus and dialogs */
 }
 .sode__down-title {
-  font-size: var(--pb-text-xl);
+  align-items: center;
+  display: flex;
+  font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
+  gap: var(--pb-space-3);
+  line-height: 1.2;
 }
+.sode__down-title > .pb-icon {
+  height: 1.25em;
+  width: 1.25em;
+}
+/* Addresses and errors are plain mono text: a box would read as a field. */
 .sode__down code {
   background: transparent;
-  border-color: currentColor;
+  border: 0;
   color: inherit;
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+  padding: 0;
 }
+/* The wires grow, so the three nodes span the banner. */
 .sode__down-map {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   font-weight: var(--pb-weight-medium);
-  gap: var(--pb-space-3);
+  gap: var(--pb-space-4) 0;
 }
+.sode__down-hop {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* One shape for every node; only color tells them apart. Wraps inside itself for a long router name or address. */
 .sode__down-node {
   align-items: center;
-  display: inline-flex;
-  gap: var(--pb-space-3);
   border: var(--pb-border-w) solid currentColor;
-  padding: var(--pb-space-1) var(--pb-space-4);
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  line-height: 1.5;
+  min-width: 0;
+  padding: var(--pb-space-2) var(--pb-space-4);
 }
+/* The node past the break: the banner's colors swap, so it reads first. */
+.sode__down-node--down {
+  background: var(--pb-text-on-accent);
+  border-color: var(--pb-text-on-accent);
+  color: var(--pb-status-error);
+}
+.sode__down-node--unknown {
+  opacity: 0.7;
+}
+/* A wire: line, status (glyph and word, as the top bar's status), line. The status sits on the wire. */
 .sode__down-link {
   align-items: center;
   display: flex;
-  font-size: var(--pb-text-sm);
+  flex: 1 1 8rem;
   gap: var(--pb-space-3);
+  min-width: 0;
+  padding-inline: var(--pb-space-3);
 }
 .sode__down-link::before,
 .sode__down-link::after {
-  border-top: var(--pb-border-w) solid currentColor;
   content: "";
-  width: var(--pb-space-8);
+  flex: 1 1 0;
+  height: calc(var(--pb-border-w) * 2);
+  min-width: var(--pb-space-5);
 }
-.sode__down-link--lost {
+.sode__down-word {
+  align-items: center;
+  display: inline-flex;
+  flex: none;
+  font-size: var(--pb-text-xs);
   font-weight: var(--pb-weight-bold);
+  gap: var(--pb-space-2);
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
 }
-.sode__down-link--lost::before,
-.sode__down-link--lost::after {
-  border-top: calc(var(--pb-border-w) * 2) dashed currentColor;
+.sode__down-word > .pb-icon {
+  height: 1.5em;
+  width: 1.5em;
+}
+/* Signal still moves along a good wire, toward the router. */
+.sode__down-link--ok::before,
+.sode__down-link--ok::after {
+  animation: sode-down-flow 0.9s linear infinite;
+  background: repeating-linear-gradient(90deg, currentColor 0 0.625rem, transparent 0.625rem 1rem);
+  background-size: 1rem 100%;
+}
+@keyframes sode-down-flow {
+  to {
+    background-position: 1rem 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sode__down-link--ok::before,
+  .sode__down-link--ok::after {
+    animation: none;
+  }
+}
+.sode__down-link--idle::before,
+.sode__down-link--idle::after {
+  background: repeating-linear-gradient(90deg, currentColor 0 0.125rem, transparent 0.125rem 0.375rem);
+  opacity: 0.6;
+}
+/* The lost wire: still, and broken; its status sits in a wider gap. */
+.sode__down-link--error {
+  gap: var(--pb-space-5);
+}
+.sode__down-link--error::before,
+.sode__down-link--error::after {
+  background: currentColor;
+}
+.sode__down-link--error .sode__down-word {
+  font-size: var(--pb-text-sm);
+}
+.sode__down-why {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-4);
+}
+.sode__down-why > span {
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 [data-conn="down"] .sode__conn {
   display: none;
 }
-/* Its own element so it can pulse with .pb-dot--pulse (which stops under reduced motion). */
+/* Still, like the lost wire: the banner names the break, so the outline needs no motion to draw the eye. */
 .sode__frame {
   border: var(--pb-space-3) solid var(--pb-status-error);
   display: none;
@@ -146,12 +353,48 @@ html {
 /* Separate and lower than the red lost-link outline, so that always shows over it. */
 .sode__brandframe {
   border: var(--pb-space-2) solid var(--brand-color, transparent);
+  transition: border-color var(--pb-motion-drawer) var(--pb-ease); /* the motion tokens go to 0 under reduced motion */
   inset: 0;
   pointer-events: none;
   position: fixed;
   z-index: var(--pb-z-sticky);
 }
 .sode__brandframe[hidden] {
+  display: none;
+}
+/* Step in: one fixed color that no Branding color uses. Outside every Compact view fade rule in desktop.css. */
+.sode__stepframe {
+  border: var(--pb-space-3) solid var(--pb-signal-10);
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+[data-conn="down"] .sode__stepframe {
+  inset: var(--pb-space-3);
+}
+.sode__stepbar {
+  align-items: center;
+  background: var(--pb-signal-10);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-bold);
+  gap: var(--pb-space-4);
+  left: 50%;
+  padding: var(--pb-space-2) var(--pb-space-5);
+  position: fixed;
+  top: var(--sode-down-h, 0px);
+  transform: translateX(-50%);
+  z-index: var(--pb-z-tooltip);
+}
+.sode__stepbar .pb-btn {
+  background: var(--pb-surface-base);
+}
+[data-layout="phone"] .sode__stepbar {
+  top: calc(var(--sode-head-h, 3rem) + var(--sode-down-h, 0px));
+}
+:is(.sode__stepframe, .sode__stepbar)[hidden] {
   display: none;
 }
 [data-brand="blue"] {
@@ -187,6 +430,39 @@ html {
   height: 3rem;
   width: 3rem;
 }
+/* tooltip.js moves a tip that would be cut off by the window or a box that clips: sideways by --sode-tip-x, and to the
+   other side with data-sode-tip-flip. It measures the tip's text in .sode__tip-measure, so that copy has the tip's font
+   and padding. */
+[data-pb-tip]::after {
+  translate: var(--sode-tip-x, 0px) 0;
+}
+[data-pb-tip][data-sode-tip-flip]:not(.pb-tip--top)::after {
+  bottom: calc(100% + var(--pb-space-2));
+  top: auto;
+}
+.pb-tip--top[data-pb-tip][data-sode-tip-flip]::after {
+  bottom: auto;
+  top: calc(100% + var(--pb-space-2));
+}
+/* No room on either side: the floating tip shows it. */
+[data-pb-tip][data-sode-tip-float]::after {
+  display: none;
+}
+.pb-tip.sode__tip-measure {
+  font-family: var(--pb-font);
+  font-weight: var(--pb-weight-normal);
+  left: 0;
+  letter-spacing: normal;
+  max-width: none;
+  text-transform: none;
+  top: 0;
+  visibility: hidden;
+  white-space: nowrap;
+}
+/* A tip set from a value that came out blank draws no empty bubble (web/test/tips.test.mjs keeps blank literals out). */
+[data-pb-tip=""]::after {
+  display: none;
+}
 .sode__label {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
@@ -220,7 +496,7 @@ html {
 /* The main page's Source, Destination and Levels boxes; a Grid panel's Levels box is the same box (gridpanel.css). */
 .pb-input.sode__input {
   font-size: var(--pb-text-xl);
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
 }
 /* The level picker: the main page and the panel editor use it. */
 .sode__levels {
@@ -270,12 +546,13 @@ html {
   font-size: var(--pb-text-md);
   gap: var(--pb-space-4);
 }
-/* Every text box with a role colour edge: the main page's Source and Destination boxes, the phone's one box and a
+/* Every text box with a role color edge: the main page's Source, Destination and Levels boxes, the phone's one box and a
    Grid panel's search boxes. The edge is a background strip inside the border, so the border and the focus ring run
    all the way round. Not patchbay's pb-rolebar, whose edge replaces the left border. */
 .sode__box--src .sode__input,
 .sode__box--dst .sode__input,
-.sode-m__bar:is([data-step="src"], [data-step="dst"]) .sode-m__input,
+.sode__box--levels .sode__input,
+.sode-m__bar:is([data-step="src"], [data-step="dst"], [data-step="lvl"]) .sode-m__input,
 .sode-gridpanel__find-input {
   background-repeat: no-repeat;
   background-size: var(--sode-side-w) 100%;
@@ -291,20 +568,35 @@ html {
 .sode-gridpanel__find[data-kind="dsts"] .sode-gridpanel__find-input {
   background-image: linear-gradient(var(--pb-dest), var(--pb-dest));
 }
+.sode__box--levels .sode__input,
+.sode-m__bar[data-step="lvl"] .sode-m__input {
+  background-image: linear-gradient(var(--pb-level), var(--pb-level));
+}
 /* One size for every source and destination chip, buttons (sode__end--pick) included: the height of
-   patchbay's .pb-chip under the Destination box. Its edge is 2px, this one is 1px, so the padding takes the other px. */
+   patchbay's .pb-chip under the Destination box, whose edge is 2px as --pb-border-w is. The edge goes all the way round,
+   as a field's does, and the source or destination color is a bar inside it, as in the patch boxes. */
 .sode__end {
   border: var(--pb-border-w) solid var(--pb-edge);
   color: var(--pb-text-strong);
   font-size: var(--pb-text-sm);
   line-height: 0.875rem;
-  padding: calc(var(--pb-space-1) + var(--pb-border-w)) var(--pb-space-4);
+  padding: var(--pb-space-1) var(--pb-space-4) var(--pb-space-1) calc(var(--pb-space-4) + var(--sode-side-w));
 }
 .sode__end--src {
-  border-left: var(--sode-side-w) solid var(--pb-source);
+  box-shadow: inset var(--sode-side-w) 0 0 var(--pb-source);
 }
 .sode__end--dst {
-  border-left: var(--sode-side-w) solid var(--pb-dest);
+  box-shadow: inset var(--sode-side-w) 0 0 var(--pb-dest);
+}
+/* On the desktop every chip is a compact control (Home's History, staged list and Confirm). The phone keeps the
+   smaller chip. */
+/* Inline-block, not flex: a chip's text keeps its spaces and its ellipsis. */
+:root:not([data-layout="phone"]) .sode__end {
+  display: inline-block;
+  line-height: calc(var(--sode-h-compact) - 2 * var(--pb-border-w));
+  padding-bottom: 0;
+  padding-top: 0;
+  vertical-align: middle;
 }
 .sode__arrow {
   color: var(--pb-text-muted);
@@ -330,6 +622,30 @@ html {
   width: max-content;
 }
 
+/* The take Confirm (#confirm, the main page and a Grid panel page) has a fixed place and width: its top edge and sides
+   never move as the plan in it gets longer or shorter. A long plan scrolls in the body. */
+#confirm {
+  align-items: flex-start;
+  padding-top: calc(12vh + var(--sode-down-h, 0px));
+}
+#confirm > .pb-modal {
+  max-height: calc(100vh - 12vh - var(--sode-down-h, 0px) - var(--pb-space-8));
+  width: min(46rem, calc(100vw - var(--pb-space-8) * 2));
+}
+#confirm .pb-modal__footer {
+  align-items: center;
+}
+/* Every churning-letter Confirm button ("Take (X)", "Delete (X)", "Confirm (X)") has one size on every page, so the
+   letter reads the same everywhere. It is higher than an action button, so it stays the clear target, but lower than
+   the patch boxes, so a Confirm in Settings or a panel does not tower over its form. */
+.pb-btn.sode__confirm-ok {
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-lg);
+  height: var(--sode-h-confirm);
+  min-width: 8rem;
+  padding: 0 var(--pb-space-8);
+  white-space: nowrap;
+}
 .sode__confirm {
   display: flex;
   flex-direction: column;
@@ -372,6 +688,8 @@ html {
   flex-wrap: wrap;
   gap: var(--pb-space-3);
 }
+/* The churning confirm letter has one size and look everywhere: the Confirm, Grid panel pages, Settings, the panel
+   editor and the Lock. No page sets its own. */
 .sode__key {
   background: var(--pb-text-strong);
   border: var(--pb-border-w) solid var(--pb-text-strong);
@@ -388,7 +706,7 @@ html {
   color: var(--pb-text-disabled);
 }
 
-/* A thick outline reads as filled at this size, so every slot gets the thin one; a fixed width keeps two-digit slots from growing when filled. */
+/* A thick outline reads as filled at this size, so every slot gets the thin one. The fixed width stops two-digit slots growing. */
 /* The bar scrolls sideways past its container (scrollbar style in desktop.css). */
 .sode__bar {
   display: grid;
@@ -436,6 +754,10 @@ html {
 [data-layout="phone"] #patch-view,
 [data-layout="phone"] .sode__conn,
 [data-layout="phone"]:not([data-view="settings"]) #conn-down {
+  display: none;
+}
+/* The page's sticky copy would sit over the fixed phone view's header; the phone view draws its own under it. */
+[data-layout="phone"]:not([data-view="settings"]) body > .sode__notsaved {
   display: none;
 }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m {
@@ -496,14 +818,18 @@ html {
     outline-offset: var(--pb-space-3);
   }
 }
-.sode__settings > .sode__group {
+.sode__settings > :is(.sode__group, .sode__topic, .sode__router) {
   scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px));
 }
-@media (min-width: 68.75rem) {
+/* Media rems are 16px, not the 125% root. Below about 1380px the centered form leaves no room on its left, so it moves right of the sidebar. */
+@media (min-width: 73.75rem) {
+  .sode__settings {
+    margin-inline: max(var(--pb-space-4) + 12.5rem + var(--pb-space-8), calc((100% - 40rem) / 2)) auto;
+  }
   .sode__toc {
     border-bottom: 0;
     flex-direction: column;
-    left: calc(50% - var(--sode-page-bar) / 2 - 20rem - 12.5rem - var(--pb-space-8));
+    left: max(var(--pb-space-4), calc(50% - var(--sode-page-bar) / 2 - 20rem - 12.5rem - var(--pb-space-8)));
     overflow-x: hidden;
     position: fixed;
     top: calc(10vh + var(--sode-down-h, 0px));
@@ -522,7 +848,7 @@ html {
     flex-direction: column;
     overflow-x: hidden;
   }
-  .sode__settings > .sode__group {
+  .sode__settings > :is(.sode__group, .sode__topic, .sode__router) {
     scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px));
   }
 }
@@ -568,45 +894,169 @@ html {
   padding: var(--pb-space-5) 0 0;
   width: 100%;
 }
-.sode__lock {
-  display: none;
-}
-.sode__settings[data-locked] > .sode__lock {
-  display: flex;
-}
-.sode__lock-exit {
-  display: none;
-}
-.sode__settings[data-locked] > .sode__lock-exit {
+/* Heading and one button on a single row. A floated legend is an ordinary grid item, not the fieldset's rendered legend. */
+.sode__group--row {
   align-items: center;
+  border-top: var(--pb-border-w) solid var(--pb-edge);
   display: grid;
-  gap: var(--pb-space-5);
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
+  padding-top: var(--pb-space-5);
 }
-.sode__lock-exit .sode__about {
-  justify-content: center;
+.sode__group--row > legend {
+  border-top: 0;
+  float: left;
+  margin: 0;
+  padding: 0;
 }
-.sode__lock-exit > :first-child {
-  justify-self: start;
+.sode__topic {
+  background: var(--pb-surface-raised);
+  border-top: calc(var(--pb-accent-bar-w) * 2) solid var(--pb-accent);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+  margin: var(--pb-space-8) 0 0;
+  padding: var(--pb-space-4) var(--pb-space-5);
 }
-.sode__lock-exit > .sode__logs {
-  justify-self: end;
+.sode__review-topic {
+  border-top: var(--pb-accent-bar-w) solid var(--pb-accent);
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
 }
-.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__lock-exit) {
+.sode__review-was {
+  color: var(--pb-text-muted);
+}
+.sode__review-backup {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode__settings > .sode__topic:first-of-type {
+  margin-top: 0;
+}
+.sode__router {
+  border-top: var(--pb-border-w) solid var(--pb-accent);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+  padding: var(--pb-space-3) var(--pb-space-5) 0;
+}
+/* The column's gap is for sections; a band or sub-heading sits close to the section under it. */
+.sode__settings > :is(.sode__topic, .sode__router) {
+  margin-bottom: calc((var(--pb-space-10) + var(--pb-space-5)) * -0.6);
+}
+:is(.sode__topic, .sode__router) + .sode__group > legend {
+  border-top: 0;
+}
+.sode__routers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sode__routers-row {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-4);
+}
+.sode__swap-list {
+  margin-top: var(--pb-space-4);
+}
+/* Settings > Routers > Protects (settingsprotects.js). */
+.sode__protects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sode__protects-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+.sode__protects-acts {
+  margin-top: var(--pb-space-4);
+}
+/* The churning-letter Confirm (confirmbox.js), as panels.css draws it for the panel editor. */
+#protects-confirm > .sode-ov__keyconfirm {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  margin-top: var(--pb-space-4);
+  padding: var(--pb-space-4);
+}
+#protects-confirm > .sode-ov__keyconfirm[hidden] {
   display: none;
 }
-.sode__settings[data-locked] > .sode__settings-head {
-  order: -2;
+.sode__swap-owner {
+  font-size: 1rem;
+  margin: var(--pb-space-4) 0 var(--pb-space-2);
 }
-.sode__settings[data-locked] > .sode__device {
-  order: -1;
+.sode__swap-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.sode__settings[data-locked] > .sode__lock-exit {
-  order: 2;
+.sode__swap-items > li {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-4);
 }
-.sode__settings[data-locked] > .sode__lock {
-  border-top: var(--pb-border-w) solid var(--pb-edge);
-  padding-top: var(--pb-space-5);
+/* settingstoc.js sets hidden. */
+.sode__toc .sode__toc-topic {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__toc .sode__toc-sec,
+.sode__toc .sode__toc-router {
+  padding-inline-start: var(--pb-space-6);
+}
+.sode__toc .sode__toc-sec--deep {
+  padding-inline-start: var(--pb-space-8);
+}
+.sode__toc .pb-tab[hidden] {
+  display: none;
+}
+.sode__desktop-only {
+  align-items: flex-start;
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4);
+}
+.sode__desktop-only[hidden] {
+  display: none;
+}
+.sode__desktop-only p {
+  margin: 0;
+}
+.sode__desktop-only-lead {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__settings > :is(.sode__group, .sode__topic, .sode__router)[hidden] {
+  display: none;
+}
+/* One hue per Role tier; Approval keeps warn. */
+.sode__role-badge--trusted {
+  --pb-badge-c: var(--pb-signal-07);
+}
+.sode__role-badge--administrator {
+  --pb-badge-c: var(--pb-signal-09);
+}
+.sode__group > legend > .pb-badge[hidden] {
+  display: none;
+}
+.sode__about {
+  justify-content: center;
 }
 .sode__field > .pb-btn-group {
   align-self: flex-start;
@@ -633,7 +1083,11 @@ html {
 .sode__field .pb-select-wrap {
   width: 100%;
 }
-/* The down arrow is ::before, so the positioned input painted over it: lift both glyphs. */
+/* Short values: the control takes half the column. */
+:root:not([data-layout="phone"]) .sode__field--half > :is(.pb-input, .pb-select-wrap, .pb-number-wrap) {
+  width: 50%;
+}
+/* The down arrow is ::before, so the positioned input paints over it. Lift both glyphs. */
 .pb-number-wrap::before,
 .pb-number-wrap::after {
   z-index: 1;
@@ -652,6 +1106,40 @@ html {
   flex: 1 1 auto;
   font-family: var(--pb-font-mono);
   min-width: 0;
+}
+.sode__colorpick-wrap {
+  position: relative;
+}
+.sode__colorpick-under {
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.sode__colorpick {
+  block-size: calc(var(--pb-space-10) + var(--pb-space-5));
+  display: grid;
+  inline-size: calc(var(--pb-space-10) + var(--pb-space-5));
+  place-items: center;
+  position: relative;
+}
+.sode__colorpick[hidden] {
+  display: none;
+}
+.sode__colorpick > * {
+  grid-area: 1 / 1;
+}
+.sode__colorpick input {
+  block-size: 100%;
+  cursor: pointer;
+  inline-size: 100%;
+  padding: 0;
+}
+/* The swatch color is free, so the brush gets an outline in both directions. */
+.sode__colorpick .pb-icon {
+  color: #fff;
+  filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+  pointer-events: none;
 }
 .sode__hint {
   color: var(--pb-text-muted);
@@ -696,24 +1184,6 @@ html {
   border-top: 0;
   padding-top: 0;
 }
-.sode__pinrow {
-  display: flex;
-  gap: var(--pb-space-4);
-}
-.sode__pinrow .pb-input {
-  flex: 1;
-  min-width: 0;
-  width: auto;
-}
-.sode__pinhelp {
-  display: flex;
-  justify-content: flex-end;
-}
-.sode__pinrow .pb-btn,
-.sode__pinhelp .pb-btn {
-  justify-content: center;
-  width: 7rem;
-}
 .sode__names {
   align-items: center;
   display: flex;
@@ -747,7 +1217,7 @@ html {
   background: var(--pb-surface-sunken);
   border: var(--pb-border-w) solid var(--pb-edge);
   display: flex;
-  height: calc(var(--pb-control-h-lg) * 1.6);
+  height: var(--sode-h-field);
   justify-content: center;
   position: relative;
   touch-action: none;
@@ -784,7 +1254,7 @@ html {
   position: absolute;
   top: 0;
   transition: transform var(--pb-motion-normal) var(--pb-ease);
-  width: calc(var(--pb-control-h-lg) * 1.6);
+  width: var(--sode-h-field);
 }
 .sode__slide--drag .sode__slide-handle,
 .sode__slide--drag::before {
@@ -798,6 +1268,90 @@ html {
 
 .sode__lock-help {
   max-width: 60ch;
+}
+/* .pb-alert sets display, which beats the hidden attribute. */
+.sode__noadmin[hidden] {
+  display: none;
+}
+/* Solid, unlike a result: it stays until SODE_CONFIG is set. */
+.sode__notsaved {
+  align-self: stretch;
+  background: var(--pb-status-warn-fill);
+  border: 0;
+  color: color-mix(in srgb, var(--pb-status-warn-fill) 12%, black);
+}
+.sode__notsaved[hidden] {
+  display: none;
+}
+.sode__broken {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__broken[hidden] {
+  display: none;
+}
+.sode__broken-item {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__broken-lines {
+  margin: 0;
+  padding-left: var(--pb-space-5);
+}
+.sode__broken-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  margin-top: var(--pb-space-2);
+}
+.sode__filters-replace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode__filters-replace[hidden] {
+  display: none;
+}
+.sode__filters-replace-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode__filters-replace-row .pb-input {
+  max-width: 16rem;
+}
+.sode__broken-count[hidden] {
+  display: none;
+}
+.sode__broken-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: var(--pb-space-2) 0 0;
+  padding: 0;
+}
+.sode__broken-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode__status-badge {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-1);
+}
+.sode__notsaved .pb-chip {
+  background: color-mix(in srgb, var(--pb-status-warn-fill) 70%, black);
+  border-color: transparent;
+  color: white;
+  text-decoration: none;
+  white-space: nowrap;
 }
 .sode__lock-help > p {
   margin: 0 0 var(--pb-space-3);
@@ -830,9 +1384,32 @@ html {
   min-width: 0;
   padding: 0 var(--pb-space-2);
 }
+:root:not([data-layout="phone"]) .sode__box-head > [data-last] {
+  flex: 1 1 auto;
+  gap: var(--pb-space-3);
+  justify-content: flex-end;
+}
+/* On the desktop Last and Next are compact chips with the full edge of every other chip: they take the free width of
+   the row (a long name is cut only when the row is full), and both boxes end them at the box's right edge. */
 :root:not([data-layout="phone"]) .pb-chip.sode__last {
+  background: transparent;
+  border-color: var(--pb-edge);
   font-size: var(--pb-text-sm);
-  padding: var(--pb-space-1) var(--pb-space-4);
+  height: var(--sode-h-compact);
+  line-height: var(--pb-leading-tight);
+  padding: 0 var(--pb-space-3);
+}
+:root:not([data-layout="phone"]) .pb-chip.sode__last:is(:hover, :focus-visible) {
+  background: var(--pb-overlay-hover);
+}
+/* The keys in patchbay's kbd look, as everywhere else they are named. */
+:root:not([data-layout="phone"]) :is(.sode__last, .sode__next-in) > .sode__key-note {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  color: var(--pb-text);
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-2xs);
+  padding: 0 var(--pb-space-1);
 }
 .sode__last-text {
   min-width: 0;
@@ -923,7 +1500,7 @@ html[data-shift] .sode__next > .sode__next-open {
   font-weight: var(--pb-weight-normal);
 }
 
-/* Rows that toggle when clicked anywhere (clickToToggle); their open panels don't. */
+/* Rows that toggle on a click anywhere (clickToToggle). Their open panels do not. */
 .sode--tap {
   cursor: pointer;
 }
@@ -1025,17 +1602,14 @@ html[data-shift] .sode__next > .sode__next-open {
   justify-self: end;
 }
 @media (max-width: 599.98px) {
-  .sode__foot,
-  .sode__settings[data-locked] > .sode__lock-exit {
+  .sode__foot {
     grid-template-columns: 1fr;
     justify-items: center;
   }
   .sode__foot > :first-child {
     display: none;
   }
-  .sode__lock-exit > .sode__logs,
-  .sode__foot > .sode__logs,
-  .sode__lock-exit > :first-child {
+  .sode__foot > .sode__logs {
     justify-self: center;
   }
 }
@@ -1064,8 +1638,19 @@ html[data-shift] .sode__next > .sode__next-open {
   padding: var(--pb-space-2) var(--pb-space-3);
 }
 
-:root:not([data-layout="phone"]) .sode__device + .sode__device > legend,
-.sode__settings[data-locked] > .sode__device + .sode__device > legend {
+/* Label, select and the my-default buttons line up in three columns; a subgrid keeps each .sode__field one box. */
+:root:not([data-layout="phone"]) .sode__prefgrid {
+  align-items: center;
+  gap: var(--pb-space-3) var(--pb-space-5);
+  grid-template-columns: max-content minmax(0, 22rem) 1fr;
+}
+:root:not([data-layout="phone"]) .sode__prefgrid > .sode__field {
+  align-items: center;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+:root:not([data-layout="phone"]) .sode__device + .sode__device > legend {
   border-top: var(--pb-border-w) solid var(--pb-edge);
   padding-top: var(--pb-space-5);
 }
@@ -1115,7 +1700,6 @@ html:has(.sode__scrim:not([hidden])) > body {
   padding: var(--pb-space-3) var(--pb-space-5) 0;
 }
 
-/* The offline badge in the toast stack (panelwatch.js) */
 .pb-toast-stack [data-panel-badge] {
   font-size: calc(var(--pb-text-xs) * 2);
   padding: calc(var(--pb-space-2) * 2) calc(var(--pb-space-4) * 2);
@@ -1160,7 +1744,7 @@ html:has(.sode__scrim:not([hidden])) > body {
   }
 }
 
-/* The Panels logo is white strokes on transparent, so it is a mask: the colour is the text colour, as the icons' is. */
+/* The Panels logo is white strokes on transparent, so it is a mask: the color is the text color, as the icons' is. */
 .sode-logo {
   background-color: currentColor;
   display: inline-block;
@@ -1220,7 +1804,7 @@ button.sode-up__bar:not(:disabled):hover,
   width: var(--pb-space-4);
 }
 
-/* ---- Key list (? and Ctrl+?): the main page and a Grid panel */
+/* The key list: the main page and a Grid panel use it. */
 .sode__keys {
   display: grid;
   gap: var(--pb-space-2) var(--pb-space-6);
@@ -1246,8 +1830,7 @@ button.sode-up__bar:not(:disabled):hover,
   margin: 0;
 }
 
-/* Big scroll bars (bigscroll.js): drawn by Sode, oversized and always shown where a user needs to scroll.
-   The phone layout keeps the native bars, since a touch screen scrolls the content itself. */
+/* Big scroll bars (bigscroll.js; AGENTS.md has the rule). The phone layout keeps native bars. */
 /* The page's scroller is html itself, so :root needs its own selector beside the descendant one. */
 :root:not([data-layout="phone"])[data-bigscroll],
 :root:not([data-layout="phone"]) [data-bigscroll] {
@@ -1257,7 +1840,10 @@ button.sode-up__bar:not(:disabled):hover,
 :root:not([data-layout="phone"]) [data-bigscroll]::-webkit-scrollbar {
   display: none;
 }
-:root[data-bigscroll-on]:not([data-layout="phone"]) {
+/* The page bar's room is kept while the bar is hidden too, so the page never moves sideways when the bar shows or
+   goes. A Grid panel's Live Editor is one window high and never scrolls, so it keeps the room only while its bar
+   shows. */
+:root[data-bigscroll]:not([data-layout="phone"]):is([data-bigscroll-on], :not(:has(.sode-panels .sode-gridpanel))) {
   --sode-page-bar: var(--sode-bigscroll-w);
   padding-right: var(--sode-bigscroll-w);
 }
@@ -1327,4 +1913,92 @@ button.sode-up__bar:not(:disabled):hover,
 }
 .sode-bigscroll--drag > .sode-bigscroll__thumb {
   cursor: grabbing;
+}
+
+/* The phone's Settings has no #conn, so its head holds the button. */
+:root:not([data-layout="phone"]) .sode__settings-head .sode-inbox__slot {
+  display: none;
+}
+.sode__settings-head .sode-inbox__slot {
+  margin-inline-start: auto;
+}
+.sode-inbox__btn {
+  gap: var(--pb-space-2);
+}
+.sode-inbox__count {
+  font-family: var(--pb-font-num);
+}
+/* The phone header has no room for the word; the button's aria-label keeps it. */
+[data-layout="phone"] .sode-inbox__word {
+  display: none;
+}
+.sode-inbox__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-block: var(--pb-space-3);
+}
+.sode-inbox__row {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-4);
+  grid-template-columns: 1fr auto;
+  padding-block-end: var(--pb-space-3);
+}
+.sode-inbox__what {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  min-width: 0;
+}
+.sode-inbox__acts {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-inbox__names {
+  grid-column: 1 / -1;
+}
+/* exportimport.css holds the Import tab's rules and loads only on the main page; the review shows on every Inbox page. */
+.sode-inbox__review .sode__xi-head {
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-2) 0;
+}
+.sode-inbox__review .sode__xi-item {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--pb-space-1) 0;
+}
+.sode-inbox__review .sode__xi-sub {
+  grid-column: 1 / -1;
+  padding-inline-start: var(--pb-space-6);
+}
+.sode-send__people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  padding-block: var(--pb-space-2);
+}
+
+/* The Show PIN eye inside a PIN box (pinshow.js). */
+.sode__pinshow {
+  display: block;
+  position: relative;
+}
+.sode__pinshow > .pb-input {
+  padding-right: calc(var(--pb-icon-btn-w) + var(--pb-space-2));
+  width: 100%;
+}
+.sode__pinshow > .sode__pinshow-btn {
+  position: absolute;
+  right: var(--pb-space-1);
+  top: 50%;
+  transform: translateY(-50%);
 }

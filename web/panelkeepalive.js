@@ -1,17 +1,15 @@
-// An open panel page is an instance of the panel (docs/panels-design.md, Monitoring). The page asks for the device
-// name one time per browser. Then a keepalive goes out every 15 seconds so Sode knows the instance is alive. A held stream
-// tells Sode at once when the page closes; the keepalive is the fallback when a proxy or browser will not hold it.
+// An open panel page is an instance of the panel (docs/panels-design.md, Monitoring). A held stream tells Sode at once when the
+// page closes; the keepalive is the fallback when a proxy or browser will not hold it.
 import { readStr, writeStr } from './store.js';
 import { KEEPALIVE_MS, deviceFrom, keepaliveBody, streamPath, retryMs, renameTo } from './panelwatchrules.js';
 import { splitLines, assignOf, keylessPath, renameOf, renamedSearch } from './panelassignrules.js';
 import { instanceFrom } from './panellink.js';
+import { lineType } from './panelbackrules.js';
 
 export const DEVICE_KEY = 'sode-panel-device';
 
-// fetch with the Authorization header can stream where EventSource cannot. The server writes a line every 10 s,
-// and an Assign or a rename from the panels page as its last. Ends when gate.stop aborts it (a rename opens a new
-// hold under the new name). open(signal) answers the fetch.
-async function hold(open, gate, onAssign, onRename = () => {}) {
+// A keyless stream also hears public lines and stays open. A rename opens a new hold under the new name.
+async function hold(open, gate, onAssign, onRename = () => {}, onPublic = () => {}) {
   for (let tries = 0; !gate.ctl.signal.aborted; tries++) {
     try {
       const r = await open(gate.ctl.signal);
@@ -25,6 +23,13 @@ async function hold(open, gate, onAssign, onRename = () => {}) {
           for (const line of split.lines) {
             const msg = assignOf(line);
             if (msg) return onAssign(msg);
+            const t = lineType(line);
+            // Same address, same stored key and name; a Public page asks for a new key at open.
+            if (t === 'reload') return location.reload();
+            if (t === 'public') {
+              onPublic();
+              continue;
+            }
             const name = renameOf(line);
             if (name) return onRename(name);
           }
@@ -35,28 +40,54 @@ async function hold(open, gate, onAssign, onRename = () => {}) {
   }
 }
 
-// A page with no working key (GLOSSARY.md, Keyless instance) holds the keyless announcement under the name it already
-// has, and never asks for one. No key rides it; ended says the page's key was ended. Returns { stop() }.
-export function announceKeyless(seg, ended, onAssign) {
-  const gate = { ctl: new AbortController() };
-  const device = deviceFrom(instanceFrom(location.search)) || deviceFrom(readStr(DEVICE_KEY));
-  hold(
-    (signal) => fetch(keylessPath(seg, device, ended), { signal, cache: 'no-store' }),
-    gate,
-    (msg) => {
-      gate.ctl.abort();
-      onAssign(msg);
+// A page left for another address can stay frozen in the back/forward cache with its hold open. Sode would then show
+// a closed page as online. Leaving ends the hold; coming back reloads, as a reload line does.
+function endOnLeave(stop) {
+  window.addEventListener(
+    'pagehide',
+    () => {
+      stop();
+      window.addEventListener('pageshow', (e) => e.persisted && location.reload(), { once: true });
     },
+    { once: true },
   );
-  return { stop: () => gate.ctl.abort() };
 }
 
-// call(path, init) is the page's keyed fetch; form holds the name input and its Save button. preset is the link's
-// ?instance= name. It stands in for the stored name and the question. It is never stored, so the link stays the authority.
-// onName(device, editable) hears the name after it is known and after a rename. onAssign(msg) hears an Assign, after
-// which nothing is held or sent. Returns { rename(name), stop() }; a preset name is renamed only from the panels page. The old name's
-// instance goes quiet and is lost after the usual grace, as any closed page is.
-// ask false (settings.askInstanceName) never shows the form: an unnamed page beats with '' and Sode names it by address.
+// No key rides the keyless announcement. A rename from the panels page is kept in this browser and reopens it.
+export function announceKeyless(seg, ended, onAssign, onPublic = () => {}) {
+  const gate = { ctl: new AbortController() };
+  let device = deviceFrom(instanceFrom(location.search)) || deviceFrom(readStr(DEVICE_KEY));
+  const open = () =>
+    hold(
+      (signal) => fetch(keylessPath(seg, device, ended), { signal, cache: 'no-store' }),
+      gate,
+      (msg) => {
+        gate.ctl.abort();
+        onAssign(msg);
+      },
+      (name) => {
+        device = keepName(name);
+        open();
+      },
+      onPublic,
+    );
+  open();
+  const stop = () => gate.ctl.abort();
+  endOnLeave(stop);
+  return { stop };
+}
+
+// A name from the panels page. A link's name lives in the address, so the address carries the new one for a reload;
+// any other name is stored. Its #key= is left alone, since one still there is one the browser could not store.
+function keepName(name) {
+  if (instanceFrom(location.search)) history.replaceState(null, '', `${location.pathname}${renamedSearch(location.search, name)}${location.hash}`);
+  else writeStr(DEVICE_KEY, name);
+  return name;
+}
+
+// call(path, init): the page's keyed fetch. form: the name input and its Save button. preset: the link's ?instance= name,
+// never stored, renamed only from the panels page. onName(device, editable) and onAssign(msg) hear changes. ask false
+// (settings.askInstanceName): no form; the page beats with '' and Sode names it by address. Returns { rename(name), stop() }.
 export function startKeepalive(call, id, form, preset = '', onName = () => {}, onAssign = () => {}, ask = true) {
   let device = deviceFrom(preset) || deviceFrom(readStr(DEVICE_KEY));
   let timer = 0;
@@ -90,14 +121,9 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}, o
     run();
     return true;
   };
-  // Renamed from the panels page. A link's name lives in the address, so the address carries the new one for a reload.
-  // Its #key= is left alone, since one still there is one the browser could not store.
   function renamed(name) {
-    if (preset) {
-      preset = name;
-      history.replaceState(null, '', `${location.pathname}${renamedSearch(location.search, name)}${location.hash}`);
-    } else writeStr(DEVICE_KEY, name);
-    device = name;
+    if (preset) preset = name;
+    device = keepName(name);
     run();
   }
   // The page's key ended: no more beats or holds.
@@ -107,6 +133,7 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}, o
     stopped = true;
   };
   const api = { rename, stop };
+  endOnLeave(stop);
   if (device || !ask) {
     run();
     return api;

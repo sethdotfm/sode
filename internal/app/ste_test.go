@@ -39,7 +39,7 @@ var steWords = []steWord{
 	{"ensure", wordRe(`(?i)ensur(?:e|es|ed|ing)`)},
 	{"prior to", wordRe(`(?i)prior to`)},
 	{"in order to", wordRe(`(?i)in order to`)},
-	{"via", wordRe(`(?i)via`)},
+	{"via", wordRe(`via`)}, // case-sensitive: capital Via is the glossary term for tie lines
 	{"facilitate", wordRe(`(?i)facilitat(?:e|es|ed|ing)`)},
 	{"numerous", wordRe(`(?i)numerous`)},
 	{"approximately", wordRe(`(?i)approximately`)},
@@ -176,7 +176,6 @@ func regexStart(src string, i int) bool {
 	return false
 }
 
-// skipRegex returns the index after the end of the regex literal that opens at i.
 func skipRegex(src string, i int) int {
 	class := false
 	for j := i + 1; j < len(src) && src[j] != '\n'; j++ {
@@ -194,7 +193,6 @@ func skipRegex(src string, i int) int {
 	return i + 1
 }
 
-// jsLex returns the string literals and the comments of a script with their lines.
 func jsLex(src string) (strs, comments []steUnit) {
 	for i := 0; i < len(src); {
 		switch c := src[i]; {
@@ -231,7 +229,6 @@ func jsLex(src string) (strs, comments []steUnit) {
 	return
 }
 
-// groupLineComments joins // comments on consecutive lines into one unit.
 func groupLineComments(file string, cs []steUnit) []steUnit {
 	var out []steUnit
 	for _, c := range cs {

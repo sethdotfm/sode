@@ -5,16 +5,13 @@
 // With no PIN lock, a Lock with nobody signed in (churning letter, behind the confirm lockout) can still go up. It
 // guards against keyboard mashing. It is page-local state, and a reload clears it.
 
-import { el, S, on, emit, onMsg, wsSend } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, LINK_DOWN } from './core.js';
 import { heldUserKept, keepHeldUser, lastUser, keepLastUser, startHandshake, keepSignInToken, forgetTokens, forgetSignIn, onSessionToken } from './signin.js';
 import {
   padKey,
   idleLock,
   pingDue,
   pageType,
-  liftFrom,
-  shouldFly,
-  brandFrames,
   OUT_FACTOR,
   dots,
   wrongFeedback,
@@ -22,7 +19,8 @@ import {
   churnKey,
   localIdleLock,
   signInOffered,
-  asksUsername,
+  asksName,
+  padLens,
   canSend,
   padDelay,
   signInMsg,
@@ -42,18 +40,33 @@ import {
   lockArrived,
   signInWon,
   chipShown,
+  chipSignInShown,
   heldEnded,
   heldWho,
-  remembers,
   prefillName,
   focusName,
   pinFreeView,
+  padAsked,
+  startStepIn,
+  stepInKept,
+  padOf,
+  stepInWon,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
+import { closeShown } from './dialogkeys.js';
+import { chord } from './keys.js';
+import { dialogAttrs } from './modal.js';
+import { stepLock, noteStepState, steppedIn, sendStepIn, stepOut } from './stepin.js';
+import { stepActive, stepInOffered } from './stepinrules.js';
 import { createOwed } from './owed.js';
 import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
+import { askSignOut } from './signoutask.js';
 import { layout, onLayout } from './layout.js';
+import { namePicker } from './namepick.js';
+import { listedUser } from './namepickrules.js';
+import { setBrand } from './brandicon.js';
+import { motionMs, moveBrand, fitBrand } from './lockbrand.js';
 
 let heldUser = heldUserKept();
 const page = pageType(location.pathname);
@@ -65,18 +78,31 @@ const page = pageType(location.pathname);
   document.head.append(css);
 }
 
-const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false, lens: [], mode: 'pin' };
+const L = {
+  enforced: false,
+  locked: false,
+  held: false,
+  user: '',
+  role: '',
+  trusted: false,
+  persistent: false,
+  noAutoLock: false,
+  pinNeeded: false,
+  lens: [],
+};
+// Not enumerable, so the {...L} copies that go back through Object.assign(L, ...) do not hit a getter-only prop.
+Object.defineProperty(L, 'heldNoPin', { get: () => L.held && listedUser(S.users, heldUser)?.len === 0 });
 export const lockState = () => ({ ...L });
 
 startHandshake(page);
 onSessionToken(() => !!L.user);
 
 let root = null;
-let brand, dotsEl, msg, state, chip, checkKey;
-let nameField, nameInput;
+let brand, modeLine, dotsEl, msg, state, chip, checkKey;
+let nameField, nameInput, picker;
 let padBody, letterBody, letterKey, letterBtn, letterNote, signInAsBtn, signOutBtn, letterFoot;
 const owed = createOwed(wsSend); // a Lock the server has not got yet
-let unlocked = false; // set when a userUnlock succeeds: the lockState that follows ends a sign-in
+let unlocked = false; // the lockState after a userSignIn ends a sign-in
 let V = PAGE_VIEW;
 let covering = false;
 let cancelBtn;
@@ -89,10 +115,33 @@ let inerted = [];
 let hideTimer = 0;
 let pinFree = false; // a Public panel's page, told by panelrun.js
 let lastState = null;
+let offlineLine;
+
+// Offline wins over the Lock: html[data-conn="down"] (desktop.js, panelrun.js) gives the Lock the offline colors
+// (lock.css), and the Lock names both states.
+function sayOffline() {
+  if (!root) return;
+  const off = document.documentElement.dataset.conn === 'down';
+  const p = pad();
+  offlineLine.hidden = !off;
+  offlineLine.textContent = p.offline;
+  root.setAttribute('aria-label', off ? p.offLabel : p.label);
+}
+
+const pad = () => padOf(V);
+const SEND = {
+  signIn: (user, pin, id) => wsSend(signInMsg(L, { pin, id, user })),
+  stepIn: (user, pin, id) => sendStepIn(user?.name || '', pin, id),
+};
+const stepping = () => V.mode === MODE.STEP_IN;
+const stepOpen = () => stepInOffered({ locked: L.locked, phone: layout() === 'phone', stepped: steppedIn(), user: L.user, users: S.users });
 
 function build() {
   if (root) return;
   brand = el('h1', 'sode-lock__brand', 'Sode');
+  offlineLine = el('p', 'sode-lock__offline', 'Offline, locked');
+  modeLine = el('p', 'sode-lock__mode');
+  modeLine.hidden = true;
   state = el('p', 'sode-lock__state', 'Locked');
   dotsEl = el('div', 'sode-lock__dots');
   dotsEl.setAttribute('aria-hidden', 'true');
@@ -100,7 +149,7 @@ function build() {
   msg.setAttribute('role', 'status');
   msg.setAttribute('aria-live', 'polite');
 
-  const pad = el('div', 'sode-lock__pad');
+  const digits = el('div', 'sode-lock__pad');
   const key = (label, k, cls = '') => {
     const b = el('button', `pb-btn pb-btn--outline sode-lock__key ${cls}`, label);
     b.type = 'button';
@@ -111,35 +160,43 @@ function build() {
   checkKey = key('✓', 'enter', 'sode-lock__key--go');
   checkKey.setAttribute('aria-label', 'Submit PIN');
   checkKey.disabled = true;
-  pad.append(
+  // Cancel shares the last row with ✓, so a sign-in adds no row to the Lock.
+  cancelBtn = el('button', 'pb-btn pb-btn--outline sode-lock__key sode-lock__key--word sode-lock__cancel', 'Cancel');
+  cancelBtn.type = 'button';
+  cancelBtn.hidden = true;
+  cancelBtn.addEventListener('click', cancelSignIn);
+  digits.append(
     ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => key(d, d)),
     key('Clear', 'clear', 'sode-lock__key--word'),
     key('0', '0'),
     key('Del', 'back', 'sode-lock__key--word'),
+    cancelBtn,
     checkKey,
   );
-
-  cancelBtn = el('button', 'pb-btn pb-btn--outline', 'Cancel');
-  cancelBtn.type = 'button';
-  cancelBtn.hidden = true;
-  cancelBtn.addEventListener('click', cancelSignIn);
-  nameInput = el('input', 'pb-input sode-lock__name');
-  nameInput.id = 'lock-username';
-  nameInput.type = 'text';
-  nameInput.autocomplete = 'username';
-  nameInput.autocapitalize = 'none';
-  nameInput.spellcheck = false;
-  nameInput.maxLength = 24;
-  nameInput.addEventListener('input', () => {
-    if (dotsEl.classList.contains('is-text')) clearFeedback();
-    paint();
-    clearTimeout(timer);
-    const wait = padDelay(L, pin, nameInput.value);
-    if (wait != null && pin) timer = setTimeout(sendPin, wait);
+  picker = namePicker({
+    id: 'lock-name',
+    users: () => pad().users(L, S.users),
+    onInput: () => {
+      if (dotsEl.classList.contains('is-text')) clearFeedback();
+      say('');
+      paint();
+      clearTimeout(timer);
+      const wait = padDelay(L, pin, who());
+      if (wait != null && pin) timer = setTimeout(sendPin, wait);
+    },
+    onPick: () => {
+      if (pad().pickSends(L, who())) {
+        pin = '';
+        return sendPin();
+      }
+      if (!pin || !canSend(L, pin, who())) root.focus({ preventScroll: true });
+    },
   });
-  nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Username'), { htmlFor: 'lock-username' }), nameInput);
+  nameInput = picker.input;
+  nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Name'), { htmlFor: 'lock-name' }), picker.root);
   nameField.hidden = true;
-  padBody = el('div', 'sode-lock__body', nameField, state, dotsEl, msg, pad, cancelBtn);
+  // The name sits on the pad, so name and digits are typed in one place.
+  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, digits);
 
   letterKey = el('kbd', 'sode__key sode__key--locked');
   letterBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
@@ -161,15 +218,26 @@ function build() {
   letterFoot = el('div', 'sode-lock__foot', signOutBtn, signInAsBtn);
   letterFoot.hidden = true;
   // The foot is the last row, in flow, so it cannot land on the pad.
-  root = el('div', 'sode-lock', el('div', 'sode-lock__main', brand, padBody, letterBody), letterFoot);
-  root.hidden = true;
-  root.tabIndex = -1;
-  root.setAttribute('role', 'dialog');
-  root.setAttribute('aria-modal', 'true');
-  root.setAttribute('aria-label', 'Locked');
+  root = el(
+    'div',
+    { class: 'sode-lock', ...dialogAttrs(), 'aria-label': 'Locked', hidden: true },
+    el('div', 'sode-lock__main', brand, modeLine, offlineLine, padBody, letterBody),
+    letterFoot,
+  );
   document.body.append(root);
+  sayOffline();
+  new MutationObserver(sayOffline).observe(document.documentElement, { attributes: true, attributeFilter: ['data-conn'] });
 
-  chip = buildChip({ lock: localLock });
+  chip = buildChip({
+    lock: localLock,
+    signIn: () => emit('login'),
+    signOut: endSignIn,
+    stepIn: () => emit('stepInOpen'),
+    stepOut,
+    home: page === 'main',
+    stepped: steppedIn,
+    stepOffered: stepOpen,
+  });
   document.body.append(chip.root);
 }
 
@@ -180,13 +248,14 @@ function say(text, bad = false) {
 }
 
 function render() {
+  V = stepInKept(V, stepOpen());
   const covered = viewBody(V, lockCovers(L)) !== '';
   const who = L.held ? heldUser : '';
   const showChip = chipShown({ covered, letter: V.mode === MODE.LOCK, user: L.user, heldUser: who });
   if (covered) showLock();
   else hideLock();
   build();
-  chip.update(L, showChip, V.mode === MODE.LOCK || L.held, L.user || who);
+  chip.update(L, showChip, V.mode === MODE.LOCK || L.held, L.user || who, chipSignInShown(L, V, covered));
   document.documentElement.toggleAttribute('data-sode-chip', !!showChip);
   if (showChip) placeChip();
 }
@@ -200,66 +269,55 @@ addEventListener('resize', () => {
   if (chip && !chip.root.hidden) placeChip();
 });
 
-const logo = () =>
-  [...document.querySelectorAll('.sode__mark, .sode-m__mark, .sode-log__title, .sode-panels__title')].find((e) => e.getBoundingClientRect().width > 0);
-const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const motionMs = () => (calmMotion.matches ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0);
-
-// Every run starts from the brand at rest with its own keyframes, so it restarts reliably. A
-// CSS transition measured while the last run was in progress did not. Flies only when shouldFly,
-// else the logo fades with the overlay.
-function moveBrand(dir) {
-  for (const a of brand.getAnimations()) a.cancel();
-  const ms = motionMs();
-  if (!ms || !brand.animate) return;
-  const from = logo()?.getBoundingClientRect();
-  const fly = !logo()?.classList.contains('sode-log__title') && shouldFly(from, window.scrollY, window.innerHeight); // /log's heading is text: it fades, not scales
-  const t = fly ? liftFrom(from, brand.getBoundingClientRect()) : { x: 0, y: 0, scale: 1 };
-  brand.animate(brandFrames(dir, fly, t), {
-    duration: dir === 'in' ? ms : ms * OUT_FACTOR,
-    easing: dir === 'in' ? 'cubic-bezier(0.2, 0, 0, 1)' : 'cubic-bezier(0.4, 0, 0.2, 1)',
-    fill: dir === 'out' ? 'forwards' : 'none',
-  });
-}
-
 let scrolled = null;
+let keptOpen = false;
 
 function showLock() {
   build();
   const body = viewBody(V, lockCovers(L));
   padBody.hidden = body !== 'pad';
-  cancelBtn.hidden = V.mode !== MODE.SIGN_IN;
-  nameField.hidden = !asksUsername(L);
+  cancelBtn.hidden = !padAsked(V);
+  modeLine.textContent = pad().note;
+  modeLine.hidden = !pad().note;
+  nameField.hidden = !asksName(L);
   letterBody.hidden = body !== 'letter';
   signOutBtn.hidden = !(L.held || signOutOffered(L));
   signInAsBtn.hidden = L.held || !signInAsOffered(L);
   letterFoot.hidden = !L.held && (body !== 'letter' || (signOutBtn.hidden && signInAsBtn.hidden));
-  root.setAttribute('aria-label', 'Locked');
+  sayOffline();
   clearTimeout(hideTimer);
-  if (!root.hidden && root.classList.contains('is-on')) return;
+  if (!root.hidden && root.classList.contains('is-on')) {
+    // A Lock came over a sign-in or Step in pad that kept Settings open.
+    if (keptOpen && !padAsked(V)) {
+      keptOpen = false;
+      closeModals();
+    }
+    return;
+  }
   pin = '';
-  nameInput.value = prefillName(L, lastUser());
+  picker.set(pad().prefill(L, lastUser(), S.users));
   welcoming = false;
   clearFeedback();
   say('');
   const text = S.cfg?.brandText?.trim() || 'Sode';
   brand.textContent = text;
   const frame = document.querySelector('.sode__brandframe');
-  if (frame?.dataset.brand) root.dataset.brand = frame.dataset.brand;
-  else delete root.dataset.brand;
+  setBrand(root, frame?.style.getPropertyValue('--brand-color').trim() || frame?.dataset.brand || '');
   // The page keeps its scroll; focus moves must not scroll it (desktop.js leaves its
   // focus-scroll alone while this is set).
   if (root.hidden) scrolled = { x: window.scrollX, y: window.scrollY };
   document.documentElement.dataset.sodeLock = 'on';
   setHand(true);
   root.hidden = false;
-  fitBrand();
-  moveBrand('in');
+  fitBrand(root, brand);
+  moveBrand(brand, 'in');
   void root.offsetWidth;
   root.classList.add('is-on');
   document.documentElement.dataset.sodeLockOn = 'on';
   chip?.setLocked(true);
-  if (V.mode !== MODE.SIGN_IN) closeModals();
+  // A sign-in or Step in from Settings keeps it open: Cancel goes back to it.
+  keptOpen = padAsked(V);
+  if (!keptOpen) closeModals();
   inerted = [];
   for (const c of document.body.children) inert(c);
   watch ||= new MutationObserver((list) => {
@@ -269,34 +327,23 @@ function showLock() {
   const had = document.activeElement;
   if (had && had !== document.body && !root.contains(had)) before = had;
   had?.blur?.();
+  focusPad();
+}
+
+function focusPad() {
   if (focusName(L, nameValue()) && V.mode !== MODE.LOCK) nameInput.focus({ preventScroll: true });
   else root.focus({ preventScroll: true });
 }
 
-// A site name wider than the screen scales down to one line (under 1.25rem it wraps instead).
-// Phone only.
-function fitBrand() {
-  brand.style.fontSize = '';
-  brand.style.whiteSpace = '';
-  if (layout() !== 'phone') return;
-  const cs = getComputedStyle(root);
-  const room = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  brand.style.whiteSpace = 'nowrap';
-  const w = brand.getBoundingClientRect().width;
-  if (w <= room) return;
-  const size = (parseFloat(getComputedStyle(brand).fontSize) * (room - 1)) / w;
-  const min = 1.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);
-  if (size >= min) brand.style.fontSize = `${size}px`;
-  else {
-    brand.style.whiteSpace = '';
-    brand.style.fontSize = `${min}px`;
-  }
-}
 const refit = () => {
-  if (root && !root.hidden) fitBrand();
+  if (root && !root.hidden) fitBrand(root, brand);
 };
 addEventListener('resize', refit);
 onLayout(refit);
+// The phone layout offers no Step in.
+onLayout(() => {
+  if (pad().lapses) render();
+});
 
 function setHand(on) {
   if (covering === on) return;
@@ -308,22 +355,17 @@ let watch = null;
 let before = null;
 function inert(c) {
   if (c.nodeType !== 1 || c === root || c === chip?.root || ['SCRIPT', 'LINK', 'STYLE'].includes(c.tagName) || c.inert) return;
+  if (c.previousElementSibling === root && c.classList.contains('sode-bigscroll')) return; // the Lock's own bar
   c.inert = true;
   inerted.push(c);
 }
 
-// Native <dialog>s close here; a module that owns a dialog or view listens for 'locking'
-// (Settings exits; an unsaved form keeps its warning, covered).
+// A module that needs more than Esc on a Lock listens for 'locking' (Settings exits; an unsaved form keeps its
+// warning, covered). Every other trapDialog dialog closes as on Esc.
 function closeModals() {
   for (const d of document.querySelectorAll('dialog[open]')) d.close();
   emit('locking');
-  // Fallback for modals with no 'locking' listener yet: take their own Cancel/Close, else hide
-  // them.
-  for (const m of document.querySelectorAll('.pb-modal-backdrop:not([hidden])')) {
-    const b = [...m.querySelectorAll('button')].find((x) => /cancel|close/i.test(x.id));
-    if (b) b.click();
-    else m.hidden = true;
-  }
+  closeShown();
 }
 
 function hideLock() {
@@ -341,7 +383,7 @@ function hideLock() {
   // the longest transition is over.
   const ms = motionMs();
   const out = ms * OUT_FACTOR;
-  if (wasOn) moveBrand('out');
+  if (wasOn) moveBrand(brand, 'out');
   clearTimeout(hideTimer);
   hideTimer = setTimeout(() => {
     root.hidden = true;
@@ -402,74 +444,97 @@ function clearFeedback() {
 function paint() {
   dotsEl.textContent = dots(pin);
   state.textContent = pin ? `${pin.length} ${pin.length === 1 ? 'digit' : 'digits'} entered` : '';
-  checkKey.disabled = !canSend(L, pin, nameValue());
+  checkKey.disabled = !canSend(L, pin, who());
 }
 
-const lens = () => L.lens;
 const nameValue = () => nameInput?.value ?? '';
+const who = () => listedUser(S.users, asksName(L) ? nameValue() : heldUser);
 
 function press(k) {
   clearTimeout(timer);
   if (welcoming) return;
   if (dotsEl.classList.contains('is-text')) clearFeedback();
   if (k === 'enter') {
-    if (canSend(L, pin, nameValue())) sendPin();
-    else if (asksUsername(L) && !nameValue().trim()) say('Enter your username.', true);
-    else say(pin ? 'No PIN has that many digits.' : 'Enter your PIN.', true);
+    if (canSend(L, pin, who())) sendPin();
+    else if (asksName(L) && !nameValue().trim()) say('Enter your name.', true);
+    else if (asksName(L) && !who()) say('Unknown name.', true);
+    else say(pin ? 'Wrong number of digits.' : 'Enter your PIN.', true);
     return;
   }
-  pin = padKey(pin, k, lens(), S.cfg?.maxPinLen || 0);
+  pin = padKey(pin, k, padLens(L, who()), S.cfg?.maxPinLen || 0);
   paint();
   if (k !== 'clear' && k !== 'back') say('');
   // Only the longest length goes on its own: it is possible that a pause after a shorter PIN is
   // the start of a longer one.
-  const wait = padDelay(L, pin, nameValue());
+  const wait = padDelay(L, pin, who());
   if (wait == null) return;
   timer = setTimeout(sendPin, wait);
 }
 
 function sendPin() {
   const id = ++seq;
-  if (!wsSend(signInMsg(L, { pin, id, username: nameValue() }))) return say('Not connected to Sode.', true);
+  const sent = SEND[pad().send](who(), pin, id);
+  if (!sent) return say(LINK_DOWN, true);
   say('Checking…');
 }
 
-onMsg('userUnlockResult', (m) => {
+function refused(err) {
+  pin = '';
+  const w = wrongFeedback(err);
+  clearFeedback();
+  feedback(w.text, 'bad', w.ms, true);
+  say(w.note, !!w.note);
+}
+
+onMsg('userSignInResult', (m) => {
   if (m.id !== seq) return;
   if (m.ok) {
-    if (asksUsername(L) && remembers(m)) keepLastUser(nameValue().trim());
+    if (asksName(L)) keepLastUser(who()?.name);
     pin = '';
     unlocked = true;
     say('');
     keepSignInToken(m);
     return;
   }
+  refused(m.err);
+});
+
+// The step-in's lockState comes before its result and closes the pad (stepInKept), so only a refusal is left here.
+on('stepInResult', (m) => {
+  if (m.id !== seq || !stepping() || m.ok) return;
+  refused(m.err);
+});
+
+on('stepInOpen', () => {
+  if (!stepOpen()) return;
+  V = startStepIn(V);
+  if (!stepping()) return;
   pin = '';
-  const w = wrongFeedback(m.err);
-  clearFeedback();
-  feedback(w.text, 'bad', w.ms, true);
-  say(w.note, !!w.note);
+  clearTimeout(timer);
+  render();
 });
 
 onMsg('lockState', (m) => {
+  const wasStepped = steppedIn();
+  noteStepState(m);
   if (owed.arrived(m)) return;
   if (settle) settle();
-  const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
+  const stepWon = stepInWon(V, wasStepped, steppedIn());
+  const was = lockCovers(L) || V.mode === MODE.SIGN_IN || stepWon;
   const ended = heldEnded(L, m);
   heldUser = heldWho(heldUser, L, m);
   keepHeldUser(heldUser);
-  if (ended) keepLastUser(null);
   lastState = m;
   L.held = !!m.held;
   L.user = m.user || '';
   L.trusted = !!m.trusted;
+  L.role = m.role || '';
   L.persistent = !!m.persistent;
   L.noAutoLock = !!m.noAutoLock;
+  L.pinNeeded = !!m.pinNeeded;
   L.lens = m.lens || [];
-  L.mode = m.mode === 'username' ? 'username' : 'pin';
-  S.userNames = m.names || [];
   applyCover(m);
-  // The Lock ended without this tab's PIN: it stays covered, as when signing out of the letter Lock.
+  // The Lock ended without this tab's PIN: it stays covered, as after a sign-out from the Lock with nobody signed in.
   if (ended && !L.enforced) localLock();
   // Only the answer to our `hi` says whether the token was honored; a state sent for another
   // reason says nothing. A token the server no longer honors is forgotten.
@@ -482,7 +547,7 @@ onMsg('lockState', (m) => {
     unlocked = false;
     render();
     emit('access', { ...L });
-    if (was && !lockCovers(L)) emit('unlocked');
+    if (was && !stepWon && !lockCovers(L)) emit('unlocked');
   };
   if (was && !L.locked && L.user && root && !root.hidden && root.classList.contains('is-on') && !welcoming) {
     welcoming = true;
@@ -499,7 +564,7 @@ onMsg('lockState', (m) => {
   done();
 });
 
-// enforced and locked from m, as a Public panel's page sees them; a lock that covers ends the letter Lock.
+// enforced and locked from m, as a Public panel's page sees them. A lock that covers ends the Lock with nobody signed in.
 function applyCover(m) {
   Object.assign(L, pinFreeView(m, pinFree));
   if (lockCovers(L) && letterLock) {
@@ -519,7 +584,22 @@ on('publicPanel', ({ on: free }) => {
   emit('access', { ...L });
 });
 
+on('hello', () => {
+  if (!picker) return;
+  picker.refresh();
+  if (!root.hidden && !nameValue()) picker.set(pad().prefill(L, lastUser(), S.users));
+  paint();
+  // A hello can leave nobody to step in as.
+  if (pad().lapses) render();
+});
+
 on('logout', () => signOutNow());
+
+on('stepEnded', (m) => {
+  if (!m.note) return;
+  build();
+  say(m.note, true);
+});
 
 on('login', () => {
   if (!signInOffered(L) || V.mode !== MODE.PAGE) return;
@@ -528,7 +608,7 @@ on('login', () => {
 });
 
 function cancelSignIn() {
-  if (V.mode !== MODE.SIGN_IN) return;
+  if (!padAsked(V)) return;
   const back = V.back === 'lock';
   V = signInCancelled(V);
   clearTimeout(timer);
@@ -574,12 +654,15 @@ function signInFromLock() {
   letterLock.lock.cancel();
   letterLock = null;
   V = startSignIn(V, true);
-  nameInput.value ||= prefillName(L, lastUser());
+  if (!nameValue()) picker.set(prefillName(L, lastUser(), S.users));
   pin = '';
   clearTimeout(timer);
   clearFeedback();
   say('');
   render();
+  // The overlay stays up, so showLock skips its focus step. The clicked button is now hidden and took the focus with it,
+  // and letters would go nowhere.
+  focusPad();
 }
 
 // From the held Lock, or under the Lock with nobody signed in, with someone signed in: the session ends.
@@ -592,7 +675,7 @@ on('localLock', localLock);
 // The Lock keeps the session: the server holds it, so a reload or another tab shows the pad
 // until this user's PIN resumes it. The token stays for that.
 function lockNow() {
-  if (!L.user) return;
+  if (!L.user || stepLock()) return;
   owed.owe();
   pin = '';
   clearTimeout(timer);
@@ -603,8 +686,7 @@ function lockNow() {
   emit('access', { ...L });
 }
 
-// Sign out ends the session: the server forgets the unlock and revokes the token (so a
-// reload cannot undo it).
+// Sign out ends the session: the server ends the sign-in and revokes the token, so a reload cannot undo it.
 function signOutNow() {
   if (!L.user && !L.held) return;
   forgetSignIn();
@@ -618,6 +700,13 @@ function signOutNow() {
   if (wasHeld && !L.enforced) localLock();
   else render();
   emit('access', { ...L });
+}
+
+// Stepped in, Sign out steps out, as the server's userSignOut does; signOutNow would show the tab signed out until the
+// lockState came.
+function endSignIn() {
+  if (steppedIn()) stepOut();
+  else signOutNow();
 }
 
 // Capture phase so nothing underneath sees it. Only where it does something.
@@ -636,22 +725,19 @@ document.addEventListener(
     }
     if (root && !root.hidden && root.classList.contains('is-on')) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (V.mode === MODE.SIGN_IN && e.key === 'Escape') {
+      // Keep the pad's keys out of the name box; Enter in the list moves on to the PIN.
+      if (e.target === nameInput && picker.key(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (padAsked(V) && e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
         cancelSignIn();
         return;
       }
-      if (e.target === nameInput) {
-        // The pad's keys must not eat what is typed into the username; Enter moves on to the PIN.
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          e.stopPropagation();
-          if (pin && canSend(L, pin, nameValue())) sendPin();
-          else root.focus({ preventScroll: true });
-        }
-        return;
-      }
+      if (e.target === nameInput) return;
       const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
       if (k === 'enter' && e.target.closest?.('button')) return;
       if (k) {
@@ -661,7 +747,15 @@ document.addEventListener(
       }
       return;
     }
-    if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat) {
+    // A kiosk hides the Lock bar, so its sign-out key is off too.
+    if (chord(e) === 'ctrl+shift+l' && !e.repeat && L.user && !document.documentElement.hasAttribute('data-sode-kiosk')) {
+      e.preventDefault();
+      e.stopPropagation();
+      chip?.closeMenu();
+      askSignOut({ user: L.user, stepped: steppedIn() }, endSignIn);
+      return;
+    }
+    if (chord(e) === 'ctrl+l' && !e.repeat) {
       if (L.user) {
         e.preventDefault();
         e.stopPropagation();
@@ -677,13 +771,20 @@ document.addEventListener(
 );
 
 const idle = createIdleShare(typeof BroadcastChannel === 'function' ? new BroadcastChannel('sode-activity') : null);
-const touch = idle.touch;
+let ownActive = Date.now(); // this tab's own input, which alone feeds a step-in
+const touch = () => {
+  ownActive = Date.now();
+  idle.touch();
+};
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
 let lastPing = 0;
 setInterval(() => {
   const minutes = S.cfg?.autoLockMinutes || 0;
-  if (pingDue(L, lastPing, idle.lastActive(), Date.now()) && wsSend({ t: 'activity' })) lastPing = Date.now();
+  const stepped = steppedIn();
+  if (pingDue(L, lastPing, stepActive(stepped, idle.lastActive(), ownActive), Date.now()) && wsSend({ t: 'activity' })) lastPing = Date.now();
+  // The server ends an idle step-in and decides whether the original locks (internal/app/stepin.go).
+  if (stepped) return;
   if (idleLock(L, idle.lastActive(), Date.now(), minutes)) lockNow();
   else if (S.cfg && localIdleLock(L, !!letterLock, idle.lastActive(), Date.now(), minutes)) localLock();
 }, 5000);

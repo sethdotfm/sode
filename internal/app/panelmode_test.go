@@ -8,8 +8,6 @@ import (
 	"testing"
 )
 
-// The take flow, `settings.mode`: the server refuses a value the pages do not know.
-
 func TestPanelModeRefusesUnknownValue(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -31,7 +29,6 @@ func TestPanelModeRefusesUnknownValue(t *testing.T) {
 	}
 }
 
-// A file on disk with a known value loads as written, and nothing rewrites it.
 func TestPanelModeOldFilesLoadUnchanged(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
@@ -42,7 +39,7 @@ func TestPanelModeOldFilesLoadUnchanged(t *testing.T) {
 	files := map[string]string{"p-0000aa01": "take", "p-0000aa02": "takeOnly", "p-0000aa03": "instant"}
 	raw := map[string][]byte{}
 	for id, m := range files {
-		raw[id] = []byte("id: " + id + "\nname: Old " + m + "\nowner: Ana\nacts: session\nrows: 1\ncols: 1\ncells: []\nsettings:\n    mode: " + m + "\n")
+		raw[id] = []byte("id: " + id + "\nname: Old " + m + "\nowner: " + idOf(a, "Ana") + "\nacts: session\nrows: 1\ncols: 1\ncells: []\nsettings:\n    mode: " + m + "\n")
 		if err := os.WriteFile(filepath.Join(dir, id+".yaml"), raw[id], 0o644); err != nil {
 			t.Fatal(err)
 		}

@@ -1,4 +1,4 @@
-// Picks and the Diagonal on a Grid panel (gridpanelpick.js). Axes are in display order, which is not router order.
+// Axes are in display order, which is not router order.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPicks, pickName, dropPicks, pickCount, diagonal, extendPick, enterGrid, dragPick } from '../gridpanelpick.js';
@@ -27,7 +27,6 @@ test('Shift-click picks the shown range in display order from the last click', (
   let p = click(createPicks(), 'dsts', 3);
   p = click(p, 'dsts', 1, { range: true });
   assert.deepEqual(p.dsts, [3, 5, 9, 1]);
-  // Backwards from the same start.
   p = click(p, 'dsts', 7, { range: true });
   assert.deepEqual(p.dsts, [7, 3]);
 });
@@ -56,7 +55,7 @@ test('picks on one bar leave the other bar alone, and dropPicks clears both', ()
   assert.equal(pickCount(p), 0);
 });
 
-// Diagonal: pairs are { src, dst }, one per target destination.
+// Pairs are { src, dst }, one for each target destination.
 const picks = (srcs, dsts) => ({ ...createPicks(), srcs, dsts });
 const pairs = (list) => list.map(({ src, dst }) => [src, dst]);
 
@@ -178,14 +177,10 @@ test('a move into the grid from a picked range on a bar goes to the first picked
 
 test('other moves keep the cursor where the move put it', () => {
   const p = extendPick(createPicks(), 'dsts', 3, 9, axes.dsts);
-  // Along the bar, not into the grid.
   assert.deepEqual(enterGrid({ i: 3, j: -1 }, { i: 4, j: -1 }, p, axes), { i: 4, j: -1 });
-  // From a name that is not picked.
   assert.deepEqual(enterGrid({ i: 5, j: -1 }, { i: 5, j: 0 }, p, axes), { i: 5, j: 0 });
-  // One name picked.
   const one = click(createPicks(), 'dsts', 9);
   assert.deepEqual(enterGrid({ i: 3, j: -1 }, { i: 3, j: 0 }, one, axes), { i: 3, j: 0 });
-  // Inside the grid.
   assert.deepEqual(enterGrid({ i: 3, j: 0 }, { i: 3, j: 1 }, p, axes), { i: 3, j: 1 });
 });
 

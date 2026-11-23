@@ -37,6 +37,7 @@ func TestChromeSettingsFindSkipsHidden(t *testing.T) {
 
 	b.eval(`document.getElementById('account-login').click()`)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -47,4 +48,14 @@ func TestChromeSettingsFindSkipsHidden(t *testing.T) {
 		t.Fatal("search offers Sign in while it is hidden")
 	}
 	b.check()
+}
+
+func signInSettings(b *tab) {
+	b.t.Helper()
+	b.waitFor("Sign in shown", `!document.getElementById('account-login').hidden`)
+	b.eval(`document.getElementById('account-login').click()`)
+	signInOnPad(b)
+	b.waitFor("signed in", `document.getElementById('account-login').hidden`)
+	// The Lock's welcome hands focus back to Settings when it goes, which scrolls the page.
+	b.waitFor("Lock overlay gone", `!document.documentElement.hasAttribute('data-sode-lock')`)
 }

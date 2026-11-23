@@ -9,6 +9,11 @@ import (
 	"testing"
 )
 
+// Every list unset and read-only: the state of an old file.
+func isOpen(r Rights) bool {
+	return r.Sources == nil && r.Dsts == nil && r.Levels == nil && r.Presets == nil && !r.Hidden()
+}
+
 // A file from before the API loads with it off and nothing restricted.
 func TestOldFileLoadsWithAPIOff(t *testing.T) {
 	h, err := HashPin("1234")
@@ -16,7 +21,7 @@ func TestOldFileLoadsWithAPIOff(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	body := "router: 10.0.0.1:8910\nusers:\n  - name: Ana\n    pin: " + h + "\n    len: 4\n"
+	body := "format: 2\nrouters: [{address: 10.0.0.1:8910}]\nusers:\n  - name: Ana\n    pin: " + h + "\n    len: 4\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -24,27 +29,26 @@ func TestOldFileLoadsWithAPIOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.API.Enabled || c.API.GuestEnabled || c.API.LogReads || c.RequireHTTPS {
+	if c.API.GuestEnabled || c.API.LogReads || c.RequireHTTPS {
 		t.Errorf("API or Require HTTPS on: %+v", c.API)
 	}
-	if c.API.RateLimit <= 0 || c.API.TakeCap <= 0 || c.API.MaxUserKeys <= 0 || c.API.MaxClientKeys <= 0 {
+	if c.API.RateLimit <= 0 || c.API.TakeCap <= 0 {
 		t.Errorf("limits not defaulted: %+v", c.API)
 	}
 	if !reflect.DeepEqual(c.GuestAPIScopes, DefaultGuestScopes) {
 		t.Errorf("guest scopes %v, want %v", c.GuestAPIScopes, DefaultGuestScopes)
 	}
-	if len(c.APIClients) != 0 || !c.GuestRights.IsOpen() {
+	if len(c.APIClients) != 0 || !isOpen(c.GuestRights) {
 		t.Errorf("clients %v, guest rights %+v", c.APIClients, c.GuestRights)
 	}
-	if u := c.Users[0]; u.NoAutoLock || !u.Rights.IsOpen() {
+	if u := c.Users[0]; u.NoAutoLock || !isOpen(u.Rights) {
 		t.Errorf("user %+v", u)
 	}
 }
 
 func TestRightsRoundTrip(t *testing.T) {
-	none := []int{}
 	c := Defaults()
-	c.GuestRights = Rights{Sources: &[]int{1, 2}, Dsts: &none, Visibility: VisHidden}
+	c.GuestRights = Rights{Sources: nums(1, 2), Dsts: nums(), Visibility: VisHidden}
 	c.APIClients = []APIClient{{Name: "Panel bot", Scopes: []string{ScopeNames, ScopeTake}, Rights: Rights{Presets: &[]string{"Cam"}}}}
 	c.Normalize()
 	path := filepath.Join(t.TempDir(), "c.yaml")
@@ -67,8 +71,8 @@ func TestRightsRoundTrip(t *testing.T) {
 }
 
 func TestRightsAllow(t *testing.T) {
-	r := Rights{Sources: &[]int{4}, Presets: &[]string{"Cam"}}
-	if !r.AllowsSource(4) || r.AllowsSource(5) || !r.AllowsDst(9) || !r.AllowsLevel(1) {
+	r := Rights{Sources: nums(4), Presets: &[]string{"Cam"}}
+	if !r.AllowsSource(Ref{N: 4}) || r.AllowsSource(Ref{N: 5}) || !r.AllowsDst(Ref{N: 9}) || !r.AllowsLevel(1) {
 		t.Error("source list or unset lists wrong")
 	}
 	if !r.AllowsPreset("Cam") || r.AllowsPreset("Other") {
@@ -81,13 +85,13 @@ func TestRightsAllow(t *testing.T) {
 
 func TestCloneSharesNoRights(t *testing.T) {
 	c := Defaults()
-	c.GuestRights.Sources = &[]int{1}
-	c.APIClients = []APIClient{{Name: "a", Rights: Rights{Dsts: &[]int{2}}, Scopes: []string{ScopeNames}}}
+	c.GuestRights.Sources = nums(1)
+	c.APIClients = []APIClient{{Name: "a", Rights: Rights{Dsts: nums(2)}, Scopes: []string{ScopeNames}}}
 	d := c.Clone()
-	(*d.GuestRights.Sources)[0] = 9
-	(*d.APIClients[0].Rights.Dsts)[0] = 9
+	(*d.GuestRights.Sources)[0].N = 9
+	(*d.APIClients[0].Rights.Dsts)[0].N = 9
 	d.APIClients[0].Scopes[0] = "x"
-	if (*c.GuestRights.Sources)[0] != 1 || (*c.APIClients[0].Rights.Dsts)[0] != 2 || c.APIClients[0].Scopes[0] != ScopeNames {
+	if (*c.GuestRights.Sources)[0].N != 1 || (*c.APIClients[0].Rights.Dsts)[0].N != 2 || c.APIClients[0].Scopes[0] != ScopeNames {
 		t.Error("clone shares memory")
 	}
 }
@@ -99,7 +103,7 @@ func TestAPIValidation(t *testing.T) {
 		"client no name":     func(c *Config) { c.APIClients = []APIClient{{}} },
 		"duplicate client":   func(c *Config) { c.APIClients = []APIClient{{Name: "A"}, {Name: "a"}} },
 		"level out of range": func(c *Config) { c.GuestRights.Levels = &[]int{99} },
-		"negative source":    func(c *Config) { c.GuestRights.Sources = &[]int{-1} },
+		"negative source":    func(c *Config) { c.GuestRights.Sources = nums(-1) },
 		"rate limit":         func(c *Config) { c.API.RateLimit = -1 },
 		"take cap":           func(c *Config) { c.API.TakeCap = 0 },
 		"https no proxies":   func(c *Config) { c.RequireHTTPS = true },
@@ -125,7 +129,7 @@ func TestAPIValidation(t *testing.T) {
 func TestRightsStayOutOfConfigJSON(t *testing.T) {
 	c := Defaults()
 	c.APIClients = []APIClient{{Name: "Secretbot"}}
-	c.GuestRights.Sources = &[]int{7}
+	c.GuestRights.Sources = nums(7)
 	b, err := json.Marshal(c)
 	if err != nil {
 		t.Fatal(err)

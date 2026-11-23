@@ -41,9 +41,7 @@ export function artPane(name, choices, draw, pick) {
   return { grid, none };
 }
 
-// opts: {ed, icons, set(value), setB(glyph), setHideText(on)}. update repaints; the preview shows the artwork row dimmed
-// behind the caption. Hide text shows only when the cell has Icon A or B. A target with no text (text: false, a Grid
-// panel's row) never shows it.
+// opts: {ed, icons, set(value), setB(glyph), setHideText(on)}. A target with no text (text: false, a Grid panel's row) never shows Hide text.
 export function createArtControl({ ed, icons = false, set, setB, setHideText }) {
   const preview = el('div', 'sode-side__art');
   const note = el('p', 'sode__hint');
@@ -53,9 +51,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   file.accept = 'image/jpeg,image/png,image/gif,image/svg+xml';
   file.hidden = true;
   const up = btn('pb-btn--outline pb-btn--sm', 'Upload image', () => file.click());
-  // Remove Image clears a panel's own picture (panelImage); Remove Icon clears an icon, vendored or from the library, and Icon B.
-  const clearImage = btn('pb-btn--outline pb-btn--sm', 'Remove Image', () => set(undefined));
-  const clearIcon = btn('pb-btn--outline pb-btn--sm', 'Remove Icon', () => {
+  const clearImage = btn('pb-btn--outline pb-btn--sm', 'Remove image', () => set(undefined));
+  const clearIcon = btn('pb-btn--outline pb-btn--sm', 'Remove icon', () => {
     if (!panelImage(shownValue)) set(undefined);
     setB?.(undefined);
   });
@@ -70,7 +67,6 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   });
   choose.setAttribute('aria-expanded', 'false');
 
-  // Two columns shown at the same time, each with its own None and its own scroll: Icon A is the sprite, Icon B the glyphs.
   // Choosing keeps the picker open, so "[camera] 2" is two clicks.
   const column = (text, p, extra) =>
     el('div', 'sode-side__col', el('div', 'sode-side__col-top', el('span', 'sode-side__col-h', text), ...(extra ? [extra] : []), p.none), p.grid);
@@ -118,7 +114,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   let hidden = false;
   const hide = btn('pb-btn--outline pb-btn--sm', 'Hide text', () => setHideText(!hidden));
   hide.hidden = true;
-  const bar = el('div', 'sode-side__row', up, ...(icons ? [choose] : []), clearImage, clearIcon, ...(setHideText ? [hide] : []));
+  // Two even pairs: the image and its Remove, then the icon and its Remove (panels.css .sode-side__artbtns).
+  const bar = el('div', 'sode-side__artbtns', up, clearImage, ...(icons ? [choose] : []), clearIcon, ...(setHideText ? [hide] : []));
   // The cell's own file input comes before the Uploaded section's, so it is the Cell tab's first.
   const node = el('div', 'sode__field', el('span', 'sode__field-label', 'Artwork'), preview, bar, file, ...(icons ? [picker] : []), note);
 

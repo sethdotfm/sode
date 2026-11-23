@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind, eventProblem } from '../logkinds.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, kindLabel, normalizeKinds, allKinds, pressKind, eventProblem, addNewKinds } from '../logkinds.js';
 
 const [a, b, c] = KIND_IDS;
 
@@ -44,7 +44,7 @@ test('kinds toggle, and the last one off goes back to All', () => {
 test('a list saved when All was the six message groups is still All', () => {
   const old = ['connect', 'interrogate', 'keepalive', 'dump', 'names', 'other'];
   assert.deepEqual(normalizeKinds(old, ['connect']), KIND_IDS);
-  // Choosing a subset that happens to be the old six plus an event is not All.
+  // A subset that equals the old six kinds plus an event is not All.
   assert.deepEqual(normalizeKinds(old.slice(0, 5), ['connect']), old.slice(0, 5));
   assert.deepEqual(normalizeKinds([...old, 'command'], ['connect']), [...old, 'command']);
 });
@@ -77,4 +77,24 @@ test('eventProblem: other kinds go by result, not err', () => {
   assert.equal(eventProblem({ kind: 'command', result: 'ok' }), false);
   assert.equal(eventProblem({ kind: 'link', result: 'down' }), true);
   assert.equal(eventProblem({ kind: 'api', result: 'error' }), true);
+});
+
+test('Settings saves is an event kind, and a saved filter from before it gets it', () => {
+  assert.ok(KIND_IDS.includes('settings'));
+  assert.ok(EVENT_KINDS.has('settings'));
+  assert.deepEqual(addNewKinds(['connect'], undefined), ['connect', 'settings']);
+  assert.deepEqual(addNewKinds(['connect'], KIND_IDS), ['connect']);
+});
+
+test('kindLabel: each router salvo row has its own words, old rows too', () => {
+  const words = [
+    { kind: 'salvoGo', hex: '79 01 7F' },
+    { kind: 'salvoStage', hex: '78 00 05 00 07 7F' },
+    { kind: 'salvoStageExt', hex: 'F8 00 10 04 4D 05 DD 7F' },
+    { kind: 'salvoGo', hex: '79 00 7F' },
+  ].map(kindLabel);
+  assert.deepEqual(words, ['Router salvo clear', 'Router salvo stage', 'Router salvo extended stage', 'Router salvo go']);
+  assert.equal(kindLabel({ kind: 'salvoGo' }), 'Router salvo go');
+  assert.equal(kindLabel({ kind: 'mystery' }), 'mystery');
+  assert.equal(kindLabel({ kind: 'command', hex: '' }), 'Command');
 });

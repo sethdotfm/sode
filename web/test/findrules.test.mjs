@@ -1,4 +1,3 @@
-// Find in the panel editor (findrules.js): what can be searched, who can see it, and how results rank. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pairPlan, chipKinds, findEntries, pageEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
@@ -18,8 +17,8 @@ const names = {
 };
 const presets = {
   presets: [
-    { scope: 'everyone', name: 'Show open' },
-    { scope: 'me', name: 'Night' },
+    { scope: 'everyone', id: 'e1', name: 'Show open' },
+    { scope: 'me', id: 'm1', name: 'Night' },
   ],
 };
 
@@ -41,7 +40,7 @@ test('every Source, Destination, Preset, Take, Clear, Undo, Current, Panel Name,
 });
 
 test('Read-only rights grey what is outside them and Hidden removes it', () => {
-  const rights = { sources: [0], dsts: [1], presets: ['Night'] };
+  const rights = { sources: [0], dsts: [1], presets: ['m1'] };
   const grey = findEntries(names, presets, rights);
   assert.equal(grey.length, 18);
   assert.deepEqual(
@@ -212,16 +211,18 @@ test('the fill order is a parameter', () => {
   );
 });
 
-test('a Preset cell holds scope and name, and replacing one of another kind drops its old item', () => {
+test('a Preset cell holds scope, id and name, and replacing one of another kind drops its old item', () => {
   const all = findEntries(names, presets, null);
   let g = sel(1, 1, 1, 2);
   g = applyFind(g, findPlan(g, fillRun(all, find('Camera 1', all), null), 'across'));
+  // As saved: the server made the Source cells router references.
+  g = { ...g, cells: g.cells.map((x) => ({ ...x, router: 'u1', name: 'CAM' })) };
   const done = applyFind(g, findPlan(g, fillRun(all, find('Night', all), null), 'across'));
   assert.deepEqual(
-    selCells(done).map(({ r, c, kind, scope, name, n }) => ({ r, c, kind, scope, name, n })),
+    selCells(done).map(({ r, c, kind, scope, id, name, n, router }) => ({ r, c, kind, scope, id, name, n, router })),
     [
-      { r: 1, c: 1, kind: 'preset', scope: 'me', name: 'Night', n: undefined },
-      { r: 1, c: 2, kind: 'preset', scope: 'everyone', name: 'Show open', n: undefined },
+      { r: 1, c: 1, kind: 'preset', scope: 'me', id: 'm1', name: 'Night', n: undefined, router: undefined },
+      { r: 1, c: 2, kind: 'preset', scope: 'everyone', id: 'e1', name: 'Show open', n: undefined, router: undefined },
     ],
   );
 });

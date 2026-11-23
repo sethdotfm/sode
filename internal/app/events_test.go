@@ -16,7 +16,7 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// startLog runs the sent log writer; the returned func stops it and waits.
+// startLog runs the Communication Log writer. The returned func stops it and waits.
 func startLog(t *testing.T, a *App) (stop func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -32,7 +32,25 @@ func startLog(t *testing.T, a *App) (stop func()) {
 	}
 }
 
-// logged is the sent log, oldest first.
+// Any socket can send these, so with nobody signed in they must not write rows.
+func TestLockWithNobodySignedInWritesNoRow(t *testing.T) {
+	a := userApp(t, false)
+	defer startLog(t, a)()
+	c := &client{ip: "10.0.0.9"}
+	for range 3 {
+		for _, typ := range []string{"userLock", "userSignOut"} {
+			policy[typ].handle(a, c, &inMsg{T: typ})
+		}
+	}
+	a.command(c, "marker", "ok", "", nil)
+	for _, r := range waitLogged(t, a, 1) {
+		if r.Why == "userLock" || r.Why == "userSignOut" {
+			t.Fatalf("row %+v", r)
+		}
+	}
+}
+
+// logged is the Communication Log, oldest first.
 func logged(t *testing.T, a *App) []Sent {
 	t.Helper()
 	page, _, err := a.sent.Page(-1, 500)
@@ -45,7 +63,6 @@ func logged(t *testing.T, a *App) []Sent {
 	return page
 }
 
-// waitLogged waits for at least n rows.
 func waitLogged(t *testing.T, a *App, n int) []Sent {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -69,8 +86,8 @@ func results(rows []Sent, kind string) string {
 	return strings.Join(out, ",")
 }
 
-// The retry cycle while the router is down is one row, and the router
-// being changed starts over so the next up is logged.
+// The retry cycle while the router is down is one row. A router change starts the cycle again, so Sode logs the next
+// up.
 func TestLinkLoggedOncePerOutage(t *testing.T) {
 	a := newTestApp(t)
 	stop := startLog(t, a)
@@ -90,12 +107,12 @@ func TestLinkLoggedOncePerOutage(t *testing.T) {
 	if got := results(rows, kindLink); got != "down,down,up" {
 		t.Fatalf("link rows = %s, want down (once), down (new error), up", got)
 	}
-	if rows[0].Err != "connection refused" || rows[0].Note != a.r().cfg.Router {
+	if rows[0].Err != "connection refused" || rows[0].Note != a.r().cfg.Address {
 		t.Fatalf("down row = %+v", rows[0])
 	}
 
 	cfg := a.r().cfg
-	cfg.Router = "10.9.9.9:8910"
+	cfg.Address = "10.9.9.9:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +172,7 @@ func TestShutdownWritesStopAndOff(t *testing.T) {
 	}
 }
 
-// A failed write to the sent log still counts for the graph.
+// A failed write to the Communication Log still counts for the graph.
 func TestUptimeCountsEvenIfNotSaved(t *testing.T) {
 	a := newTestApp(t)
 	stop := startLog(t, a)
@@ -169,16 +186,10 @@ func TestUptimeCountsEvenIfNotSaved(t *testing.T) {
 	}
 }
 
-// Browsers connecting and dropping and what they fire show in the log;
-// a PIN never does.
+// Browsers that connect, drop and fire show in the log. `unlock` and `lock` are unknown types: nothing runs or logs.
 func TestBrowserAndCommandRows(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Normalize()
-	hash, err := config.HashPin("4711")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.SettingsPin = hash
 	hist, _ := OpenHistory("")
 	a, err := New(cfg, "", hist, nil, false)
 	if err != nil {
@@ -204,10 +215,10 @@ func TestBrowserAndCommandRows(t *testing.T) {
 	send(map[string]any{"t": "unlock", "pin": "4711", "id": 2})
 	send(map[string]any{"t": "lock"})
 	send(map[string]any{"t": "clearHistory"})
-	send(map[string]any{"t": "refreshNames"})
-	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 1, "src": 1, "dst": 2, "levels": []int{1}}, {"id": 2, "src": 1, "dst": 3, "levels": []int{1}}}})
-	send(map[string]any{"t": "sent", "before": -1}) // reads are not commands
-	rows := waitLogged(t, a, 8)
+	send(map[string]any{"t": "rereadNames"})
+	send(map[string]any{"t": "take", "items": []map[string]any{{"id": 1, "src": 1, "dst": 2, "levels": []int{1}}, {"id": 2, "src": 1, "dst": 3, "levels": []int{1}}}})
+	send(map[string]any{"t": "log", "before": -1}) // reads are not commands
+	rows := waitLogged(t, a, 5)
 	c.Close(websocket.StatusNormalClosure, "")
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
 		if rows = logged(t, a); results(rows, kindBrowser) == "connected,disconnected" {
@@ -221,14 +232,12 @@ func TestBrowserAndCommandRows(t *testing.T) {
 			why = append(why, e.Why)
 			res = append(res, e.Result)
 		}
-		if strings.Contains(e.Err+e.Note+e.Hex+e.Why, "4711") || strings.Contains(e.Err+e.Note, "0000") {
-			t.Fatalf("a PIN is in the log: %+v", e)
-		}
 	}
-	if got := strings.Join(why, ","); got != "unlock,unlock,lock,clearHistory,refreshNames,take" {
+	if got := strings.Join(why, ","); got != "clearHistory,rereadNames,take" {
 		t.Fatalf("commands = %s", got)
 	}
-	if got := strings.Join(res, ","); got != "refused,ok,ok,locked,sent,sent" {
+	// No users: every browser acts as an Administrator, so clearHistory runs.
+	if got := strings.Join(res, ","); got != "ok,sent,sent" {
 		t.Fatalf("results = %s", got)
 	}
 	var take Sent

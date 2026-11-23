@@ -12,7 +12,7 @@ import (
 
 func TestValidate(t *testing.T) {
 	ok := Defaults()
-	ok.Router = "10.0.0.5:8910"
+	ok.Address = "10.0.0.5:8910"
 	ok.Normalize()
 	if err := ok.Validate(); err != nil {
 		t.Fatalf("defaults: %v", err)
@@ -22,7 +22,7 @@ func TestValidate(t *testing.T) {
 		"negative levels":   func(c *Config) { c.Levels = -1 },
 		"std matrix 16":     func(c *Config) { c.Matrix = 16 },
 		"offset below wire": func(c *Config) { c.LevelWireOffset = -2 },
-		"bad router":        func(c *Config) { c.Router = "10.0.0.5" },
+		"bad router":        func(c *Config) { c.Address = "10.0.0.5" },
 		"bad default":       func(c *Config) { c.DefaultLevels = "1-99" },
 		"bad name len":      func(c *Config) { c.NameLength = 10 },
 		"bad proxy":         func(c *Config) { c.TrustedProxies = []string{"caddy"} },
@@ -30,11 +30,9 @@ func TestValidate(t *testing.T) {
 		"bad color":         func(c *Config) { c.LevelColors = []string{"#12345g"} },
 		"bad numbering":     func(c *Config) { c.LevelNumbering = "2" },
 		"bad router show":   func(c *Config) { c.RouterShow = "ip" },
-		"long router name":  func(c *Config) { c.RouterName = strings.Repeat("x", 33) },
+		"long router name":  func(c *Config) { c.Title = strings.Repeat("x", 33) },
 		"long brand text":   func(c *Config) { c.BrandText = strings.Repeat("x", 25) },
 		"bad brand border":  func(c *Config) { c.BrandBorder = "red" },
-		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
-		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
 		"long hidden dsts":  func(c *Config) { c.HiddenDsts = strings.Repeat("x", 501) },
 		"bad theme":         func(c *Config) { c.DeviceDefaults.Theme = "blue" },
 		"bad layout":        func(c *Config) { c.DeviceDefaults.Layout = "tablet" },
@@ -42,6 +40,8 @@ func TestValidate(t *testing.T) {
 		"bad set stack":     func(c *Config) { c.DeviceDefaults.SetStack = "xor" },
 		"bad next":          func(c *Config) { c.DeviceDefaults.NextMode = "random" },
 		"bad stack gap":     func(c *Config) { c.DeviceDefaults.StackGap = "45" },
+		"letter palette":    func(c *Config) { c.DeviceDefaults.PaletteChar = "p" },
+		"plus palette":      func(c *Config) { c.DeviceDefaults.PaletteChar = "+" },
 		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
 		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
 		"bad fire mode":     func(c *Config) { c.FireMode = "parallel" },
@@ -87,12 +87,11 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatalf("missing file: exists=%v err=%v", exists, err)
 	}
 	c := Defaults()
-	c.Router = "10.0.0.5:8910"
+	c.Address = "10.0.0.5:8910"
 	c.TrustedProxies = []string{"10.0.0.2", "172.18.0.0/16"}
-	c.LevelNumbering, c.PinMaxTries = "va", 3
+	c.LevelNumbering, c.PinWaits = "va", false
 	c.HiddenDsts = "MV, !1-5"
 	c.FilterSets = []FilterSet{{Name: "All except shader", Dst: "!MON", Sode: true, Ext: true}, {Name: "Panels", Ext: true, Hidden: true}}
-	c.SettingsPin, _ = HashPin("1234")
 	c.Normalize()
 	if err := Save(path, c); err != nil {
 		t.Fatal(err)
@@ -101,32 +100,23 @@ func TestSaveLoad(t *testing.T) {
 	if err != nil || !exists || !reflect.DeepEqual(got, c) {
 		t.Fatalf("round trip: %+v exists=%v err=%v", got, exists, err)
 	}
-	// Files from before levelTypedBase was dropped still load.
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelTypedBase: 1\n"), 0o644)
-	if _, _, err := Load(path); err != nil {
-		t.Fatalf("legacy levelTypedBase: %v", err)
-	}
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nhideDsts: [3, 64]\n"), 0o644)
-	if _, _, err := Load(path); err != nil {
-		t.Fatalf("legacy hideDsts: %v", err)
-	}
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
-	if got, _, err := Load(path); err != nil || !slices.Equal(got.UnknownKeys(), []string{"levelz"}) || got.Extra["levelz"] != 3 {
+	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\nlevelz: 3\n"), 0o644)
+	if got, _, err := Load(path); err != nil || !slices.Equal(got.UnknownKeys(), []string{"levelz"}) || got.Extra["levelz"] != 3 || !got.PinWaits {
 		t.Fatalf("unknown key: %v %v", err, got.Extra)
 	}
 }
 
 func TestDeviceDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\n"), 0o644)
 	c, _, err := Load(path)
-	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30"}
+	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", PaletteChar: ">"}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
+	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\nbrowserDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
 	c, _, err = Load(path)
-	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", Compact: true}
+	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number", StackGap: "30", Compact: true, PaletteChar: ">"}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("partial block: %+v %v", c.DeviceDefaults, err)
 	}
@@ -136,7 +126,7 @@ func TestDeviceDefaults(t *testing.T) {
 		t.Fatalf("blank block: %+v %v", c.DeviceDefaults, err)
 	}
 	b, _ := json.Marshal(Defaults())
-	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number","stackGap":"30","compact":false}`) {
+	if !strings.Contains(string(b), `"browserDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number","stackGap":"30","compact":false,"paletteChar":"\u003e"}`) {
 		t.Fatalf("json: %s", b)
 	}
 }
@@ -199,51 +189,11 @@ func TestPin(t *testing.T) {
 	if !ValidPinHash(h) || ValidPinHash("1234") || ValidPinHash("") {
 		t.Fatal("ValidPinHash")
 	}
-	if CheckPinRules("123") == nil || CheckPinRules("1234") != nil {
-		t.Fatal("CheckPinRules")
-	}
 	c := Defaults()
-	c.SettingsPin = h
+	c.Users = []User{{ID: "u-1", Name: "Ana", Pin: h, Len: 4}}
 	b, _ := json.Marshal(c)
 	if strings.Contains(string(b), "pbkdf2") {
 		t.Fatal("PIN hash leaks into JSON")
-	}
-}
-
-// Old grid keys load; the next save drops them.
-func TestLegacyGridKeysLoad(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\ngridConfirm: true\ngrids:\n  - link: a\n    cells: []\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	c, ok, err := Load(p)
-	if err != nil || !ok {
-		t.Fatalf("load: %v %v", ok, err)
-	}
-	if err := Save(p, c); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := os.ReadFile(p)
-	if strings.Contains(string(b), "grid") {
-		t.Fatalf("saved file still has grid keys:\n%s", b)
-	}
-}
-
-func TestLegacyGridLockKeyLoads(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\nlocks:\n  main: false\n  grid: false\n  log: false\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	c, ok, err := Load(p)
-	if err != nil || !ok {
-		t.Fatalf("load: %v %v", ok, err)
-	}
-	if err := Save(p, c); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := os.ReadFile(p)
-	if strings.Contains(string(b), "grid") {
-		t.Fatalf("saved file still has the grid lock key:\n%s", b)
 	}
 }
 
@@ -253,5 +203,16 @@ func TestFireModeFromEnv(t *testing.T) {
 	c, err := FromEnv(Defaults())
 	if err != nil || c.FireMode != "native" || c.SalvoGroup != 12 {
 		t.Fatalf("%q %d %v", c.FireMode, c.SalvoGroup, err)
+	}
+}
+
+func TestNameRereadFromEnv(t *testing.T) {
+	t.Setenv("SODE_NAME_REREAD_S", "90")
+	c, err := FromEnv(Defaults())
+	if err != nil || c.NameRefreshSeconds != 90 {
+		t.Fatalf("%d %v", c.NameRefreshSeconds, err)
+	}
+	if b, _ := json.Marshal(c); !strings.Contains(string(b), `"nameRereadSeconds":90`) {
+		t.Fatalf("json: %s", b)
 	}
 }

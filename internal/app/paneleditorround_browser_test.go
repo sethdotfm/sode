@@ -11,8 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Ctrl or Cmd+S saves from anywhere on the page, a field included, and the browser's own Save never opens. The
-// toolbar holds still while the state beside Save changes, at a width where the bar wraps.
 func TestChromeEditorSaveKeyAndSteadyToolbar(t *testing.T) {
 	b, _, _, _ := editorTabPrep(t, `{"name":"Wall","rows":2,"cols":2,"cells":[]}`, func(b *tab, _ *App, _, _ string) {
 		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1100, "height": 800, "deviceScaleFactor": 1, "mobile": false})
@@ -33,16 +31,14 @@ func TestChromeEditorSaveKeyAndSteadyToolbar(t *testing.T) {
 		t.Errorf("the toolbar moved after the save:\nbefore %v\nafter  %v", b.eval(`before`), after)
 	}
 	b.eval(`rename('Wall three');
-		window.prevented = !document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true, cancelable: true })); true`)
-	b.waitSaved("Cmd+S saved too")
-	b.waitFor("Cmd+S was prevented and kept the name", `prevented && document.getElementById('ed-name').value === 'Wall three'`)
+		window.prevented = !document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })); true`)
+	b.waitSaved("Ctrl+S on the page saved too")
+	b.waitFor("that Ctrl+S was prevented and kept the name", `prevented && document.getElementById('ed-name').value === 'Wall three'`)
 	b.eval(`window.prevented = !document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("with nothing to save the browser's Save is still kept away", `prevented`)
 	b.check()
 }
 
-// A square given a kind but nothing chosen opens Find on that kind. When nothing of that kind matches, a row offers
-// every kind and keeps the typed text.
 func TestChromeEditorFindStartsOnTheKind(t *testing.T) {
 	b, _, _, _ := editorTab(t, `{"name":"Wall","rows":2,"cols":4,"cells":[{"r":1,"c":1,"kind":"destination"},{"r":1,"c":2,"kind":"preset"},{"r":1,"c":3,"kind":"source","n":1}]}`)
 	b.waitFor("grid drawn", `document.querySelectorAll('#ed-grid .sode-ed__sq').length >= 7`)
@@ -66,8 +62,6 @@ func TestChromeEditorFindStartsOnTheKind(t *testing.T) {
 	b.check()
 }
 
-// An uploaded image fills a merged square with contain, and Icon B draws over it as a corner badge. This holds in the
-// square and the sidebar preview, and the picker's Icon B column is still there. A vendored icon puts Icon B back in the row.
 func TestChromeEditorImageIconBBadge(t *testing.T) {
 	var art string
 	b, a, ana, id := editorTabPrep(t, `{"name":"Wall","rows":2,"cols":2,"cells":[]}`, func(b *tab, a *App, ana, id string) {
@@ -97,8 +91,6 @@ func TestChromeEditorImageIconBBadge(t *testing.T) {
 	b.check()
 }
 
-// Every way the editor can fail to reach its panel says why and what to do; none leaves the page blank. The
-// sidebar and Find are built even while the page waits for a sign-in.
 func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -113,13 +105,13 @@ func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	note := `(document.getElementById('panels-note') || {})`
 	signin := `document.getElementById('panels-signin')`
 	pin := func(p string) {
+		b.padName("Ana")
 		for _, d := range p {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}
 		b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	}
 
-	// A wrong PIN, then Cancel: the page says to sign in and offers the button, and is built, not blank.
 	b.open(srv.URL + "/panels/editor?panel=" + bens)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	pin("9999")
@@ -128,29 +120,25 @@ func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	b.waitFor("cancelled: a note and Sign in", `!`+note+`.hidden && /Sign in with your PIN/.test(`+note+`.textContent) && !`+signin+`.hidden && `+signin+`.textContent === 'Sign in'`)
 	b.waitFor("and the page is built while it waits", `!!document.querySelector('#ed-side .pb-tab')`)
 
-	// Signed in, a panel shared with nobody else: it says so and what to do.
 	b.eval(signin + `.click(); true`)
 	b.waitFor("PIN pad again", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	pin("1234")
-	b.waitFor("another user's panel says what to do", `/No panel here that you can use\. Choose another panel, or ask its owner to share it with you\./.test(document.getElementById('ed-status').textContent)`)
+	b.waitFor("another user's panel says what to do", `/No panel here that you can use\./.test(document.getElementById('ed-status').textContent)`)
 
-	// A bad id says the same.
 	b.eval(`history.pushState(null, '', 'panels/editor?panel=nope'); dispatchEvent(new PopStateEvent('popstate')); true`)
 	b.waitFor("a bad id says what to do", `/No panel here that you can use/.test(document.getElementById('ed-status').textContent)`)
 
-	// Sode refuses the page's key: the reason, and Sign in again asks for a new one.
 	b.call("Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": refuseSessionKey})
 	b.open(srv.URL + "/panels/editor?panel=" + bens)
 	pad := `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`
-	b.waitFor("the PIN pad or the refusal after the reload", pad+` || /would not open/.test(`+note+`.textContent)`)
+	b.waitFor("the PIN pad or the refusal after the reload", pad+` || /Sign-in refused/.test(`+note+`.textContent)`)
 	if b.eval(pad) == true {
 		pin("1234")
 	}
-	b.waitFor("a refused key says why, with Sign in again", `/would not open the editor for this sign-in: test refusal/.test(`+note+`.textContent) && !`+signin+`.hidden && `+signin+`.textContent === 'Sign in again'`)
+	b.waitFor("a refused key says why, with Sign in again", `/Sign-in refused: test refusal/.test(`+note+`.textContent) && !`+signin+`.hidden && `+signin+`.textContent === 'Sign in again'`)
 	b.eval(`window.sodeRefuse = 0; ` + signin + `.click(); true`)
 	b.waitFor("Sign in again asks again and the page goes on", `/No panel here that you can use/.test(document.getElementById('ed-status').textContent) && `+note+`.hidden`)
 
-	// Sode stops answering: the page says so instead of sitting dark.
 	b.call("Network.enable", map[string]any{})
 	b.call("Network.setBlockedURLs", map[string]any{"urls": []string{"*/ws*"}})
 	b.eval(`window.sodeSockets.forEach((s) => s.close()); true`)

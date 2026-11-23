@@ -16,40 +16,56 @@ import (
 )
 
 type Entry struct {
-	ID          int       `json:"id"`
-	Time        time.Time `json:"time"`
-	Client      string    `json:"client"`
-	Actor       *Actor    `json:"actor,omitempty"` // set for an API actor: Client then holds its label, never an address
-	Src         int       `json:"src"`
-	SrcName     string    `json:"srcName"`
-	Dst         int       `json:"dst"`
-	DstName     string    `json:"dstName"`
-	Levels      []int     `json:"levels"`
-	Prev        [][2]int  `json:"prev"` // [UI level, src] before the take; src -1 = nothing routed
-	OK          bool      `json:"ok"`
-	Err         string    `json:"err,omitempty"`
-	Undo        *int      `json:"undo,omitempty"`
-	Retry       *int      `json:"retry,omitempty"`
-	Failed      []int     `json:"failed,omitempty"`  // levels the router never confirmed or that were not sent
-	Now         [][2]int  `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
-	Already     []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
-	Group       string    `json:"group,omitempty"`
-	GroupN      int       `json:"groupN,omitempty"`
-	Preset      string    `json:"preset,omitempty"` // name of the preset this take was fired from (browser-supplied, cleaned); older files call it "salvo"
-	Ext         bool      `json:"ext,omitempty"`
-	FollowGroup string    `json:"followGroup,omitempty"`
-	Follow      *int      `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
-	Found       bool      `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
-	Late        []int     `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
-	Unsent      []int     `json:"unsent,omitempty"`
-	SendErr     string    `json:"sendErr,omitempty"`
-	Cut         bool      `json:"cut,omitempty"` // the router changed under the take, so its Failed levels only got no answer
+	ID     int       `json:"id"`
+	Time   time.Time `json:"time"`
+	Client string    `json:"client"`
+	Actor  *Actor    `json:"actor,omitempty"` // set for an API actor: Client then holds its label, never an address
+	// BrowserOf: a take made while stepped in (stepin.go). Client is the stepped-in user; this is the
+	// original user, or the address with nobody signed in. Apart from Client so filters match the actor only.
+	BrowserOf   string   `json:"browserOf,omitempty"`
+	Src         int      `json:"src"`
+	SrcName     string   `json:"srcName"`
+	Dst         int      `json:"dst"`
+	DstName     string   `json:"dstName"`
+	Levels      []int    `json:"levels"`
+	Prev        [][2]int `json:"prev"` // [UI level, src] before the take, or on dst for a Protect entry; src -1 = nothing routed
+	OK          bool     `json:"ok"`
+	Err         string   `json:"err,omitempty"`
+	Undo        *int     `json:"undo,omitempty"`
+	Retry       *int     `json:"retry,omitempty"`
+	Failed      []int    `json:"failed,omitempty"`  // levels the router never confirmed or that were not sent
+	Now         [][2]int `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
+	Already     []int    `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
+	Group       string   `json:"group,omitempty"`
+	GroupN      int      `json:"groupN,omitempty"`
+	Preset      string   `json:"preset,omitempty"`   // name of the preset this take was fired from (browser-supplied, cleaned)
+	PresetID    string   `json:"presetId,omitempty"` // its hidden id, for Rights
+	Ext         bool     `json:"ext,omitempty"`
+	FollowGroup string   `json:"followGroup,omitempty"`
+	Follow      *int     `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (External follow)
+	Found       bool     `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
+	Late        []int    `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
+	Unsent      []int    `json:"unsent,omitempty"`
+	SendErr     string   `json:"sendErr,omitempty"`
+	Cut         bool     `json:"cut,omitempty"` // the router changed under the take, so its Failed levels only got no answer
 	// Panel and Instance name the panel page that made the take (panelNames). With a user's key they are the
 	// page's own word, which the log marks unverified. PanelID is the panel's id, which a rename leaves, so the
 	// Undo cell (panelundo.go) matches by it.
 	Panel    string `json:"panel,omitempty"`
 	PanelID  string `json:"panelId,omitempty"`
 	Instance string `json:"instance,omitempty"`
+	// Router is the router UID and RouterTitle its title when the entry was made. They keep
+	// the entry readable after a rename or a delete.
+	Router      string `json:"router,omitempty"`
+	RouterTitle string `json:"routerTitle,omitempty"`
+	// Protect: "set" or "clear" for a Protect Sode set or cleared on every level (protect.go); Src is -1. Still is
+	// the levels Sode still holds after a failed one.
+	Protect string `json:"protect,omitempty"`
+	Still   []int  `json:"still,omitempty"`
+	// HoldKind and Device: an External Protect entry (protext.go), "protect" or "routerLock" (holdKindWord) and
+	// the device that set the hold.
+	HoldKind string `json:"holdKind,omitempty"`
+	Device   int    `json:"device,omitempty"`
 }
 
 // logLine: off turns 0-based numbers into the router's display numbers.
@@ -70,6 +86,10 @@ func (e *Entry) logLine(off int) string {
 	if e.Group != "" {
 		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
 	}
+	if e.Ext && e.Protect != "" {
+		return fmt.Sprintf("EXT protect=%s kind=%s device=%d dst=%d %q levels=%v found=%t",
+			e.Protect, e.HoldKind, e.Device, e.Dst+off, e.DstName, e.Levels, e.Found)
+	}
 	if e.Ext {
 		follow := "-"
 		if e.Follow != nil {
@@ -82,8 +102,16 @@ func (e *Entry) logLine(off int) string {
 		return fmt.Sprintf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s followGroup=%s found=%t",
 			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, followGroup, e.Found)
 	}
+	client := e.Client
+	if e.BrowserOf != "" {
+		client += " (browser of " + e.BrowserOf + ")"
+	}
+	if e.Protect != "" {
+		return fmt.Sprintf("PROTECT client=%s protect=%s dst=%d %q levels=%v still=%v undo=%s group=%s result=%q",
+			client, e.Protect, e.Dst+off, e.DstName, e.Levels, e.Still, undo, group, result)
+	}
 	return fmt.Sprintf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
-		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
+		client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
 }
 
 // History: append-only JSONL; only line offsets are kept in memory. With no path, entries
@@ -101,6 +129,11 @@ func OpenHistory(path string) (*History, error) {
 	h := &History{}
 	if path == "" {
 		return h, nil
+	}
+	// A rewrite cut short by a kill leaves its temp file.
+	old, _ := filepath.Glob(path + ".tmp-*")
+	for _, p := range old {
+		os.Remove(p)
 	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
 	if err != nil {
@@ -130,9 +163,15 @@ func OpenHistory(path string) (*History, error) {
 	return h, nil
 }
 
-func (h *History) Append(e *Entry) error {
+// On error e.ID is -1, since the next entry takes the id.
+func (h *History) Append(e *Entry) (err error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	defer func() {
+		if err != nil {
+			e.ID = -1
+		}
+	}()
 	if h.f == nil {
 		e.ID = len(h.mem)
 		h.mem = append(h.mem, *e)
@@ -257,7 +296,7 @@ func (h *History) Clear() error {
 	return h.f.Truncate(0)
 }
 
-// A page ending inside a group runs to its end, so a confirm's takes come back together.
+// A page that ends inside a group runs to the end of the group, so a confirm's takes come back together.
 func (h *History) Page(before, n int) ([]Entry, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -271,8 +310,9 @@ func (h *History) Page(before, n int) ([]Entry, error) {
 	out := []Entry{}
 	for id := before - 1; id >= 0; id-- {
 		e, err := h.at(id)
-		if err != nil {
-			return out, err
+		if err != nil { // one bad line must not hide all older entries
+			log.Printf("history: entry %d skipped: %v", id, err)
+			continue
 		}
 		if len(out) >= n && (e.Group == "" || e.Group != out[len(out)-1].Group) {
 			break
@@ -300,20 +340,4 @@ func (h *History) at(id int) (Entry, error) {
 		return Entry{}, fmt.Errorf("history entry %d: %w", id, err)
 	}
 	return e, nil
-}
-
-// Loads the preset name from "salvo" for old history files.
-func (e *Entry) UnmarshalJSON(b []byte) error {
-	type plain Entry
-	aux := struct {
-		*plain
-		Salvo string `json:"salvo"`
-	}{plain: (*plain)(e)}
-	if err := json.Unmarshal(b, &aux); err != nil {
-		return err
-	}
-	if e.Preset == "" {
-		e.Preset = aux.Salvo
-	}
-	return nil
 }

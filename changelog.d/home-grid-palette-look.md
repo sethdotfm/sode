@@ -1,0 +1,5 @@
+- Home: Grid moved from under Take to the icon bar at the bottom left, beside Settings and Sode Panels. The icon bar is a column that never covers History rows.
+- Home: Last and Next over Source and Destination are light chips on the label's line. Last uses the free width, so names are cut less.
+- Home: Bookmarks is one row, with Edit and Show all at the same size beside the heading.
+- Grid popup: it fills the window but for a small margin, with no title. The Find boxes are side by side in a band over the grid. Levels, Take and Clear left the popup on the desktop. A press stages at Home's levels. With the patch boxes empty, Home's Take sends the staged routes.
+- Palette: no title, and larger: 60% of the window wide, with a list up to 70% high. Where a row is, its status and Bookmark are in fixed columns. Rows outside your Rights or Role come after every row you can use, and the cursor starts on one you can use. The key hint is short.

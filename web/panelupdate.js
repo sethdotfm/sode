@@ -43,10 +43,9 @@ export function updateStep(u, state, now) {
   return { step: 'apply' };
 }
 
-// The banner's line for a banner step.
 export function bannerLine(s) {
-  if (s.wait === 'busy') return 'It refreshes after the take.';
-  if (s.wait === 'staged') return 'It refreshes after you take or clear your staged routes.';
+  if (s.wait === 'busy') return 'Applies after the take.';
+  if (s.wait === 'staged') return 'Applies after you take or clear the staged routes.';
   const secs = Math.ceil(s.leftMs / 1000);
-  return s.drops ? `Refreshing in ${secs} s. It drops the staged routes.` : `Refreshing in ${secs} s.`;
+  return s.drops ? `Applies in ${secs} s. Drops the staged routes.` : `Applies in ${secs} s.`;
 }

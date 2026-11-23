@@ -1,0 +1,4 @@
+- Each Protect badge says who set it: you, another Sode user or API client, or another system. Another system is a panel, DashBoard or such, shown with its device number. Every Protect shows a shield and a Router lock a crossed shield, so the lock icon is the Lock's alone. Yours is blue, since you can clear it.
+- In the Grid popup, a protected destination's name says who holds it ("Protected by you", "Protected by Bo", "Protected by device 112"), with the full words in its tip.
+- In the Grid popup, pick several destination names and the shield on a picked name protects or clears all of them through one Confirm. The shield is smaller, has no background and sits on the name's outer edge, so it covers no crosspoint.
+- History offers Undo only on the newest Protect or Free Protect entry of a destination, and only while that Undo is possible. The button follows a Protect set or freed elsewhere at once.

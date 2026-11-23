@@ -1,4 +1,3 @@
-// Undo on a Grid panel (gridpanelundo.js): u stages this instance's Undo in place of the staged routes.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { stageUndo, leaveUndo, afterUndo, undoText } from '../gridpanelundo.js';
@@ -57,7 +56,7 @@ test('Esc and a closed Instant mode confirm drop the undo', () => {
   assert.equal(dropStaged(stageUndo(createStage(), next(), env())).undoId, null);
   const instant = stageUndo(createStage({ mode: 'instant' }), next(), env());
   assert.equal(cancelConfirm(instant).undoId, null);
-  // A Take mode confirm closed keeps it staged, as any staged route.
+  // A closed Take mode confirm keeps it staged, as it keeps any staged route.
   assert.equal(cancelConfirm(stageUndo(createStage(), next(), env())).undoId, 41);
 });
 
@@ -66,12 +65,12 @@ test('after the undo is sent or refused, nothing is staged and the id is gone', 
   const ok = afterUndo(sent, null);
   assert.deepEqual([ok.staged, ok.undoId, ok.busy, ok.error], [[], null, false, null]);
   // It is possible that the id is stale, so u must ask again.
-  const bad = afterUndo(sent, 'What Undo would undo has changed; press u again');
+  const bad = afterUndo(sent, 'The Undo target changed. Press u again.');
   assert.deepEqual([bad.staged, bad.undoId, bad.busy, bad.error.code], [[], null, false, 'take']);
 });
 
 test('the status for an undo that cannot stage', () => {
   assert.equal(undoText({ code: 'nothing-to-undo' }), 'Nothing to undo');
-  assert.equal(undoText({ code: 'undo-refused', message: 'outside Rights' }), 'Undo is refused: outside Rights');
+  assert.equal(undoText({ code: 'undo-refused', message: 'outside Rights' }), 'Sode refused the Undo: outside Rights');
   assert.equal(undoText({ code: 'cap' }), '');
 });

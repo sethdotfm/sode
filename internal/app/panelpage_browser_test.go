@@ -13,8 +13,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The panel page: the Current cell names the viewed destination, and Full width drops the width cap.
-// Offline blurs the grid and says so while Sode or the router is unreachable, then clears.
 func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	b := startBrowser(t)
 	sim, stopSim := startSimStoppable(t)
@@ -51,8 +49,8 @@ func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	}
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
-	// Not signed in yet is not Offline.
 	b.waitFor("no Offline over the PIN pad", `document.getElementById('panel-offline').hidden`)
+	b.padName("Ana")
 	for _, d := range "1234" {
 		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 	}
@@ -64,7 +62,6 @@ func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	b.eval(cell("destination") + `.click()`)
 	b.waitFor("Current names the destination", cell("current")+`?.querySelector('small')?.textContent === 'DSM1 is currently:'`)
 
-	// Nothing staged: Take is solid and does not pulse. Staged: it pulses, and a hold fills it.
 	b.waitFor("Take solid", cell("take")+`.disabled && getComputedStyle(`+cell("take")+`).opacity === '1'`)
 	b.eval(cell("source") + `.click()`)
 	b.waitFor("Take pulses", cell("take")+`.classList.contains('sode-panel__take--armed')`)
@@ -72,7 +69,6 @@ func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	b.waitFor("hold fill runs", `getComputedStyle(`+cell("take")+`, '::after').transitionDuration === '0.8s'`)
 	b.eval(cell("take") + `.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))`)
 
-	// Full width.
 	b.waitFor("capped at first", `getComputedStyle(document.querySelector('.sode-panels')).maxWidth !== 'none'`)
 	b.eval(`document.getElementById('panel-full').click()`)
 	b.waitFor("full width", `getComputedStyle(document.querySelector('.sode-panels')).maxWidth === 'none'`)
@@ -82,7 +78,6 @@ func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	offline := `!document.getElementById('panel-offline').hidden && document.querySelector('.sode-panels').classList.contains('sode-panels--offline')`
 	b.waitFor("not offline while all is up", `document.getElementById('panel-offline').hidden`)
 
-	// Sode stops answering.
 	down.Store(true)
 	b.waitFor("Offline when Sode is gone", offline+` && document.getElementById('panel-offline-detail').textContent.includes('contact with Sode')`)
 	b.waitFor("the grid is blurred", `getComputedStyle(document.getElementById('panel-grid')).filter.includes('blur')`)
@@ -90,7 +85,6 @@ func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	down.Store(false)
 	b.waitFor("Offline clears when Sode is back", `document.getElementById('panel-offline').hidden && !document.querySelector('.sode-panels').classList.contains('sode-panels--offline')`)
 
-	// The router stops answering Sode.
 	stopSim()
 	b.waitFor("Offline when the router is gone", offline+` && document.getElementById('panel-offline-detail').textContent.includes('the router')`)
 	b.shot("offline-router")

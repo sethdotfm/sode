@@ -1,0 +1,3 @@
+- Grid panel editor and Live Editor: Cmd or Ctrl+Z undoes a list edit, such as a move, pin or paste. Cmd or Ctrl+Shift+Z redoes it. The editor and the Live Editor share one undo list, so an undo works after Back to editing.
+- Grid panel editor and Live Editor: Cmd or Ctrl+X, C and V cut, copy and paste rows between the lists of any Grid panel. A paste skips names the list has or that are outside your Rights. It refuses a block of the other list, and a list that follows the router.
+- The Live Editor's grid no longer stages a route Undo on `u`. The panel page keeps it.

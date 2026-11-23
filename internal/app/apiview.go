@@ -6,30 +6,26 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// apiView is the one place a caller's visibility applies (ADR 0004). Read-only rights show
-// everything; hidden rights drop out-of-rights sources, destinations and presets, and what
-// names them. Every read handler and the stream ask it. Undo, Redo and Retry planning asks
-// Entry. Entry returns the entry as the caller sees it, so a plan built from the result covers
-// visible routes only. It returns false when the caller is not allowed to know the entry exists.
-// Levels are not hidden: a rights list of levels only refuses commands.
+// The one place a caller's visibility applies (ADR 0004). Read-only rights show everything. Hidden rights drop
+// sources, destinations and presets outside the rights, and what names them. Levels are not hidden: a rights list
+// of levels only refuses commands.
 type apiView struct{ rights config.Rights }
 
 func (c *apiCtx) view() apiView { return apiView{c.Rights} }
 
 func (v apiView) Hidden() bool { return v.rights.Hidden() }
 
-func (v apiView) Source(n int) bool       { return !v.Hidden() || v.rights.AllowsSource(n) }
-func (v apiView) Destination(n int) bool  { return !v.Hidden() || v.rights.AllowsDst(n) }
-func (v apiView) Preset(name string) bool { return !v.Hidden() || v.rights.AllowsPreset(name) }
+func (v apiView) Source(n int) bool      { return !v.Hidden() || v.rights.AllowsSource(config.Ref{N: n}) }
+func (v apiView) Destination(n int) bool { return !v.Hidden() || v.rights.AllowsDst(config.Ref{N: n}) }
+func (v apiView) Preset(id string) bool  { return !v.Hidden() || v.rights.AllowsPreset(id) }
 
-// WholePreset: the preset is visible by name and every source and destination it names is
-// visible, since its items would otherwise teach a hidden number.
+// The items of a preset would teach a hidden number, so every source and destination it names must be visible.
 func (v apiView) WholePreset(p config.Preset) bool {
-	if !v.Preset(p.Name) {
+	if !v.Preset(p.ID) {
 		return false
 	}
 	for _, it := range p.Items {
-		if !v.Source(it.Src) || slices.ContainsFunc(it.Dsts, func(d int) bool { return !v.Destination(d) }) {
+		if !v.Source(it.Src.N) || slices.ContainsFunc(it.Dsts, func(d config.Ref) bool { return !v.Destination(d.N) }) {
 			return false
 		}
 	}
@@ -41,10 +37,8 @@ func (v apiView) Route(dst, level, src int) bool {
 	return v.Destination(dst) && (src < 0 || v.Source(src))
 }
 
-// Entry returns the History entry as this caller can see it, or false to drop it. The
-// entry's own route must be visible. A level whose Before source (Prev) is hidden is removed
-// from the entry. So neither the entry nor an Undo built from it names that source. A Group's
-// size would count hidden routes, so it is cleared for a hidden caller.
+// false drops the entry. A level whose Before source (Prev) is hidden goes, so no Undo built from the result names it.
+// A Group's size would count hidden routes, so it is cleared for a hidden caller.
 func (v apiView) Entry(e Entry) (Entry, bool) {
 	if !v.Hidden() {
 		return e, true
@@ -75,8 +69,8 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 	}
 	// Now names the router's own answer, which can be any source.
 	e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[1] >= 0 && !v.Source(p[1]) })
-	if e.Preset != "" && !v.Preset(e.Preset) {
-		e.Preset = ""
+	if e.Preset != "" && !v.Preset(e.PresetID) {
+		e.Preset, e.PresetID = "", ""
 	}
 	e.GroupN = 0
 	return e, true

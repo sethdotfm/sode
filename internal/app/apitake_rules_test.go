@@ -45,7 +45,7 @@ func TestAPIWBadRequests(t *testing.T) {
 }
 
 func TestAPIWRefusedWholeBeforeSending(t *testing.T) {
-	a, f, key := takerApp(t, func(c *config.Config) { c.APIClients[0].Rights = config.Rights{Dsts: ints(2)} })
+	a, f, key := takerApp(t, func(c *config.Config) { c.APIClients[0].Rights = config.Rights{Dsts: nums(2)} })
 	defer startLog(t, a)()
 	n := f.sends()
 	rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]},{"src":4,"dst":5,"levels":[1]}]}`, nil)
@@ -73,7 +73,7 @@ func TestAPIWRefusedWholeBeforeSending(t *testing.T) {
 
 func TestAPIWUndoRestoresOutsideSources(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Sources: ints(4), Dsts: ints(2)}
+		c.APIClients[0].Rights = config.Rights{Sources: nums(4), Dsts: nums(2)}
 	})
 	f.seed(2, 1, 0)
 	first := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, nil))
@@ -139,8 +139,8 @@ func TestAPIWRetryFailedAndRedoOk(t *testing.T) {
 
 func TestAPIWPreset(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.Presets = append(c.Presets, config.Preset{Name: "Gone", Items: []config.PresetItem{{Src: 1, Dsts: []int{99}}}},
-			config.Preset{Name: "Half", Items: []config.PresetItem{{Src: 1, Dsts: []int{2, 98}, Levels: []int{1}}}})
+		c.Presets = append(c.Presets, config.Preset{Name: "Gone", Items: []config.PresetItem{presetItem(1, nil, 99)}},
+			config.Preset{Name: "Half", Items: []config.PresetItem{presetItem(1, []int{1}, 2, 98)}})
 	})
 	f.seed(2, 3, 0)
 	rec := apiPost(a, "/api/v1/presets/everyone/Studio%20A", key, ``, nil)
@@ -166,7 +166,7 @@ func TestAPIWPreset(t *testing.T) {
 
 func TestAPIWPresetRights(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Presets: &[]string{"Other"}}
+		c.APIClients[0].Rights = config.Rights{Presets: &[]string{"other"}}
 	})
 	n := f.sends()
 	wantErr(t, apiPost(a, "/api/v1/presets/everyone/Studio%20A", key, ``, nil), 403, "outside_rights")
@@ -175,14 +175,12 @@ func TestAPIWPresetRights(t *testing.T) {
 	}
 }
 
-// A hidden caller gets the 404 of an unknown preset for one that names a hidden number, and
-// nothing is sent. A preset that passes WholePreset only ever leaves out numbers the caller sees.
 func TestAPIWHiddenCallerCannotFirePresetListHides(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Sources: &[]int{1}, Dsts: &[]int{2, 99}, Presets: &[]string{"Studio A", "Mixed", "Gone"}, Visibility: config.VisHidden}
+		c.APIClients[0].Rights = config.Rights{Sources: nums(1), Dsts: nums(2, 99), Presets: &[]string{"studio-a", "mixed", "gone"}, Visibility: config.VisHidden}
 		c.Presets = append(c.Presets,
-			config.Preset{Name: "Mixed", Items: []config.PresetItem{{Src: 1, Dsts: []int{2, 7}}}},
-			config.Preset{Name: "Gone", Items: []config.PresetItem{{Src: 1, Dsts: []int{99}}}})
+			config.Preset{ID: "mixed", Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
+			config.Preset{ID: "gone", Name: "Gone", Items: []config.PresetItem{presetItem(1, nil, 99)}})
 	})
 	f.seed(2, 3, 0)
 	n := f.sends()
@@ -202,12 +200,12 @@ func TestAPIWUserKeyFiresMePreset(t *testing.T) {
 	a, f, _ := takerApp(t, func(c *config.Config) {
 		for i := range c.Users {
 			if c.Users[i].Name == "Ana" {
-				c.Users[i].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{{Src: 1, Dsts: []int{2}, Levels: []int{1}}}}}
+				c.Users[i].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{presetItem(1, []int{1}, 2)}}}
 			}
 		}
 	})
 	f.seed(2, 3, 0)
-	key := apiTestKey(t, a, keyOwner{Kind: actorUser, Name: "Ana"}, "Desk", time.Time{})
+	key := apiTestKey(t, a, ownerOf(a, "Ana"), "Desk", time.Time{})
 	rec := apiPost(a, "/api/v1/presets/me/Mine", key, ``, nil)
 	if rec.Code != 200 || apiBody(t, rec)["ok"] != true {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -218,8 +216,10 @@ func TestAPIWUserKeyFiresMePreset(t *testing.T) {
 	}
 }
 
-func TestAPIWBigTakeSaysCheckWasSkipped(t *testing.T) {
-	a, _, key := takerApp(t, nil)
+// checkSkipped is true only when the check before take got no answer for some route, whatever the take's size.
+func TestAPIWCheckSkippedOnlyWhenUnread(t *testing.T) {
+	a, f, key := takerApp(t, nil)
+	f.dsts = 64
 	small := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, nil))
 	if small["checkSkipped"] != false {
 		t.Fatalf("small %v", small)
@@ -228,9 +228,23 @@ func TestAPIWBigTakeSaysCheckWasSkipped(t *testing.T) {
 	for d := 10; d < 10+bigTake; d++ {
 		rs = append(rs, `{"src":4,"dst":`+strconv.Itoa(d)+`,"levels":[1]}`)
 	}
-	big := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[`+strings.Join(rs, ",")+`]}`, nil))
-	if big["checkSkipped"] != true || len(big["results"].([]any)) != bigTake {
+	routes := `{"routes":[` + strings.Join(rs, ",") + `]}`
+	big := apiBody(t, apiPost(a, "/api/v1/takes", key, routes, nil))
+	if big["checkSkipped"] != false || len(big["results"].([]any)) != bigTake {
 		t.Fatalf("big %v", big)
+	}
+	f.mu.Lock()
+	f.mute[12], f.mute[20] = true, true
+	f.mu.Unlock()
+	a.mu.Lock()
+	clear(a.router.seenAt)
+	a.mu.Unlock()
+	routes = strings.ReplaceAll(routes, `"src":4`, `"src":5`) // a change, so a Connected confirms it
+	if big := apiBody(t, apiPost(a, "/api/v1/takes", key, routes, nil)); big["checkSkipped"] != true || big["ok"] != true {
+		t.Fatalf("big, unanswered %v", big)
+	}
+	if small := apiBody(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":20,"levels":[1]}]}`, nil)); small["checkSkipped"] != true {
+		t.Fatalf("small, unanswered %v", small)
 	}
 }
 
@@ -250,7 +264,6 @@ func TestAPIWIdempotencyKey(t *testing.T) {
 	}
 	wantErr(t, apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":5,"dst":2,"levels":[1]}]}`, h), 422, "idempotency_mismatch")
 	wantErr(t, apiPost(a, "/api/v1/takes", key, body, map[string]string{"Idempotency-Key": "bad key"}), 400, "bad_request")
-	// another key does not share the answer
 	other := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: "PanelsBot"}, "Panel 44", time.Time{})
 	if rec := apiPost(a, "/api/v1/takes", other, body, h); rec.Header().Get("Idempotent-Replay") != "" {
 		t.Error("an Idempotency-Key leaked across keys")
@@ -305,7 +318,6 @@ func TestAPIWTakeCap(t *testing.T) {
 	rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":3,"levels":[1]}]}`, nil)
 	wantErr(t, rec, 429, "take_cap")
 	<-done
-	// the slot is free again
 	if rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":3,"levels":[1]}]}`, nil); rec.Code != 200 {
 		t.Fatalf("after: %d %s", rec.Code, rec.Body.String())
 	}

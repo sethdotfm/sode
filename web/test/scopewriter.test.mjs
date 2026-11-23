@@ -1,4 +1,3 @@
-// scopeWriter: which saver and payload key a scope goes to, and what removeIn leaves.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -58,4 +57,23 @@ test('removeIn drops locally at once, else sends the list without the name', () 
   assert.equal(n, 2);
   assert.deepEqual(dropped, ['x']);
   assert.deepEqual(calls, [['global', { sets: [{ name: 'b' }] }]]);
+});
+
+test('removeIn names an item by keyOf: a filter set by its hidden id', () => {
+  const calls = [];
+  const w = scopeWriter({
+    global: { change: (payload, done) => (calls.push(payload), done()) },
+    user: null,
+    key: 'filterSets',
+    globalKey: 'sets',
+    listOf: () => [
+      { id: 'a', name: 'Cams' },
+      { id: 'b', name: 'Cams 2' },
+    ],
+    keyOf: (x) => x.id,
+    same: (a, b) => a === b,
+    dropLocal: () => {},
+  });
+  w.removeIn('global', 'a', () => {});
+  assert.deepEqual(calls, [{ sets: [{ id: 'b', name: 'Cams 2' }] }]);
 });

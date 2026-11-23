@@ -8,9 +8,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Test groups (AGENTS.md "Test groups"): fast is everything -short runs; browser is TestChrome*;
-// slow is anything that calls slowTest. CI selects the groups with -short, -run and -skip, so the
-// names and calls here are what keep its jobs from missing a test.
+// AGENTS.md, Test groups. CI selects the groups by these names and calls, so a wrong one makes a job miss a test.
 
 func TestMain(m *testing.M) {
 	config.UseTestCosts()
@@ -21,7 +19,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// slowTest skips under -short. Use it for any non-browser test over about a second, and for leak checks.
+// Also for leak checks (AGENTS.md, Test groups).
 func slowTest(t *testing.T) {
 	t.Helper()
 	if testing.Short() {

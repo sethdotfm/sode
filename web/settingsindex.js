@@ -1,12 +1,6 @@
 // Settings search: pure, no imports (Node-tested), own scorer because core.js `search` needs the DOM.
-// RULE: a new settings section needs an entry in DICT under its slug (see `slug`); settingsindex.test.mjs fails otherwise.
-// Settings are keyed by their control's id; DICT ids that do not exist (yet) are ignored.
-
-export const slug = (s) =>
-  String(s)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+// RULE: a new settings section needs an entry in DICT under its data-section slug; settingsindex.test.mjs fails otherwise.
+// Settings are keyed by their control's id (settingsindex.test.mjs checks each one is on the page).
 
 const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
@@ -56,8 +50,8 @@ export const DICT = {
     'import',
     'export',
   ],
-  'global-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'shared settings', 'appearance', 'preferences'],
-  'router-source-destination-names': [
+  'everyone-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'shared settings', 'appearance', 'preferences'],
+  'router-names': [
     'names',
     'source names',
     'destination names',
@@ -71,7 +65,25 @@ export const DICT = {
     'truncate',
   ],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
-  takes: ['take', 'patch', 'route', 'confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'default levels', 'resync', 'reread', 'delay', 'safety'],
+  takes: ['take', 'patch', 'route', 'default levels', 'resync', 'reread', 'multi destination', 'fire mode', 'salvo group'],
+  protects: ['protect', 'protects', 'protected', 'router lock', 'device number', 'device', 'panel id', 'clear', 'hold'],
+  confirm: ['confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'delay', 'safety', 'result', 'success', 'banner', 'dismiss'],
+  routers: ['router', 'routers', 'router list', 'ultrix', 'matrix', 'block'],
+  panels: [
+    'panel',
+    'panels',
+    'new panel',
+    'authentication',
+    'authentication mode',
+    'sign in',
+    'sode panels',
+    'public',
+    'public panel',
+    'anyone with the link',
+    'kiosk',
+    'wall tablet',
+  ],
+  'run-setup-again': ['setup', 'set up', 'wizard', 'first run', 'start again', 'fresh install'],
   branding: ['brand', 'logo', 'name', 'title', 'border', 'colour', 'color', 'icon', 'identify', 'favicon', 'tab'],
   'router-matrix': [
     'router',
@@ -104,8 +116,7 @@ export const DICT = {
     'audio',
     'va',
   ],
-  'server-backup': ['server configuration', 'config file', 'config.yaml', 'backup', 'restore', 'export', 'import', 'secrets', 'pins', 'download', 'upload'],
-  access: [
+  locks: [
     'password',
     'pin',
     'lock',
@@ -124,7 +135,6 @@ export const DICT = {
     'auto-lock',
     'permissions',
     'login',
-    'settings pin',
   ],
   proxy: [
     'audit',
@@ -171,28 +181,27 @@ export const DICT = {
     'import',
     'backup',
     'restore',
-    'yaml',
     'file',
     'download',
     'upload',
     'share',
-    'share link',
     'move',
     'copy',
     'transfer',
     'another site',
     'studio',
-    'settings file',
+    'pins',
     'save',
     'load',
     'presets',
     'filter sets',
+    'zip',
+    'users',
+    'panels',
+    'artwork',
   ],
-  'transfer-open': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share link', 'review', 'transfer', 'copy to another site'],
-  // Sections for other branches to add later; ignored until they exist.
-  salvos: ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
-  'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
-  grids: ['grid', 'grids', 'panel', 'panels', 'tablet', 'buttons'],
+  'setup-again-open': ['setup', 'set up', 'wizard', 'run setup again', 'branding', 'router', 'access preset'],
+  'xi-open': ['export', 'import', 'backup', 'back up everything', 'restore', 'zip', 'file', 'download', 'include pins', 'transfer', 'copy to another site'],
 
   // ---- This browser / Defaults
   ...both('theme', ['dark', 'light', 'colour', 'color', 'mode', 'night', 'appearance', 'theme', 'dark mode', 'light mode']),
@@ -204,6 +213,7 @@ export const DICT = {
   ...both('set-stack', ['stack', 'stacked', 'filter sets', 'sets', 'and', 'or', 'combine', 'all', 'any', 'filter']),
   ...both('stack-gap', ['stack', 'stacked', 'rows', 'gap', 'merge', 'quick changes', 'seconds', 'history', 'off', 'time']),
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
+  ...both('palette-char', ['palette', 'palette character', 'command', 'search everything', 'greater than', 'ctrl shift p', 'off']),
   ...both('compact', [
     'compact',
     'compact view',
@@ -221,36 +231,35 @@ export const DICT = {
 
   // ---- My defaults (per-row buttons shown while signed in)
   ...Object.fromEntries(
-    ['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'stackGap', 'nextMode', 'compact'].flatMap((n) => [
+    ['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'stackGap', 'nextMode', 'compact', 'paletteChar'].flatMap((n) => [
       ['my-default-' + n, ['my default', 'save as my default', 'set as my default', 'profile', 'personal', 'follow me', 'account']],
       ['my-default-clear-' + n, ['my default', 'clear my default', 'remove', 'profile', 'personal', 'account']],
     ]),
   ),
 
-  // ---- Me (inside This browser; only shown while signed in as a user)
-  'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],
+  // ---- My user (shown while signed in)
+  'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account', 'swap', 'broken', 'name moved'],
+  'account-copy': ['copy', 'move', 'this browser', 'my user', 'presets', 'filter sets', 'account'],
   'account-transfer': ['export', 'import', 'backup', 'restore', 'share', 'transfer', 'my settings', 'presets', 'filter sets', 'account'],
+  'apply-preset': ['access preset', 'preset', 'open access', 'standard access', 'secured access', 'secure', 'access level'],
   'lock-pages': ['lock', 'lock main screen', 'lock communication log', 'lock log', 'pin', 'users', 'protect', 'screen lock'],
   'cfg-auto-lock': ['auto lock', 'auto-lock', 'idle', 'inactivity', 'timeout', 'minutes', 'lock after', 'hand lock'],
-  'config-file': [
-    'server configuration',
-    'config file',
-    'config.yaml',
-    'yaml',
-    'backup',
-    'restore',
-    'export',
-    'import',
-    'download',
-    'upload',
-    'migrate',
-    'copy settings',
+  api: [
+    'api',
+    'keyless api',
+    'keyless scopes',
+    'guest api',
+    'key caps',
+    'rate limit',
+    'take cap',
+    'log api reads',
+    'api reads',
+    'panel',
+    'rest',
+    'keys',
+    'clients',
   ],
-  api: ['api', 'api enabled', 'enable api', 'guest api', 'rate limit', 'take cap', 'log api reads', 'api reads', 'panel', 'rest', 'keys', 'clients'],
-  'api-save': ['save api settings', 'api'],
-  'config-export': ['export', 'download', 'save', 'backup', 'config file', 'config.yaml', 'yaml', 'server configuration', 'settings file'],
-  'config-import': ['import', 'upload', 'restore', 'load', 'replace', 'config file', 'config.yaml', 'yaml', 'server configuration', 'settings file'],
-  'config-pins': ['include pins', 'private backup', 'secret', 'hashes', 'pin', 'password', 'backup', 'export'],
+  'api-scopes': ['keyless scopes', 'guest scopes', 'keyless api', 'scopes', 'no key', 'api'],
   'users-manage': [
     'manage users',
     'add user',
@@ -267,10 +276,7 @@ export const DICT = {
     'auto lock',
     'idle',
     'longest pin',
-    'sign-in mode',
     'username',
-    'username and pin',
-    'pin only',
     'shared pin',
     'api client',
     'api clients',
@@ -288,11 +294,13 @@ export const DICT = {
   ],
   account: ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
   'account-keys': ['api', 'api key', 'api keys', 'key', 'keys', 'my keys', 'panel', 'token', 'qr', 'qr code', 'copy key', 'revoke', 'expiry', 'account'],
+  'account-clients': ['api', 'api client', 'api clients', 'client', 'clients', 'my clients', 'app', 'key', 'keys', 'scopes', 'account'],
   'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],
-  lock: ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
   'lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],
   'account-login': ['log in', 'login', 'sign in', 'signin', 'user', 'pin', 'account', 'session', 'tab', 'name'],
-  'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave'],
+  'account-stepin': ['step in', 'stepin', 'sign in', 'other user', 'another user', 'my pin', 'borrow', 'visit', 'account'],
+  'account-stepout': ['step out', 'stepout', 'sign out', 'return', 'back', 'account'],
+  'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave', 'ctrl+shift+l'],
 
   // ---- Names
   'names-refresh': ['refresh', 'reload', 'update', 're-read', 're read', 'reread', 'poll', 'names', 'now', 'fetch'],
@@ -305,7 +313,7 @@ export const DICT = {
   // ---- Level colors
   'cfg-colors-reset': ['reset', 'default colours', 'default colors', 'restore'],
 
-  // ---- Takes
+  // ---- Takes and Confirm and results
   'cfg-default': ['default levels', 'levels', 'all levels', 'which levels', 'preselect', 'v a', 'video audio'],
   'cfg-dismiss': ['banner', 'result', 'success', 'dismiss', 'close', 'auto', 'seconds', 'timeout', 'progress', 'notification'],
   'cfg-lockout': ['confirm', 'lockout', 'letter', 'delay', 'ms', 'milliseconds', 'confirm dialog', 'wait', 'safety', 'accidental'],
@@ -328,13 +336,12 @@ export const DICT = {
   'cfg-lvlnum': ['level numbering', 'level', 'numbering', 'number', 'v', 'va', 'video', 'zero', '0', '1', 'start'],
   'cfg-numoff': ['number', 'numbers', 'offset', 'start at 0', 'start at 1', 'zero', 'one', 'sources', 'destinations', 'numbering', 'index'],
 
-  // ---- Access
-  'cfg-pin': ['pin', 'password', 'passcode', 'lock', 'secret', 'admin', 'protect settings', 'security', 'change pin'],
-  'cfg-pin2': ['pin', 'password', 'confirm', 'repeat', 'retype', 'again'],
-  'cfg-pin-clear': ['remove pin', 'delete pin', 'no pin', 'unlock', 'disable', 'password off', 'clear'],
-  'cfg-pin-tries': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'reset pin'],
+  // ---- Locks
+  'cfg-pin-waits': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'delay', 'wait', 'backoff'],
+  'cfg-guest-role': ['guest', 'signed out', 'nobody', 'anonymous', 'role', 'trusted', 'standard', 'visitor'],
+  'new-user-defaults': ['new user', 'default', 'never sign out', 'persistent', 'auto-lock', 'idle', 'stay signed in'],
 
-  // ---- Audit
+  // ---- Proxy
   'cfg-proxies': [
     'proxy',
     'proxies',
@@ -357,8 +364,6 @@ export const DICT = {
   'clear-history': ['clear', 'delete', 'erase', 'wipe', 'reset', 'undo', 'history', 'recent', 'remove all'],
   'open-log': ['log', 'communication log', 'audit', 'uptime', 'messages', 'sent', 'wire', 'router log', 'events', 'tx', 'ack', 'diagnostics', 'debug', 'graph'],
 };
-
-// ---- matching
 
 const words = (s) =>
   String(s)
@@ -397,19 +402,31 @@ function wordScore(t, w) {
 
 const top = (t, ws) => ws.reduce((m, w) => Math.max(m, wordScore(t, w)), 0);
 
+// Where a hit is, for its line in the results: the topic, the router for a per-router section, then the section.
+export function hitWhere(h) {
+  const at = [h.topic, h.router].filter(Boolean);
+  if (h.kind !== 'section') at.push(h.section);
+  return at.join(' › ');
+}
+
+// sections: { id, title, topic?, router?, settings }. A topic's name finds its sections, weaker than a section's.
 export function buildIndex(sections, dict = DICT) {
   const out = [];
   for (const sec of sections) {
     const sw = words(sec.title);
+    const pw = words(sec.topic || '');
     const mk = (kind, id, label) => ({
       kind,
       id,
       sectionId: sec.id,
       section: sec.title,
+      topic: sec.topic,
+      router: sec.router,
       label,
       lw: words(label),
       tw: (dict[id] || []).flatMap(words),
       sw,
+      pw,
     });
     out.push(mk('section', sec.id, sec.title));
     for (const s of sec.settings || []) out.push(mk('setting', s.id, s.label));
@@ -420,7 +437,7 @@ export function buildIndex(sections, dict = DICT) {
 function scoreEntry(e, toks) {
   let sum = 0;
   for (const t of toks) {
-    const s = Math.max(top(t, e.lw), top(t, e.tw) * 0.85, top(t, e.sw) * 0.4);
+    const s = Math.max(top(t, e.lw), top(t, e.tw) * 0.85, top(t, e.sw) * 0.4, top(t, e.pw) * 0.3);
     if (!s) return 0;
     sum += s;
   }

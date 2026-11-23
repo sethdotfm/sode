@@ -1,0 +1,3 @@
+- When the router renames a source or destination, Sode updates the stored name. This applies to presets, panels, Rights, fixed destinations and Default artwork. Sode writes a Router names row in the Communication Log.
+- A preset, filter set or panel becomes Broken only when its number, level or router is gone. It becomes Name moved when its stored name is now at another number. A Name moved item still fires on its stored number. Both need two name reads in a row that agree. Sode ignores a read where more than half the names go blank.
+- Firing a Broken preset through the API fires the parts that exist, and `leftOut` names each part left out, for example "CAM 3 (source 13)".

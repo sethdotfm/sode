@@ -9,51 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// keyTestApp: users Ana (1234) and Bo (567890), an API client PanelsBot, Advanced Settings PIN 2468.
-func keyTestApp(t *testing.T) *App {
-	t.Helper()
-	a := userApp(t, false)
-	admin := adminClient(t, a)
-	if err := a.SaveUsers(admin, usersReq{
-		Users:      []userEdit{{Name: "Ana"}, {Name: "Bo"}},
-		APIClients: &[]config.APIClient{{Name: "PanelsBot", Scopes: []string{config.ScopeTake}}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	return a
-}
-
-func signedIn(t *testing.T, a *App, ip, pin string) (*client, func() []map[string]any) {
-	t.Helper()
-	c := &client{ip: ip}
-	next := registerAll(a, c)
-	if err := a.UserUnlock(c, pin); err != nil {
-		t.Fatal(err)
-	}
-	return c, next
-}
-
-// registerAll is register but keeps every message type.
-func registerAll(a *App, c *client) func() []map[string]any {
-	a.mu.Lock()
-	c.send = make(chan []byte, 64)
-	a.clients[c] = struct{}{}
-	a.mu.Unlock()
-	return func() []map[string]any {
-		var out []map[string]any
-		for {
-			select {
-			case b := <-c.send:
-				var m map[string]any
-				json.Unmarshal(b, &m)
-				out = append(out, m)
-			default:
-				return out
-			}
-		}
-	}
-}
-
 // send runs a message the way the read loop does and returns the reply of type want.
 func send(t *testing.T, a *App, c *client, next func() []map[string]any, m inMsg, want string) map[string]any {
 	t.Helper()
@@ -62,7 +17,7 @@ func send(t *testing.T, a *App, c *client, next func() []map[string]any, m inMsg
 	if err := a.admit(c, rl); err != nil {
 		a.refuse(c, m.T, rl, &m, err)
 	} else {
-		rl.handle(a, c, &m, &connCtx{})
+		rl.handle(a, c, &m)
 	}
 	for _, r := range next() {
 		if r["t"] == want {
@@ -82,12 +37,12 @@ func TestOwnKeyNeedsOwnPinAndShowsKeyOnce(t *testing.T) {
 	if r["ok"] != false {
 		t.Fatalf("wrong PIN made a key: %v", r)
 	}
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("key stored after a wrong PIN")
 	}
-	// The Advanced Settings PIN is not the user's PIN.
+	// Another user's PIN is not Ana's.
 	if r := send(t, a, c, next, inMsg{T: "keyCreate", ID: 2, Pin: "2468", KeyName: "Panel 21"}, "keyCreateResult"); r["ok"] != false {
-		t.Fatalf("settings PIN made a user key: %v", r)
+		t.Fatalf("Ada's PIN made a key for Ana: %v", r)
 	}
 
 	r = send(t, a, c, next, inMsg{T: "keyCreate", ID: 3, Pin: "1234", KeyName: "Panel 21"}, "keyCreateResult")
@@ -119,7 +74,7 @@ func TestOwnKeyNeedsSignIn(t *testing.T) {
 	c := &client{ip: "10.0.0.1"}
 	next := registerAll(a, c)
 	r := send(t, a, c, next, inMsg{T: "keyCreate", ID: 1, Pin: "1234", KeyName: "x"}, "keyCreateResult")
-	if r["ok"] != false || keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if r["ok"] != false || keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatalf("anonymous connection made a key: %v", r)
 	}
 	if r := send(t, a, c, next, inMsg{T: "keyListOwn", ID: 2}, "keyListOwnResult"); r["ok"] != false || len(r["keys"].([]any)) != 0 {
@@ -145,20 +100,30 @@ func TestOwnKeyUsesChangePinThrottle(t *testing.T) {
 
 func TestOwnKeyCap(t *testing.T) {
 	a := keyTestApp(t)
-	a.cfgMu.Lock()
-	err := a.commit(func(c *config.Config) error { c.API.MaxUserKeys = 2; return nil }, nil)
-	a.cfgMu.Unlock()
-	if err != nil {
-		t.Fatal(err)
-	}
 	c, _ := signedIn(t, a, "10.0.0.1", "1234")
-	for i := 0; i < 2; i++ {
+	for range 50 {
 		if _, _, err := a.CreateOwnKey(c, "1234", "k", 0); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, _, err := a.CreateOwnKey(c, "1234", "k", 0); err == nil {
-		t.Fatal("third key over a cap of 2")
+	_, _, err := a.CreateOwnKey(c, "1234", "k", 0)
+	if err == nil || !strings.Contains(err.Error(), "50 keys") || !strings.Contains(err.Error(), "Revoke a key") {
+		t.Fatalf("51st key: %v", err)
+	}
+}
+
+func TestAPIClientKeyCap(t *testing.T) {
+	a := keyTestApp(t)
+	admin := adminClient(t, a)
+	bot := keyOwner{Kind: actorClient, Name: "PanelsBot"}
+	for range 200 {
+		if _, _, err := a.CreateKeyFor(admin, bot, "k", 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, _, err := a.CreateKeyFor(admin, bot, "k", 0)
+	if err == nil || !strings.Contains(err.Error(), "200 keys") || !strings.Contains(err.Error(), "Revoke a key") {
+		t.Fatalf("201st key: %v", err)
 	}
 }
 
@@ -181,11 +146,11 @@ func TestKeyExpiryAtCreateAndSweep(t *testing.T) {
 		t.Fatal("expired key accepted")
 	}
 	a.expireKeys(soon.Add(time.Second))
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 0 {
 		t.Fatal("expired key kept")
 	}
 	var found bool
-	for _, e := range waitLogged(t, a, 2) {
+	for _, e := range waitLogged(t, a, 1) {
 		found = found || e.Kind == kindAPI && e.Why == "keyExpired" && strings.Contains(e.Note, "temp")
 	}
 	if !found {
@@ -205,14 +170,14 @@ func TestRevokeOwnKeyOnlyOwn(t *testing.T) {
 	if r := send(t, a, bo, nextB, inMsg{T: "keyRevoke", ID: 1, KeyID: rec.ID}, "keyRevokeResult"); r["ok"] != false {
 		t.Fatalf("Bo revoked Ana's key: %v", r)
 	}
-	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 1 {
+	if keyCount(a.keys, ownerOf(a, "Ana")) != 1 {
 		t.Fatal("key gone")
 	}
 	if r := send(t, a, ana, nextA, inMsg{T: "keyRevoke", ID: 2, KeyID: rec.ID}, "keyRevokeResult"); r["ok"] != true {
 		t.Fatalf("own revoke: %v", r)
 	}
 	var found bool
-	for _, e := range waitLogged(t, a, 3) {
+	for _, e := range waitLogged(t, a, 2) {
 		found = found || e.Kind == kindAPI && e.Why == "keyRevoke" && e.Result == "ok" && e.By == "Ana"
 	}
 	if !found {
@@ -220,16 +185,15 @@ func TestRevokeOwnKeyOnlyOwn(t *testing.T) {
 	}
 }
 
-func TestUserKeysDieWithPinRenameRemoval(t *testing.T) {
+func TestUserKeysDieWithPinChangeAndRemoval(t *testing.T) {
 	for name, edit := range map[string]func(a *App, admin *client) error{
 		"PIN change": func(a *App, admin *client) error {
-			return a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "4321"}, {Name: "Bo"}}})
-		},
-		"rename": func(a *App, admin *client) error {
-			return a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Anna", Was: "Ana"}, {Name: "Bo"}}})
+			mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "pin"): "4321"})
+			return nil
 		},
 		"removal": func(a *App, admin *client) error {
-			return a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo"}}})
+			mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "remove"): true})
+			return nil
 		},
 		"own PIN change": func(a *App, _ *client) error {
 			c, _ := signedIn(t, a, "10.0.0.7", "1234")
@@ -260,7 +224,7 @@ func TestUserKeysDieWithPinRenameRemoval(t *testing.T) {
 				t.Error("an API client key died with a user edit")
 			}
 			var found bool
-			for _, e := range waitLogged(t, a, 2) {
+			for _, e := range waitLogged(t, a, 1) {
 				found = found || e.Kind == kindAPI && e.Why == "keyEnded"
 			}
 			if !found {
@@ -277,22 +241,11 @@ func TestClientKeysSurviveUserPinsAndDieWithClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "4321"}, {Name: "Bo", Pin: "135790"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "pin"): "4321", ukey(a, "Bo", "pin"): "135790"})
 	if _, _, ok := a.keys.find(sec, time.Now()); !ok {
 		t.Fatal("client key died with user PINs")
 	}
-	// A save that leaves the client list unsent keeps the client and its keys.
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, ok := a.keys.find(sec, time.Now()); !ok {
-		t.Fatal("client key died when the save did not mention clients")
-	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}, APIClients: &[]config.APIClient{}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{"client/PanelsBot/remove": true})
 	if _, _, ok := a.keys.find(sec, time.Now()); ok {
 		t.Fatal("client key outlived its client")
 	}
@@ -307,10 +260,10 @@ func TestAdminKeyMessages(t *testing.T) {
 	if r["ok"] != true || !strings.HasPrefix(r["key"].(string), "sode_") {
 		t.Fatalf("create for client: %v", r)
 	}
-	if r := send(t, a, admin, register, inMsg{T: "keyCreateFor", ID: 2, KeyName: "x", Owner: &keyOwner{Kind: actorUser, Name: "Nobody"}}, "keyCreateForResult"); r["ok"] != false {
+	if r := send(t, a, admin, register, inMsg{T: "keyCreateFor", ID: 2, KeyName: "x", Owner: ptr(ownerOf(a, "Nobody"))}, "keyCreateForResult"); r["ok"] != false {
 		t.Fatalf("key for a missing user: %v", r)
 	}
-	r = send(t, a, admin, register, inMsg{T: "keyCreateFor", ID: 3, KeyName: "Ana's panel", Owner: &keyOwner{Kind: actorUser, Name: "Ana"}}, "keyCreateForResult")
+	r = send(t, a, admin, register, inMsg{T: "keyCreateFor", ID: 3, KeyName: "Ana's panel", Owner: ptr(ownerOf(a, "Ana"))}, "keyCreateForResult")
 	anaID := r["info"].(map[string]any)["id"].(string)
 	l := send(t, a, admin, register, inMsg{T: "keyListAll", ID: 4}, "keyListAllResult")
 	if len(l["keys"].([]any)) != 2 {
@@ -334,7 +287,7 @@ func TestAdminKeyMessages(t *testing.T) {
 	waitLogged(t, a, 5)
 }
 
-// Every admin key message refuses without the Advanced Settings PIN, a trusted user too.
+// Every Administrator key message refuses a lower Role, a Trusted user too.
 func TestAdminKeyMessagesNeedPin(t *testing.T) {
 	a := keyTestApp(t)
 	setFlags(t, a, "Ana", true, false)
@@ -364,53 +317,52 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 	a := keyTestApp(t)
 	defer startLog(t, a)()
 	admin := adminClient(t, a)
-	srcs := []int{1, 2}
-	tr := true
-	err := a.SaveUsers(admin, usersReq{
-		Users:       []userEdit{{Name: "Ana", Rights: &config.Rights{Sources: &srcs, Visibility: config.VisHidden}, NoAutoLock: &tr}, {Name: "Bo"}},
-		GuestRights: &config.Rights{Dsts: &[]int{}},
-		GuestScopes: &[]string{config.ScopeNames},
+	srcs := *nums(1, 2)
+	mustSave(t, a, admin, map[string]any{
+		ukey(a, "Ana", "rights"):     config.Rights{Sources: &srcs, Visibility: config.VisHidden},
+		ukey(a, "Ana", "noAutoLock"): true,
+		"guestRights":                config.Rights{Dsts: nums()},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	cfg := a.r().cfg
-	ana, _ := cfg.FindUser("Ana")
-	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(2) || ana.Rights.AllowsSource(3) {
+	ana, _ := cfg.FindUserByName("Ana")
+	if !ana.NoAutoLock || !ana.Rights.Hidden() || !ana.Rights.AllowsSource(config.Ref{N: 2}) || ana.Rights.AllowsSource(config.Ref{N: 3}) {
 		t.Fatalf("Ana %+v", ana)
 	}
-	if cfg.GuestRights.Dsts == nil || cfg.GuestRights.AllowsDst(0) || len(cfg.GuestAPIScopes) != 1 {
+	if cfg.GuestRights.Dsts == nil || cfg.GuestRights.AllowsDst(config.Ref{N: 0}) {
 		t.Fatalf("guest %+v %v", cfg.GuestRights, cfg.GuestAPIScopes)
 	}
 
 	// A save from a page that knows none of it keeps all of it.
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, admin, map[string]any{ukey(a, "Ana", "name"): "Ana", ukey(a, "Bo", "name"): "Bo"})
 	cfg = a.r().cfg
-	ana, _ = cfg.FindUser("Ana")
+	ana, _ = cfg.FindUserByName("Ana")
 	if !ana.NoAutoLock || ana.Rights.Sources == nil || cfg.GuestRights.Dsts == nil || len(cfg.APIClients) != 1 {
 		t.Fatalf("a stale save erased: %+v %+v", ana, cfg.GuestRights)
 	}
 
 	// The list carries them, to the PIN holder only.
-	b, _ := json.Marshal(a.usersList(1))
+	b, _ := json.Marshal(a.usersList(&client{}, 1))
 	for _, want := range []string{`"noAutoLock":true`, `"visibility":"hidden"`, `"apiClients"`, `"PanelsBot"`, `"guestRights"`} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("usersListResult lacks %s: %s", want, b)
 		}
 	}
 
-	rows := waitLogged(t, a, 4)
-	got := map[string]bool{}
-	for _, e := range rows {
-		if e.Kind == kindAPI {
-			got[e.Why] = true
-		}
+	// The stale save changed nothing, so it made no row.
+	waitSaves(t, a, 1)
+	time.Sleep(50 * time.Millisecond)
+	rows := a.saves.Between(-1, 1<<62)
+	if len(rows) != 1 {
+		t.Fatalf("%d Settings saves rows, want 1", len(rows))
 	}
-	for _, why := range []string{"rightsEdit", "noAutoLockEdit", "clientEdit"} {
-		if !got[why] {
-			t.Errorf("no %s row in %v", why, got)
+	got := map[string]bool{}
+	for _, f := range rows[0].Save.Fields {
+		parts := strings.SplitN(f.Label, ":", 3)
+		got[parts[0]+":"+parts[1]] = true
+	}
+	for _, want := range []string{"User Ana: Rights", "User Ana: No auto-lock", "Guest rights: dsts"} {
+		if !got[want] {
+			t.Errorf("no %q field in %v", want, got)
 		}
 	}
 }
@@ -418,28 +370,24 @@ func TestUsersSaveCarriesRightsClientsAndNoAutoLock(t *testing.T) {
 func TestUsersSaveRefusesBadRights(t *testing.T) {
 	a := keyTestApp(t)
 	admin := adminClient(t, a)
-	err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Rights: &config.Rights{Visibility: "secret"}}, {Name: "Bo"}}})
-	if err == nil {
-		t.Fatal("bad visibility saved")
+	if r := mustRefuse(t, a, admin, map[string]any{ukey(a, "Ana", "rights"): config.Rights{Visibility: "secret"}}); r.Reason != reasonInvalid {
+		t.Fatalf("bad visibility: %+v", r)
 	}
-	err = a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}, APIClients: &[]config.APIClient{{Name: "ana"}}})
-	if err == nil {
-		t.Fatal("API client with a user's name saved")
+	if r := mustRefuse(t, a, admin, map[string]any{"client/ana/add": newClient{}}); r.Reason != reasonInvalid {
+		t.Fatalf("API client with a user's name: %+v", r)
 	}
 }
 
-// Rights, key lists and No auto-lock stay out of everything sent before the PIN.
 func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	a := keyTestApp(t)
 	admin := adminClient(t, a)
-	tr := true
-	srcs := []int{7}
-	if err := a.SaveUsers(admin, usersReq{
-		Users:      []userEdit{{Name: "Ana", NoAutoLock: &tr, Rights: &config.Rights{Sources: &srcs}}, {Name: "Bo"}},
-		APIClients: &[]config.APIClient{{Name: "PanelsBot", Rights: config.Rights{Dsts: &[]int{42}}}},
-	}); err != nil {
-		t.Fatal(err)
-	}
+	srcs := *nums(7)
+	mustSave(t, a, admin, map[string]any{
+		ukey(a, "Ana", "noAutoLock"): true,
+		ukey(a, "Ana", "rights"):     config.Rights{Sources: &srcs},
+		"client/PanelsBot/scopes":    []string{},
+		"client/PanelsBot/rights":    config.Rights{Dsts: nums(42)},
+	})
 	ana, _ := signedIn(t, a, "10.0.0.1", "1234")
 	secret, rec, err := a.CreateOwnKey(ana, "1234", "Panel 21", 0)
 	if err != nil {
@@ -447,7 +395,7 @@ func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	}
 
 	a.mu.Lock()
-	hello := string(a.hello(helloPage{}))
+	hello := withoutAccessSettings(t, a.hello(helloPage{}))
 	locked := a.lockStateMu(&client{ip: "10.0.0.8"})
 	a.mu.Unlock()
 	lockedJSON, _ := json.Marshal(locked)
@@ -464,7 +412,6 @@ func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 		}
 	}
 
-	// A signed-in user is told their own No auto-lock flag and nothing of rights or keys.
 	a.mu.Lock()
 	m := a.lockStateMu(ana)
 	a.mu.Unlock()
@@ -472,7 +419,6 @@ func TestRightsAndKeysStayOutOfPublicMessages(t *testing.T) {
 	if !m.NoAutoLock || strings.Contains(string(b), "rights") || strings.Contains(string(b), "Panel 21") {
 		t.Fatalf("own lock state %s", b)
 	}
-	// Another user is not.
 	bo, _ := signedIn(t, a, "10.0.0.2", "567890")
 	a.mu.Lock()
 	m = a.lockStateMu(bo)

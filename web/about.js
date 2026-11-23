@@ -1,5 +1,3 @@
-// Settings bottom row, shared by the locked view (.sode__lock-exit) and the save bar (.sode__foot).
-
 import { el, S, icon, on } from './core.js';
 
 const link = (href, tip, cls, ...kids) => {
@@ -17,7 +15,7 @@ export function fillAbout(host, { id } = {}) {
   version.dataset.version = '';
   const github = link('https://github.com/sethdotfm/sode', 'GitHub', 'pb-tip--top', icon('github', false));
   github.setAttribute('aria-label', 'GitHub');
-  const bug = link('https://github.com/sethdotfm/sode/issues/new', 'Open an issue to report a bug or suggest a feature!', 'pb-tip--top', 'Report a bug');
+  const bug = link('https://github.com/sethdotfm/sode/issues/new', 'New GitHub issue', 'pb-tip--top', 'Report a bug');
   const logs = el('a', 'pb-btn pb-btn--outline sode__logs', icon('external-link', false), 'View Logs');
   logs.href = 'log';
   if (id) {

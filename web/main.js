@@ -1,26 +1,44 @@
 import './layout.js';
 import './keys.js';
 import { connect, on } from './core.js';
-import { initTheme } from './device.js';
 import './desktop.js';
+import './homebar.js';
 import './settings.js';
 import './brand.js';
+import './stepinframe.js';
 import './lock.js';
 import './profile.js';
 import './filters.js';
 import './searchbox.js';
-import { applySharedLink } from './transfer.js';
+import { openItemLinks } from './itemlinkopen.js';
 import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
+import './bookmarks.js';
+import './bookmarkeditor.js';
+import './palette.js';
+import './homekey.js';
+import './themekey.js';
+import './palettehome.js';
+import './homeview.js';
+import './palettechar.js';
+import './browsercopy.js';
 import './panelwatch.js';
+import './inboxdialog.js';
+import './noadmin.js';
+import './notsaved.js';
+import './brokenbanner.js';
+import './setupwizard.js';
 import { bigScrollAll } from './bigscroll.js';
+import { showApprovalCards } from './approvalcards.js';
+import { registerShell } from './swreg.js';
 
 on('brand', ({ text }) => {
   document.title = text;
 });
 
-initTheme();
-applySharedLink();
+openItemLinks();
 bigScrollAll();
+showApprovalCards();
+registerShell();
 connect();

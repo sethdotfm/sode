@@ -1,0 +1,1 @@
+- `config.yaml` keeps the router's settings under `routers`. The router gets a hidden router UID, a router title and router prefix A. The UID stays when the address changes. The prefix is hidden with one router.

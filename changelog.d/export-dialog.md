@@ -1,0 +1,2 @@
+- Settings > Server > Export & Import opens one dialog with Export and Import tabs. Export picks categories and single items, shows their sizes and the size of the zip, and has Include PINs (on by default). Back up everything exports every category with PINs in one click.
+- The old Server backup (config.yaml only) and its Export and Import buttons are gone; use the Export & Import dialog.

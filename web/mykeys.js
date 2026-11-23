@@ -1,21 +1,13 @@
-// My API keys: a signed-in user's own keys, opened from Settings' My user section. Making a key asks
-// the user's own PIN (the server checks it in the change-PIN pool). The key is shown once and kept nowhere.
-// A user's key acts as that user and ends with a PIN change; ADR 0003.
+// My API keys. A key acts as its user and ends with a PIN change (ADR 0003). Sode shows it one time and does not keep it.
 
-import { el, on, onMsg, wsSend, sentence } from './core.js';
-import { trapDialog } from './dialogkeys.js';
+import { el, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
+import { modal } from './modal.js';
 import { createReq, expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
 import { btn, field } from './formbits.js';
+import { pinShow, hidePin } from './pinshow.js';
 
-const make = (id, type, auto) => {
-  const i = el('input', 'pb-input');
-  i.id = id;
-  i.type = type;
-  i.autocomplete = auto;
-  i.spellcheck = false;
-  return i;
-};
+const make = (id, type, auto) => el('input', { class: 'pb-input', id, type, autocomplete: auto, spellcheck: false });
 
 const nameIn = make('mykey-name', 'text', 'off');
 nameIn.placeholder = 'Panel 21';
@@ -24,19 +16,14 @@ const pinIn = make('mykey-pin', 'password', 'current-password');
 pinIn.inputMode = 'numeric';
 const list = el('div', 'sode__key-list');
 const shown = el('div');
-const note = el('div', 'pb-note pb-note--error');
-note.setAttribute('role', 'alert');
-note.hidden = true;
+const note = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
 const makeBtn = btn('pb-btn--ok', 'Make key');
-const close = btn('pb-btn--outline', 'Close');
 
-const dialog = el(
-  'div',
-  'pb-modal sode__filters sode__keys-dlg',
-  el('div', 'pb-modal__header', el('span', 'pb-modal__title', 'My API keys')),
-  el(
-    'div',
-    'pb-modal__body',
+const dlg = modal({
+  titleId: 'mykeys-title',
+  title: 'My API keys',
+  cls: 'sode__filters sode__keys-dlg',
+  body: [
     el(
       'p',
       'sode__hint',
@@ -47,21 +34,16 @@ const dialog = el(
     el(
       'div',
       'sode__keys-new',
-      field('mykey-name', 'Key name', nameIn, 'Shown beside your name in History, such as "Seth (Panel 21)".'),
+      field('mykey-name', 'Key name', nameIn),
       field('mykey-expires', 'Expires (optional)', expIn),
-      field('mykey-pin', 'Your PIN', pinIn),
+      field('mykey-pin', 'Your PIN', pinShow(pinIn)),
     ),
     note,
-  ),
-  el('div', 'pb-modal__footer', close, makeBtn),
-);
-dialog.setAttribute('role', 'dialog');
-dialog.setAttribute('aria-modal', 'true');
-dialog.setAttribute('aria-label', 'My API keys');
-dialog.tabIndex = -1;
-const root = el('div', 'pb-modal-backdrop sode__scrim', dialog);
-root.hidden = true;
-document.body.append(root);
+    ,
+  ],
+  foot: [btn('pb-btn--outline', 'Close', () => closeKeys()), makeBtn],
+  onEsc: () => closeKeys(),
+});
 
 let isOpen = false;
 let back = null;
@@ -73,21 +55,20 @@ const say = (text) => {
 };
 
 function load() {
-  if (!wsSend({ t: 'keyListOwn', id: ++listSeq })) say('Not connected to Sode.');
+  if (!wsSend({ t: 'keyListOwn', id: ++listSeq })) say(LINK_DOWN);
 }
 
 function closeKeys() {
   isOpen = false;
   shown.replaceChildren(); // the one-time key goes with the dialog
   for (const i of [nameIn, expIn, pinIn]) i.value = '';
+  hidePin(pinIn);
   say('');
   seq++;
   makeBtn.disabled = false;
   dlg.hide();
   if (back?.isConnected) back.focus({ preventScroll: true });
 }
-const dlg = trapDialog(root, dialog, closeKeys);
-close.addEventListener('click', closeKeys);
 
 onMsg('keyListOwnResult', (m) => {
   if (m.id !== listSeq || !isOpen) return;
@@ -97,10 +78,10 @@ onMsg('keyListOwnResult', (m) => {
     ...(m.keys.length
       ? m.keys.map((k) =>
           keyRow(k, now, () => {
-            if (!wsSend({ t: 'keyRevoke', keyId: k.id, id: ++listSeq })) say('Not connected to Sode.');
+            if (!wsSend({ t: 'keyRevoke', keyId: k.id, id: ++listSeq })) say(LINK_DOWN);
           }),
         )
-      : [el('p', 'sode__hint', 'You have no API keys.')]),
+      : [el('p', 'sode__hint', 'No API keys')]),
   );
 });
 onMsg('keyRevokeResult', (m) => {
@@ -113,11 +94,11 @@ makeBtn.addEventListener('click', () => {
   say('');
   const problem = keyNameProblem(nameIn.value);
   if (problem) return say(problem);
-  if (!pinIn.value) return say('Enter your PIN to make a key.');
+  if (!pinIn.value) return say('Enter your PIN.');
   const exp = expiryFrom(expIn.value, Date.now());
   if (exp.error) return say(exp.error);
   const id = ++seq;
-  if (!wsSend(createReq({ name: nameIn.value, pin: pinIn.value, expires: exp.ms, id }))) return say('Not connected to Sode.');
+  if (!wsSend(createReq({ name: nameIn.value, pin: pinIn.value, expires: exp.ms, id }))) return say(LINK_DOWN);
   makeBtn.disabled = true;
 });
 onMsg('keyCreateResult', (m) => {
@@ -137,8 +118,13 @@ on('openKeys', () => {
   say('');
   load();
   dlg.show();
-  dialog.focus();
+  dlg.dialog.focus();
 });
-// Signing out or a Lock closes it, forgetting any key on show.
-on('locking', () => isOpen && closeKeys());
+on('wsclose', () => {
+  if (isOpen && makeBtn.disabled) {
+    makeBtn.disabled = false;
+    say(LINK_DOWN);
+  }
+});
+// A sign out forgets any key on show; a Lock closes it as Esc does.
 on('access', (L) => isOpen && !L.user && closeKeys());
