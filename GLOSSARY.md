@@ -18,6 +18,9 @@ _Avoid_: output
 One of the parallel signal types (such as video or audio) that a source can be connected to a destination on. Levels are numbered 1..N in Sode whatever the router uses on the wire.
 _Avoid_: wire level, layer
 
+**Tie line**:
+A link between two routers that carries signal from one to the other. Sode does not support tie lines yet, and nothing in the interface uses one. Its color is `--pb-tieline`.
+
 **Router name**:
 The name the router gives a source or destination. Sode cannot change it, and re-reads names from the router on a timer. Keep it apart from a user's name, a preset's name, a filter set's name and the router title.
 _Avoid_: label, refresh (for the re-read)
@@ -292,7 +295,7 @@ The routes that a Grid panel stages when a person presses a crosspoint while nam
 A straight line that a person drags across a Grid panel's crosspoints to stage routes, one for each destination row that it crosses.
 
 **Levels box**:
-The Level box (see Patch boxes) as a Grid panel shows it, in the band over the grid. A crosspoint press stages its routes on the levels in it.
+The Levels box (see Patch boxes) as a Grid panel shows it, in the band over the grid. A crosspoint press stages its routes on the levels in it.
 
 **Find** / **Filter** (Grid panel):
 The two modes of a Grid panel's search boxes. Find marks the names that match and moves to them; Filter shows only the names that match. A switch beside the boxes changes the mode. Not the same as a History Filter.
@@ -426,7 +429,7 @@ One saved layout per panel in a group, so a single Push gives each panel in the 
 ### Interface
 
 **Patch boxes**:
-The Source box, the Destination box and the Level box, where a plan is typed. What they hold is a plan until Confirm.
+The Source box, the Destination box and the Levels box, where a plan is typed. What they hold is a plan until Confirm.
 
 **Grid popup**:
 A grid that opens over the main page to stage several routes and send them in one take. It shows every source and destination in the person's Rights. It is part of the main page, not a panel. Keep it apart from a Grid panel, which is a saved panel.
