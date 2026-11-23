@@ -397,7 +397,7 @@ func TestLateConfirmNames(t *testing.T) {
 	e := &Entry{Src: 7, Dst: 2, Levels: []int{1, 2, 3}, Prev: [][2]int{{1, 5}, {2, 6}, {3, 4}},
 		Failed: []int{1, 2, 3, 4}, Unsent: []int{4}, SendErr: "busy; level 1 no", Now: [][2]int{{1, 5}, {2, 6}}}
 	a.record(e)
-	a.lateConfirm(e.ID, []int{3})
+	a.lateConfirm(a.routerUnit, e.ID, []int{3})
 	got, _ := a.hist.Page(-1, 1)
 	want := "no confirmation from router: level 1 still on CAM; level 3 no answer; level 2 still on level 1 B; levels 4 not sent: busy; level 1 no"
 	if len(got) != 1 || got[0].Err != want {
@@ -410,7 +410,7 @@ func TestLateConfirmUnsent(t *testing.T) {
 	a := newTestApp(t)
 	e := &Entry{Src: 7, Dst: 2, Levels: []int{1}, Prev: [][2]int{{1, 4}}, Failed: []int{1}, Unsent: []int{1}, SendErr: "busy"}
 	a.record(e)
-	a.lateConfirm(e.ID, []int{1})
+	a.lateConfirm(a.routerUnit, e.ID, []int{1})
 	got, _ := a.hist.Page(-1, 1)
 	if len(got) != 1 || !got[0].OK || got[0].Err != "" || len(got[0].Unsent) != 0 || got[0].SendErr != "" {
 		t.Fatalf("got %+v", got)
@@ -975,13 +975,13 @@ func TestTakeLateOnlyUnanswered(t *testing.T) {
 func TestRegisterOwnKeysOutlastQueue(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
-	w, err := planRoute(a.r(), routeReq{Src: 7, Dst: 5, Levels: []int{1}})
+	w, err := planRoute(a.r(), a.routerUnit, routeReq{Src: 7, Dst: 5, Levels: []int{1}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
 	w.ext = a.ext // take sets it
-	w.register(a)
+	w.register()
 	until := a.ext.own[ownKey{5, w.levels[0].wire, 7}]
 	a.mu.Unlock()
 	if time.Until(until) < a.queueMax+ownFor-time.Second {

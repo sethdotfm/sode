@@ -116,7 +116,7 @@ func (a *App) protectSend(r *runtime, dst int, devOf func(ui int) int, set bool,
 		}
 		last = w.Done
 	}
-	a.leftQueue(last)
+	a.routerUnit.leftQueue(last)
 	deadline := time.After(a.routeTimeout)
 	for _, w := range waits {
 		select {

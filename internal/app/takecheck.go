@@ -58,53 +58,53 @@ type levelRead struct {
 	dumpAnswers int
 }
 
-// checkRoutes reads every route of a take before the first route is prepared. read is false when some level got no
-// answer, so Prev comes from the cache for it. The take's routes use ext, the tracker that the check started on.
-// Then a router change during the check refuses the routes too.
-func (a *App) checkRoutes(r *runtime, c *client, items []routeReq) (ext *extTracker, read bool) {
+// checkRoutes reads every route of a take on router u before the first route is prepared. read is false when some
+// level got no answer, so Prev comes from the cache for it. The take's routes use ext, the tracker that the check
+// started on. Then a router change during the check refuses the routes too.
+func (a *App) checkRoutes(r *runtime, u *routerUnit, c *client, items []routeReq) (ext *extTracker, read bool) {
 	why := swp08.Why{Reason: swp08.ReasonCheck, By: c.who()}
 	if c.api != nil {
 		why.Note = a.panelNote(c.api.Actor)
 	}
 	a.mu.Lock()
-	ext = a.ext
-	reads := a.planReadsMu(r, items)
+	ext = u.ext
+	reads := u.planReadsMu(r, items)
 	a.mu.Unlock()
-	unread := a.runCheck(r, ext, why, reads)
+	unread := a.runCheck(r, u, ext, why, reads)
 	if len(unread) > 0 {
 		parts := make([]string, len(unread))
-		for i, u := range unread {
-			parts[i] = fmt.Sprintf("level %s (%d %s)", r.cfg.LevelLabel(u.ui), len(u.dsts), plural(len(u.dsts), "destination", "destinations"))
+		for i, lr := range unread {
+			parts[i] = fmt.Sprintf("level %s (%d %s)", r.cfg.LevelLabel(lr.ui), len(lr.dsts), plural(len(lr.dsts), "destination", "destinations"))
 		}
 		log.Printf("take of %d %s: not read from the router: %s; using cached routes", len(items), plural(len(items), "route", "routes"), strings.Join(parts, ", "))
 	}
 	return ext, len(unread) == 0
 }
 
-// freshMu: the router reported this destination level within checkFresh. Caller holds mu.
-func (a *App) freshMu(dst, ui int) bool {
-	at, ok := a.router.seenAt[[2]int{dst, ui}]
+// freshMu: router u reported this destination level within checkFresh. Caller holds mu.
+func (u *routerUnit) freshMu(dst, ui int) bool {
+	at, ok := u.router.seenAt[[2]int{dst, ui}]
 	return ok && time.Since(at) <= checkFresh
 }
 
 // planReadsMu groups the take's stale destination levels by level. It leaves out what prepare refuses anyway: a bad
 // route (planRoute) and a route with a protected level (guardPhase). So no read goes to a protected destination.
 // Only a take of bigTake routes or more can use a dump. Caller holds mu.
-func (a *App) planReadsMu(r *runtime, items []routeReq) []levelRead {
+func (u *routerUnit) planReadsMu(r *runtime, items []routeReq) []levelRead {
 	by := map[int]*levelRead{}
 	seen := map[dstLevel]bool{}
 	top := 0
 	for _, it := range items {
-		w, err := planRoute(r, it)
+		w, err := planRoute(r, u, it)
 		if err != nil || slices.ContainsFunc(w.levels, func(l *routeLevel) bool {
-			_, p := a.router.protect[w.dst][l.ui]
+			_, p := u.router.protect[w.dst][l.ui]
 			return p
 		}) {
 			continue
 		}
 		for _, l := range w.levels {
 			k := dstLevel{w.dst, l.wire}
-			if seen[k] || a.freshMu(w.dst, l.ui) {
+			if seen[k] || u.freshMu(w.dst, l.ui) {
 				continue
 			}
 			seen[k] = true
@@ -117,7 +117,7 @@ func (a *App) planReadsMu(r *runtime, items []routeReq) []levelRead {
 			top = max(top, w.dst+1)
 		}
 	}
-	n := a.routerDstsMu()
+	n := u.routerDstsMu()
 	if n > 0 {
 		n = max(n, top) // the take's own destinations exist, so the dump answers for them too
 	}
@@ -137,20 +137,20 @@ func (a *App) planReadsMu(r *runtime, items []routeReq) []levelRead {
 
 // routerDstsMu: how many destinations a tally dump answers for, from the highest destination number that the
 // router named or reported; 0 when it did neither. Caller holds mu.
-func (a *App) routerDstsMu() int {
+func (u *routerUnit) routerDstsMu() int {
 	n := 0
-	for d := range a.router.dstNames {
+	for d := range u.router.dstNames {
 		n = max(n, d+1)
 	}
-	for d := range a.router.tally {
+	for d := range u.router.tally {
 		n = max(n, d+1)
 	}
 	return n
 }
 
-// runCheck sends the reads and waits for their answers. It returns what got no answer, by level. The wait after the
+// runCheck sends the reads to router u and waits for their answers. It returns what got no answer, by level. The wait after the
 // last message is written grows with the dump answers it waits for, since the router sends them after the request.
-func (a *App) runCheck(r *runtime, ext *extTracker, why swp08.Why, reads []levelRead) []levelRead {
+func (a *App) runCheck(r *runtime, u *routerUnit, ext *extTracker, why swp08.Why, reads []levelRead) []levelRead {
 	c := &tallyCheck{want: map[dstLevel]bool{}, done: make(chan struct{})}
 	for _, lr := range reads {
 		for _, d := range lr.dsts {
@@ -161,11 +161,11 @@ func (a *App) runCheck(r *runtime, ext *extTracker, why swp08.Why, reads []level
 		return nil
 	}
 	a.mu.Lock()
-	a.checks[c] = struct{}{}
+	u.checks[c] = struct{}{}
 	a.mu.Unlock()
 	defer func() {
 		a.mu.Lock()
-		delete(a.checks, c)
+		delete(u.checks, c)
 		a.mu.Unlock()
 	}()
 	answers := 0
@@ -174,24 +174,24 @@ func (a *App) runCheck(r *runtime, ext *extTracker, why swp08.Why, reads []level
 send:
 	for _, lr := range reads {
 		if lr.dumpAnswers > 0 {
-			if last, err = a.sendTracked(ext, swp08.ExtTallyDumpReq(r.cfg.Matrix, lr.wire), why); err != nil {
+			if last, err = a.sendTracked(u, ext, swp08.ExtTallyDumpReq(r.cfg.Matrix, lr.wire), why); err != nil {
 				break
 			}
 			answers += lr.dumpAnswers
 			continue
 		}
 		for _, d := range lr.dsts {
-			if last, err = a.sendTracked(ext, swp08.ExtInterrogate(r.cfg.Matrix, lr.wire, d), why); err != nil {
+			if last, err = a.sendTracked(u, ext, swp08.ExtInterrogate(r.cfg.Matrix, lr.wire, d), why); err != nil {
 				break send
 			}
 		}
 	}
 	// A refused send means the link is down or full: no answers are coming.
 	if err == nil {
-		a.leftQueue(last)
+		u.leftQueue(last)
 		select {
 		case <-c.done:
-		case <-time.After(a.checkTimeout + time.Duration(answers)*a.checkTimeout/32):
+		case <-time.After(u.checkTimeout + time.Duration(answers)*u.checkTimeout/32):
 		}
 	}
 	a.mu.Lock()

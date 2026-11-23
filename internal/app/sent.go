@@ -57,8 +57,8 @@ func (a *App) logSent(ctx context.Context) {
 	failing := false // logged once per run of failed writes
 	write := func(e Sent) {
 		if e.Cmd >= 0 || e.Kind == kindLink {
-			cfg := a.r().cfg
-			e.Router, e.RouterTitle = cfg.UID, cfg.Title
+			rc := a.r().routerOf(e.Router)
+			e.Router, e.RouterTitle = rc.UID, rc.Title
 		}
 		var err error
 		if e.Kind == kindSettings {
@@ -118,7 +118,7 @@ func (a *App) logSent(ctx context.Context) {
 func (a *App) describe(ev swp08.TxEvent) Sent {
 	r := a.r()
 	q := swp08.DescribeTx(ev.Msg)
-	e := Sent{Time: ev.At, Kind: q.Kind, Wire: q.Level, Dst: q.Dst, Src: q.Src,
+	e := Sent{Time: ev.At, Kind: q.Kind, Wire: q.Level, Dst: q.Dst, Src: q.Src, Router: ev.Why.Router,
 		By: ev.Why.By, Why: string(ev.Why.Reason), Tries: ev.Tries, Result: ev.Result, Err: ev.Err,
 		Hex: fmt.Sprintf("% X", ev.Msg), AckMs: float64(ev.Ack.Microseconds()) / 1000}
 	if len(ev.Msg) > 0 {
@@ -150,11 +150,13 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 		e.Level = l.UI
 	}
 	a.mu.Lock()
-	if q.Dst >= 0 {
-		e.DstName = a.router.dstNames[q.Dst]
-	}
-	if q.Src >= 0 {
-		e.SrcName = a.router.srcNames[q.Src]
+	if u, ok := a.unit(ev.Why.Router); ok {
+		if q.Dst >= 0 {
+			e.DstName = u.router.dstNames[q.Dst]
+		}
+		if q.Src >= 0 {
+			e.SrcName = u.router.srcNames[q.Src]
+		}
 	}
 	a.mu.Unlock()
 	return e

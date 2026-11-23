@@ -562,7 +562,7 @@ func TestNativeFireLockRows(t *testing.T) {
 	for d := 5; d < 8; d++ {
 		f.seed(d, 1, 0, 1, 2)
 	}
-	a.lockFire("a fire by Test")
+	a.lockFire(a.routerUnit, "a fire by Test")
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -570,7 +570,7 @@ func TestNativeFireLockRows(t *testing.T) {
 	}()
 	const hold = 150 * time.Millisecond
 	time.Sleep(hold)
-	a.unlockFire()
+	a.unlockFire(a.routerUnit)
 	<-done
 	rows := salvoRows(a)
 	if len(rows) < 4 || !strings.HasPrefix(rows[0], "lock: fire lock: waited ") || !strings.HasSuffix(rows[0], " ms for a fire by Test") ||

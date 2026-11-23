@@ -70,7 +70,7 @@ func TestClassify(t *testing.T) {
 			tc.setup(a)
 			a.mu.Lock()
 			defer a.mu.Unlock()
-			if got := a.classify(tc.xp, 1, tc.known); got != tc.want {
+			if got := a.routerUnit.classify(tc.xp, 1, tc.known); got != tc.want {
 				t.Fatalf("got %v, want %v", got, tc.want)
 			}
 			if tc.check != nil {
