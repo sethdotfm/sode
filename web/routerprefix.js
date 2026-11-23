@@ -22,6 +22,21 @@ export function typedPrefix(q, routers) {
   return routers.length > 1 && routers.includes(prefix) ? prefix : '';
 }
 
+// A picked item's label with its name, as the box shows it: "A.23 Cam 1".
+const LABELED = /^\s*([a-z]{1,2})(\.?)(\d+)\s+(\S.*)$/i;
+
+// labelPrefix splits an edited label ("A.23 cam") into its router prefix, dot, and the number with the rest of the
+// text ("23 cam"). It is null when q does not start with a prefix and a number, or when the prefix has no dot and is
+// not one of routers (with two or more), as for typedPrefix.
+export function labelPrefix(q, routers) {
+  const m = LABELED.exec(q);
+  if (!m) return null;
+  const prefix = m[1].toUpperCase(),
+    dot = !!m[2];
+  if (!dot && !(routers.length > 1 && routers.includes(prefix))) return null;
+  return { prefix, dot, num: m[3], text: `${m[3]} ${m[4]}` };
+}
+
 // searchText is what to search router `own`'s list with, or null when the field cannot match it. others are the
 // texts of the route's other fields: the first prefix of a known router there pins the whole route to that router.
 // routers lists the prefixes this page knows.

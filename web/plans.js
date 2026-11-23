@@ -10,7 +10,7 @@ import { resolvePreset } from './presetstore.js';
 import { showResult, setResult } from './banner.js';
 import { writeJSON, writeStr } from './store.js';
 import { onMyRights } from './editorrights.js';
-import { nextAfter } from './boxlist.js';
+import { nextAfter, nextAdd } from './boxlist.js';
 import { strong, destPart, takeQuestion, planItemHead } from './confirmtext.js';
 import { noteSent, noteOwn } from './stepback.js';
 export { showResult, resultNode } from './banner.js';
@@ -35,7 +35,7 @@ function undoItem(e) {
   const skipped = [];
   const untouched = untouchedLevels(e);
   for (const [u, s] of e.prev) {
-    if (!routerData('').levelBy.has(u) || untouched.has(u)) continue;
+    if (!routerData(e.router).levelBy.has(u) || untouched.has(u)) continue;
     if (s < 0) {
       skipped.push(u);
       continue;
@@ -49,7 +49,7 @@ function undoItem(e) {
     dst: dstItem(e.dst, e.dstName, e.router),
     groups: [...groups].map(([s, levels]) => ({ src: srcItem(s, '', e.router), levels: levels.sort((a, b) => a - b) })),
     skipped: skipped.sort((a, b) => a - b),
-    untouched: [...untouched].filter((u) => routerData('').levelBy.has(u)).sort((a, b) => a - b),
+    untouched: [...untouched].filter((u) => routerData(e.router).levelBy.has(u)).sort((a, b) => a - b),
     undo: e,
     retry: null,
   };
@@ -57,7 +57,7 @@ function undoItem(e) {
 
 // A failed take is a retry (linked to its entry); any other is a redo, sent as a plain new
 // take. Needs a real source and a level that still exists.
-export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => routerData('').levelBy.has(u));
+export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => routerData(e.router).levelBy.has(u));
 // Redo of the destination entry of a tie take opens the Tie line picker (docs/tielines-design.md, Redo and Retry). The
 // route goes from the typed source (origin) with the tie lines of the take. The picker chooses them while they are
 // usable, and marks them "Used last time" (tiepickrules.js lastState).
@@ -75,7 +75,7 @@ const againItem = (e) =>
     ? tieAgainItem(e)
     : routeItem(
         dstItem(e.dst, e.dstName, e.router),
-        [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => routerData('').levelBy.has(u)).sort((a, b) => a - b) }],
+        [{ src: srcItem(e.src, e.srcName, e.router), levels: e.levels.filter((u) => routerData(e.router).levelBy.has(u)).sort((a, b) => a - b) }],
         e.ok ? null : e,
       );
 
@@ -296,7 +296,9 @@ export function planBlocked(plan) {
   const prot = new Map();
   const down = notLinked(plan);
   if (down != null) {
-    const text = down ? `Sode is not connected to router ${routerData(down).prefix}.` : 'Sode is not connected to the router.';
+    // With two or more routers the text names the router, the first one too.
+    const named = down || (S.routers.length > 1 && S.ws && S.wsState === 'up');
+    const text = named ? `Sode is not connected to router ${routerData(down).prefix}.` : 'Sode is not connected to the router.';
     return { block: { kind: 'error', title: 'Not connected', text }, prot };
   }
   if (plan.protect) return { block: null, prot };
@@ -579,7 +581,8 @@ export function lastTake() {
   return {
     src: srcItem(...t.src, uid),
     dsts: t.dsts.map(([n, name]) => dstItem(n, name, dstUid)),
-    levels: t.levels.filter((u) => routerData('').levelBy.has(u)),
+    // Levels are those of the destinations' router.
+    levels: t.levels.filter((u) => routerData(dstUid).levelBy.has(u)),
   };
 }
 
@@ -612,6 +615,13 @@ export function resetNext() {
 // and the next add both take it, so they use the one setting.
 export function nextFind(items) {
   return pref('nextMode') === 'fuzzy' ? (q) => search(items, q, items.length) : null;
+}
+
+// armedAdd is the destination the next add on an empty Destination box adds after the add of last: on the router of
+// last, skipping those the box has (chosen). The desktop and the phone both use it.
+export function armedAdd(last, chosen) {
+  const all = routerData(routerOfItem(last)).dsts;
+  return nextAdd(last, all, chosen, nextFind(all));
 }
 
 // The next number, or with Next match of the name the next router-order match on the name's text.

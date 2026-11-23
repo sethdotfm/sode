@@ -65,6 +65,15 @@ test('a router message row', () => {
   assert.ok(text.endsWith('\r\n'));
 });
 
+test('a row names the level of its own router', () => {
+  const level = (n, uid) => (uid === 'bbb' ? `B${n}` : `A${n}`);
+  const cells = lines(logCSV([connect, { ...connect, router: 'bbb' }], { off: 1, level }));
+  assert.deepEqual(
+    cells.slice(1, 3).map((l) => l.split(',')[4]),
+    ['A1', 'B1'],
+  );
+});
+
 test('an event row has no command byte and no numbers', () => {
   const e = {
     ...connect,

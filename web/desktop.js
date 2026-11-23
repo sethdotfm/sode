@@ -18,7 +18,7 @@ import {
 import { keyLabel } from './keys.js';
 import { prefixOf } from './routerprefix.js';
 import { boxRouter, wireBoxRouter } from './boxrouter.js';
-import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
+import { parseList, namedAs, listMatches, missingNote, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
 import { renderDegraded } from './degradedview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
@@ -36,7 +36,7 @@ import {
   sendTakes,
   lastTake,
   nextTake,
-  nextFind,
+  armedAdd,
   boxPatch,
   lastChip,
   VERBS,
@@ -71,7 +71,8 @@ const boxes = {
 };
 // A box's router is the one whose prefix its text starts with (B.12, B12), else its default router (boxrouter.js).
 const routerOfBox = (k, text) => routerNamed(text) ?? boxRouter(k);
-const textRouter = (k) => routerData(routerOfBox(k, boxes[k].input.value));
+// A pick's list is that of its own router: its label (B.23 Cam 1) names no router the way typed text does.
+const textRouter = (k) => routerData(sel[k] ? routerOfItem(sel[k]) : routerOfBox(k, boxes[k].input.value));
 for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.cb = combobox(b.input, $(`${k}-menu`), {
@@ -161,8 +162,7 @@ const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...ds
 let lastAdd = null;
 const armed = () => {
   if (lastAdd === null || sel.dst || boxes.dst.input.value) return null;
-  const all = routerData(lastAdd.router).dsts;
-  return nextAdd(lastAdd, all, chosen, nextFind(all));
+  return armedAdd(lastAdd, chosen);
 };
 
 function addDst(pick) {

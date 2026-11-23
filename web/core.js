@@ -4,7 +4,7 @@
 import './tooltip.js';
 import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
-import { searchText, prefixOf, typedPrefix } from './routerprefix.js';
+import { searchText, prefixOf, typedPrefix, labelPrefix } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
 import { routerLinks, wholeState, lost } from './routerlinkrules.js';
 
@@ -659,13 +659,15 @@ export function search(list, q, n = 8) {
 // (B.42, B42) searches that router's numbers, and those matches always come first. Without the dot, the name matches
 // of the whole text come after them, so "B42 MON" still shows. A bare number searches def, the default router of the
 // box (a routerData UID). Other text searches the names of every router; on a tie, def comes first. keep drops items.
+// An edited label of a pick ("A.23 cam", from "A.23 Cam 1") searches its router for the number and the rest ("23 cam").
 export function boxSearch(kind, text, { def = '', n = 8, keep = () => true } = {}) {
   const q = text.trim().toLowerCase();
   if (!q) return [];
   const listOf = (rt) => (kind === 'src' ? rt.srcs : rt.dsts).filter(keep);
-  const p = prefixOf(text);
-  if (typedPrefix(text, prefixes())) {
-    const uid = routerNamed(text);
+  const lp = labelPrefix(text, prefixes());
+  const p = lp ? { ...lp, text: lp.text.toLowerCase() } : prefixOf(text);
+  if (lp || typedPrefix(text, prefixes())) {
+    const uid = routerNamed(lp ? `${lp.prefix}.${lp.num}` : text);
     if (uid == null) return Object.assign([], { total: 0 });
     const first = scored(listOf(routerData(uid)), p.text, 0, 10000);
     if (p.dot) return best(first, n);

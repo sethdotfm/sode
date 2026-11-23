@@ -20,7 +20,6 @@ import {
   labelNode,
   routerOfItem,
   linkList,
-  routerData,
 } from './core.js';
 import { defaultLevelsWord, allLevels, levelText, levelSource, oneLevel } from './levelview.js';
 import { levelBox } from './levelbox.js';
@@ -30,8 +29,7 @@ import { flipped } from './device.js';
 import { paintRouters } from './connview.js';
 import { routerMarks } from './routerlinkrules.js';
 import { renderDegraded } from './degradedview.js';
-import { resultNode, patchPlan, rightsOff, lastTake, nextTake, nextFind, boxPatch, lastChip } from './plans.js';
-import { nextAdd } from './boxlist.js';
+import { resultNode, patchPlan, rightsOff, lastTake, nextTake, armedAdd, boxPatch, lastChip } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { presetHost } from './presets.js';
@@ -208,8 +206,7 @@ function choose(it) {
 // The last + add arms the next add on the empty box, by the Next match behavior setting as on the desktop. Typing, a
 // Next, an edit and a reset end it.
 let lastAdd = null;
-const armed = () =>
-  lastAdd && !inputs.dst.value ? nextAdd(lastAdd, routerData('').dsts, (d) => M.dsts.some((x) => x.n === d.n), nextFind(routerData('').dsts)) : null;
+const armed = () => (lastAdd && !inputs.dst.value ? armedAdd(lastAdd, (d) => M.dsts.some((x) => sameEnd(x, d))) : null);
 
 function paintArmed() {
   const d = armed();
