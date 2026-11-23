@@ -198,11 +198,24 @@ func (r Router) problems() []error {
 	default:
 		bad("router status must show address, name or none")
 	}
-	if len(r.Prefix) != 1 || r.Prefix[0] < 'A' || r.Prefix[0] > 'Z' {
-		bad("router prefix must be one letter, A to Z")
+	if !validPrefix(r.Prefix) {
+		bad("router prefix must be one or two letters, A to Z")
 	}
 	if n := len([]rune(r.Title)); n > 32 {
 		bad("router name must be at most 32 characters")
 	}
 	return errs
+}
+
+// validPrefix: a router prefix is one or two letters A to Z (A, B, BA).
+func validPrefix(p string) bool {
+	if len(p) < 1 || len(p) > 2 {
+		return false
+	}
+	for i := 0; i < len(p); i++ {
+		if p[i] < 'A' || p[i] > 'Z' {
+			return false
+		}
+	}
+	return true
 }

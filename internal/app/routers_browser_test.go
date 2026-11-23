@@ -107,15 +107,19 @@ func TestChromeMainPatchesTwoRouters(t *testing.T) {
 		b.waitFor("confirm closes", `document.getElementById('confirm').hidden`)
 	}
 
-	// Router A, as with one router: no prefix.
-	pick("src", simSrcName, "11 "+simSrcName)
-	pick("dst", "DSM1", "3 DSM1")
+	// Router A: with two routers, every match shows its prefix.
+	b.waitFor("each box shows its default router", `document.getElementById('src-router').textContent === 'Router A' && !document.getElementById('dst-router').hidden`)
+	pick("src", simSrcName, "A.11 "+simSrcName)
+	pick("dst", "DSM1", "A.3 DSM1")
 	take()
 	routerTallyHas(t, a, ana, uids[0], simDst, simSrc)
 
-	// Router B: its names, its prefix in the label, and its own route view.
-	pick("src", "B.12", "B.12 Stage Cam")
-	pick("dst", "B.4", "B.4 Stage Mon")
+	// Router B: its names, its prefix in the label, and its own route view. The dot is optional, and the Destination
+	// box's default router makes a bare number a number on router B. This browser keeps it after a reload.
+	pick("src", "B12", "B.12 Stage Cam")
+	b.eval(`document.getElementById('dst-router').click(); true`)
+	b.waitFor("the Destination box's default router is B", `document.getElementById('dst-router').textContent === 'Router B'`)
+	pick("dst", "4", "B.4 Stage Mon")
 	b.waitFor("the route view shows router B's tally", `document.getElementById('dst-under').textContent.includes('Currently on B.4 Stage Mon')`)
 	take()
 	routerTallyHas(t, a, ana, uids[1], 3, 11)
@@ -127,5 +131,7 @@ func TestChromeMainPatchesTwoRouters(t *testing.T) {
 	// Each take went to its own router only: router A's destination 3 and router B's destination 2 keep their sources.
 	routerTallyHas(t, a, ana, uids[0], 3, 3)
 	routerTallyHas(t, a, ana, uids[1], simDst, simDst)
+	b.open(srv.URL + "/")
+	b.waitFor("the default router stays after a reload", `document.getElementById('dst-router')?.textContent === 'Router B' && document.getElementById('src-router').textContent === 'Router A'`)
 	b.check()
 }

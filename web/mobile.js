@@ -13,7 +13,8 @@ import {
   setLinkDisabled,
   renderDown,
   setDot,
-  search,
+  boxSearch,
+  sameEnd,
   dstItem,
   srcItem,
   labelNode,
@@ -52,7 +53,7 @@ const M = {
 // The best match sits nearest the input (column-reverse list), so ↑ moves to the next-best.
 const matches = combobox(() => inputs[M.step], $('m-matches'), {
   source: (text) =>
-    M.step === 'lvl' || M.sel[M.step] ? [] : search(M.step === 'src' ? S.srcs : S.dsts.filter((d) => !M.dsts.some((x) => x.n === d.n)), text, 50),
+    M.step === 'lvl' || M.sel[M.step] ? [] : boxSearch(M.step, text, { n: 50, keep: M.step === 'dst' ? (d) => !M.dsts.some((x) => sameEnd(x, d)) : undefined }),
   onPick: () => advance(),
   add: (it) => {
     addDst(it, true);
@@ -205,7 +206,7 @@ function paintArmed() {
 
 // plus: the add came from +, so it arms the next add.
 function addDst(it, plus = false) {
-  if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
+  if (!M.dsts.some((d) => sameEnd(d, it))) M.dsts.push(it);
   inputs.dst.value = '';
   lastAdd = plus ? it : null;
   renderThread();
@@ -271,7 +272,7 @@ function useLast(k, next = false) {
     choose(t.src);
     setStep(M.dsts.length ? 'lvl' : 'dst');
   } else if (k === 'dst') {
-    for (const d of t.dsts) if (!M.dsts.some((x) => x.n === d.n)) M.dsts.push(d);
+    for (const d of t.dsts) if (!M.dsts.some((x) => sameEnd(x, d))) M.dsts.push(d);
     inputs.dst.value = '';
     matches.close();
     setStep(M.sel.src ? 'lvl' : 'src');

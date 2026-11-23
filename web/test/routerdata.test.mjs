@@ -63,7 +63,7 @@ test('the hello gives each router its own names, tally, levels and link through 
   assert.equal(routerData('aaa'), a, 'the first router by its UID');
   assert.equal(a.first, true);
   assert.equal(a.srcs, S.srcs, 'the first router reads the flat fields');
-  assert.deepEqual([a.dstBy.get(2).label, b.dstBy.get(2).label], ['3 MON 3', 'B.2 B MON']);
+  assert.deepEqual([a.dstBy.get(2).label, b.dstBy.get(2).label], ['A.3 MON 3', 'B.2 B MON'], 'with two routers, the first router shows its prefix too');
   assert.deepEqual([a.tally.get(2).get(1), b.tally.get(2).get(1)], [0, 4]);
   assert.deepEqual([b.levels.length, b.link, b.err], [1, 'down', 'refused']);
   assert.equal(routerData('nope'), a, 'a UID that the hello did not list is the first router');

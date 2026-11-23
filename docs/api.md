@@ -89,7 +89,7 @@ All paths are under `/api/v1`.
 | `GET /history?before=&n=` | `history` | History, newest first, 50 per page by default, 500 at most. A page never ends inside a Group |
 | `GET /history/groups/last` | `history` | The latest Group with its entries, oldest first |
 | `GET /layouts` | `layouts` | Panel layouts, empty until the panel page exists |
-| `GET /routers` | any | `{"routers":[{"uid","prefix","title"}]}`: each router's router UID, router prefix (A to Z) and router title. See Routers |
+| `GET /routers` | any | `{"routers":[{"uid","prefix","title"}]}`: each router's router UID, router prefix (one or two letters, A to Z) and router title. See Routers |
 | `GET /log?before=&n=` | `log` | The Communication Log, 100 per page by default, 500 at most. Settings saves rows (`kind` `settings`) are merged in; a key never sees the values of Access or Server fields |
 | `POST /takes` | `take` | A take by routes: `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, 1 to 200 routes. Each end can be a router reference `{"router","n"}` (see Routers) |
 | `POST /presets/{scope}/{name}` | `take` | Fire a preset, scope `everyone` or `me` |

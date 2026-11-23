@@ -15,7 +15,7 @@ import (
 type Router struct {
 	// Normalize makes UID one time. It never changes, not even with the address. Never shown.
 	UID string `yaml:"uid" json:"-"`
-	// Prefix is A-Z, hidden while there is one router.
+	// Prefix is one or two letters A to Z, hidden while there is one router.
 	Prefix  string `yaml:"prefix" json:"-"`
 	Title   string `yaml:"title" json:"routerName"`
 	Address string `yaml:"address" json:"router" reconnect:"true"`

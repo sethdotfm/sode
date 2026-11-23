@@ -1,6 +1,23 @@
-import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, labelNode, routerData, routerOfItem, routerOfText, sameEnd } from './core.js';
+import {
+  $,
+  el,
+  S,
+  on,
+  needsLink,
+  renderDown,
+  boxSearch,
+  dstLabel,
+  dstItem,
+  srcItem,
+  labelNode,
+  routerData,
+  routerOfItem,
+  routerNamed,
+  sameEnd,
+} from './core.js';
 import { keyLabel } from './keys.js';
-import { searchText, prefixOf } from './routerprefix.js';
+import { prefixOf } from './routerprefix.js';
+import { boxRouter, wireBoxRouter } from './boxrouter.js';
 import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
@@ -43,13 +60,14 @@ const sel = { src: null, dst: null };
 let dsts = [];
 const chosen = (d) => dsts.some((x) => sameEnd(x, d));
 const MAX_MATCHES = 100;
-// list(rt) is the box's list on router rt (routerData); with none, the router that the box's text names.
+// list(rt) is the box's list on router rt (routerData); with none, the router of the box's text (routerOfBox).
 const boxes = {
   src: { input: $('src'), list: (rt = textRouter('src')) => rt.srcs },
   dst: { input: $('dst'), list: (rt = textRouter('dst')) => (dsts.length ? rt.dsts.filter((d) => !chosen(d)) : rt.dsts) },
 };
-// A box searches the router whose prefix its text starts with (B.12), else the first router.
-const textRouter = (k) => routerData(routerOfText(boxes[k].input.value));
+// A box's router is the one whose prefix its text starts with (B.12, B12), else its default router (boxrouter.js).
+const routerOfBox = (k, text) => routerNamed(text) ?? boxRouter(k);
+const textRouter = (k) => routerData(routerOfBox(k, boxes[k].input.value));
 for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.cb = combobox(b.input, $(`${k}-menu`), {
@@ -62,17 +80,21 @@ for (const k of ['src', 'dst']) {
     onRender: () => b.all?.sync(),
     outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it),
   });
+  wireBoxRouter(k, $(`${k}-router`), () => {
+    if (b.input.value && document.activeElement === b.input) b.cb.refresh();
+    followLevels();
+  });
 }
 // A typed list ("11-13", "Rec 1-4", boxlist.js) in the Destination box shows its destinations all selected, so Enter,
 // Tab, + and Ctrl+Enter add exactly what shows. A text that starts a name is a search. The Source box takes one source:
 // a list there gets a note that points to the Grid.
 function matchesOf(k, text) {
-  const rt = routerData(routerOfText(text));
+  const rt = routerData(routerOfBox(k, text));
   const all = k === 'src' ? rt.srcs : rt.dsts;
-  // A router after the first: its own list, searched with the text after the prefix.
-  const q = rt.first ? searchText(text, S.prefix, [], [S.prefix]) : prefixOf(text).text;
+  const q = routerNamed(text) == null ? text : prefixOf(text).text;
   const list = q && parseList(q);
-  if (!list || namedAs(q, all)) return search(boxes[k].list(rt), rt.first ? text : q, MAX_MATCHES);
+  if (!list || namedAs(q, all))
+    return boxSearch(k, text, { def: boxRouter(k), n: MAX_MATCHES, keep: k === 'dst' && dsts.length ? (d) => !chosen(d) : undefined });
   if (k === 'src') return Object.assign([], { note: `One source only. For many routes, use the Grid (${keyLabel('ctrl+e')}).` });
   if (list.tooMany) return Object.assign([], { note: `A list can have ${LIST_MAX} destinations or fewer.` });
   const { found, missing } = listMatches(list, rt.dsts);
@@ -83,7 +105,8 @@ function matchesOf(k, text) {
 
 // Typed levels are levels of the router of the route's destination. That is the router of a chosen destination, else
 // the router that the Destination box's text names, else the router of the source. The picker follows it (followLevels).
-const lvlRouter = () => levelRouterOf({ dsts: sel.dst ? [sel.dst, ...dsts] : dsts, dstText: boxes.dst.input.value, src: sel.src }, routerOfItem, routerOfText);
+const typedRouter = (t) => (t.trim() ? routerOfBox('dst', t) : '');
+const lvlRouter = () => levelRouterOf({ dsts: sel.dst ? [sel.dst, ...dsts] : dsts, dstText: boxes.dst.input.value, src: sel.src }, routerOfItem, typedRouter);
 let lvlAt = '';
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), () => levelSource(lvlRouter()), { onChange: () => renderTally() });

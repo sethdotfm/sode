@@ -1422,6 +1422,13 @@ html {
   min-height: var(--pb-control-h-sm);
   min-width: 0;
 }
+/* The default router of a patch box (boxrouter.js), only with two or more routers. */
+.sode__box-router {
+  flex: none;
+}
+.sode__box-router[hidden] {
+  display: none;
+}
 .sode__box-head > [data-last] {
   display: flex;
   gap: var(--pb-space-5);
