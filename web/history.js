@@ -8,6 +8,7 @@ import { filterAllows } from './filterstore.js';
 import { pref } from './device.js';
 import { entryChip, protectFoldOpts } from './protectrules.js';
 import { mergeRuns } from './historyruns.js';
+import { undoIndex, markFor, groupMark } from './undone.js';
 import { statusText } from './statustext.js';
 
 // Quick search above History. It reads back through the whole log. It ignores the filters unless this browser's setting says otherwise. Not kept.
@@ -123,8 +124,14 @@ function buildRows(list) {
   }
   // Each entry first stands alone, because a hidden entry, a Group's entry and an attached follow end a stack. Then it
   // goes to its Group or its take.
+  // The Undone mark reads every loaded entry, so a hidden undo row still marks its take (undone.js).
+  const undone = undoIndex(list);
   const items = list.map((orig) => {
-    const e = followsOf.has(orig.id) ? { ...orig, follows: followsOf.get(orig.id) } : orig;
+    const mark = orig.protect ? null : markFor([orig.id], orig.levels, undone);
+    const e =
+      followsOf.has(orig.id) || mark
+        ? { ...orig, ...(followsOf.has(orig.id) ? { follows: followsOf.get(orig.id) } : {}), ...(mark ? { undone: mark } : {}) }
+        : orig;
     const t = Date.parse(e.time);
     return { e, orig, span: [t, t], attached: attached.has(orig), shows: !attached.has(orig) && passes(e) };
   });
@@ -133,7 +140,7 @@ function buildRows(list) {
     key: (r) => (stacks(r.e) ? `${r.e.levels.join(',')}${r.e.found ? ' found' : ''}` : ''), // found and announced do not mix
     gapMs: gap,
     span: (r) => r.span,
-    join: stackRow,
+    join: (run) => stackRow(run, undone),
   });
   const rows = [];
   const byGroup = new Map();
@@ -159,15 +166,26 @@ function buildRows(list) {
     if (shown.length) f.followers = shown;
     if (shown.length && searchActive() && !f.shown.length) f.shown = f.entries;
   }
-  for (const row of byGroup.values()) row.shows = row.f.shown.length > 0;
+  for (const row of byGroup.values()) {
+    row.shows = row.f.shown.length > 0;
+    const mark = groupMark(row.f.entries);
+    if (mark) row.f.undone = mark;
+  }
   return mergeRuns(rows, protectFoldOpts(gap)).filter((r) => r.shows);
 }
 
 // A stacked row: the newest change, with the oldest's prev, merged = count and chain = each change, newest first.
-function stackRow(run) {
+function stackRow(run, undone) {
   const [top] = run;
   const follows = run.flatMap((r) => r.e.follows || []);
+  const mark = markFor(
+    run.map((r) => r.orig.id),
+    top.e.levels,
+    undone,
+  );
   const e = { ...top.e, prev: run[run.length - 1].e.prev, merged: run.length, chain: run.map((r) => r.orig), ...(follows.length ? { follows } : {}) };
+  delete e.undone;
+  if (mark) e.undone = mark;
   return { ...top, e };
 }
 
@@ -346,6 +364,15 @@ export function putEntry(e, hist = S, update = false) {
   return 'replaced';
 }
 
+// The Undone mark's badge (words, not color alone); null for no mark. m is a row's mark or a Group's.
+export const undoneBadge = (m) => (m ? el('span', 'pb-badge sode__status-badge', m.text) : null);
+
+const undoneNote = (m) => {
+  if (!m.by) return '';
+  const by = `undone by ${m.by.map((id) => `#${id}`).join(', ')}`;
+  return m.state === 'partly' ? `level${m.levels.length === 1 ? '' : 's'} ${levelText(m.levels)} ${by}` : by;
+};
+
 export function entryNote(e) {
   const parts = [];
   if (e.preset && !(e.group && e.groupN > 1)) parts.push(`Preset: ${e.preset}`);
@@ -355,6 +382,7 @@ export function entryNote(e) {
   if (e.followGroup) parts.push('External follow of this take');
   if (e.protect && e.ext) parts.push(`device ${e.device ?? 0}`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
+  if (e.undone) parts.push(undoneNote(e.undone));
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
   if (e.late?.length) parts.push(`level${e.late.length === 1 ? '' : 's'} ${levelText(e.late)} confirmed late`);

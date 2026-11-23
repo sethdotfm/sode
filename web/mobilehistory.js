@@ -2,7 +2,7 @@
 import { $, el, S, on, dstItem, labelNode, toggle } from './core.js';
 import { levelBar } from './levelview.js';
 import { fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, groupLevels, stackBefore, routeNote } from './history.js';
+import { entryNote, undoneBadge, historyPager, statusNode, groupLevels, stackBefore, routeNote } from './history.js';
 import { layout } from './layout.js';
 import { emptyNote } from './searchbox.js';
 import { rowView, disclosureAria, followersHead } from './historyrows.js';
@@ -70,6 +70,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         ...(e.chain ? [el('span', 'sode__hist-note', stackBefore(e).text), ' to '] : []),
         ...routeNodes(view.route(e)),
         entryNote(e),
+        undoneBadge(e.undone),
         byLabel(e),
       ),
       changes,
@@ -113,7 +114,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
         el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
       ),
-      el('div', 'sode-m__recent-route', ...title, byLabel(f)),
+      el('div', 'sode-m__recent-route', ...title, undoneBadge(f.undone), byLabel(f)),
       levelBar(groupLevels(f)),
     );
     clickToToggle(face, disc);
