@@ -1,6 +1,7 @@
 // The one page header of every page but a panel page: the main page (homebar.js), /panels, the panel editor (its
 // Live Editor too) and /log. The Lock bar floats at its left (lock.css). Then come the site name, a rule, the icon
-// links, a gap, Inbox, a rule and the status. bar.css lays it out. Panel pages keep their own.
+// links, a gap, Inbox, a rule and the status. Off Home the title goes to the bar's middle and the rule stays only
+// after the Lock bar. bar.css lays it out. Panel pages keep their own.
 import { el, icon, on, emit } from './core.js';
 import { connBox, paintConn } from './connview.js';
 import { keyLabel, ariaKeys } from './keys.js';
@@ -77,15 +78,53 @@ export function barLinks({ panels = false, leave = null, first = null, settings 
   ].filter(Boolean);
 }
 
-// Sets the site name in a bar's title. The name can be cut with an ellipsis, so the tip gives it in full.
-export function barTitle(title, text) {
-  const name = title.querySelector('.sode-bar__name');
-  if (!name) {
-    title.textContent = text;
-    return;
-  }
-  name.textContent = text;
-  title.dataset.pbTip = text;
+// Sets a bar's title: the site name, a space, then the page name (Home has none). The name can be cut with an
+// ellipsis, so the tip gives it in full.
+export function barTitle(title, site, page = '') {
+  const name = el('span', 'sode-bar__name', el('span', 'sode-bar__site', site));
+  if (page) name.append(' ', el('span', 'sode-bar__page', page));
+  title.replaceChildren(name);
+  title.dataset.pbTip = page ? `${site} ${page}` : site;
+}
+
+// The least room for a centred title, in rem; with less the title goes back to the bar's left.
+const CENTRE_MIN = 10;
+
+// A centred title (bar.css) gets the room that the wider side leaves on both sides of the bar's middle. Thus it
+// stays in the middle and never runs under a button. Sums of widths, not places, so the title's own place changes nothing.
+function centreTitle(head, title) {
+  const fit = () => {
+    const cs = getComputedStyle(head);
+    const gap = parseFloat(cs.columnGap) || 0;
+    const chip = document.documentElement.hasAttribute('data-sode-chip');
+    let side = parseFloat(cs.paddingLeft);
+    let left = 0;
+    for (const n of head.children) {
+      if (n === title) continue;
+      if (n.matches('.sode-panels__spacer, .sode-log__spacer')) {
+        left = side;
+        side = 0;
+        continue;
+      }
+      // Without the Lock bar the start rule hides while the title is centred (bar.css).
+      if (n.matches('.sode-bar__rule--start') && !chip) continue;
+      const w = n.getBoundingClientRect().width;
+      if (w > 0) side += w + gap;
+    }
+    const right = side + parseFloat(cs.paddingRight);
+    const room = head.getBoundingClientRect().width - 2 * Math.max(left, right);
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    head.style.setProperty('--sode-title-room', `${Math.max(0, Math.floor(room))}px`);
+    head.toggleAttribute('data-sode-centre', room >= CENTRE_MIN * rem);
+  };
+  const sizes = new ResizeObserver(fit);
+  sizes.observe(head);
+  for (const n of head.children) sizes.observe(n);
+  // The Live Editor and Inbox add parts after the bar is made.
+  new MutationObserver((recs) => {
+    for (const r of recs) for (const n of r.addedNodes) if (n.nodeType === 1) sizes.observe(n);
+    fit();
+  }).observe(head, { childList: true });
 }
 
 function rule(cls) {
@@ -98,13 +137,14 @@ function rule(cls) {
 // opts.conn is a status the head already holds (Home's #conn), which its page paints; without it the bar makes one.
 export function panelsBar(head, opts = {}) {
   const title = head.querySelector('.sode-panels__title');
-  // The ellipsis goes on an inner span, since the title's own overflow would cut its tip.
-  const text = title.textContent;
-  title.replaceChildren(el('span', 'sode-bar__name'));
-  barTitle(title, text);
+  // The ellipsis goes on an inner span, since the title's own overflow would cut its tip. data-page keeps the page
+  // name, so each brand event builds the title again from its two parts.
+  barTitle(title, 'Sode', title.dataset.page);
   const tools = el('div', 'sode-bar__tools', ...barLinks(opts));
   title.after(rule('sode-bar__rule--start'), tools);
   head.classList.add('sode-bar');
+  // Home keeps its title at the left.
+  if (!head.classList.contains('sode-home-bar')) centreTitle(head, title);
   let conn = opts.conn;
   if (!conn) {
     const box = connBox();

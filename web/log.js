@@ -27,8 +27,9 @@ import { panelsBar, barTitle } from './panelsbar.js';
 panelsBar(document.querySelector('.sode-log__head'));
 
 on('brand', ({ text }) => {
-  barTitle(document.querySelector('.sode-log__title'), `${text} Communication Log`);
-  document.title = `${text} Communication Log`;
+  const title = document.querySelector('.sode-log__title');
+  barTitle(title, text, title.dataset.page);
+  document.title = title.dataset.pbTip;
 });
 
 // Entries are kept in finish order but stamped with when first sent (or queued), so the log
