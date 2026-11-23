@@ -23,6 +23,7 @@ var sectionNames = map[string]string{
 	"confirm":           "Confirm and results",
 	"routers":           "Routers",
 	"tie-lines":         "Tie lines",
+	"router-levels":     "Router levels",
 	"router-matrix":     "Router & matrix",
 	"router-names":      "Router names",
 	"takes":             "Takes",
@@ -40,7 +41,7 @@ func topicOf(section string) string {
 	switch section {
 	case "this-browser", "my-user":
 		return "Preferences"
-	case "routers", "tie-lines", "router-matrix", "router-names", "takes", "protects":
+	case "routers", "tie-lines", "router-levels", "router-matrix", "router-names", "takes", "protects":
 		return "Routers"
 	case "locks", "users", "api", "panels":
 		return "Access"
@@ -55,7 +56,12 @@ var attrLabels = map[string]string{
 	"noAutoLock": "No auto-lock", "remove": "Remove", "add": "Add", "scopes": "Scopes",
 }
 
-// itemLabel: "User Ana: Role" or "API client Bot: Scopes". The name is the one before the save,
+// routerAttrLabels: the labels of the router keys, as the first router's fields name them.
+var routerAttrLabels = map[string]string{
+	"levels": "Levels", "levelWireOffset": "Level offset", "levelNumbering": "Level numbering", "defaultLevels": "Default levels",
+}
+
+// itemLabel: "User Ana: Role", "API client Bot: Scopes" or "Router B: Levels". The name is the one before the save,
 // else after it.
 func itemLabel(key string, was, now config.Config) string {
 	if rest, ok := strings.CutPrefix(key, "user/"); ok {
@@ -65,6 +71,14 @@ func itemLabel(key string, was, now config.Config) string {
 			u, _ = now.FindUserByID(id)
 		}
 		return "User " + u.Name + ": " + attrLabels[attr]
+	}
+	if rest, ok := strings.CutPrefix(key, "router/"); ok {
+		uid, attr, _ := strings.Cut(rest, "/")
+		r, ok := was.RouterByUID(uid)
+		if !ok {
+			r, _ = now.RouterByUID(uid)
+		}
+		return "Router " + r.Prefix + ": " + routerAttrLabels[attr]
 	}
 	rest := strings.TrimPrefix(key, "client/")
 	i := strings.LastIndex(rest, "/")

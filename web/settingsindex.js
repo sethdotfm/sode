@@ -70,6 +70,7 @@ export const DICT = {
   confirm: ['confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'delay', 'safety', 'result', 'success', 'banner', 'dismiss'],
   routers: ['router', 'routers', 'router list', 'ultrix', 'matrix', 'block'],
   'tie-lines': ['tie line', 'tie lines', 'tie', 'ties', 'cable', 'link', 'between routers', 'stage', 'hop weight', 'cost', 'path'],
+  'router-levels': ['levels', 'level count', 'level offset', 'level numbering', 'default levels', 'router levels', 'other routers'],
   panels: [
     'panel',
     'panels',

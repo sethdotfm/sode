@@ -69,20 +69,21 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 			}
 		}
 	}
+	lv := r.levelsOf(e.Router)
 	p := &takePlan{}
 	groups := map[int][]int{}
 	known := map[int]bool{}
 	for _, pv := range e.Prev {
 		u, s := pv[0], pv[1]
 		known[u] = true
-		if _, ok := r.byUI[u]; !ok || untouched[u] {
+		if _, ok := lv.byUI[u]; !ok || untouched[u] {
 			continue
 		}
 		if s < 0 {
 			p.Skipped = append(p.Skipped, u)
 			continue
 		}
-		if !v.Route(e.Dst, u, s) {
+		if !v.on(e.Router).Route(e.Dst, u, s) {
 			continue
 		}
 		groups[s] = append(groups[s], u)
@@ -93,7 +94,7 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 		}
 	}
 	for u := range untouched {
-		if _, ok := r.byUI[u]; ok {
+		if _, ok := lv.byUI[u]; ok {
 			p.Untouched = append(p.Untouched, u)
 		}
 	}
@@ -124,9 +125,10 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 	case e.Src < 0:
 		return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "entry %d has no source to repeat", e.ID)
 	}
+	lv := r.levelsOf(e.Router)
 	var ls []int
 	for _, u := range e.Levels {
-		if _, ok := r.byUI[u]; ok && v.Route(e.Dst, u, e.Src) {
+		if _, ok := lv.byUI[u]; ok && v.on(e.Router).Route(e.Dst, u, e.Src) {
 			ls = append(ls, u)
 		}
 	}

@@ -1,10 +1,11 @@
-import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, labelNode, routerData, routerOfText, sameEnd } from './core.js';
+import { $, el, S, on, needsLink, renderDown, search, dstLabel, dstItem, srcItem, labelNode, routerData, routerOfItem, routerOfText, sameEnd } from './core.js';
 import { keyLabel } from './keys.js';
 import { searchText, prefixOf } from './routerprefix.js';
 import { parseList, namedAs, listMatches, missingNote, nextAdd, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
+import { levelRouterOf } from './levels.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
 import {
@@ -59,7 +60,7 @@ for (const k of ['src', 'dst']) {
     onPickAll: k === 'dst' ? (items) => addAll(items) : undefined,
     foot: $(`${k}-count`),
     onRender: () => b.all?.sync(),
-    outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it.n),
+    outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it),
   });
 }
 // A typed list ("11-13", "Rec 1-4", boxlist.js) in the Destination box shows its destinations all selected, so Enter,
@@ -80,8 +81,17 @@ function matchesOf(k, text) {
   return Object.assign(rows, { all: true, note });
 }
 
+// Typed levels are levels of the router of the route's destination. That is the router of a chosen destination, else
+// the router that the Destination box's text names, else the router of the source. The picker follows it (followLevels).
+const lvlRouter = () => levelRouterOf({ dsts: sel.dst ? [sel.dst, ...dsts] : dsts, dstText: boxes.dst.input.value, src: sel.src }, routerOfItem, routerOfText);
+let lvlAt = '';
 const lvlInput = $('lvl');
-const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), levelSource, { onChange: () => renderTally() });
+const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), () => levelSource(lvlRouter()), { onChange: () => renderTally() });
+function followLevels() {
+  if (lvlRouter() === lvlAt) return;
+  lvlAt = lvlRouter();
+  lvl.repick();
+}
 // With the Levels box hidden, a move to Levels goes to the last box before Take, where Enter takes.
 function toLevels() {
   focusBox(levelsShown() ? lvlInput : flipped() ? boxes.src.input : boxes.dst.input);
@@ -314,7 +324,15 @@ function sendingRow(src, d, levels, uid) {
     }
     toLevels();
   });
-  return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
+  return el(
+    'div',
+    'sode__route',
+    levelBar(
+      levels.filter((u) => t.get(u) === src),
+      uid,
+    ),
+    pick,
+  );
 }
 
 // The route view of one destination: no source, one destination. It offers Protect and Free Protect.
@@ -327,6 +345,7 @@ function pickSrc(n, uid = '') {
 }
 
 function renderTally() {
+  followLevels();
   renderLast();
   paintTakes();
   paintArmed();
@@ -338,8 +357,8 @@ function renderTally() {
   }
   const scrolled = [srcUnder, dstUnder].map((u) => u.querySelector('.sode__scroll')?.scrollTop || 0);
   if (sel.src) {
-    const levels = lvl.levels() || allLevels();
     const uid = sel.src.router || '';
+    const levels = lvl.levels() || allLevels(uid);
     const fed = fedBy(sel.src.n, levels, uid);
     srcUnder.replaceChildren(
       underHead(fed.length ? `Sending to ${fed.length}` : 'Sending'),
@@ -606,6 +625,7 @@ on('presetAdd', paintTakes);
 
 on('hello', () => {
   pager.reset();
+  lvlAt = lvlRouter();
   lvl.reset();
   // A Settings save sends a new hello, so an open page follows a change of levels.
   const box = lvlInput.closest('.sode__box');

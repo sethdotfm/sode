@@ -31,15 +31,15 @@ type artDefaultIn struct {
 }
 
 func (a *App) artDefaultVisible(cl *apiCtx, d ArtDefault) bool {
-	v := cl.view()
+	v := a.view(cl)
 	if !v.Hidden() {
 		return true
 	}
 	switch d.Kind {
 	case artKindSource:
-		return d.N != nil && v.Source(*d.N)
+		return d.N != nil && v.source(config.Ref{Router: d.Router, N: *d.N})
 	case artKindDst:
-		return d.N != nil && v.Destination(*d.N)
+		return d.N != nil && v.destination(config.Ref{Router: d.Router, N: *d.N})
 	}
 	// A preset's items would teach hidden numbers, so a hidden caller needs the whole preset in view.
 	// Only Everyone presets have defaults (check).

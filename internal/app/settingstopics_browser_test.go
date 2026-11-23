@@ -56,7 +56,7 @@ func TestChromeSettingsTopics(t *testing.T) {
 	b.waitFor("Users marked under Access", tree+` === JSON.stringify({ open: ['Access'], cur: 'Users', shown: ['Locks', 'Users', 'API', 'Panels'] })`)
 	b.eval(`document.querySelector('[data-section="takes"]').scrollIntoView({ block: 'start', behavior: 'instant' }); true`)
 	// An Administrator also sees Tie lines, the one section for every router, before the block of each router.
-	b.waitFor("Takes marked under Routers", `(() => { const s = JSON.parse(`+tree+`); return s.open[0] === 'Routers' && s.cur === 'Takes' && s.shown.join() === 'Routers,Tie lines,Router & matrix,Router names,Takes,Protects'; })()`)
+	b.waitFor("Takes marked under Routers", `(() => { const s = JSON.parse(`+tree+`); return s.open[0] === 'Routers' && s.cur === 'Takes' && s.shown.join() === 'Routers,Tie lines,Router levels,Router & matrix,Router names,Takes,Protects'; })()`)
 
 	// A topic entry scrolls to its band.
 	b.eval(`document.querySelector('.sode__toc-topic[data-topic="server"]').click(); true`)

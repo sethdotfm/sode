@@ -67,7 +67,8 @@ type Rights struct {
 
 func in[T comparable](l *[]T, v T) bool { return l == nil || slices.Contains(*l, v) }
 
-// sameRef: the name never decides, and a blank router is the one router.
+// sameRef: the router and the number decide, never the name. A blank router matches any router. Only a request
+// leaves it blank: Normalize fills a stored one, and every check in internal/app fills the one it asks about.
 func sameRef(a, b Ref) bool {
 	return a.N == b.N && (a.Router == "" || b.Router == "" || a.Router == b.Router)
 }
@@ -76,7 +77,7 @@ func inRefs(l *[]Ref, x Ref) bool {
 	return l == nil || slices.ContainsFunc(*l, func(r Ref) bool { return sameRef(r, x) })
 }
 
-// A blank router in x is the one router.
+// x names its router: a right for source 5 on one router does not allow source 5 on another.
 func (r Rights) AllowsSource(x Ref) bool    { return inRefs(r.Sources, x) }
 func (r Rights) AllowsDst(x Ref) bool       { return inRefs(r.Dsts, x) }
 func (r Rights) AllowsLevel(ui int) bool    { return in(r.Levels, ui) }
@@ -266,7 +267,8 @@ func (c *Config) normalizeAPI() {
 	}
 }
 
-func (r Rights) validate(who string, levels int, uid string, bad func(string, ...any)) {
+// uids: the UIDs of every router of the settings.
+func (r Rights) validate(who string, levels int, uids []string, bad func(string, ...any)) {
 	if r.Visibility != "" && r.Visibility != VisReadOnly && r.Visibility != VisHidden {
 		bad("%s: visibility must be %q or %q", who, VisReadOnly, VisHidden)
 	}
@@ -274,7 +276,7 @@ func (r Rights) validate(who string, levels int, uid string, bad func(string, ..
 		if l != nil && slices.ContainsFunc(*l, func(f Ref) bool { return f.N < 0 }) {
 			bad("%s: sources and destinations cannot be negative", who)
 		}
-		if l != nil && slices.ContainsFunc(*l, func(f Ref) bool { return f.Router != "" && f.Router != uid }) {
+		if l != nil && slices.ContainsFunc(*l, func(f Ref) bool { return f.Router != "" && !slices.Contains(uids, f.Router) }) {
 			bad("%s: a source or destination names a router Sode does not have", who)
 		}
 	}
@@ -304,10 +306,11 @@ func (c Config) validateAPI() []error {
 	if c.RequireHTTPS && len(c.TrustedProxies) == 0 {
 		bad("Require HTTPS needs at least one trusted proxy: only a trusted proxy can say a request was secure")
 	}
-	c.GuestRights.validate("Guest rights", c.Levels, c.UID, bad)
+	uids := c.RouterUIDs()
+	c.GuestRights.validate("Guest rights", c.Levels, uids, bad)
 	checkScopes("keyless scopes", c.GuestAPIScopes, bad)
 	for _, u := range c.Users {
-		u.Rights.validate("rights of "+u.Name, c.Levels, c.UID, bad)
+		u.Rights.validate("rights of "+u.Name, c.Levels, uids, bad)
 	}
 	own := 0
 	ofUser := map[string]int{}
@@ -346,7 +349,7 @@ func (c Config) validateAPI() []error {
 			bad("API client %q has the name of a user; History would not tell them apart", cl.Name)
 		}
 		seen[key] = true
-		cl.Rights.validate("rights of API client "+cl.Name, c.Levels, c.UID, bad)
+		cl.Rights.validate("rights of API client "+cl.Name, c.Levels, uids, bad)
 		checkScopes("API client "+cl.Name, cl.Scopes, bad)
 	}
 	return errs

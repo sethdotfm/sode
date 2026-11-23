@@ -192,7 +192,7 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 		if !ok {
 			return out
 		}
-		if (dst && v.Destination(e.N)) || (!dst && v.Source(e.N)) {
+		if (dst && v.on(u.uid).Destination(e.N)) || (!dst && v.on(u.uid).Source(e.N)) {
 			out.Name = u.router.name(dst, e.N)
 		}
 		return out
@@ -231,7 +231,7 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 			ap.Hops = append(ap.Hops, ah)
 		}
 		for _, e := range p.Affected {
-			if v.Destination(e.N) {
+			if v.on(e.Router).Destination(e.N) {
 				ap.Affected = append(ap.Affected, end(e, true))
 			} else {
 				ap.Others++

@@ -39,6 +39,7 @@ var sectionRoles = map[string]sectionTag{
 	"router-matrix":     {config.RoleAdministrator, true},
 	"router-names":      {config.RoleAdministrator, true},
 	"takes":             {config.RoleAdministrator, true},
+	"router-levels":     {config.RoleAdministrator, true},
 	"protects":          {config.RoleAdministrator, false},
 	"locks":             {config.RoleAdministrator, false},
 	"users":             {config.RoleAdministrator, false},
@@ -122,6 +123,7 @@ func fieldVersions(cfg config.Config) map[string]string {
 			out[k] = fieldVersion(cfg, k)
 		}
 	}
+	routerVersions(cfg, out)
 	return out
 }
 

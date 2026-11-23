@@ -106,7 +106,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	st := &apiStream{unit: a.apiUnit(r), view: cl.view(), detail: cl.has(config.ScopeLog), topics: map[string]bool{}, send: make(chan []byte, 256), cancel: cancel, ip: cl.IP}
+	st := &apiStream{unit: a.apiUnit(r), view: a.view(cl), detail: cl.has(config.ScopeLog), topics: map[string]bool{}, send: make(chan []byte, 256), cancel: cancel, ip: cl.IP}
 	if cl.Key != nil {
 		st.keyID = cl.Key.ID
 		st.owner = cl.Key.Owner
@@ -303,7 +303,7 @@ func (a *App) refreshStreams(cfg config.Config) {
 			st.cancel()
 			continue
 		}
-		st.view = cl.view()
+		st.view = a.view(cl)
 	}
 }
 
@@ -345,10 +345,10 @@ func (a *App) streamFan(v any) {
 			}
 			rows := []apiRouteRow{}
 			for _, c := range m.U {
-				if !st.view.Destination(c.Dst) {
+				if !st.view.on(st.unit.uid).Destination(c.Dst) {
 					continue
 				}
-				if !st.view.Route(c.Dst, c.Level, c.Src) {
+				if !st.view.on(st.unit.uid).Route(c.Dst, c.Level, c.Src) {
 					continue
 				}
 				rows = append(rows, apiRouteRow(c))

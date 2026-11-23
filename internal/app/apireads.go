@@ -63,8 +63,8 @@ func namesOf(m map[int]string, ok func(int) bool) []apiName {
 func (a *App) namesSnapshot(u *routerUnit, v apiView) apiNames {
 	return apiNames{
 		NumberOffset: a.r().routerOf(u.uid).NumberOffset,
-		Sources:      namesOf(u.router.srcNames, v.Source),
-		Destinations: namesOf(u.router.dstNames, v.Destination),
+		Sources:      namesOf(u.router.srcNames, v.on(u.uid).Source),
+		Destinations: namesOf(u.router.dstNames, v.on(u.uid).Destination),
 		NamesAt:      u.router.namesAt,
 	}
 }
@@ -80,7 +80,7 @@ type namesBody struct {
 }
 
 func (a *App) apiNames(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	v := cl.view()
+	v := a.view(cl)
 	u, ok := a.apiReadUnit(w, r)
 	if !ok {
 		return
@@ -131,7 +131,7 @@ type apiProtectedRow struct {
 }
 
 // Stable order.
-func routeRows(m map[int]map[int]int, v apiView) []apiRouteRow {
+func routeRows(m map[int]map[int]int, v routerView) []apiRouteRow {
 	out := []apiRouteRow{}
 	for d, t := range m {
 		for l, s := range t {
@@ -159,13 +159,14 @@ type apiLevel struct {
 // Caller holds mu.
 func (a *App) tallySnapshot(u *routerUnit, v apiView) map[string]any {
 	levels := []apiLevel{}
-	for _, l := range a.r().levels {
+	r := a.r()
+	for _, l := range r.levelsOf(u.uid).levels {
 		levels = append(levels, apiLevel{l.UI, l.Label, l.Swatch, l.Color})
 	}
-	cfg := a.r().cfg
+	rc := r.routerOf(u.uid)
 	return map[string]any{
-		"levels": levels, "levelNumbering": cfg.LevelNumbering, "defaultLevels": cfg.DefaultLevels,
-		"routes": routeRows(u.router.tally, v),
+		"levels": levels, "levelNumbering": rc.LevelNumbering, "defaultLevels": rc.DefaultLevels,
+		"routes": routeRows(u.router.tally, v.on(u.uid)),
 	}
 }
 
@@ -180,7 +181,7 @@ type tallyBody struct {
 }
 
 func (a *App) apiTally(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	v := cl.view()
+	v := a.view(cl)
 	u, ok := a.apiReadUnit(w, r)
 	if !ok {
 		return
@@ -222,11 +223,11 @@ func (a *App) apiProtected(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		by[b.Dst] = b
 	}
 	a.mu.Lock()
-	v := cl.view()
+	v := a.view(cl)
 	rows := []apiProtectedRow{}
 	// Only the first router, as in the protected message.
 	for d, t := range a.firstUnit().router.protect {
-		if !v.Destination(d) {
+		if !v.on(a.firstUnit().uid).Destination(d) {
 			continue
 		}
 		for l, h := range t {

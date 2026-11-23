@@ -76,6 +76,15 @@ func (c Config) Routers() []Router {
 	return append([]Router{c.Router}, c.MoreRouters...)
 }
 
+// RouterUIDs gives the UID of every router, the first router first.
+func (c Config) RouterUIDs() []string {
+	out := make([]string, 0, 1+len(c.MoreRouters))
+	for _, r := range c.Routers() {
+		out = append(out, r.UID)
+	}
+	return out
+}
+
 // RouterByUID gives the router with this UID. Blank is the first router.
 func (c Config) RouterByUID(uid string) (Router, bool) {
 	if uid == "" {

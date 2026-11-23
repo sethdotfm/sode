@@ -1,7 +1,7 @@
 import { el, S, search, on, onMsg, emit, wsSend, off, srcItem, dstItem, labelNode, tallyText, routerData, routerOfItem, LINK_DOWN } from './core.js';
 import { protectedText } from './protectrules.js';
 import { protectSummary, sendProtect, holdsAt, holdBadge } from './protects.js';
-import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
+import { levelText, oneLevel, levelBar, parseLevels, levelLabel } from './levelview.js';
 import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
@@ -162,10 +162,14 @@ export const VERBS = {
 export const planVerb = (plan) => VERBS[plan.verb].word;
 export const planEmpty = (plan) => !plan.protect && !plan.items.some((i) => i.groups.length);
 
+// "levels 1–4" of a route, or "all levels" on a router with one level.
+const routeLevels = (list, uid) => (oneLevel(uid) ? 'all levels' : `levels ${levelText(list, uid)}`);
+
 function routeText(t, already = []) {
+  const uid = routerOfItem(t.dst);
   return (
-    `${t.g.src.label} → ${t.dst.label} (levels ${levelText(t.g.levels)}` +
-    (already.length ? `; ${levelText(already)} ${already.length === 1 ? 'was' : 'were'} already on ${t.g.src.label}` : '') +
+    `${t.g.src.label} → ${t.dst.label} (${routeLevels(t.g.levels, uid)}` +
+    (already.length ? `; ${levelText(already, uid)} ${already.length === 1 ? 'was' : 'were'} already on ${t.g.src.label}` : '') +
     ')'
   );
 }
@@ -260,7 +264,7 @@ export function planBlocked(plan) {
     return { block: { kind: 'error', title: 'Not connected', text }, prot };
   }
   if (plan.protect) return { block: null, prot };
-  const outside = planOutside(S.myRights, plan, off(), levelLabel);
+  const outside = planOutside(S.myRights, plan, off(), levelLabel, rightsRouter);
   if (outside) return { block: { kind: 'error', title: 'Outside your Rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   // A take sends each route to the router of its destination, with the source number of that router.
@@ -358,14 +362,14 @@ export function alreadyThere(item) {
 function itemSummary(item, boxed, prot, since) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
   const uid = routerOfItem(item.dst);
-  const before = bySource(item.dst.n, all, uid).map((r) => srcRow(r.levels, tallyText(r.src, uid)));
+  const before = bySource(item.dst.n, all, uid).map((r) => srcRow(r.levels, tallyText(r.src, uid), null, null, uid));
   return [
-    ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
+    ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst), uid)),
     ...(since ? changedSince(item) : []).map((r) =>
       el(
         'div',
         'sode__route',
-        levelBar(r.levels),
+        levelBar(r.levels, uid),
         el('span', 'pb-badge pb-badge--warn', 'Changed since'),
         `now ${tallyText(r.src, uid)}; undo will replace it`,
       ),
@@ -622,7 +626,7 @@ export function sendTakes(p) {
   const dsts = new Set(list.map((t) => t.dst.n)).size;
   const text =
     dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
-      ? `${list[0].g.src.label} → ${dsts} destinations (levels ${levelText(list[0].g.levels)})`
+      ? `${list[0].g.src.label} → ${dsts} destinations (${routeLevels(list[0].g.levels, routerOfItem(list[0].dst))})`
       : capped(list.map((t) => routeText(t)));
   showResult('info', VERBS[p.verb].busy, text);
   return true;
@@ -634,7 +638,9 @@ export const applyMyRights = (r) => {
   S.myRights = r || null;
   emit('myRights');
 };
-export const rightsOff = (kind, n) => !allowed(S.myRights, kind, n);
+// rightsRouter: the UID that a Rights check compares for a route end; Rights store the first router's UID too.
+export const rightsRouter = (end) => routerData(routerOfItem(end)).uid;
+export const rightsOff = (kind, end) => !allowed(S.myRights, kind, end.n, rightsRouter(end));
 // editorrights.js owns the message on every page, so the Palette reads the same Rights.
 onMyRights(applyMyRights);
 

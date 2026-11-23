@@ -1,8 +1,8 @@
 // History as the views show it: rows and Groups from S.hist. Owns the rows memo (histRows),
 // dropped when anything it reads changes.
 
-import { el, S, on, onFirst, onMsg, emit, off, wsSend, srcItem, dstItem, tallyText } from './core.js';
-import { levelText } from './levelview.js';
+import { el, S, on, onFirst, onMsg, emit, off, wsSend, srcItem, dstItem, tallyText, routerData } from './core.js';
+import { levelText, levelsPhrase, oneLevel } from './levelview.js';
 import { filterFn } from './filter.js';
 import { filterAllows } from './filterstore.js';
 import { pref } from './device.js';
@@ -217,7 +217,13 @@ export const routeNote = (notes) => (notes.length ? el('span', 'sode__hist-note'
 
 export const groupPartial = (f) => !!f.shown && f.shown.length < f.entries.length;
 
-export const groupLevels = (f) => [...new Set(f.entries.flatMap((e) => e.levels))].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b);
+// The router of a Group whose entries are all on one router, else blank (the first router).
+export const groupRouter = (f) => {
+  const r = f.entries[0]?.router || '';
+  return f.entries.every((e) => (e.router || '') === r) ? r : '';
+};
+export const groupLevels = (f) =>
+  [...new Set(f.entries.flatMap((e) => e.levels))].filter((u) => routerData(groupRouter(f)).levelBy.has(u)).sort((a, b) => a - b);
 
 export function groupIds(f) {
   const ids = f.entries.map((e) => e.id);
@@ -356,10 +362,10 @@ export function entryNote(e) {
   if (e.protect && e.ext) parts.push(`device ${e.device ?? 0}`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
-  if (e.already?.length) parts.push(`${levelText(e.already)} already`);
-  if (e.late?.length) parts.push(`level${e.late.length === 1 ? '' : 's'} ${levelText(e.late)} confirmed late`);
+  if (e.already?.length) parts.push(`${oneLevel(e.router) ? 'all levels' : levelText(e.already, e.router)} already`);
+  if (e.late?.length) parts.push(`${levelsPhrase(e.late, e.router)} confirmed late`);
   const why = failureGroups(e);
-  if (why.length) parts.push(why.map((g) => `level${g.levels.length === 1 ? '' : 's'} ${levelText(g.levels)} ${g.text}`).join('; '));
+  if (why.length) parts.push(why.map((g) => `${levelsPhrase(g.levels, e.router)} ${g.text}`).join('; '));
   else if (!e.ok && !e.ext && e.err) parts.push(e.err);
   return parts.length ? el('span', 'sode__hist-note', ` (${parts.join('; ')})`) : null;
 }

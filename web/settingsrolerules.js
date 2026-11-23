@@ -16,6 +16,7 @@ export const SECTION_ROLES = Object.freeze({
   confirm: ADMIN_SHOWN,
   routers: ADMIN_SHOWN,
   'tie-lines': ADMIN_HIDDEN,
+  'router-levels': ADMIN_SHOWN,
   'router-matrix': ADMIN_SHOWN,
   'router-names': ADMIN_SHOWN,
   takes: ADMIN_SHOWN,
