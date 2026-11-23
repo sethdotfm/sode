@@ -28,6 +28,7 @@ func TestPresetFieldsAreCritical(t *testing.T) {
 			// Bools are flipped both ways, since a preset sets some on and some off.
 			live.PinWaits, live.PublicPanels, live.API.GuestEnabled = flip, flip, flip
 			live.NewUserDefaults = config.NewUserDefaults{Persistent: flip, NoAutoLock: flip}
+			live.GuestRights.TieLines = &flip
 			next := live.Clone()
 			p.Apply(&next)
 			lv, nv := reflect.ValueOf(live), reflect.ValueOf(next)

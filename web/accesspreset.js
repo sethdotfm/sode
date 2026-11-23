@@ -5,7 +5,7 @@ import { modal } from './modal.js';
 import { btn, check, segmented } from './formbits.js';
 import { form } from './settingsform.js';
 import { markPreset } from './settingssave.js';
-import { stageUserFlags } from './users.js';
+import { stageUserFlags, stageGuestTieLines } from './users.js';
 import { stageKeyless } from './apisettings.js';
 import { presetTarget } from './accesspresetrules.js';
 
@@ -101,6 +101,7 @@ export function stagePreset(p, ticked) {
   setCheck('cfg-new-no-auto-lock', f.newUserDefaults.noAutoLock);
   stageKeyless({ guestEnabled: f.api.guestEnabled, scopes: f.guestApiScopes });
   for (const id of ticked) stageUserFlags(id, p.users);
+  stageGuestTieLines(p.guestTieLines);
   form.dispatchEvent(new Event('change'));
   emit('saveSourceChanged');
   markPreset(p.name, presetTarget(p, ticked));

@@ -145,3 +145,10 @@ test('the Protect right: unset stays unset, Yes and No go back as true and false
   assert.deepEqual(rightsOf(draftOf({ protect: false }, 1), 1, 4), { rights: { protect: false } });
   assert.deepEqual(rightsOf(draftOf({}, 1), 1, 4), { rights: {} });
 });
+
+test('the Use tie lines right: unset and on show Yes and go back unset, off goes back as false', () => {
+  assert.equal(draftOf({}, 1).tieLines, true);
+  assert.equal(draftOf({ tieLines: true }, 1).tieLines, true);
+  assert.deepEqual(rightsOf(draftOf({ tieLines: true }, 1), 1, 4), { rights: {} });
+  assert.deepEqual(rightsOf(draftOf({ tieLines: false }, 1), 1, 4), { rights: { tieLines: false } });
+});

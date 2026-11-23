@@ -201,7 +201,7 @@ func TestOpenAPIListsScopesAndErrorCodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	codes := doc.Components.Schemas.Error.Properties.Error.Properties.Code.Enum
-	for _, c := range []string{"not_owner", "user_required", "unsupported_type", "internal"} {
+	for _, c := range []string{"not_owner", "user_required", "unsupported_type", "internal", "tie_lines_off"} {
 		if !apiHas(codes, c) {
 			t.Errorf("error code %s is not in openapi.yaml", c)
 		}

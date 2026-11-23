@@ -246,6 +246,7 @@ func TestSetupWizardHelloCarriesThePresetSheet(t *testing.T) {
 		"appsRead":       {true, true, false},
 		"appsTake":       {true, false, false},
 		"pinWaits":       {false, true, true},
+		"tieNoSignIn":    {true, false, false},
 	}
 	if len(m.Setup.Presets) != 3 || m.Setup.Presets[1].Name != "Standard access" {
 		t.Fatalf("presets: %+v", m.Setup.Presets)
