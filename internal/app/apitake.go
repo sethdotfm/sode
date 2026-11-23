@@ -396,7 +396,7 @@ func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, bui
 func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build func([]byte) (*takePlan, *apiProblem)) (ans apiAnswer, keep bool) {
 	plan, p := build(body)
 	if p != nil {
-		a.apiEvent(cl.Actor, "refused", "refused", p.Code, fmt.Errorf("%s", p.Msg))
+		a.takeEvent(cl, "refused", "refused", p.Code, fmt.Errorf("%s", p.Msg))
 		return p.answer(), false
 	}
 	rt := a.r()
@@ -415,12 +415,15 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	if msg := a.rightsPass(rt, c, plan.Items); msg != "" {
 		return problem(http.StatusForbidden, "outside_rights", "%s", msg).answer(), true
 	}
-	if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
-		a.apiEvent(cl.Actor, why, "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
-		return problem(http.StatusTooManyRequests, "take_cap",
-			"%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap).answer(), false
+	// A page's tieTake is a page take: the take cap is for API callers.
+	if cl.page == nil {
+		if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
+			a.apiEvent(cl.Actor, why, "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
+			return problem(http.StatusTooManyRequests, "take_cap",
+				"%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap).answer(), false
+		}
+		defer a.apiS.takeEnd()
 	}
-	defer a.apiS.takeEnd()
 	note := fmt.Sprintf("%d %s", n, plural(n, "route", "routes"))
 	if plan.Preset != "" {
 		note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
@@ -429,12 +432,12 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		// The tie locks and the stale check come before the sent row, so a refused take logs refused.
 		unlock, p := a.tieTakeBegin(rt, a.view(cl), c, t)
 		if p != nil {
-			a.apiEvent(cl.Actor, why, "refused", p.Code, fmt.Errorf("%s", p.Msg))
+			a.takeEvent(cl, why, "refused", p.Code, fmt.Errorf("%s", p.Msg))
 			return p.answer(), false
 		}
 		defer unlock()
 	}
-	a.apiEvent(cl.Actor, why, "sent", note, nil)
+	a.takeEvent(cl, why, "sent", note, nil)
 	if t := plan.Ties; t != nil {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(t.deadline(a)))
 		return jsonAnswer(http.StatusOK, t.out(a.runTieTake(c, t, sink.get))), true

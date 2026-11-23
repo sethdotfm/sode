@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
 const doc = node();
 globalThis.document = new Proxy(doc, { get: (t, k) => (k === 'baseURI' ? 'http://sode.test/' : doc[k]) });
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const store = new Map();
+globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
 let sock = null;
 globalThis.WebSocket = class {
   static OPEN = 1;
@@ -19,7 +20,7 @@ globalThis.setInterval = () => 0;
 
 const { S, connect, routerData, routerOfText, routerOfItem, srcItem, dstItem, sameEnd } = await import('../core.js');
 const { bySource, fedBy } = await import('../routes.js');
-const { planBlocked, patchPlan, applyMyRights, rightsOff } = await import('../plans.js');
+const { planBlocked, patchPlan, applyMyRights, rightsOff, lastFromPlan, noteLast, lastTake } = await import('../plans.js');
 
 const level = (ui) => ({ ui, wire: ui - 1, label: String(ui) });
 const hello = {
@@ -104,7 +105,7 @@ test('items know their router, and a typed prefix picks the router', () => {
   assert.deepEqual([routerOfText('B.4'), routerOfText('A.4'), routerOfText('4'), routerOfText('C.4')], ['bbb', '', '', '']);
 });
 
-test('a take on the second router needs its link; a route across routers is refused', () => {
+test('a take on the second router needs its link; one route across routers opens the Tie line picker', () => {
   const bSrc = srcItem(4, '', 'bbb'),
     bDst = dstItem(2, '', 'bbb');
   assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block, null);
@@ -112,7 +113,13 @@ test('a take on the second router needs its link; a route across routers is refu
   assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block?.text, 'Sode is not connected to router B.');
   assert.equal(planBlocked(patchPlan(srcItem(0), [dstItem(2)], [1])).block, null, 'the first router is still up');
   send({ t: 'status', router: 'up', addr: '10.0.0.2:8910', routerUid: 'bbb' });
-  assert.equal(planBlocked(patchPlan(srcItem(0), [bDst], [1])).block?.title, 'Route across routers');
+  const one = planBlocked(patchPlan(srcItem(0), [bDst], [1]));
+  assert.equal(one.block, null);
+  assert.equal(one.tie?.dst, bDst);
+  // A take with a plain route too waits for the mixed picker.
+  const two = planBlocked(patchPlan(srcItem(0), [bDst, dstItem(3)], [1]));
+  assert.equal(two.block?.title, 'Route across routers');
+  assert.equal(two.tie, undefined);
 });
 
 test('a right for A.5 allows A.5 and refuses B.5, greyed and blocked', () => {
@@ -125,4 +132,17 @@ test('a right for A.5 allows A.5 and refuses B.5, greyed and blocked', () => {
     bDst = dstItem(2, '', 'bbb');
   assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block?.title, 'Outside your Rights');
   applyMyRights(null);
+});
+
+test('a take across routers is Last with its typed ends: the source on A, the destination on B', () => {
+  send({ t: 'names', srcs: [[4, 'B CAM 2']], dsts: [[2, 'B MON']], at: 't', routerUid: 'bbb' });
+  const bDst = dstItem(2, '', 'bbb');
+  const plan = patchPlan(srcItem(0), [bDst], [1]);
+  assert.deepEqual(lastFromPlan(plan), { src: [0, 'CAM 1'], dsts: [[2, 'B MON']], levels: [1], dstRouter: 'bbb' });
+  assert.ok(noteLast(plan));
+  const t = lastTake();
+  assert.equal(routerOfItem(t.src), '');
+  assert.ok(sameEnd(t.dsts[0], bDst));
+  // A take on one router keeps the old form.
+  assert.deepEqual(lastFromPlan(patchPlan(srcItem(0), [dstItem(2)], [1])), { src: [0, 'CAM 1'], dsts: [[2, 'MON 3']], levels: [1] });
 });

@@ -66,6 +66,9 @@ type connUser struct {
 }
 
 func (c *client) userID() string {
+	if c.forPage != nil {
+		return c.forPage.userID()
+	}
 	if u := c.u.user.Load(); u != nil {
 		return u.ID
 	}
@@ -73,6 +76,9 @@ func (c *client) userID() string {
 }
 
 func (c *client) who() string {
+	if c.forPage != nil {
+		return c.forPage.who()
+	}
 	if c.api != nil {
 		return c.api.Actor.String()
 	}
@@ -418,3 +424,6 @@ func (a *App) serveUserUnlock(c *client, m *inMsg) {
 	}
 	a.reply(c, res)
 }
+
+// apiCaller: an API caller, whose actor goes on its entries. A page's tieTake runs through the API path but is not one.
+func (c *client) apiCaller() bool { return c.api != nil && c.forPage == nil }

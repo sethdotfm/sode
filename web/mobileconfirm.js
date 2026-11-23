@@ -2,14 +2,16 @@
 import { $ } from './core.js';
 import { planVerb, showResult, planBlocked, planSummary, sendTakes, VERBS } from './plans.js';
 import { lockout } from './widgets.js';
+import { tiePick } from './tiepicker.js';
 
 // reset() clears the composer after a send whose verb resets the boxes.
 export function mobileConfirm(reset) {
   let pending = null;
 
   function openSheet(plan) {
-    const { block, prot } = planBlocked(plan);
+    const { block, prot, tie } = planBlocked(plan);
     if (block) return showResult(block.kind, block.title, block.text);
+    if (tie) return tiePick(plan, tie, { onSent: (p) => VERBS[p.verb].resets && reset() });
     pending?.lock.cancel(); // one replaced: its lockout must not unlock this one
     $('m-sheet-title').textContent = `Confirm ${planVerb(plan)}`;
     $('m-sheet-body').replaceChildren(...planSummary(plan, { prot }));

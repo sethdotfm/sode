@@ -192,7 +192,7 @@ func (a *App) planPhase(r *runtime, u *routerUnit, c *client, req routeReq) (*wa
 		return nil, nil, err
 	}
 	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.who()}
-	if c.api != nil {
+	if c.apiCaller() {
 		w.why.Note = a.panelNote(c.api.Actor)
 	}
 	if req.Undo != nil {
@@ -206,7 +206,7 @@ func (a *App) planPhase(r *runtime, u *routerUnit, c *client, req routeReq) (*wa
 		e.Tie, e.Origin, e.Hops, e.ViaPrev = m.tie, m.origin, m.hops, m.viaPrev
 	}
 	e.BrowserOf = a.browserOf(c)
-	if c.api != nil {
+	if c.apiCaller() {
 		e.setActor(c.api.Actor)
 		e.Panel, e.Instance = a.panelNames(c.api.Actor)
 		e.PanelID = c.api.Actor.panel

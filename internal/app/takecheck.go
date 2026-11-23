@@ -63,7 +63,7 @@ type levelRead struct {
 // started on. Then a router change during the check refuses the routes too.
 func (a *App) checkRoutes(r *runtime, u *routerUnit, c *client, items []routeReq) (ext *extTracker, read bool) {
 	why := swp08.Why{Reason: swp08.ReasonCheck, By: c.who()}
-	if c.api != nil {
+	if c.apiCaller() {
 		why.Note = a.panelNote(c.api.Actor)
 	}
 	a.mu.Lock()

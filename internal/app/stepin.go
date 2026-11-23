@@ -171,6 +171,9 @@ func (a *App) stepOutMu(c *client, why string) {
 
 // For History; "" when not stepped in.
 func (a *App) browserOf(c *client) string {
+	if c.forPage != nil {
+		c = c.forPage
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.browserOfMu(c)
