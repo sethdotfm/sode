@@ -172,3 +172,21 @@ test('brandHex reads a name from the hello list, or a custom color', () => {
   assert.equal(brandHex('', colors), '');
   assert.equal(brandHex('blue', undefined), '');
 });
+
+// Seam of the accent and the tie line UI. The accent of a named color is never on the tie line hue, in each theme and
+// on hover. A custom color there is not refused: Settings shows the caution note for it.
+test('no named color gives an accent on the tie line hue; a custom one there shows the caution', () => {
+  for (const [name, hex] of Object.entries(NAMED)) {
+    const a = accentFor(hex);
+    for (const k of ['light', 'dark', 'lightHover', 'darkHover']) assert.ok(!reservedBy(a[k]).includes('tie line'), `${name} ${k} ${a[k]}`);
+  }
+  const colors = Object.entries(NAMED).map(([name, hex]) => ({ name, hex }));
+  for (const hex of tokenPair('--pb-tieline')) {
+    // The token's hue at a chroma that people see as a color.
+    const [L, , h] = oklch(hex);
+    const custom = toHex(L, 0.12, h);
+    assert.ok(reservedBy(custom).includes('tie line'), custom);
+    assert.equal(brandCaution(custom, colors), true, custom);
+    assert.equal(accentFor(custom).reserved, true, custom);
+  }
+});

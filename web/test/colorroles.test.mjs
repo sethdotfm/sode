@@ -85,3 +85,32 @@ test('unsaved work is amber, never red, and a clean Save has no state color', ()
 test('no modifier class whose CSS is gone', () => {
   assert.deepEqual(using(/sode__role-badge/), []);
 });
+
+// Seam of the color roles and the tie line UI: tie lines use --pb-tieline, and only tie lines use it. The rules that use
+// it are the picker's chosen choice and its wire, and the Via mark on Home and on a Grid panel.
+test('only tie lines use --pb-tieline: the picker wire and the Via marks', () => {
+  const rules = files.filter((f) => f.endsWith('.css')).flatMap((f) => (src.get(f).match(/[^{}]+\{[^}]*\}/g) || []).map((r) => [f, r]));
+  const head = (r) =>
+    r
+      .split('{')[0]
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .trim();
+  const users = rules.filter(([, r]) => /--pb-tieline/.test(r.split('{')[1])).map(([f, r]) => `${f} ${head(r)}`);
+  assert.deepEqual(users.sort(), [
+    'base.css .sode-via',
+    'gridpanel.css .sode-gridpanel__xp[data-tie-via]:not([data-n], [data-skip])::after',
+    'tiepicker.css .sode-tiepick__choice--on',
+    'tiepicker.css .sode-tiepick__choice--on .sode-tiepick__wire',
+  ]);
+  // No script sets the color in code, and the tie line hue has no other name.
+  const code = files.filter((f) => f.endsWith('.js') && /--pb-tieline/.test(src.get(f).replace(/\/\/.*$/gm, '')));
+  assert.deepEqual(code, []);
+  assert.deepEqual(using(/--pb-tieline-hover|#d4e8be|#586647/), []);
+});
+
+test('a Down router icon is red, and each router mark has its text', () => {
+  assert.match(src.get('bar.css'), /\.sode__state\[data-state="error"\] \{\s*color: var\(--pb-status-error\);/);
+  // Each router mark is a .pb-status with the icon and a word (connview.js and index.html).
+  assert.match(src.get('connview.js'), /el\('span', 'pb-status', dot, text\)/);
+  assert.match(src.get('index.html'), /id="conn-routers"><span class="pb-status"><span class="sode__state"><\/span><span>Router<\/span>/);
+});
