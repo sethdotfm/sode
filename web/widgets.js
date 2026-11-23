@@ -10,6 +10,7 @@ import { fmtClock } from './device.js';
 import { windowAround, growEdge } from './listwindow.js';
 import { beforeGroups, failureGroups, stackBefore } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
+import { hopsBefore } from './tiehistoryrules.js';
 
 const PAGE = 8;
 let boxSeq = 0;
@@ -322,6 +323,18 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
   b.addEventListener('click', () => onClick(plan));
   return b;
 }
+
+// The open row of a tie take: what each tie line carried before, upstream first (hopsBefore). The heading matches a
+// take's "Before #12, on MON 6".
+export const hopRows = (e) =>
+  hopsBefore(e).flatMap((h) =>
+    h.entry == null
+      ? [el('div', 'sode__label', `${h.name} already carried the source`)]
+      : [
+          el('div', 'sode__label', `Before #${h.entry}, on ${h.name}`),
+          ...h.groups.map((g) => srcRow(g.levels, tallyText(g.src, h.router), null, null, h.router)),
+        ],
+  );
 
 // Put back (historyrows.js putBacks): one button for each tie line that a failed tie take changed.
 export function putBackButtons(list, onClick, cls = 'pb-btn pb-btn--outline pb-btn--sm') {

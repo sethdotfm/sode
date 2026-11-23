@@ -499,7 +499,11 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	a.takeEvent(cl, why, "sent", note, nil)
 	if t := plan.Ties; t != nil {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(t.deadline(a)))
-		return jsonAnswer(http.StatusOK, t.out(a.runTieTake(c, t, sink.get))), true
+		out := t.out(a.runTieTake(c, t, sink.get))
+		for i := range out.Results {
+			out.Results[i].Hops = a.view(cl).hops(out.Results[i].Hops)
+		}
+		return jsonAnswer(http.StatusOK, out), true
 	}
 	// The recorder in tests has no write deadline.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))

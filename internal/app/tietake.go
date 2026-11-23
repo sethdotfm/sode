@@ -51,6 +51,8 @@ type TieHop struct {
 	Late    bool     `json:"late,omitempty"`
 	// OneOff: the tie line is a One-off tie line. It keeps the two stated ends and who stated them.
 	OneOff *TieOneOff `json:"oneOff,omitempty"`
+	// hide: what a caller with hidden visibility cannot see (tiehopview.go). Set only on a copy for that caller.
+	hide *hopHide
 }
 
 // ViaLevel is the Via chain of one typed level of the destination asked for.
