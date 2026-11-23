@@ -167,7 +167,7 @@ func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 	}
 
 	a.mu.Lock()
-	a.applyNames(&swp08.NameBlock{Dest: true, First: 4, Names: []string{"MON NEW"}})
+	a.first.applyNames(&swp08.NameBlock{Dest: true, First: 4, Names: []string{"MON NEW"}})
 	a.mu.Unlock()
 	code, named := ifNone(a, path, bot, tag)
 	if code != 200 || named == tag {
@@ -218,7 +218,7 @@ func TestTallyETagMovesWithRouteLevelsAndRouter(t *testing.T) {
 
 	r := a.r()
 	a.mu.Lock()
-	a.applyTally(r, swp08.Crosspoint{Matrix: r.cfg.Matrix, Level: r.levels[0].Wire, Dst: 4, Src: 9, Cmd: swp08.CmdExtConnected})
+	a.applyUnitTally(a.first, r, swp08.Crosspoint{Matrix: r.cfg.Matrix, Level: r.levels[0].Wire, Dst: 4, Src: 9, Cmd: swp08.CmdExtConnected})
 	a.mu.Unlock()
 	code, routed := ifNone(a, path, bot, tag)
 	if code != 200 || routed == tag {

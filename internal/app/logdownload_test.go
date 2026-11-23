@@ -107,9 +107,9 @@ func TestLogDownloadFullHasBothFilesAndUptime(t *testing.T) {
 		}}}); err != nil {
 		t.Fatal(err)
 	}
-	a.up.State(true)
-	a.up.State(false)
-	a.up.Note(Sent{Result: "nak", Tries: 3})
+	a.first.up.State(true)
+	a.first.up.State(false)
+	a.first.up.Note(Sent{Result: "nak", Tries: 3})
 
 	got := readReply(t, logDownload(t, a, "", logDownloadReq{Parts: []string{partLog, partUptimeStates, partUptimeMinutes}, For: "full"}))
 	if n, want := len(got.Log), int(a.sent.Total())+1; n != want {

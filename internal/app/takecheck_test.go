@@ -18,7 +18,7 @@ func TestTakeBigWithSimulator(t *testing.T) {
 	t.Cleanup(func() { cancel(); <-done })
 	for end := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
 		a.mu.Lock()
-		n := len(a.router.tally)
+		n := len(a.first.router.tally)
 		a.mu.Unlock()
 		if n >= 120 {
 			break
@@ -29,7 +29,7 @@ func TestTakeBigWithSimulator(t *testing.T) {
 	}
 	// As if the start-up dump were older than checkFresh.
 	a.mu.Lock()
-	clear(a.router.seenAt)
+	clear(a.first.router.seenAt)
 	a.mu.Unlock()
 	items := bigItems(30, 40, 41, 42, 43, 44, 45, 46, 47)
 	for i := range items {

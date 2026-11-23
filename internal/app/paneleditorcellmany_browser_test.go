@@ -84,9 +84,9 @@ func TestChromeEditorNamesLive(t *testing.T) {
 	b.waitFor("the cell shows the router name", `!!document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-ed__text')?.textContent`)
 	rename := func(name string) {
 		a.mu.Lock()
-		a.router.srcNames[5] = name
-		a.router.namesGen++
-		a.broadcast(a.namesMsg())
+		a.first.router.srcNames[5] = name
+		a.first.router.namesGen++
+		a.broadcast(a.first.namesMsg())
 		a.mu.Unlock()
 	}
 	rename("RENAMED 1")

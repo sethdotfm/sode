@@ -486,9 +486,10 @@ func toPrefixes(n *yaml.Node, prefix map[string]string, one bool, used map[strin
 // liveNamesTable is the router's names as Sode has them now: read from the router, or the saved table
 // until the first read.
 func (a *App) liveNamesTable(uid string) namesTable {
+	u := a.unitOrFirst(uid)
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	rs := a.router
+	rs := u.router
 	at := rs.namesAt
 	if at.IsZero() {
 		at = rs.savedAt

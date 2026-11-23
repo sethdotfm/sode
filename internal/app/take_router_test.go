@@ -16,29 +16,9 @@ func secondRouter(t *testing.T) (a *App, first, second *fakeRouter, u *routerUni
 		c.MoreRouters = []config.Router{{Address: "10.0.0.9:8910", Levels: 3, Prefix: "B", Title: "Second"}}
 	})
 	first = newFakeRouter(t, a)
-	a.checkTimeout, a.routeTimeout, a.routeGrace = defaultCheckTimeout, defaultRouteTimeout, defaultRouteGrace
+	a.first.checkTimeout, a.first.routeTimeout, a.first.routeGrace = defaultCheckTimeout, defaultRouteTimeout, defaultRouteGrace
 	second, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
 	return a, first, second, u
-}
-
-// addFakeUnit adds a unit for router rc to a, with short timers and a fake router on its link.
-func addFakeUnit(t *testing.T, a *App, rc config.Router) (*fakeRouter, *routerUnit) {
-	t.Helper()
-	u := newRouterUnit(rc)
-	u.checkTimeout, u.routeTimeout, u.routeGrace, u.queueMax = 40*time.Millisecond, 40*time.Millisecond, 40*time.Millisecond, 500*time.Millisecond
-	a.routers[u.uid] = u
-	f := &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, deaf: map[[2]int]bool{}, lose: map[int]bool{}, mute: map[int]bool{}, out: make(chan []byte, 256)}
-	f.prot = fakeProtect{holds: map[[2]int]protHold{}, deafSet: map[int]bool{}, deafClear: map[int]bool{}}
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for m := range f.out {
-			a.onUnitMsg(u, m)
-		}
-	}()
-	t.Cleanup(func() { close(f.out); <-done })
-	u.sendMsg = f.send
-	return f, u
 }
 
 // A take names its router: the check, the connects, the waiter, the own keys and the timers are that router's.
@@ -61,8 +41,8 @@ func TestTakeUsesItsRouter(t *testing.T) {
 	}
 	a.mu.Lock()
 	// The Connected used up the own key in the second router's tracker, so it is the take's, not an External.
-	tally, own, causes, firstTally := u.router.tally[2][1], len(u.ext.own), len(u.ext.causes), len(a.router.tally)
-	waiting := len(u.waiters) + len(a.waiters)
+	tally, own, causes, firstTally := u.router.tally[2][1], len(u.ext.own), len(u.ext.causes), len(a.first.router.tally)
+	waiting := len(u.waiters) + len(a.first.waiters)
 	a.mu.Unlock()
 	if tally != 4 || own != 0 || causes != 1 || firstTally != 0 || waiting != 0 {
 		t.Errorf("second tally %d, own keys %d, causes %d, first tally %d, waiters %d", tally, own, causes, firstTally, waiting)
@@ -102,7 +82,7 @@ func TestLogRowUsesItsRouter(t *testing.T) {
 	a, _, _, u := secondRouter(t)
 	a.mu.Lock()
 	u.router.dstNames[2] = "B MON 2"
-	a.router.dstNames[2] = "A MON 2"
+	a.first.router.dstNames[2] = "A MON 2"
 	a.mu.Unlock()
 	e := a.describe(swp08.TxEvent{Msg: swp08.ExtConnect(0, 0, 2, 4), Why: swp08.Why{Reason: swp08.ReasonTake, Router: u.uid}})
 	if e.Router != u.uid || e.DstName != "B MON 2" {

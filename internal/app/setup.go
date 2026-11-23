@@ -239,8 +239,9 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	a.setup = setupHold{}
 	after := a.r().cfg
 	a.recordSetup(c, was, after, u.ID)
+	first := a.firstUnit()
 	a.mu.Lock()
-	src, dst := maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
+	src, dst := maps.Clone(first.router.srcNames), maps.Clone(first.router.dstNames)
 	signed, _ := after.FindUserByID(u.ID)
 	c.u.sess = &session{seen: a.now()}
 	c.u.recheck = recheck{}

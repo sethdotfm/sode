@@ -108,6 +108,7 @@ const (
 
 type pollCheck struct {
 	uid       string
+	first     string // the first router's UID: a filter set with no router is that router's
 	levels    int
 	off       int // numberOffset, for the row
 	prev, cur namePoll
@@ -311,7 +312,7 @@ func (k *pollCheck) preset(p *config.Preset, who string) bool {
 // filterSet: only a positive exact term (`"CAM 1"`) or number term that matches nothing in both polls breaks a
 // set. Contains, regex and range terms are searches and never break. Text that does not parse is left alone.
 func (k *pollCheck) filterSet(s *config.FilterSet, off int, who string) bool {
-	if s.Router != "" && s.Router != k.uid {
+	if owner := cmp.Or(s.Router, k.first); owner != k.uid {
 		return false
 	}
 	var b brokenList
@@ -470,7 +471,7 @@ func itemScopes(c *config.Config, mine string) []itemScope {
 // No Settings saves row: the Router names row says what changed.
 func (a *App) recheckRefs(u *routerUnit, prev, cur namePoll, hints [2]map[string]string) {
 	rc := a.r().routerOf(u.uid)
-	k := &pollCheck{uid: rc.UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
+	k := &pollCheck{uid: rc.UID, first: a.r().cfg.UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
 	a.cfgMu.Lock()
 	if !a.setupPending() {
 		err := a.applyConfigWith(func(c *config.Config) error {

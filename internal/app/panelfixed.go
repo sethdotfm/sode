@@ -94,7 +94,7 @@ func (a *App) nameFixed(settings map[string]any) error {
 	if len(l) == 0 {
 		return nil
 	}
-	uid := a.r().cfg.UID
+	uid, first := a.r().cfg.UID, a.firstUnit()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for i := range l {
@@ -105,7 +105,7 @@ func (a *App) nameFixed(settings map[string]any) error {
 		case f.Router != uid:
 			return errFixedDests
 		}
-		if n := a.router.dstNames[f.N]; f.Name == "" && strings.TrimSpace(n) != "" {
+		if n := first.router.dstNames[f.N]; f.Name == "" && strings.TrimSpace(n) != "" {
 			f.Name = n
 		}
 	}

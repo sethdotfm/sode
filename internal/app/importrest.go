@@ -58,8 +58,9 @@ type importLive struct {
 }
 
 func (a *App) importLive() importLive {
+	first := a.firstUnit()
 	a.mu.Lock()
-	ns := namesState{Offline: a.status.Router != string(swp08.StateUp), SavedAt: a.router.savedAt, NamesAt: a.router.namesAt}
+	ns := namesState{Offline: first.status.Router != string(swp08.StateUp), SavedAt: first.router.savedAt, NamesAt: first.router.namesAt}
 	a.mu.Unlock()
 	return importLive{Panels: a.panels.list(), Templates: a.templates.list(), Sets: a.panels.sets.sorted(nil),
 		Icons: a.icons.list(), Defaults: a.artDefaults.list(), IconFile: a.icons.file, Names: ns}

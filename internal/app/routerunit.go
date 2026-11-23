@@ -12,8 +12,8 @@ import (
 
 // routerUnit is everything Sode keeps for one router: its state, Router link, sender, take timers, External tracking,
 // waiters, checks, caches, Protect waits, uptime and status. App holds one for each router by UID (App.routers).
-// App embeds the first one, so the old App fields (a.router, a.sw, a.status and the others) still name it. Those
-// aliases go when every caller names its router. The fields from router down are guarded by App.mu.
+// App.first is the first router's unit; every caller names the unit it acts on. The fields from router down are
+// guarded by App.mu.
 type routerUnit struct {
 	uid string
 
@@ -102,23 +102,27 @@ func (r *runtime) routerOf(uid string) config.Router {
 // unit gives the router unit for a router UID; blank is the first router.
 func (a *App) unit(uid string) (*routerUnit, bool) {
 	if uid == "" {
-		return a.routerUnit, a.routerUnit != nil
+		return a.first, a.first != nil
 	}
 	u, ok := a.routers[uid]
 	return u, ok
 }
 
 // firstUnit gives the first router's unit. The flat hello fields, the protected message and the uptime file name it.
-func (a *App) firstUnit() *routerUnit { return a.routerUnit }
+func (a *App) firstUnit() *routerUnit { return a.first }
+
+// unitOrFirst gives the unit for a router UID. Blank, or a UID with no unit (the settings UID after an import changed
+// it), gives the first router.
+func (a *App) unitOrFirst(uid string) *routerUnit {
+	if u, ok := a.unit(uid); ok {
+		return u
+	}
+	return a.first
+}
 
 // apiUnit gives the unit of the router parameter of an API read; routerOK has refused an unknown one. Blank, or the
 // UID of the first router in the settings, is the first router.
-func (a *App) apiUnit(r *http.Request) *routerUnit {
-	if u, ok := a.unit(r.URL.Query().Get("router")); ok {
-		return u
-	}
-	return a.firstUnit()
-}
+func (a *App) apiUnit(r *http.Request) *routerUnit { return a.unitOrFirst(r.URL.Query().Get("router")) }
 
 // statusOut is the unit's link status as it goes to browsers and API streams. Caller holds mu.
 func (u *routerUnit) statusOut() statusMsg {
@@ -142,8 +146,3 @@ func (a *App) unitsInOrder(r *runtime) []*routerUnit {
 	}
 	return out
 }
-
-// The old router callbacks: each one acts on the first router.
-func (a *App) onRouterUp()                            { a.onUnitUp(a.routerUnit) }
-func (a *App) onRouterMsg(msg []byte)                 { a.onUnitMsg(a.routerUnit, msg) }
-func (a *App) onRouterState(s swp08.State, err error) { a.onUnitState(a.routerUnit, s, err) }

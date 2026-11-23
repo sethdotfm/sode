@@ -122,15 +122,21 @@ func withAdministrator(cfg *config.Config) {
 	cfg.Users = append(cfg.Users, config.User{Name: "Ada", Pin: h, Len: 4, Role: config.RoleAdministrator})
 }
 
-// shortTimers keeps tests that wait on an unanswered router fast. queueMax stays well above
-// the others so a held reply still counts as queued, not lost.
+// shortTimers keeps tests that wait on an unanswered router fast, on every router of a.
 func shortTimers(a *App) {
-	a.checkTimeout = 40 * time.Millisecond
-	a.routeTimeout = 40 * time.Millisecond
-	a.routeGrace = 40 * time.Millisecond
-	a.queueMax = 500 * time.Millisecond
+	for _, u := range a.routers {
+		shortUnitTimers(u)
+	}
 	a.drainLimit = 2 * time.Second
 	a.pinFirstWait = 20 * time.Millisecond
+}
+
+// shortUnitTimers: queueMax stays well above the others so a held reply still counts as queued, not lost.
+func shortUnitTimers(u *routerUnit) {
+	u.checkTimeout = 40 * time.Millisecond
+	u.routeTimeout = 40 * time.Millisecond
+	u.routeGrace = 40 * time.Millisecond
+	u.queueMax = 500 * time.Millisecond
 }
 
 func mkUser(t *testing.T, name, pin string) config.User {

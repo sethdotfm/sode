@@ -179,11 +179,12 @@ func (a *App) protectByList(r *runtime) []protectBy {
 // It sends the router's pending hold changes too, so the page has the state with the entry and History's Undo
 // follows at once. Caller holds mu.
 func (a *App) broadcastProtectsMu() {
-	u := a.router.pendProt
+	first := a.firstUnit()
+	u := first.router.pendProt
 	if u == nil {
 		u = []protChange{}
 	}
-	a.router.pendProt = nil
+	first.router.pendProt = nil
 	a.broadcast(protectMsg{T: "protected", U: u, By: a.protectByList(a.r())})
 }
 
