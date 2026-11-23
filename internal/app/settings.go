@@ -189,6 +189,7 @@ func (a *App) reconnectMu(u *routerUnit, addr string) {
 	u.cutRoutes()
 	u.status.Router = string(swp08.StateConnecting)
 	u.status.Addr = addr
+	a.viaTouchRouter(u, a.r())
 	u.status.Err = ""
 	u.up.State(false)
 	u.linkSeen, u.linkErr = "", ""

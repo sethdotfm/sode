@@ -17,6 +17,7 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
+	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
 // levels, byWire and byUI are the first router's levels; lv holds every router's, by router UID (levelsOf).
@@ -177,6 +178,10 @@ type App struct {
 	names *namesStore // namestable.go
 	// tieChanges: the last change of each tie line (tiechanges.go).
 	tieChanges *tieChanges
+	// viaPend: upstream ends of tie lines whose Via changed since the last flush (tievia.go). viaGen is bumped with
+	// it and keys App.tallyCache, as a tally body carries the Via of other routers. Guarded by App.mu.
+	viaPend map[tieplan.End]bool
+	viaGen  int
 
 	inbox *inboxStore // inbox.go
 
@@ -453,6 +458,9 @@ func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	defer a.mu.Unlock()
 	u.up.State(s == swp08.StateUp)
 	a.logLink(u, s, err)
+	if (s == swp08.StateUp) != (u.status.Router == string(swp08.StateUp)) {
+		a.viaTouchRouter(u, a.r())
+	}
 	u.status.Router = string(s)
 	u.status.Addr = a.r().routerOf(u.uid).Address
 	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
@@ -528,6 +536,7 @@ func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 		t[l.UI] = xp.Src
 		u.router.tallyGen++
 		u.router.pend = append(u.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
+		a.viaTouch(u, r, xp.Dst)
 		if known { // the first read of a level is a baseline, not a change
 			a.stampTieLines(u, r, xp.Dst, !xp.Changed())
 		}
@@ -630,6 +639,7 @@ func (a *App) flush() {
 			u.router.pend = nil
 		}
 	}
+	a.flushVia()
 	// The protected message carries only the first router.
 	if first := a.firstUnit(); len(first.router.pendProt) > 0 {
 		a.broadcast(protectMsg{T: "protected", U: first.router.pendProt, By: a.protectByList(a.r())})
