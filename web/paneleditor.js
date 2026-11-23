@@ -56,7 +56,7 @@ export async function runEditor() {
   let list = [];
   let names = namesFrom({});
   let routerNames = {}; // GET /names as read, for the Grid panel's list tabs
-  let places = makePlaces(); // the routers of item numbers (routerids.js), from GET /routers
+  let places = makePlaces(); // the routers of item numbers (routerids.js), from GET /routers.
   let discardAsked = ''; // the panel the user tried to leave unsaved; a second try discards.
   let leaving = false; // the access the editor opened with is gone (leaveEditing): nothing more is saved.
   const menuSections = []; // (grid) => items: Find adds its items here.

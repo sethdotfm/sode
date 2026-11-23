@@ -1,6 +1,6 @@
 // A Grid panel stores its edges as router references (internal/app/panelgridrefs.go). The panel page and the editor
-// work on item numbers (routerids.js), which keep the router of each reference: { members: 'all' | [n], hide: [n],
-// items: { n: settings } }. Pure. places is makePlaces's: the routers in the order of GET /routers. Without it, the
+// work on item numbers (routerids.js), which keep the router of each reference. The form is { members: 'all' | [n],
+// hide: [n], items: { n: settings } }. Pure. places is makePlaces's: the routers in the order of GET /routers. Without it, the
 // first router that a reference names is the first router.
 import { makePlaces, placeOf, routerN } from './routerids.js';
 

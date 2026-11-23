@@ -96,8 +96,8 @@ export function mergeNames(first, more = [], places = null) {
   return { ...first, sources, destinations, prefixes };
 }
 
-// The number of an item as a person reads it: the router number plus the router's numberOffset, after the router
-// prefix when the names answer has prefixes (A.12). reply is a GET /names answer, merged or not.
+// The number of an item as a person reads it: the router number plus the router's numberOffset. When the names answer
+// has prefixes, the router prefix comes first (A.12). reply is a GET /names answer, merged or not.
 export function numText(reply) {
   const off = reply?.numberOffset || 0;
   const pl = reply?.prefixes;

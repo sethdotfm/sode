@@ -2,7 +2,7 @@
 // routers a read of names needs the router parameter (docs/api.md, Routers), so each router is read on its own.
 import { makePlaces, mergeNames } from './routerids.js';
 
-// get(path) answers the parsed JSON, or null when the read was refused. was is the places of an earlier read: it stays
+// get(path) answers the parsed JSON, or null when the read was refused. was is the places of an earlier read. It stays
 // while the router list is the same, so item numbers do not change under the page. Answers { places, first, names },
 // first being the first router's own answer, or null when a read was refused.
 export async function readRouterNames(get, was = null) {

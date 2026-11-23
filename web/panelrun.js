@@ -220,7 +220,7 @@ function lookApplier(ui, embedded) {
 // The tally, protected list, names and router link, kept current by the poll and the WebSocket's frames (the feed
 // rules are paneltally.js). onFail(e) handles a failed poll; it returns true when the page stops. The frames carry the
 // first router only, so the feed keeps the first router's tally. With two or more routers, each poll also reads the
-// other routers the panel uses (used(), places), and the body gets one answer of each kind on item numbers.
+// other routers the panel uses (used(), places). The body gets one answer of each kind on item numbers.
 function tallyFeed({ door, body, ui, rights, used, showOffline, onFail }) {
   let feed = F.newFeed(S.wsState === 'up' && !!S.cfg, rights);
   let namesAt = 0;
@@ -394,8 +394,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
   if (!panel) return;
   const { call, id } = door;
   const places = door.places;
-  // The bodies work on item numbers (routerids.js): the Undo cell's answer comes in on them, and a take goes out as
-  // router references, with its results back on the item numbers it was sent with.
+  // The bodies work on item numbers (routerids.js). The Undo cell's answer comes in on them. A take goes out as router
+  // references, and its results come back on the item numbers it was sent with.
   const callJSON = async (path, init) => {
     const r = await door.callJSON(path, init);
     return (init?.method || 'GET') === 'GET' && /^api\/v1\/panels\/[^/]+\/undo$/.test(path) && r ? { ...r, undo: undoIn(r.undo, places) } : r;

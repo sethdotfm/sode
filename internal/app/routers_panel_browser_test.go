@@ -8,8 +8,8 @@ import (
 // itemSpan is SPAN in web/routerids.js: an item number of router B is itemSpan plus its router number.
 const itemSpan = 0x10000
 
-// A Grid panel holds sources and destinations of two routers. The page reads each router's names and tally, shows
-// each item with its prefix, takes on router B, and refuses a route across the two routers. The editor lists the
+// A Grid panel holds sources and destinations of two routers. The page reads each router's names and tally and shows
+// each item with its prefix. It takes on router B and refuses a route across the two routers. The editor lists the
 // members of both routers, and its Add from the router lists router B's items with their prefix.
 func TestChromeGridPanelTwoRouters(t *testing.T) {
 	b := startBrowser(t)
@@ -69,8 +69,8 @@ func TestChromeGridPanelTwoRouters(t *testing.T) {
 	b.check()
 }
 
-// A Buttons panel with cells on two routers: each cell shows its own router's names and tally, a take goes to the
-// router of its cells, and a source on another router than the destination is refused at the press.
+// A Buttons panel with cells on two routers: each cell shows its own router's names and tally. A take goes to the
+// router of its cells. A source on a router that is not the destination's is refused at the press.
 func TestChromeButtonsPanelTwoRouters(t *testing.T) {
 	b := startBrowser(t)
 	simA := startSim(t)

@@ -1,6 +1,6 @@
-// A panel as a panel page runs it: every source and destination on item numbers (routerids.js), so the bodies key
-// items of every router by one number. Pure. places is makePlaces's. Safe on a panel already in this form, since the
-// Live Editor hands the run the editor's panel, and an item number goes back to itself.
+// A panel as a panel page runs it: every source and destination on item numbers (routerids.js). So the bodies key
+// items of every router by one number. Pure. places is makePlaces's. It is safe on a panel already in this form, since
+// the Live Editor hands the run the editor's panel. An item number goes back to itself.
 import { edgesIn } from './gridedgerefs.js';
 import { rightsIn, placeOf } from './routerids.js';
 import { pagesOf } from './panelpages.js';
