@@ -1,5 +1,5 @@
 // Runs /panels/editor as the signed-in user. runEditor returns the seams the other editor modules use (see the end).
-import { $, on, S } from './core.js';
+import { $, on, S, routerData } from './core.js';
 import { newPanelActs, actsSavedNote } from './panelsrules.js';
 import { sessionFetch, jsonCall, startSession } from './sessionkey.js';
 import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
@@ -439,7 +439,7 @@ export async function runEditor() {
     const r = await sessionFetch('api/v1/default-artwork').catch(() => null);
     const got = r?.ok ? await r.json().catch(() => null) : null;
     if (!got) return;
-    defaults = defaultsBy(got.defaults);
+    defaults = defaultsBy(got.defaults, routerData('').uid);
     refresh();
   }
 
@@ -590,7 +590,7 @@ export async function runEditor() {
     const sentEdits = edits;
     const sentName = nameBox.value;
     const sentPages = livePages();
-    const body = JSON.stringify(saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages));
+    const body = JSON.stringify(saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages, routerData('').uid));
     const send = () =>
       edCall('The panel was not saved', 'Sode did not answer. Not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
         method: loaded ? 'PUT' : 'POST',

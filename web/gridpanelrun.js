@@ -123,6 +123,7 @@ export function gridBody(ctx, first) {
     () => panel,
     () => render(),
     () => stopped,
+    () => tally?.router || '',
   );
 
   // What the last polls said, for the staged routes that no longer apply.

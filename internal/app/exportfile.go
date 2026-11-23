@@ -54,6 +54,12 @@ func picked(pick map[string][]string, cat, id string) bool {
 	return !some || slices.Contains(ids, id)
 }
 
+// pickedDefault: a pick can name a first router's default by its old key (ArtDefault.oldKey).
+func pickedDefault(pick map[string][]string, d ArtDefault, first string) bool {
+	ids, some := pick[catArtwork]
+	return !some || slices.ContainsFunc(ids, func(id string) bool { return d.keyed(id, first) })
+}
+
 func categoryFile(cat string) string {
 	for _, c := range exportCategories {
 		if c.Name == cat {
@@ -275,7 +281,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		var out exportArtwork
 		images := map[string]bool{}
 		for _, d := range a.artDefaults.list() {
-			if !want(catArtwork) || !picked(req.Pick, catArtwork, d.key()) {
+			if !want(catArtwork) || !pickedDefault(req.Pick, d, a.r().cfg.UID) {
 				continue
 			}
 			for _, id := range d.libIcons() {

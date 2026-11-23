@@ -26,8 +26,14 @@ const numbers = gridPanel({
   destinations: { members: [1, 0] },
 });
 
-test('a stored panel reads as the number form', () => {
-  assert.deepEqual(edgesIn(stored), numbers);
+// The number form with the router each number was read with.
+const read = gridPanel({
+  sources: { ...numbers.sources, routers: { 1: R, 2: R } },
+  destinations: { ...numbers.destinations, routers: { 0: R, 1: R } },
+});
+
+test('a stored panel reads as the number form, with the router of each number', () => {
+  assert.deepEqual(edgesIn(stored), read);
 });
 
 test('the panel page and the Live Editor show the same axes from the stored panel', () => {
@@ -54,7 +60,39 @@ test('an item with no setting left is not sent', () => {
 
 test('read, save and read again is the same number form', () => {
   assert.deepEqual(edgesIn(edgesOut(numbers)), numbers);
+  assert.deepEqual(edgesIn(edgesOut(edgesIn(stored))), read);
   assert.deepEqual(edgeIn(undefined), undefined);
+});
+
+const B = 'b0b0b0b0b0b0b0b0';
+
+test('a save sends each number on the router it was read with, and a new number on the first router', () => {
+  const e = edgeIn({
+    members: [
+      { router: R, n: 1, name: 'MON B' },
+      { router: B, n: 4, name: 'B MON' },
+    ],
+    items: [{ router: B, n: 4, pinned: true }],
+  });
+  assert.deepEqual(e.members, [1, 4]);
+  assert.deepEqual(edgeOut({ ...e, members: [...e.members, 7] }, R), {
+    members: [
+      { router: R, n: 1 },
+      { router: B, n: 4 },
+      { router: R, n: 7 },
+    ],
+    items: [{ router: B, n: 4, pinned: true }],
+  });
+});
+
+test('a number on two routers keeps the second reference aside and sends it back as it came', () => {
+  const b5 = { router: B, n: 5, name: 'B CAM' };
+  const e = edgeIn({ members: [{ router: R, n: 5, name: 'CAM 5' }, b5], items: [{ router: B, n: 5, art: 'icon:mic' }] });
+  assert.deepEqual(e.members, [5]);
+  assert.deepEqual(e.items, {});
+  assert.deepEqual(edgeOut(e, R), { members: [{ router: R, n: 5 }, b5], items: [{ router: B, n: 5, art: 'icon:mic' }] });
+  // Follow the router drops the members list, and with it the member kept aside.
+  assert.deepEqual(edgeOut({ ...e, members: 'all' }, R), { members: 'all', items: [{ router: B, n: 5, art: 'icon:mic' }] });
 });
 
 test('a Buttons panel is not changed', () => {

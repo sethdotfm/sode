@@ -60,7 +60,7 @@ type ArtDefault struct {
 	HideText bool   `yaml:"hideText,omitempty" json:"hideText,omitempty"`
 }
 
-// Keep in step with itemKey in web/panellook.js.
+// A Source or Destination default keys by kind, router and number. Keep in step with itemKey in web/panellook.js.
 func (d ArtDefault) key() string {
 	if d.Kind == artKindPreset {
 		if d.ID != "" {
@@ -68,11 +68,27 @@ func (d ArtDefault) key() string {
 		}
 		return d.Kind + "/" + d.Scope + "/" + d.Name
 	}
-	n := -1
-	if d.N != nil {
-		n = *d.N
+	if d.Router == "" {
+		return d.oldKey()
 	}
-	return fmt.Sprintf("%s/%d", d.Kind, n)
+	return fmt.Sprintf("%s/%s/%d", d.Kind, d.Router, d.num())
+}
+
+// oldKey is the key with no router, as a Sode with one router gave it. It names the first router's item.
+func (d ArtDefault) oldKey() string {
+	return fmt.Sprintf("%s/%d", d.Kind, d.num())
+}
+
+func (d ArtDefault) num() int {
+	if d.N == nil {
+		return -1
+	}
+	return *d.N
+}
+
+// keyed: key is d's key, or d's old key when d is on the first router.
+func (d ArtDefault) keyed(key, first string) bool {
+	return key == d.key() || d.Kind != artKindPreset && d.Router == first && key == d.oldKey()
 }
 
 // set checks the artwork fields.

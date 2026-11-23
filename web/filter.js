@@ -192,6 +192,15 @@ export function routerTermsProblem(text, router, routers) {
   return 'Number terms need a router.';
 }
 
+// The filter editor's error for one side: a parse error with where it is, else routerTermsProblem. routers is the number
+// of routers. null when the text is good.
+export function filterProblem(text, router, routers) {
+  const t = text || '';
+  const p = parseFilter(t);
+  if (p.error) return `${p.error}${p.at != null ? ` at “${t.slice(p.at, p.at + 12)}”` : ''}`;
+  return routerTermsProblem(t, router, routers) || null;
+}
+
 export function filterFn(text, opts) {
   const p = parseFilter(text || '');
   return p.rules ? compileFilter(p.rules, opts) : null;
