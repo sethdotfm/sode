@@ -253,7 +253,7 @@ const VIEW = {
         'div',
         null,
         el('p', { id: 'setup-done-text' }, ...doneText()),
-        el('button', { type: 'button', class: 'pb-btn pb-btn--ok pb-btn--lg', id: 'setup-open' }, 'Open Sode'),
+        el('button', { type: 'button', class: 'pb-btn sode-btn--primary pb-btn--lg', id: 'setup-open' }, 'Open Sode'),
       ),
       el(
         'nav',

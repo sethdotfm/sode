@@ -35,7 +35,7 @@ export function askName(panel, clashed, suggest, go, kind = 'assign') {
     body: [input, err],
     foot: [
       btn('pb-btn--outline', 'Cancel', () => q.close(null)),
-      btn('pb-btn--ok', [icon(renaming ? 'text-cursor-input' : 'send'), renaming ? ' Rename' : ' Assign'], submit, 'assign-name-go'),
+      btn('sode-btn--primary', [icon(renaming ? 'text-cursor-input' : 'send'), renaming ? ' Rename' : ' Assign'], submit, 'assign-name-go'),
     ],
   });
   input.addEventListener('keydown', (e) => {

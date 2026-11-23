@@ -84,13 +84,13 @@ export function keyRow(k, now, onRevoke) {
   const disarm = () => {
     rm.dataset.armed = '';
     rm.textContent = 'Revoke';
-    rm.classList.replace('pb-btn--danger', 'pb-btn--ghost');
+    rm.classList.replace('pb-btn--outline', 'pb-btn--ghost');
   };
   rm.addEventListener('click', () => {
     if (!rm.dataset.armed) {
       rm.dataset.armed = '1';
       rm.textContent = 'Confirm revoke';
-      rm.classList.replace('pb-btn--ghost', 'pb-btn--danger');
+      rm.classList.replace('pb-btn--ghost', 'pb-btn--outline');
       return;
     }
     rm.disabled = true;

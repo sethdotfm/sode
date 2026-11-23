@@ -113,7 +113,7 @@
   white-space: nowrap;
 }
 .sode-gridpop .sode-gridpop__note > .sode-panel__status--ok {
-  color: var(--pb-status-ok);
+  color: var(--pb-text);
 }
 /* Then the badge, Clear, Take and Close. */
 .sode-gridpop__band > :is(.sode-gridpanel__count, .sode-gridpop__act) {

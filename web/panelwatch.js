@@ -34,7 +34,7 @@ function toast(n) {
   close.setAttribute('aria-label', 'Dismiss');
   const node = el(
     'div',
-    `pb-toast pb-toast--${t.kind === 'ok' ? 'ok' : t.kind}`,
+    `pb-toast${t.kind === 'ok' ? '' : ` pb-toast--${t.kind}`}`,
     el('span', 'pb-toast__icon', icon(t.kind === 'ok' ? 'wifi' : 'wifi-off')),
     el('div', 'pb-toast__body', el('div', 'pb-toast__title', title), msg),
     close,

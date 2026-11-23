@@ -52,7 +52,7 @@ async function send(file, pin = '') {
 
 // The restore is written but some stores outside the config are not. Setup cannot run again, so say so before opening Sode.
 function showFailed(n) {
-  const open = el('button', 'pb-btn pb-btn--ok', 'Open Sode');
+  const open = el('button', 'pb-btn sode-btn--primary', 'Open Sode');
   open.type = 'button';
   open.addEventListener('click', () => location.reload());
   $('setup-title').textContent = 'Restore from a backup';
@@ -76,7 +76,7 @@ function askPin(file, text) {
   };
   const [pinBox, pin] = field('setup-restore-pin', 'New PIN');
   const [pin2Box, pin2] = field('setup-restore-pin2', 'Repeat your PIN');
-  const go = el('button', 'pb-btn pb-btn--ok', 'Restore');
+  const go = el('button', 'pb-btn sode-btn--primary', 'Restore');
   const back = el('button', 'pb-btn pb-btn--outline', 'Back');
   go.type = back.type = 'button';
   const problem = () => restorePinProblem(pin.value, pin2.value, hooks.max());

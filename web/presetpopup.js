@@ -35,7 +35,7 @@ const dlg = modal({
   cls: 'sode__presets-dlg sode__preset-pop',
   head: [editorBtn],
   body: el('div', 'pb-modal__body sode__filters-body', input, list, noteEl),
-  foot: [btn('pb-btn--ok', 'Close', () => close())],
+  foot: [btn('sode-btn--primary', 'Close', () => close())],
   onEsc() {
     if (input.value) {
       input.value = '';

@@ -1,0 +1,1 @@
+- Colors have one job each (dark cockpit). Take is now amber on every page. Red means a failure only. Healthy states (connected status, ok uptime bars, ok PIN dots) no longer show green. The main action of a form or dialog is in the accent color. Delete and discard buttons have an outline, and New panel on /panels is a plain button. See docs/color-roles.md.

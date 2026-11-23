@@ -18,7 +18,7 @@ let signedIn = false;
 const buttons = [];
 
 function headButton(slot) {
-  const count = el('span', 'pb-badge pb-badge--info sode-inbox__count');
+  const count = el('span', 'pb-badge sode-inbox__count');
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-inbox__btn', icon('inbox'), el('span', 'sode-inbox__word', 'Inbox'), count);
   b.type = 'button';
   b.dataset.inboxButton = '';
@@ -45,7 +45,7 @@ const sentPanel = el('div', null, sentList);
 const review = el('div', { class: 'sode-inbox__review', hidden: true });
 const phoneNote = el('div');
 const note = el('span', { class: 'sode__hint', id: 'inbox-note', role: 'status' });
-const acceptBtn = btn('pb-btn--ok', 'Accept', () => accept(), 'inbox-accept');
+const acceptBtn = btn('sode-btn--primary', 'Accept', () => accept(), 'inbox-accept');
 const reviewActs = el(
   'span',
   { class: 'sode__xi-acts', hidden: true },
@@ -81,7 +81,7 @@ async function answer(m, ok) {
 
 function cardRow(c) {
   const acts = el('span', 'sode-inbox__acts');
-  if (!phone()) acts.append(btn('pb-btn--ok pb-btn--sm', 'Accept…', () => startReview(c)));
+  if (!phone()) acts.append(btn('sode-btn--primary pb-btn--sm', 'Accept…', () => startReview(c)));
   const decline = btn('pb-btn--outline pb-btn--sm', 'Decline', () => answer({ t: 'inboxDecline', inbox: { card: c.id } }, 'Declined.'));
   decline.dataset.decline = c.id;
   acts.append(decline);

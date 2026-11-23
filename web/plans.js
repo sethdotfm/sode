@@ -344,7 +344,7 @@ function itemSummary(item, boxed, prot, since) {
     ...(since ? changedSince(item) : []).map((r) =>
       el('div', 'sode__route', levelBar(r.levels), el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`),
     ),
-    alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there')) : null,
+    alreadyThere(item) ? el('div', 'sode__route', el('span', 'pb-badge', 'Already there')) : null,
     prot ? el('div', 'sode__route', levelBar(prot.levels), ...prot.holds.map(holdBadge), 'will be refused') : null,
     item.untouched?.length
       ? el(
