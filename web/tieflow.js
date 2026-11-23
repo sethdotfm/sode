@@ -11,7 +11,7 @@ import { emit, request, routerData, routerOfItem } from './core.js';
 import { showResult } from './banner.js';
 import { noteLast } from './plans.js';
 import { pickRoute } from './tiepicker.js';
-import { pickState, reopenState, takeRoute, chosen, oneOffsOf } from './tiepickrules.js';
+import { pickState, reopenState, storedState, takeRoute, chosen, oneOffsOf } from './tiepickrules.js';
 import { tieIndexes, nextTie, finalAt, planRequest, takeRequest, keptItems, changedAt, resetFrom, failedText } from './tietakerules.js';
 
 const ref = (it) => ({ router: routerData(routerOfItem(it)).uid, n: it.n });
@@ -23,7 +23,9 @@ function routesOf(plan) {
     for (const g of item.groups) {
       const src = ref(g.src);
       const dst = ref(item.dst);
-      out.push({ src, dst, levels: g.levels, tie: src.router !== dst.router, item, label: `${g.src.label} to ${item.dst.label}` });
+      // stored: a preset's tie lines (plans.js presetPlan), so its picker is the tie confirm page.
+      const stored = g.ties?.length ? g.ties : null;
+      out.push({ src, dst, levels: g.levels, tie: src.router !== dst.router, item, label: `${g.src.label} to ${item.dst.label}`, stored });
     }
   }
   return out;
@@ -45,11 +47,16 @@ function step(f, k, state, oneOffs = []) {
   const many = ties.length > 1 || f.routes.some((r) => !r.tie);
   const final = finalAt(f.routes, k);
   const on = () => step(f, nextTie(f.routes, f.picks, k + 1), pickState);
+  // A preset's route opens on its stored tie lines, with no confirm setting that skips it (docs/tielines-design.md,
+  // Presets). A reopen after a refused take keeps its own state.
+  const stored = f.routes[k].stored;
+  const preset = f.plan.verb === 'preset' ? `Preset ${f.plan.preset}` : '';
+  const where = many ? `Route ${ties.indexOf(k) + 1} of ${ties.length} across routers` : '';
   pickRoute({
     routes: () => planRequest(f.routes, f.picks, k),
-    state,
+    state: stored && state === pickState ? (route) => storedState(route, stored) : state,
     oneOffs,
-    head: many ? `Route ${ties.indexOf(k) + 1} of ${ties.length} across routers` : '',
+    head: [preset, where].filter(Boolean).join(': '),
     final,
     clear: many
       ? () => {
@@ -107,7 +114,9 @@ async function send(f, direct) {
   const { routes, at } = takeRequest(f.routes, f.picks);
   const text = textOf(f, at);
   showResult('info', 'Taking', text);
-  const m = request('tieTakeResult', { t: 'tieTake', routes });
+  // A preset's take names it, for History and the preset right (tiepage.go).
+  const preset = f.plan.verb === 'preset' ? { preset: f.plan.preset, presetId: f.plan.presetId || '' } : {};
+  const m = request('tieTakeResult', { t: 'tieTake', routes, ...preset });
   if (direct) f.opts.onSent?.(f.plan);
   answer(f, await m, text, at);
 }

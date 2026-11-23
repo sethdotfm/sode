@@ -1,6 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tiesOn, crossing, planOf, withTies, affectedLines, acrossOffText, linksOf, reservedOn, setReserve, heldBy, tiesKey } from '../paneltierules.js';
+import {
+  tiesOn,
+  crossing,
+  planOf,
+  withTies,
+  affectedLines,
+  acrossOffText,
+  linksOf,
+  reservedOn,
+  setReserve,
+  heldBy,
+  tiesKey,
+  storedClash,
+  bare,
+} from '../paneltierules.js';
+import { pressPreset, createState } from '../panelmodel.js';
 import { pressRefusal, skippedText, refusalText } from '../gridpanelrights.js';
 import { envFrom, errorText } from '../panelrules.js';
 import { SPAN } from '../routerids.js';
@@ -109,4 +124,34 @@ test('the editor Reserves one tie line for each link', () => {
   assert.equal(heldBy(list[0], 'p-1'), '');
   assert.equal(tiesKey({ mode: 'reserved', reserved: ['t2', 't1'] }), tiesKey({ mode: 'reserved', reserved: ['t1', 't2'] }));
   assert.equal(tiesKey({ mode: 'off' }), tiesKey(undefined));
+});
+
+// A Preset cell's route across routers keeps the preset's tie lines. The panel sends it only on its Reserved tie lines
+// (docs/tielines-design.md, Presets, rule 6).
+test('a Preset cell keeps its stored tie lines, under the Reserved rule', () => {
+  const plan = planOf(body);
+  const routes = [
+    { dst: 2, src: 1, levels: [1] },
+    { dst: SPAN + 2, src: 4, levels: [1], ties: ['t2'] },
+  ];
+  assert.equal(storedClash(routes, plan), '', 'the stored tie line is the Reserved one');
+  assert.match(storedClash([routes[0], { ...routes[1], ties: ['t9'] }], plan), /does not Reserve \(the panel uses TIE 4\)/);
+  assert.deepEqual(bare(routes)[1], { dst: SPAN + 2, src: 4, levels: [1] });
+  const one = [{ level: 1 }];
+  const env = envFrom(
+    {
+      routes: [],
+      levels: one,
+      byPlace: [
+        { router: 'a1', levels: one },
+        { router: 'b2', levels: one },
+      ],
+    },
+    { protected: [] },
+    { presets: [{ scope: 'everyone', name: 'Far', id: 'f', items: [{ src: 4, dsts: [SPAN + 2], levels: [1], ties: ['t2'] }] }] },
+    null,
+    true,
+  );
+  const st = pressPreset(createState(), { kind: 'preset', scope: 'everyone', name: 'Far' }, env, 0);
+  assert.deepEqual(st.staged, [{ dst: SPAN + 2, src: 4, levels: [1], ties: ['t2'] }]);
 });

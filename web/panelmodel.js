@@ -161,7 +161,9 @@ function pressPresetOne(st, cell, env, now) {
       if (acrossRouters(it.src, dst) && !env.ties) return fail(st, { code: 'across-routers', src: it.src, dst }, now);
       const levels = shared(st, env, inSet(envAt(env, placeOf(dst)).levels, it.levels?.length ? it.levels : null), cell.levels, dst);
       if (!levels.length) return fail(st, { code: 'no-common-levels', src: it.src, dst }, now);
-      routes.push({ dst, src: it.src, levels });
+      // A route across routers keeps the preset's tie lines: the panel sends them under its Reserved rule
+      // (paneltierules.js storedClash).
+      routes.push({ dst, src: it.src, levels, ...(it.ties?.length && acrossRouters(it.src, dst) ? { ties: it.ties } : {}) });
     }
   }
   const last = new Map(routes.map((x) => [x.dst, x]));

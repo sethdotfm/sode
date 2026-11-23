@@ -261,6 +261,9 @@ Rights checks compare the router and the number of each reference. A right for s
 4. If a stored tie line is now Protected, or Reserved by a panel, the page marks it. Enter stays off until each such route is confirmed or cleared.
 5. A deleted tie line makes the preset Broken, with a new `tie` kind. `RefWalk` and `TestWalkRefsSeesEverySlot` gain the slot.
 6. A panel Preset cell sends the stored tie lines with the take, under the Reserved rule if the panel has one.
+7. A preset item stores the tie line ids in `ties`, upstream first. The destinations of one item share one router. An item across routers needs `ties`, and an item on one router has none. A Broken mark of kind `tie` names the id in `tie`. Sode sets and clears these marks from the tie lines each time it saves the settings (agent decision).
+8. The tie confirm page is the Tie line picker, opened on the stored path. The person can choose other tie lines for that fire only. The preset does not change. Take stays off on a Protected stored tie line, and a Reserved one asks one more time (Panels, rule 8). The preset editor opens the picker from the Tie lines… button of a row. It also opens it when an add from the patch boxes or the Grid popup crosses routers. There it chooses only saved tie lines (agent decision).
+9. Under the Reserved rule, the stored tie lines of a Preset cell must be the path of the Reserved tie lines of the panel. If they are not, Sode refuses the press and sends nothing. The panel never sends on other tie lines (agent decision).
 
 ## API
 

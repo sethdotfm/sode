@@ -1,6 +1,7 @@
 // The Grid popup's rules (gridpopup.js). Pure: no DOM, no state.
 // The popup runs the Grid panel body (gridpanelrun.js), which reads /api/v1 answers. On the main page the socket already
 // keeps the tally, the protected list and the names, so these build the same answers from that state.
+import { placeOf, routerN } from './routerids.js';
 
 // GET /tally. levels are the hello's ({ ui, label, swatch, color }); tally is dst -> (level -> src).
 // `via`: the router's Via rows (core.js `routerData(uid).via`). A route that a tie line feeds carries its row's fields
@@ -110,5 +111,25 @@ export function noRouteLine(r, { src, dst }) {
 // The preset items a press adds. A crosspoint stores what the boxes' Add stores: no levels (the default levels) while
 // the main Levels box is empty (boxLevels []). A name stores the levels its routes have now.
 export const storedItems = (r, boxLevels) => (r.kind === 'xp' && !boxLevels.length ? [{ ...r.items[0], levels: [] }] : r.items);
+
+// presetItemsOf: a grid item (item numbers, routerids.js) as preset items, one for each router of its destinations.
+// Each has its router numbers and full router UIDs; places is makePlaces's. A row whose destinations are on another
+// router than its source is a route across routers.
+export function presetItemsOf(it, places) {
+  const uid = (id) => places.uid(placeOf(id));
+  const router = uid(it.src);
+  const by = new Map();
+  for (const d of it.dsts) {
+    if (!by.has(uid(d))) by.set(uid(d), []);
+    by.get(uid(d)).push(routerN(d));
+  }
+  return [...by].map(([u, dsts]) => ({ src: routerN(it.src), dsts, levels: it.levels, router, ...(u !== router ? { dstRouter: u } : {}) }));
+}
+
+// itemsOnGrid: a preset row on item numbers, so the grid marks it. A row with no router is on the first router.
+export function itemsOnGrid(it, places) {
+  const known = (u) => (places.routers.some((r) => r.uid === u) ? u : '');
+  return { ...it, src: places.id(known(it.router), it.src), dsts: it.dsts.map((n) => places.id(known(it.dstRouter || it.router), n)) };
+}
 
 export const rowsWord = (n) => `${many(n, 'row')} in the preset`;

@@ -114,6 +114,34 @@ export function reopenState(route, ids, changed = [], fresh = [], protect = []) 
   return { ...st, path: i < 0 ? st.path : i, marks: { ties: [...changed], end: false, hits: fresh.map(endKey), affected: false }, protect: [...protect] };
 }
 
+// Presets with tie lines (docs/tielines-design.md, Presets). A preset item across routers stores its tie lines. Its
+// fire opens the picker on them as its tie confirm page, and the editor opens the picker on them to change them.
+
+// storedState opens the picker on the path through ids, the stored tie lines, when the plan has it. stored keeps the
+// key of that path, and storedFound says whether the plan has it.
+export function storedState(route, ids) {
+  const st = reopenState(route, ids);
+  return { ...st, stored: ids.join(' '), storedFound: route.paths.some((p) => pathKey(p) === ids.join(' ')) };
+}
+
+// storedText is what the tie confirm page says about the stored tie lines: { text, warn }. Empty text for a picker
+// that is not on stored tie lines. warn: the person must look again, so the page shows a caution.
+export function storedText(st) {
+  if (st.stored == null) return { text: '', warn: false };
+  const p = chosen(st);
+  if (!st.storedFound) return { text: 'The tie lines that this preset stores make no path now. Choose other tie lines, or clear this route.', warn: true };
+  if (!p || pathKey(p) !== st.stored) return { text: 'You chose other tie lines than the preset stores. The preset does not change.', warn: false };
+  if (!pathUsable(p)) return { text: 'A tie line that this preset stores is Protected. Choose other tie lines, or clear this route.', warn: true };
+  if (reservedHops(st).length) return { text: 'A tie line that this preset stores is Reserved by a panel. Take asks one more time.', warn: true };
+  return { text: 'This preset stores these tie lines.', warn: false };
+}
+
+// oneOffPicked: the chosen path goes through a One-off tie line, which a preset cannot store.
+export const oneOffPicked = (st) => (chosen(st)?.hops || []).some((h) => h.tie && (st.route.oneOffs || []).some((o) => o.id === h.tie.id));
+
+// tieIdsOf gives the tie line ids of the chosen path, upstream first: what a preset item stores.
+export const tieIdsOf = (st) => (chosen(st)?.hops || []).slice(0, -1).map((h) => h.tie?.id || '');
+
 // marked: the mark of the open picker for a tie line id, an Affected destination or the destination's hop.
 export const tieMarked = (st, id) => !!st.marks?.ties.includes(id);
 export const hitMarked = (st, e) => !!st.marks?.hits.includes(endKey(e));

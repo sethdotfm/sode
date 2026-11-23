@@ -45,6 +45,28 @@ export const withTies = (wire, plan) =>
     return p ? { ...r, ties: p.ties, affected: p.affected } : r;
   });
 
+// storedClash: a Preset cell's route keeps the tie lines that the preset stores (ties, ids). The panel sends only on its
+// Reserved tie lines (docs/tielines-design.md, Presets, rule 6). So a route whose stored tie lines are not the path of
+// the plan is refused before Sode sends anything. Gives the refusal, or ''.
+export function storedClash(routes, plan) {
+  for (const [i, r] of (routes || []).entries()) {
+    const p = plan?.get(i);
+    if (!r.ties?.length || !p) continue;
+    if (p.ties.map((t) => t.id).join(' ') !== r.ties.join(' ')) {
+      return `The preset sends through tie lines that this panel does not Reserve (the panel uses ${p.via.join(', ')}). Sode sent nothing.`;
+    }
+  }
+  return '';
+}
+
+// bare drops the stored tie lines of each route, since a take sends the ties of the plan (withTies).
+export const bare = (routes) =>
+  routes.map((r) => {
+    const o = { ...r };
+    delete o.ties;
+    return o;
+  });
+
 // affectedLines are the lines that the confirm of a Take mode panel adds: each tie line and what it also changes
 // (docs/tielines-design.md, Panels, rule 11). One line for each route across routers.
 export function affectedLines(plan) {

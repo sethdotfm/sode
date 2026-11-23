@@ -345,6 +345,10 @@ func (c *Config) Normalize() {
 	c.Bookmarks = normalizeBookmarks(c.Bookmarks)
 	c.TieLines = normalizeTieLines(c.TieLines)
 	c.normalizeProfiles()
+	markPresetTies(c.Presets, c.TieLines)
+	for i := range c.Users {
+		markPresetTies(c.Users[i].Profile.Presets, c.TieLines)
+	}
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
 	}

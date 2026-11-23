@@ -163,3 +163,23 @@ test('a route that a tie line feeds carries its Via row, while the row is for th
   assert.equal(viaOn(env, 5, 0), null);
   assert.equal(viaOn(env, 7, 3), null);
 });
+
+// The Grid popup adds routes of every router to a preset. A route across routers keeps the router of its destinations,
+// so the editor asks for its tie lines (presets.js addToPreset).
+test('grid items become preset items with routers, and back', async () => {
+  const { presetItemsOf, itemsOnGrid } = await import('../gridpoprules.js');
+  const { makePlaces, SPAN } = await import('../routerids.js');
+  const places = makePlaces([
+    { uid: 'a', prefix: 'A' },
+    { uid: 'b', prefix: 'B' },
+  ]);
+  const it = { src: 4, dsts: [2, SPAN + 3, SPAN + 5], levels: [1] };
+  const rows = presetItemsOf(it, places);
+  assert.deepEqual(rows, [
+    { src: 4, dsts: [2], levels: [1], router: 'a' },
+    { src: 4, dsts: [3, 5], levels: [1], router: 'a', dstRouter: 'b' },
+  ]);
+  assert.deepEqual(itemsOnGrid(rows[1], places), { ...rows[1], src: 4, dsts: [SPAN + 3, SPAN + 5] });
+  // A router that the page does not list is the first router.
+  assert.deepEqual(itemsOnGrid({ src: 1, dsts: [2], levels: [], router: 'zz' }, places).dsts, [2]);
+});
