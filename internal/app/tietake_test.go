@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
@@ -218,5 +219,57 @@ func TestAPITieTakeRefusesBadTies(t *testing.T) {
 	}
 	if es, _ := a.hist.Page(-1, 5); len(es) != 0 {
 		t.Errorf("entries %+v", es)
+	}
+}
+
+// Each hop follows its own router's levels. A has 2 levels and B has 4.
+// The hop on A switches both levels of A.
+// The last hop switches the typed levels of B. No map goes between the routers.
+func TestAPITieTakeLevelsFollowEachRouter(t *testing.T) {
+	a, fa, fb, key := tieApp(t, func(c *config.Config) {
+		c.Levels, c.DefaultLevels = 2, "1-2"
+		c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 4, "1-4"
+	})
+	uidA := a.r().cfg.UID
+	log := connectLog(fa, fb)
+	body := `{"routes":[{"src":{"router":"` + uidA + `","n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[3,4],"ties":[{"id":"t1","expect":{"router":"` + uidA + `","n":3}}]}]}`
+	rec := apiPost(a, "/api/v1/takes", key, body, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	got := log()
+	if len(got) != 4 || got[0] != "A 4>10" || got[1] != "A 4>10" {
+		t.Fatalf("connects %v, want 2 of A 4>10, then 2 on B", got)
+	}
+	if tail := got[2:]; !slices.Equal(slices.Sorted(slices.Values(tail)), []string{"B 5>2", "B 5>2"}) {
+		t.Errorf("connects on B %v", tail)
+	}
+	r := tieTakeAnswer(t, rec.Body).Results[0]
+	if len(r.Hops) != 1 || !slices.Equal(r.Hops[0].Levels, []int{1, 2}) {
+		t.Errorf("hop %+v", r.Hops)
+	}
+	es, _ := a.hist.Page(-1, 5)
+	if len(es) != 2 || !slices.Equal(es[0].Levels, []int{3, 4}) {
+		t.Errorf("entries %+v", es)
+	}
+}
+
+// A typed level past the count of the destination's router is refused.
+// No hop goes out, even if the router upstream has that level.
+func TestAPITieTakeRefusesLevelPastDestination(t *testing.T) {
+	a, fa, fb, key := tieApp(t, func(c *config.Config) {
+		c.Levels, c.DefaultLevels = 4, "1-4"
+		c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 2, "1-2"
+	})
+	uidA := a.r().cfg.UID
+	log := connectLog(fa, fb)
+	body := `{"routes":[{"src":{"router":"` + uidA + `","n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[3],"ties":[{"id":"t1"}]}]}`
+	rec := apiPost(a, "/api/v1/takes", key, body, nil)
+	wantErr(t, rec, http.StatusBadRequest, "bad_request")
+	if !strings.Contains(rec.Body.String(), "unknown level") {
+		t.Errorf("answer %s", rec.Body)
+	}
+	if got := log(); len(got) != 0 {
+		t.Errorf("connects %v", got)
 	}
 }
