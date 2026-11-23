@@ -98,12 +98,15 @@ func TestImportCheckAnswersRemapRows(t *testing.T) {
 	}
 }
 
-func TestImportRemapNoTargetIsBroken(t *testing.T) {
+func TestImportRemapNoTargetDropsItsItems(t *testing.T) {
 	a, tok, file := cam3File(t)
-	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Routers: map[string]string{otherRouterUID: ""}}))
-	p, _ := presetNamed(t, a, "Show")
-	if p.Items[0].Src.Router != otherRouterUID || len(p.Broken) == 0 || slices.ContainsFunc(p.Broken, func(m config.Missing) bool { return m.Kind != config.MissingRouter }) {
-		t.Fatalf("preset: %+v", p)
+	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Routers: map[string]string{otherRouterUID: ""}}))
+	if _, ok := presetNamed(t, a, "Show"); ok {
+		t.Fatal("a preset on a router with no target was imported")
+	}
+	items := res.Plan.Categories[catPresets].Items
+	if len(items) != 1 || !strings.Contains(items[0].Refused, "has no target here") || items[0].writes() {
+		t.Fatalf("plan: %+v", items)
 	}
 }
 

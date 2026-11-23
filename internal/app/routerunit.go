@@ -182,6 +182,14 @@ func (a *App) unitOrFirst(uid string) *routerUnit {
 	return a.first
 }
 
+// unitOfRouter gives the unit of a router in cfg. The first router's unit can carry an older UID (an import changed it).
+func (a *App) unitOfRouter(cfg config.Config, uid string) (*routerUnit, bool) {
+	if uid == cfg.UID {
+		return a.first, a.first != nil
+	}
+	return a.unit(uid)
+}
+
 // knownRouter: uid is blank, the first router's UID in the settings, or the UID of a router unit.
 func (a *App) knownRouter(uid string) bool {
 	_, ok := a.unit(uid)

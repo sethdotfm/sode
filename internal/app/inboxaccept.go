@@ -31,8 +31,8 @@ type cardPlanner struct {
 	file bool
 }
 
-func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
-	p, err := newCardPlanner(live, src, dst, allPanels, card, toID, req)
+func planCard(live config.Config, names liveNameSet, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
+	p, err := newCardPlanner(live, names, allPanels, card, toID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -40,13 +40,13 @@ func planCard(live config.Config, src, dst map[int]string, allPanels []Panel, ca
 	return p, nil
 }
 
-func newCardPlanner(live config.Config, src, dst map[int]string, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
+func newCardPlanner(live config.Config, names liveNameSet, allPanels []Panel, card inboxCard, toID string, req importReq) (*cardPlanner, error) {
 	u, ok := live.FindUserByID(toID)
 	if !ok {
 		return nil, errNoSuchUser
 	}
 	_, rights := live.ActsAs(u)
-	p := &cardPlanner{planBase: newPlanBase(live, src, dst, req, false), user: toID, rights: rights, card: card, allPanels: allPanels}
+	p := &cardPlanner{planBase: newPlanBase(live, names, req, false), user: toID, rights: rights, card: card, allPanels: allPanels}
 	p.plan.SameInstall = true
 	return p, nil
 }
@@ -245,8 +245,7 @@ func (a *App) ReviewCard(c *client, card string, req importReq) (*importPlan, er
 	if err != nil {
 		return nil, err
 	}
-	src, dst := a.liveNames()
-	p, err := planCard(a.r().cfg, src, dst, a.panels.list(), k, u.ID, req)
+	p, err := planCard(a.r().cfg, a.liveNameSet(), a.panels.list(), k, u.ID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -278,8 +277,7 @@ func (a *App) AcceptCard(c *client, card string, req importReq) (*importPlan, ma
 	if err != nil {
 		return nil, nil, k, err
 	}
-	src, dst := a.liveNames()
-	p, err := planCard(a.r().cfg, src, dst, a.panels.list(), k, u.ID, req)
+	p, err := planCard(a.r().cfg, a.liveNameSet(), a.panels.list(), k, u.ID, req)
 	if err != nil {
 		return nil, nil, k, err
 	}

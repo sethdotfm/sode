@@ -160,9 +160,11 @@ type ownCheck struct {
 	From        string         `json:"from"`  // the file user whose items are offered; "" when the file has none for you
 	Admin       []string       `json:"admin"` // the file's categories only an Administrator imports
 	Routers     []exportRouter `json:"routers"`
-	Router      string         `json:"router"` // the live router's UID, which the file's routers are matched against
-	Unknown     []string       `json:"unknown"`
-	Plan        importPlan     `json:"plan"`
+	Router      string         `json:"router"` // the first live router's UID
+	// LiveRouters: the UID of every live router. A file router not in it is another router, whose items arrive Broken.
+	LiveRouters []string   `json:"liveRouters"`
+	Unknown     []string   `json:"unknown"`
+	Plan        importPlan `json:"plan"`
 }
 
 // ownFrom is the file user that an own import reads. It is the only user in the file, else me by hidden id
@@ -183,7 +185,7 @@ func (a *App) planOwn(id string, b *exportBundle, req importReq) (*cardPlanner, 
 	me, _ := live.FindUserByID(id)
 	m := b.Manifest
 	same := m.Install != "" && m.Install == live.InstallUID
-	out := ownCheck{Format: m.Format, Sode: m.Sode, SameInstall: same, Routers: m.Routers, Router: live.UID, Unknown: b.Unknown, Admin: []string{}}
+	out := ownCheck{Format: m.Format, Sode: m.Sode, SameInstall: same, Routers: m.Routers, Router: live.UID, LiveRouters: live.RouterUIDs(), Unknown: b.Unknown, Admin: []string{}}
 	from, found := ownFrom(b, me, same)
 	for _, c := range m.Categories {
 		if c != catRouters && (c != catUsers || len(b.Users) > 1 || !found) {
@@ -195,9 +197,8 @@ func (a *App) planOwn(id string, b *exportBundle, req importReq) (*cardPlanner, 
 	} else {
 		from = config.User{}
 	}
-	src, dst := a.liveNames()
 	card := inboxCard{Items: cardItems{Presets: from.Profile.Presets, FilterSets: from.Profile.FilterSets}}
-	p, err := newCardPlanner(live, src, dst, nil, card, id, req)
+	p, err := newCardPlanner(live, a.liveNameSet(), nil, card, id, req)
 	if err != nil {
 		return nil, out, err
 	}

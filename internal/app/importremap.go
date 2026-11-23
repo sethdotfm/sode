@@ -22,7 +22,7 @@ type remapInfo struct {
 type remapRouter struct {
 	UID        string      `json:"uid"`
 	Title      string      `json:"title"`
-	Target     string      `json:"target"` // "" is none: its items arrive Broken
+	Target     string      `json:"target"` // "" is none: its items are not imported
 	Default    string      `json:"default"`
 	Candidates []remapCand `json:"candidates"`
 	Refs       []remapRef  `json:"refs"`
@@ -104,7 +104,7 @@ func checkRouterTargets(req importReq, live config.Config) error {
 		if to == "" {
 			continue
 		}
-		if to != live.UID {
+		if _, ok := live.RouterByUID(to); !ok {
 			return fmt.Errorf("router %s is not a router here", to)
 		}
 		if other, ok := taken[to]; ok {
@@ -205,33 +205,56 @@ func refWalk(b *exportBundle, fn func(kind string, r config.Ref, use refUse, ite
 	}
 }
 
-// Runs before the item check, so a moved reference is not Broken.
-func (p *importPlanner) planRemap(src, dst map[int]string) {
-	if len(p.b.Manifest.Routers) == 0 {
-		return
-	}
-	live := p.live
-	liveTable := namesTable{Router: live.UID, Sources: tableList(src), Destinations: tableList(dst)}
-	ns := p.names
-	info := &remapInfo{Targets: []remapTarget{{UID: live.UID, Title: cmp.Or(live.Title, live.Prefix), Sources: liveTable.Sources,
-		Destinations: liveTable.Destinations, Offset: live.NumberOffset, Offline: ns.Offline, SavedAt: ns.SavedAt, NamesAt: ns.NamesAt,
-		NoNames: len(src) == 0 && len(dst) == 0}}}
-	liveNorm := map[string]map[string]bool{config.MissingSource: normSet(src), config.MissingDestination: normSet(dst)}
-
-	// Default targets: UID match first, then names-table hash, then the only router.
-	defaults := map[string]string{}
-	taken := false
-	for _, pass := range []func(exportRouter) bool{
-		func(r exportRouter) bool { return r.UID == live.UID },
-		func(r exportRouter) bool { return r.NamesHash != "" && r.NamesHash == namesHash(liveTable) },
-		func(exportRouter) bool { return true },
-	} {
-		for _, r := range p.b.Manifest.Routers {
-			if _, done := defaults[r.UID]; !done && !taken && pass(r) {
-				defaults[r.UID], taken = live.UID, true
+// remapDefaults gives each file router its default target. The passes are: the live router with its UID, the same
+// names hash, the same prefix, and then the only live router. Each pass goes in file order. A live router is the
+// default of one file router at most.
+func remapDefaults(file []exportRouter, live []config.Router, tables map[string]namesTable) map[string]string {
+	out := map[string]string{}
+	taken := map[string]bool{}
+	pass := func(match func(f exportRouter, l config.Router) bool) {
+		for _, f := range file {
+			if _, done := out[f.UID]; done {
+				continue
+			}
+			for _, l := range live {
+				if !taken[l.UID] && match(f, l) {
+					out[f.UID], taken[l.UID] = l.UID, true
+					break
+				}
 			}
 		}
 	}
+	pass(func(f exportRouter, l config.Router) bool { return f.UID == l.UID })
+	pass(func(f exportRouter, l config.Router) bool {
+		return f.NamesHash != "" && f.NamesHash == namesHash(tables[l.UID])
+	})
+	pass(func(f exportRouter, l config.Router) bool { return f.Prefix != "" && f.Prefix == l.Prefix })
+	if len(live) == 1 {
+		pass(func(exportRouter, config.Router) bool { return true })
+	}
+	return out
+}
+
+// Runs before the item check, so a moved reference is not Broken.
+func (p *importPlanner) planRemap() {
+	p.routers, p.drops = routerMap{}, map[string][]string{}
+	if len(p.b.Manifest.Routers) == 0 {
+		return
+	}
+	liveRouters := p.live.Routers()
+	info := &remapInfo{}
+	tables := map[string]namesTable{}
+	liveNorm := map[string]map[string]map[string]bool{}
+	for _, lr := range liveRouters {
+		n := p.liveNames[lr.UID]
+		t := namesTable{Router: lr.UID, Sources: tableList(n.src), Destinations: tableList(n.dst)}
+		tables[lr.UID] = t
+		info.Targets = append(info.Targets, remapTarget{UID: lr.UID, Title: cmp.Or(lr.Title, lr.Prefix), Sources: t.Sources,
+			Destinations: t.Destinations, Offset: lr.NumberOffset, Offline: n.state.Offline, SavedAt: n.state.SavedAt,
+			NamesAt: n.state.NamesAt, NoNames: len(n.src) == 0 && len(n.dst) == 0})
+		liveNorm[lr.UID] = map[string]map[string]bool{config.MissingSource: normSet(n.src), config.MissingDestination: normSet(n.dst)}
+	}
+	defaults := remapDefaults(p.b.Manifest.Routers, liveRouters, tables)
 
 	byRouter := map[string]*remapRouter{}
 	for _, r := range p.b.Manifest.Routers {
@@ -239,27 +262,31 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 		if !chosen {
 			target = defaults[r.UID]
 		}
+		p.routers[r.UID] = target
 		rr := &remapRouter{UID: r.UID, Title: cmp.Or(r.Title, r.Prefix), Target: target, Default: defaults[r.UID], Refs: []remapRef{},
-			Offset: live.NumberOffset, Sets: p.remapSets(r.UID)}
+			Offset: p.live.NumberOffset, Sets: p.remapSets(r.UID)}
 		if i := slices.IndexFunc(p.b.Routers, func(x config.Router) bool { return x.UID == r.UID }); i >= 0 {
 			rr.Offset = p.b.Routers[i].NumberOffset
 		}
-		found, total := 0, 0
-		if t, ok := p.b.Names[r.UID]; ok {
+		t, hasNames := p.b.Names[r.UID]
+		if hasNames {
 			rr.Names = &remapNames{Sources: t.Sources, Destinations: t.Destinations}
+		}
+		for _, lr := range liveRouters {
+			found, total := 0, 0
 			for kind, l := range map[string][]namedItem{config.MissingSource: t.Sources, config.MissingDestination: t.Destinations} {
 				for _, x := range l {
 					if normName(x.Name) == "" {
 						continue
 					}
 					total++
-					if liveNorm[kind][normName(x.Name)] {
+					if liveNorm[lr.UID][kind][normName(x.Name)] {
 						found++
 					}
 				}
 			}
+			rr.Candidates = append(rr.Candidates, remapCand{UID: lr.UID, Title: cmp.Or(lr.Title, lr.Prefix), Found: found, Total: total})
 		}
-		rr.Candidates = []remapCand{{UID: live.UID, Title: info.Targets[0].Title, Found: found, Total: total}}
 		byRouter[r.UID] = rr
 		info.Routers = append(info.Routers, *rr)
 	}
@@ -303,17 +330,26 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 		info.Routers[i].Refs = rr.Refs
 	}
 	p.plan.Remap = info
+	p.noteDrops()
 
-	names := map[string]map[int]string{config.MissingSource: src, config.MissingDestination: dst}
+	// A reference on a router with no target leaves its list: its item is not imported, and Rights lose it.
 	move := func(kind string, r config.Ref, _ refUse, _ string) []config.Ref {
 		rr := byRouter[r.Router]
-		if rr == nil || rr.Target == "" {
+		if rr == nil {
 			return nil
+		}
+		if rr.Target == "" {
+			return []config.Ref{}
+		}
+		n := p.liveNames[rr.Target]
+		names := n.src
+		if kind == config.MissingDestination {
+			names = n.dst
 		}
 		to := p.req.Names[remapRefKey(r.Router, kind, r.N)]
 		var out []config.Ref
 		for _, n := range to {
-			name, ok := names[kind][n]
+			name, ok := names[n]
 			if !ok {
 				continue
 			}
@@ -336,27 +372,11 @@ func (p *importPlanner) planRemap(src, dst map[int]string) {
 			p.movedDefaults[i] = out[0]
 		}
 	})
-	target := func(uid string) (string, bool) {
-		rr := byRouter[uid]
-		if rr == nil || rr.Target == "" {
-			return uid, false
-		}
-		return rr.Target, true
-	}
-	if p.b.Settings != nil {
-		p.b.Settings.HiddenDstsRouter, _ = target(p.b.Settings.HiddenDstsRouter)
-	}
-	sets, _ := p.b.Browser["filterSets"].([]any)
-	for _, s := range sets {
-		if m, ok := s.(map[string]any); ok {
-			if uid, ok := m["router"].(string); ok {
-				m["router"], _ = target(uid)
-			}
-		}
-	}
+	routerKeys(p.b, func(_, uid string) (string, bool) { return p.routers.to(uid) })
+	p.dropBrowser()
 	p.eachFileSet(func(key string, s *config.FilterSet) {
-		to, ok := target(s.Router)
-		if !ok {
+		to, ok := p.routers.to(s.Router)
+		if !ok || to == s.Router && byRouter[s.Router] == nil {
 			return
 		}
 		s.Router = to

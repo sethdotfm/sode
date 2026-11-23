@@ -167,11 +167,12 @@ export function importTab({ setNote, setReview, backup, own = false }) {
   }
 
   function routerNames() {
-    // An own import plans no Routers category and no remap, so the check names the live router.
+    // An own import plans no Routers category and no remap, so the check names the live routers.
     if (own) {
       const lines = (check.routers || []).map((r) => {
         const name = r.Title || r.Prefix;
-        return el('li', null, r.UID === check.router ? `${name}: this router` : `${name}: another router. Items that use it arrive Broken.`);
+        const here = (check.liveRouters || [check.router]).includes(r.UID);
+        return el('li', null, here ? `${name}: a router here` : `${name}: another router. Items that use it arrive Broken.`);
       });
       return lines.length ? [el('h3', 'sode__label sode__xi-h', 'Router names'), el('ul', 'sode__xi-list', ...lines)] : [];
     }
