@@ -34,6 +34,9 @@ type apiCtx struct {
 	// page: the browser connection that a main page tieTake runs for (tiepage.go). Its take is recorded as a take of
 	// that page, not of an API caller.
 	page *client
+	// planOnly: the page's Tie line picker asks for the plan (tiePlan). Sode answers the 409 of the plan and never
+	// takes or writes a Communication Log row.
+	planOnly bool
 }
 
 func (c *apiCtx) has(scope string) bool { return slices.Contains(c.Scopes, scope) }

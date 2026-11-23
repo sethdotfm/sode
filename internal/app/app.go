@@ -660,10 +660,18 @@ func (a *App) flush() {
 		}
 	}
 	a.flushVia()
-	// The protected message carries only the first router.
-	if first := a.firstUnit(); len(first.router.pendProt) > 0 {
-		a.broadcast(protectMsg{T: "protected", U: first.router.pendProt, By: a.protectByList(a.r())})
-		first.router.pendProt = nil
+	// The protected message of the first router has Sode's record; the message of each other router has its UID.
+	first := a.firstUnit()
+	for _, u := range a.unitsInOrder(a.r()) {
+		if len(u.router.pendProt) == 0 {
+			continue
+		}
+		if u == first {
+			a.broadcast(protectMsg{T: "protected", U: u.router.pendProt, By: a.protectByList(a.r())})
+		} else {
+			a.broadcast(protectMsg{T: "protected", U: u.router.pendProt, RouterUID: u.uid})
+		}
+		u.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
 		a.broadcastSent(a.pendSent)

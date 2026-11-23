@@ -112,6 +112,10 @@ var policy = map[string]rule{
 	"tieTake": {crit: critNever, role: config.RoleStandard, need: needMain, why: "take", write: true,
 		handle:   func(a *App, c *client, m *inMsg) { a.serveTieTake(c, m) },
 		onRefuse: func(a *App, c *client, m *inMsg, err error) { a.tieTakeRefused(c, m, err) }},
+	// The plan of the Tie line picker, with no take (tiepage.go). Not a write: it changes nothing.
+	"tiePlan": {crit: critNever, role: config.RoleStandard, need: needMain,
+		handle:   func(a *App, c *client, m *inMsg) { a.serveTiePlan(c, m) },
+		onRefuse: func(a *App, c *client, m *inMsg, err error) { a.pageTakesRefused(c, m, "tiePlanResult", err) }},
 	"rereadNames": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg) {
 		a.command(c, "rereadNames", "sent", "", nil)
 		go a.RefreshNames()

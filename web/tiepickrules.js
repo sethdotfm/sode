@@ -8,14 +8,16 @@
 // usable one in rank order, else the first one. So a change on one step takes the best path through it, which
 // calculates the later steps again.
 //
-// State: { route, path, step }. path is the index of the chosen path in route.paths; step is the step with focus.
+// State: { route, path, step, marks }. path is the index of the chosen path in route.paths; step is the step with
+// focus. marks are the changes that the live update found on the chosen path (refresh).
 
 // tieOf is the tie line id that hop h of path p feeds, or '' for the last hop.
 const tieOf = (p, h) => p.hops[h]?.tie?.id || '';
 
 // A hop that would change a Protected or Reserved tie line is grey: a person cannot choose it.
 export const hopHeld = (h) => !!(h.sends && (h.protect || h.reserve));
-export const pathUsable = (p) => !!p && !p.protected && !p.reserved && !p.hops.some(hopHeld);
+// A gone path is the chosen path after a new plan left it out (refresh): the picker shows it, but cannot send it.
+export const pathUsable = (p) => !!p && !p.gone && !p.protected && !p.reserved && !p.hops.some(hopHeld);
 
 // The number of steps of path p: one for each tie line.
 export const stepsOf = (p) => (p ? p.hops.length - 1 : 0);
@@ -36,8 +38,82 @@ const prefixOf = (p, n) => p.hops.slice(0, n).map((h) => h.tie?.id || '');
 
 // pickState opens the picker on the best path of route.
 export function pickState(route) {
-  return { route, path: Math.max(0, best(route.paths, [])), step: 0 };
+  return { route, path: Math.max(0, best(route.paths, [])), step: 0, marks: noMarks() };
 }
+
+// marks: ties are the tie lines whose row changed. end is the destination's hop. hits are the new Affected
+// destinations ("router n"). affected is any other change of the Affected destinations or of the cost.
+const noMarks = () => ({ ties: [], end: false, hits: [], affected: false });
+
+// pathKey names a path by its tie lines, upstream first. A new plan keeps the selection on the path with the same key.
+export const pathKey = (p) =>
+  p.hops
+    .slice(0, -1)
+    .map((h) => h.tie?.id || '')
+    .join(' ');
+
+const endKey = (e) => (e ? `${e.router} ${e.n}` : '');
+const chainSign = (c) =>
+  c ? JSON.stringify([endKey(c.origin), (c.via || []).map((v) => v.id), !!c.mixed, !!c.nothing, c.unknown || '', !!c.loop, (c.levels || []).map(endKey)]) : '';
+// The parts of a hop that a person sees and that the take depends on. The last change time is not one: a change of
+// the tie line changes what it carries.
+const hopSign = (h) => JSON.stringify([h.router, h.tie?.id || '', !!h.sends, h.protect || '', h.reserve || '', chainSign(h.now)]);
+
+// pathChanges compares two plans of one path: null when nothing changed. Else hops gives the index of each hop that
+// changed, and affected tells if its Affected destinations or its cost changed.
+export function pathChanges(was, now) {
+  const hops = [];
+  for (let i = 0; i < Math.max(was.hops.length, now.hops.length); i++) {
+    if (!was.hops[i] || !now.hops[i] || hopSign(was.hops[i]) !== hopSign(now.hops[i])) hops.push(i);
+  }
+  const ends = (p) => JSON.stringify([(p.affected || []).map(endKey), p.others || 0, p.unknown || [], !!p.loop]);
+  const affected = ends(was) !== ends(now);
+  const cost = was.cost !== now.cost || !!was.protected !== !!now.protected || !!was.reserved !== !!now.reserved || !!was.gone !== !!now.gone;
+  return hops.length || affected || cost ? { hops, affected, cost } : null;
+}
+
+// refresh puts a new plan of the route into the open picker (docs/tielines-design.md, The Tie line picker, rule 7).
+// The selection stays on the path with the same tie lines; it never moves by itself. When the new plan has no such
+// path, the old one stays as a gone path. changed: the cost, the Protect state or a link of the chosen path changed,
+// so the lockout starts again. The marks then name the changed rows.
+export function refresh(st, route) {
+  const was = chosen(st);
+  let paths = route.paths;
+  let i = was ? paths.findIndex((p) => pathKey(p) === pathKey(was)) : -1;
+  if (was && i < 0) {
+    paths = [...paths, { ...was, gone: true }];
+    i = paths.length - 1;
+  }
+  const next = { ...st, route: { ...route, paths }, path: Math.max(i, 0) };
+  const ch = was && pathChanges(was, paths[next.path]);
+  if (!ch) return { st: next, changed: false };
+  const now = paths[next.path];
+  const m = st.marks || noMarks();
+  const steps = stepsOf(now);
+  const ties = [...m.ties];
+  let end = m.end;
+  for (const h of ch.hops) {
+    if (h >= steps) end = true;
+    else if (!ties.includes(now.hops[h].tie.id)) ties.push(now.hops[h].tie.id);
+  }
+  const old = new Set((was.affected || []).map(endKey));
+  const hits = [...m.hits, ...(now.affected || []).map(endKey).filter((k) => !old.has(k) && !m.hits.includes(k))];
+  const affected = m.affected || ch.affected || (ch.cost && !ch.hops.length);
+  return { st: { ...next, marks: { ties, end, hits, affected } }, changed: true };
+}
+
+// reopenState opens the picker again after a take got 409 tie_line_changed. It chooses the path through ids, the tie
+// lines of that take, when the plan still has it. changed are the tie lines that moved; fresh are the Affected
+// destinations that the person did not see.
+export function reopenState(route, ids, changed = [], fresh = []) {
+  const st = pickState(route);
+  const i = route.paths.findIndex((p) => pathKey(p) === ids.join(' '));
+  return { ...st, path: i < 0 ? st.path : i, marks: { ties: [...changed], end: false, hits: fresh.map(endKey), affected: false } };
+}
+
+// marked: the mark of the open picker for a tie line id, an Affected destination or the destination's hop.
+export const tieMarked = (st, id) => !!st.marks?.ties.includes(id);
+export const hitMarked = (st, e) => !!st.marks?.hits.includes(endKey(e));
 
 export const chosen = (st) => st.route.paths[st.path] || null;
 
@@ -55,7 +131,7 @@ export function choices(st, s) {
     if (out.some((c) => c.tie === id)) continue;
     const i = best(paths, [...prefix, id]);
     const bp = paths[i];
-    out.push({ tie: id, name: bp.hops[s].tie?.name || id, path: i, hop: bp.hops[s], held: !pathUsable(bp) });
+    out.push({ tie: id, name: bp.hops[s].tie?.name || id, path: i, hop: bp.hops[s], held: !pathUsable(bp), gone: !!bp.gone });
   }
   return out;
 }

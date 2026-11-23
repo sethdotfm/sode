@@ -136,6 +136,9 @@ type protectMsg struct {
 	T  string       `json:"t"`  // "protected"
 	U  []protChange `json:"u"`  // [dst, level, device, kind]; device -1 when freed
 	By []protectBy  `json:"by"` // every Protect in Sode's record
+	// RouterUID names a router after the first. Its message carries no by. The page reads it only to plan an open Tie
+	// line picker again.
+	RouterUID string `json:"routerUid,omitempty"`
 }
 
 type protChange struct {

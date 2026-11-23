@@ -16,6 +16,11 @@ import {
   changedText,
   countUp,
   TICK_MS,
+  refresh,
+  reopenState,
+  pathKey,
+  tieMarked,
+  hitMarked,
 } from '../tiepickrules.js';
 
 // The shared plan fixture (internal/tieplan, web/test/tieplan.test.mjs). The page reads the 409 body of POST /takes;
@@ -191,4 +196,102 @@ test('the timer ticks each second and stops on close', () => {
   t.stop();
   assert.equal(live.size, 0, 'no timer stays after the picker closes');
   assert.ok(!t.running());
+});
+
+// A copy of a route with path i changed by fn.
+const edit = (route, i, fn) => {
+  const r = structuredClone(route);
+  fn(r.paths[i]);
+  return r;
+};
+
+test('a new plan with no change on the chosen path keeps the lockout and the selection', () => {
+  const route = apiRoute(byName('mesh: the cheapest'));
+  const st = keys(pickState(route), 'j');
+  const { st: next, changed } = refresh(st, structuredClone(route));
+  assert.ok(!changed);
+  assert.deepEqual(ties(next), ['t1']);
+  assert.deepEqual(next.marks, st.marks);
+  // A change on a path that is not chosen does not count.
+  const other = edit(
+    route,
+    route.paths.findIndex((p) => pathKey(p) === 't2'),
+    (p) => (p.cost += 5),
+  );
+  assert.ok(!refresh(st, other).changed);
+});
+
+test('a change to the cost, the Protect state or a link of the chosen path counts and marks the row', () => {
+  const route = apiRoute(byName('mesh: the cheapest'));
+  const st = pickState(route);
+  const at = st.path;
+  // A link: the tie line carries another source now.
+  let r = refresh(
+    st,
+    edit(route, at, (p) => (p.hops[0].now.origin = end('a', 9))),
+  );
+  assert.ok(r.changed);
+  assert.deepEqual(ties(r.st), ['t2'], 'the selection never moves by itself');
+  assert.ok(tieMarked(r.st, 't2') && !tieMarked(r.st, 't1'));
+  // The Protect state: the chosen path is held now, so Take stays off, and the selection stays on it.
+  r = refresh(
+    st,
+    edit(route, at, (p) => {
+      p.hops[0].protect = 'device 3';
+      p.protected = true;
+    }),
+  );
+  assert.ok(r.changed && !ready(r.st));
+  assert.deepEqual(ties(r.st), ['t2']);
+  // The cost and a new Affected destination.
+  r = refresh(
+    st,
+    edit(route, at, (p) => {
+      p.cost += 1;
+      p.affected.push(end('b', 50));
+    }),
+  );
+  assert.ok(r.changed && r.st.marks.affected);
+  assert.ok(hitMarked(r.st, { router: 'b', n: 50 }));
+  // The destination's own hop.
+  r = refresh(
+    st,
+    edit(route, at, (p) => (p.hops.at(-1).protect = 'device 3')),
+  );
+  assert.ok(r.changed && r.st.marks.end);
+});
+
+test('the paths can move in rank; the selection follows its tie lines, not its place', () => {
+  const route = apiRoute(byName('mesh: the cheapest'));
+  const st = keys(pickState(route), 'j');
+  const turned = { ...structuredClone(route), paths: structuredClone(route.paths).reverse() };
+  const { st: next, changed } = refresh(st, turned);
+  assert.ok(!changed);
+  assert.deepEqual(ties(next), ['t1']);
+});
+
+test('a chosen path that the new plan leaves out stays, grey, and cannot go', () => {
+  const route = apiRoute(byName('mesh: the cheapest'));
+  const st = keys(pickState(route), 'j');
+  const less = { ...structuredClone(route), paths: route.paths.filter((p) => pathKey(p) !== 't1') };
+  const { st: next, changed } = refresh(st, less);
+  assert.ok(changed);
+  assert.deepEqual(ties(next), ['t1']);
+  assert.ok(!ready(next));
+  assert.ok(choices(next, 0).find((c) => c.tie === 't1').gone);
+  // The same plan again changes nothing more; the path back is a change.
+  assert.ok(!refresh(next, structuredClone(less)).changed);
+  const back = refresh(next, structuredClone(route));
+  assert.ok(back.changed && ready(back.st));
+  assert.deepEqual(ties(back.st), ['t1']);
+});
+
+test('after tie_line_changed the picker opens again on the same tie lines, with the changes marked', () => {
+  const route = apiRoute(byName('mesh: the cheapest'));
+  const st = reopenState(route, ['t3', 't4'], ['t3'], [end('b', 7)]);
+  assert.deepEqual(ties(st), ['t3', 't4']);
+  assert.ok(tieMarked(st, 't3') && !tieMarked(st, 't4'));
+  assert.ok(hitMarked(st, { router: 'b', n: 7 }));
+  // Without that path, it opens on the best path.
+  assert.deepEqual(ties(reopenState(route, ['zz'])), ['t2']);
 });
