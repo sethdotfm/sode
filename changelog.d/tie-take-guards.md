@@ -1,0 +1,6 @@
+- Redo through the API goes to the router of its entry. Redo of a tie take sends nothing and answers with the paths, as Redo opens the picker.
+- A tie take that waited for a tie line lock plans its hops again after the wait. Thus it does not skip a hop.
+- Retry of a tie take from the History row sends only the hops that did not hold, after the same checks as the API Retry. The row offers no Redo of a tie take yet.
+- A take cannot route the upstream destination of a tie line and also go through that tie line. Sode refuses it before it sends anything.
+- The stale check accepts the per-level sources that Sode gives for a tie line downstream of a mixed tie line.
+- Put back from the History row sends only the levels that the hop changed.

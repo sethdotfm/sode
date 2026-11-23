@@ -1,9 +1,14 @@
 package app
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"slices"
+	"sync"
+	"sync/atomic"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
@@ -18,6 +23,9 @@ import (
 // carries the source is no step (tieplan: Sends false). Thus Sode sends only the failed hops and the hops after
 // them. If a hop no longer holds, the answer is 409 tie_line_changed with the tie lines as they are now: the caller
 // opens the picker. Each step links to the entry that it retries.
+//
+// A page sends its Retry as a take item that names the failed entry. For the entry of a tie take, pageTieRetry runs
+// the same plan; the item is not sent as a plain route. A hop entry has no Retry of its own.
 
 // lateHopScan is how many entries after a hop entry lateTieHop reads to find the entries of its Group.
 const lateHopScan = 256
@@ -51,8 +59,26 @@ func (a *App) lateTieHop(hop Entry) {
 	}
 }
 
+// tieRedoProblem is the answer to a Redo of e, the entry of the destination asked for in a tie take. Redo opens the
+// picker (docs/tielines-design.md, "Redo and Retry"). Thus Sode sends nothing. The answer is 409 with the paths as
+// they are now, as for a route with no ties. The hops of e name the tie lines that it used last time.
+func (a *App) tieRedoProblem(rt *runtime, rights config.Rights, v apiView, e Entry) *apiProblem {
+	r := tieRoute{src: tieplan.End{Router: e.Origin.Router, N: e.Origin.N}, dst: tieplan.End{Router: e.Router, N: e.Dst}, levels: distinct(e.Levels)}
+	if prob := a.tieRouteRights(rt, rights, []tieRoute{r}); prob != nil {
+		return prob
+	}
+	p := a.apiTieProblem(rt, v, []tieRoute{r})
+	if p.Code == "tie_line_needed" {
+		b := p.body.(apiTieBody)
+		p.Msg = fmt.Sprintf("entry %d is a tie take: redo opens the picker. Send the route again to POST %s/takes with ties, from the paths in routes, cheapest first", e.ID, apiBase)
+		b.Error.Message = p.Msg
+		p.body = b
+	}
+	return p
+}
+
 // planTieRetry is the Retry of e, the entry of the destination asked for in a tie take.
-func (a *App) planTieRetry(rt *runtime, cl *apiCtx, e Entry) (*takePlan, *apiProblem) {
+func (a *App) planTieRetry(rt *runtime, rights config.Rights, v apiView, e Entry) (*takePlan, *apiProblem) {
 	if e.OK {
 		return nil, problem(http.StatusConflict, "conflict", "entry %d succeeded; redo repeats it, retry is for failed takes", e.ID)
 	}
@@ -67,25 +93,129 @@ func (a *App) planTieRetry(rt *runtime, cl *apiCtx, e Entry) (*takePlan, *apiPro
 		}
 		r.expect[h.Tie] = w
 	}
-	if prob := a.tieRouteRights(rt, cl.Rights, []tieRoute{r}); prob != nil {
+	if prob := a.tieRouteRights(rt, rights, []tieRoute{r}); prob != nil {
 		return nil, prob
 	}
-	t, prob := a.planTieTake(rt, a.view(cl), []tieRoute{r}, map[int][]string{0: ids})
+	t, prob := a.planTieTake(rt, v, []tieRoute{r}, map[int][]string{0: ids})
 	if prob != nil {
 		return nil, prob
 	}
-	for _, s := range t.steps {
-		m := s.req.Tie
-		switch {
-		case m == nil:
-		case m.origin != nil:
-			id := e.ID
-			s.req.Retry = &id
-		default:
-			if i := slices.IndexFunc(e.Hops, func(h TieHop) bool { return h.Tie == m.tie && h.Entry != nil }); i >= 0 {
-				s.req.Retry = e.Hops[i].Entry
+	// Each step links to the entry that it retries, also in the plan that tieTakeBegin makes again.
+	link := func(t *tieTake) {
+		for _, s := range t.steps {
+			m := s.req.Tie
+			switch {
+			case m == nil:
+			case m.origin != nil:
+				id := e.ID
+				s.req.Retry = &id
+			default:
+				if i := slices.IndexFunc(e.Hops, func(h TieHop) bool { return h.Tie == m.tie && h.Entry != nil }); i >= 0 {
+					s.req.Retry = e.Hops[i].Entry
+				}
 			}
 		}
 	}
+	link(t)
+	again := t.again
+	t.again = func() (*tieTake, *apiProblem) {
+		t, prob := again()
+		if prob == nil {
+			link(t)
+		}
+		return t, prob
+	}
 	return &takePlan{Ties: t}, nil
+}
+
+// stepTaps sends the results of the steps of a tie take that a page started to that take, not to the page
+// (pageTieRetry). The steps have IDs below zero, so they never meet the IDs of a page.
+type stepTaps struct {
+	seq atomic.Int64
+	m   sync.Map // stepTap → *sinkResults
+}
+
+type stepTap struct {
+	c  *client
+	id int
+}
+
+// take gives rr to its tie take, if it is the result of a step that a page started.
+func (s *stepTaps) take(c *client, rr *routeResult) bool {
+	if rr.ID >= 0 {
+		return false
+	}
+	v, ok := s.m.Load(stepTap{c, rr.ID})
+	if !ok {
+		return false
+	}
+	sink := v.(*sinkResults)
+	sink.mu.Lock()
+	sink.by[rr.ID] = *rr
+	sink.mu.Unlock()
+	return true
+}
+
+// tieRetries takes out of items each Retry of an entry of a tie take: a hop entry or the entry of the destination.
+func (a *App) tieRetries(items []routeReq) (rest, ties []routeReq) {
+	for _, it := range items {
+		if it.Retry != nil {
+			if e, ok := a.hist.Get(*it.Retry); ok && (e.Tie != "" || e.Origin != nil) {
+				ties = append(ties, it)
+				continue
+			}
+		}
+		rest = append(rest, it)
+	}
+	return rest, ties
+}
+
+// pageTieRetry is a Retry from a page of the entry of a tie take. It plans, locks and sends as the API Retry does.
+// The page gets one result for its item: the result of the route.
+func (a *App) pageTieRetry(c *client, it routeReq) {
+	act, rights := a.callerOf(c)
+	fail := func(code, msg string) {
+		a.apiEvent(act, "retry", "refused", code, errors.New(msg))
+		a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: msg})
+	}
+	rt, v := a.r(), a.viewOf(rights)
+	e, ok := a.hist.Get(*it.Retry)
+	if ok {
+		e, ok = v.Entry(e)
+	}
+	switch {
+	case !ok:
+		fail("not_found", fmt.Sprintf("not sent: no History entry %d", *it.Retry))
+		return
+	case e.Tie != "":
+		fail("conflict", fmt.Sprintf("not sent: entry %d is a hop of a tie take. Retry its destination entry", e.ID))
+		return
+	}
+	plan, p := a.planTieRetry(rt, rights, v, e)
+	var t *tieTake
+	var unlock func()
+	if p == nil {
+		t, unlock, p = a.tieTakeBegin(rt, v, c, plan.Ties)
+	}
+	if p != nil {
+		msg := "not sent: " + p.Msg
+		if p.Code == "tie_line_changed" {
+			msg = "not sent: a tie line changed after the take. Choose the path again"
+		}
+		fail(p.Code, msg)
+		return
+	}
+	defer unlock()
+	sink := &sinkResults{by: map[int]routeResult{}}
+	for _, s := range t.steps {
+		s.req.ID = -int(a.stepTaps.seq.Add(1))
+		a.stepTaps.m.Store(stepTap{c, s.req.ID}, sink)
+	}
+	defer func() {
+		for _, s := range t.steps {
+			a.stepTaps.m.Delete(stepTap{c, s.req.ID})
+		}
+	}()
+	r := t.out(a.runTieTake(c, t, sink.get)).Results[0]
+	a.reply(c, &routeResult{T: "takeResult", ID: it.ID, OK: r.OK, Err: r.Error, Already: r.Already, Entry: r.Entry})
 }
