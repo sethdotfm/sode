@@ -1,59 +1,68 @@
-// The Lock bar: the lock button and "Signed in as <name>" with its menu. The menu has Sign out (Step out while stepped
-// in), Step in… and Change PIN. On Home, a guest gets Sign in. Settings > My user has the same actions (changepin.js);
-// lock.js owns the state.
+// The Lock bar: the lock button with its drop-down (Sign out, Step in… or Step out) and "Signed in as <name>" as plain
+// text. On Home, a guest gets Sign in. Settings > My user has the same actions (changepin.js); lock.js owns the state.
 
 import { el, icon, on } from './core.js';
 import { keyLabel } from './keys.js';
 import { buildChangePin } from './changepin.js';
 
-// api: { lock, signIn, signOut, stepIn, changePin, home, stepped, stepOffered }. home: the main page, the only one with
+// Long enough to cross the gap from the button to the drop-down without it closing; short enough to feel direct.
+const OPEN_MS = 120;
+const CLOSE_MS = 250;
+
+// api: { lock, signIn, signOut, stepIn, stepOut, home, stepped, stepOffered }. home: the main page, the only one with
 // the chip's Sign in and Step in; a panel page has its own Sign in (#panels-signin). stepped and stepOffered are read
-// at each open, since the menu is built once.
+// at each open, since the drop-down is built once.
 export function buildChip(api) {
+  // Its only caller: it registers the changePin bus that Settings > My user uses.
   buildChangePin();
   const name = el('span', 'sode-lock__who-name');
   const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start', icon('lock-open'));
   lockBtn.type = 'button';
   lockBtn.dataset.pbTip = `Lock (${keyLabel('ctrl+l')})`;
   lockBtn.setAttribute('aria-label', 'Lock');
+  lockBtn.setAttribute('aria-keyshortcuts', 'Control+L');
   lockBtn.addEventListener('click', () => api.lock());
   // Status with words, cross-faded with the button (is-hand) so the icon does not snap against the lock screen's border.
   const ico = el('span', 'sode-lock__who-ico', icon('lock'));
   const slot = el('div', 'sode-lock__who-slot', lockBtn, ico);
+  // Touch has no hover and a tap on the lock button locks, so the chevron opens the drop-down: two taps to an item.
+  const more = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode-lock__more', icon('chevron-down'));
+  more.type = 'button';
+  more.id = 'lock-chip-more';
+  more.dataset.pbTip = 'Sign out and Step in';
+  more.setAttribute('aria-label', 'Sign out and Step in');
+  more.setAttribute('aria-haspopup', 'menu');
+  more.setAttribute('aria-expanded', 'false');
+  more.setAttribute('aria-controls', 'lock-chip-menu');
   const signInBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode-lock__who-signin', 'Sign in');
   signInBtn.type = 'button';
   signInBtn.id = 'lock-chip-signin';
   signInBtn.hidden = true;
   signInBtn.addEventListener('click', () => api.signIn());
 
-  // The name stays the status text under the Lock; only the button look and the chevron fade (lock.css is-hand).
-  const nameBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode-lock__who-btn', name, el('span', 'sode-lock__who-chev', icon('chevron-down')));
-  nameBtn.type = 'button';
-  nameBtn.id = 'lock-chip-name';
-  nameBtn.setAttribute('aria-haspopup', 'menu');
-  nameBtn.setAttribute('aria-expanded', 'false');
-  nameBtn.setAttribute('aria-controls', 'lock-chip-menu');
-  const menu = el('ul', { class: 'pb-menu sode-lock__menu', id: 'lock-chip-menu', role: 'menu', 'aria-labelledby': 'lock-chip-name', hidden: true });
-  const item = (id, ico2, run) => {
-    const label = el('span');
+  const menu = el('ul', { class: 'pb-menu sode-lock__menu', id: 'lock-chip-menu', role: 'menu', 'aria-label': 'Sign out and Step in', hidden: true });
+  const item = (id, run) => {
+    const ico2 = el('span', 'sode-lock__menu-ico');
+    const label = el('span', 'sode-lock__menu-label');
     const hint = el('span', 'pb-menu__hint');
-    const b = el('button', { class: 'pb-menu__item', type: 'button', role: 'menuitem', id, tabIndex: -1 }, icon(ico2), label, hint);
+    const b = el('button', { class: 'pb-menu__item', type: 'button', role: 'menuitem', id, tabIndex: -1 }, ico2, label, hint);
     b.addEventListener('click', () => {
-      close(false);
+      close(true);
       run();
     });
     menu.append(el('li', { role: 'none' }, b));
-    return { b, label, hint };
+    return { b, ico: ico2, label, hint };
   };
-  const out = item('lock-chip-signout', 'door-open', () => api.signOut());
+  // The click asks no Confirm, as Settings' Sign out: the drop-down is already a second, deliberate step. The note says
+  // what Ctrl+Shift+L's Confirm says.
+  const out = item('lock-chip-signout', () => api.signOut());
+  out.ico.append(icon('log-out'));
+  out.label.append('Sign out', el('span', 'sode-lock__menu-note', 'Every tab that shares this sign-in'));
   out.hint.textContent = keyLabel('ctrl+shift+l');
-  const step = item('lock-chip-stepin', 'user', () => api.stepIn());
-  step.label.textContent = 'Step in…';
-  const pin = item('lock-chip-pin', 'key-round', () => api.changePin());
-  pin.label.textContent = 'Change PIN';
-  const who = el('div', 'sode-lock__who-menu', nameBtn, menu);
+  const step = item('lock-chip-stepin', () => (api.stepped() ? api.stepOut() : api.stepIn()));
+  const group = el('div', 'sode-lock__who-lock', slot, more, menu);
 
-  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', slot, who, signInBtn));
+  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', group, name, signInBtn));
   root.hidden = true;
   // The bar floats and takes no room. A page header keeps clear of its width (bar.css .sode-bar, and panels.css on a
   // panel page). px, not rem: a measured box, and the observer redoes it when the root font size changes the bar.
@@ -63,64 +72,120 @@ export function buildChip(api) {
 
   const items = () => [...menu.querySelectorAll('.pb-menu__item')].filter((b) => !b.closest('li').hidden);
   const isOpen = () => !menu.hidden;
+  let timer = 0;
+  // Set when Esc, a pick or our own refocus closed the drop-down: the focus that follows must not open it again.
+  // Cleared when the focus or the mouse leaves the group.
+  let quiet = false;
+  let user = false;
+  const later = (fn, ms) => {
+    clearTimeout(timer);
+    timer = setTimeout(fn, ms);
+  };
   function open(focusFirst) {
+    clearTimeout(timer);
+    if (lockBtn.inert || !user) return;
     const stepped = api.stepped();
-    out.label.textContent = stepped ? 'Step out' : 'Sign out';
-    step.b.parentElement.hidden = !api.home || !api.stepOffered();
-    menu.hidden = false;
-    nameBtn.setAttribute('aria-expanded', 'true');
-    document.addEventListener('pointerdown', outside, true);
+    // Stepped in, the server's userSignOut only steps out, so Sign out would repeat Step out.
+    out.b.parentElement.hidden = stepped;
+    step.b.parentElement.hidden = !api.home || !(stepped || api.stepOffered());
+    step.ico.replaceChildren(icon(stepped ? 'user-round-minus' : 'user-round-check'));
+    step.label.textContent = stepped ? 'Step out' : 'Step in…';
+    step.hint.textContent = stepped ? keyLabel('ctrl+shift+l') : '';
+    if (!isOpen()) {
+      menu.hidden = false;
+      more.setAttribute('aria-expanded', 'true');
+      root.classList.add('is-menu');
+      document.addEventListener('pointerdown', outside, true);
+    }
     if (focusFirst) items()[0]?.focus();
   }
   function close(refocus) {
+    clearTimeout(timer);
     if (!isOpen()) return;
+    const inside = group.contains(document.activeElement);
     menu.hidden = true;
-    nameBtn.setAttribute('aria-expanded', 'false');
+    more.setAttribute('aria-expanded', 'false');
+    root.classList.remove('is-menu');
     document.removeEventListener('pointerdown', outside, true);
-    if (refocus) nameBtn.focus({ preventScroll: true });
+    if (refocus && inside && !lockBtn.inert) {
+      quiet = true;
+      lockBtn.focus({ preventScroll: true });
+    }
   }
   function outside(e) {
-    if (!who.contains(e.target)) close(false);
+    if (!group.contains(e.target)) close(false);
   }
-  // detail 0: Enter or Space, which moves the focus into the menu as a menu button does.
-  nameBtn.addEventListener('click', (e) => (isOpen() ? close(false) : open(e.detail === 0)));
-  nameBtn.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-    e.preventDefault();
-    e.stopPropagation();
-    open(true);
-    if (e.key === 'ArrowUp') items().at(-1)?.focus();
+  // Mouse only: a touch tap also sends pointerenter, and that tap is the Lock.
+  group.addEventListener('pointerenter', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    if (isOpen()) clearTimeout(timer);
+    else if (!quiet) later(() => open(false), OPEN_MS);
   });
-  // Stopped here so Home's keys and keyboard mode do not act on the menu's keys. On the name too: a pointer opens the
-  // menu with the focus left there.
-  who.addEventListener('keydown', (e) => {
-    if (!isOpen()) return;
+  group.addEventListener('pointerleave', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    quiet = false;
+    // Keyboard focus inside keeps it open; the focusout below closes it.
+    if (group.contains(document.activeElement) && document.activeElement.matches(':focus-visible')) clearTimeout(timer);
+    else later(() => close(false), CLOSE_MS);
+  });
+  // Opens on keyboard focus only: a click on the lock button focuses it too, and that click is the Lock.
+  group.addEventListener('focusin', (e) => {
+    if (!quiet && e.target === lockBtn && lockBtn.matches(':focus-visible')) open(false);
+  });
+  group.addEventListener('focusout', (e) => {
+    if (group.contains(e.relatedTarget)) return;
+    quiet = false;
+    if (!group.matches(':hover')) close(false);
+  });
+  more.addEventListener('click', (e) => {
+    quiet = false;
+    if (isOpen()) close(false);
+    // detail 0: Enter or Space, which moves the focus into the drop-down as a menu button does.
+    else open(e.detail === 0);
+  });
+  // Stopped here so Home's keys and keyboard mode do not act on the drop-down's keys.
+  group.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const list = items();
     const i = list.indexOf(document.activeElement);
-    const to = i < 0 ? undefined : { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: list.length - 1 }[e.key];
-    if (e.key === 'Escape') close(true);
-    else if (e.key === 'Tab') return close(false);
-    else if (to !== undefined) list[(to + list.length) % list.length]?.focus();
-    else return;
+    if (e.key === 'Escape') {
+      if (!isOpen()) return;
+      close(false);
+      quiet = true;
+      if (i >= 0 || document.activeElement === more) lockBtn.focus({ preventScroll: true });
+    } else if (i < 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      quiet = false;
+      open(true);
+      if (e.key === 'ArrowUp') items().at(-1)?.focus();
+    } else if (i >= 0 && e.key === 'Tab') {
+      return close(false);
+    } else {
+      const to = i < 0 ? undefined : { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: list.length - 1 }[e.key];
+      if (to === undefined) return;
+      list[(to + list.length) % list.length]?.focus();
+    }
     e.preventDefault();
     e.stopPropagation();
   });
   on('locking', () => close(false));
 
-  // pageLocked: the lock button and the name's menu do nothing, so they go. signIn: chipSignInShown in lockrules.js.
+  // pageLocked: the lock button and its drop-down do nothing, so they go. signIn: chipSignInShown in lockrules.js.
   function update(L, chip, pageLocked, whoName = L.user, signIn = false) {
     root.hidden = !chip;
     root.classList.toggle('is-hand', !!pageLocked);
-    lockBtn.inert = !!pageLocked; // out of the tab order and unclickable while faded
+    // out of the tab order and unclickable while faded
+    lockBtn.inert = !!pageLocked;
     lockBtn.setAttribute('aria-hidden', String(!!pageLocked));
+    more.inert = !!pageLocked;
     ico.setAttribute('aria-hidden', String(!pageLocked));
-    // Under the Lock the name is status only: a span's role, with no menu.
-    nameBtn.inert = !!pageLocked;
-    nameBtn.hidden = !whoName;
+    // The drop-down has nothing to offer without a user. The chevron keeps its box while a name shows, so the name holds
+    // still under the held Lock, where L.user is empty.
+    user = !!L.user;
+    more.hidden = !whoName;
     const text = whoName ? `Signed in as ${whoName}` : '';
-    // A new user (Step in, Step out) makes the open menu's items stale.
+    // A new user (Step in, Step out) makes the open drop-down's items stale.
     if (!chip || pageLocked || !L.user || name.textContent !== text) close(false);
-    name.textContent = text;
+    if (name.textContent !== text) name.replaceChildren(...(whoName ? ['Signed in as ', el('strong', 'sode-lock__who-user', whoName)] : []));
     signInBtn.hidden = !api.home || !signIn;
   }
   // Swaps the icon when the overlay's border starts to move.

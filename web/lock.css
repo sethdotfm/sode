@@ -319,44 +319,79 @@
 .sode-lock__who-name {
   color: var(--pb-text);
   font-size: var(--pb-text-sm);
-  font-weight: var(--pb-weight-medium);
+  white-space: nowrap;
 }
-/* "Signed in as" is the menu's button. Under the Lock (is-hand) it is status only: its edge and chevron fade with the
-   lock button, and the name holds still. */
-.sode-lock__who-menu {
+/* The name in the accent: patchbay's one accent sits apart from every status hue, so it reads as "who", not as a state.
+   On the pick bar (history.css) the chip's text is on the accent, so the name takes that colour. */
+.sode-lock__who-user {
+  color: var(--pb-accent);
+  font-weight: var(--pb-weight-bold);
+}
+[data-sode-pick] .sode-lock__who-user {
+  color: inherit;
+}
+/* The lock button, its chevron and the drop-down under them. Under the Lock (is-hand) the chevron fades with the lock
+   button and keeps its box, so the name holds still. */
+.sode-lock__who-lock {
   display: flex;
+  flex: none;
   position: relative;
 }
-.sode-lock__who-btn {
-  gap: var(--pb-space-2);
-  transition:
-    background-color var(--sode-lock-out) var(--pb-ease),
-    border-color var(--sode-lock-out) var(--pb-ease);
+.sode-lock__more {
+  height: var(--pb-control-h-sm);
+  padding: 0;
+  transition: opacity var(--sode-lock-out) var(--pb-ease);
+  width: calc(var(--pb-control-h-sm) * 0.75);
 }
-.sode-lock__who-btn[hidden],
-.sode-lock__menu[hidden] {
+.sode-lock__more[hidden],
+.sode-lock__menu[hidden],
+[data-layout="phone"] .sode-lock__more {
   display: none;
 }
-.sode-lock__who-chev {
-  display: inline-flex;
-  transition: opacity var(--sode-lock-out) var(--pb-ease);
-}
-[data-sode-lock-on] .sode-lock__who-btn,
-[data-sode-lock-on] .sode-lock__who-chev {
+[data-sode-lock-on] .sode-lock__more {
   transition-duration: var(--sode-lock-motion);
 }
-.sode-lock__who.is-hand .sode-lock__who-btn {
-  background-color: transparent;
-  border-color: transparent;
-}
-.sode-lock__who.is-hand .sode-lock__who-chev {
+.sode-lock__who.is-hand .sode-lock__more {
   opacity: 0;
+  pointer-events: none;
+}
+.sode-lock__more > .pb-icon {
+  transition: transform var(--pb-motion-fast) var(--pb-ease);
+}
+.sode-lock__who.is-menu .sode-lock__more > .pb-icon {
+  transform: rotate(180deg);
+}
+/* The tips would sit on the drop-down's first item. The Lock's key stays in its aria-keyshortcuts and the key list. */
+.sode-lock__who.is-menu .sode-lock__who-lock [data-pb-tip]::after {
+  display: none;
 }
 .sode-lock__menu {
   left: 0;
   list-style: none;
   position: absolute;
   top: calc(100% + var(--pb-space-2));
+}
+/* A strip over the gap, so a pointer on its way from the button to the drop-down stays over the group. */
+.sode-lock__menu::before {
+  content: "";
+  height: var(--pb-space-2);
+  inset: auto 0 100%;
+  position: absolute;
+}
+.sode-lock__menu .pb-menu__item {
+  gap: var(--pb-space-3);
+}
+.sode-lock__menu-ico {
+  display: inline-flex;
+  flex: none;
+}
+.sode-lock__menu-label {
+  display: flex;
+  flex-direction: column;
+}
+.sode-lock__menu-note {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
 }
 .sode-lock__pin[hidden] {
   display: none;

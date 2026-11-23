@@ -449,7 +449,7 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
 }
 /* The corner items fade out but keep their place, tab stop and name. Hover or focus shows them again. The status hides
    only while both links are up (sode__conn--ok, desktop.js). The Lock bar fades on .sode-lock__who-bar, since
-   .sode-lock__who's own transition belongs to the Lock. */
+   .sode-lock__who's own transition belongs to the Lock; an open drop-down (is-menu) keeps it shown. */
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok,
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"], [data-sode-lock]) .sode-lock__who:not(.is-hand) .sode-lock__who-bar {
   opacity: 0;
@@ -457,7 +457,7 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
 }
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--ok:is(:hover, :focus-within),
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"], [data-sode-lock])
-  .sode-lock__who:not(.is-hand):is(:hover, :focus-within)
+  .sode-lock__who:not(.is-hand):is(:hover, :focus-within, .is-menu)
   .sode-lock__who-bar {
   opacity: 1;
 }
