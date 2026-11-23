@@ -212,9 +212,14 @@ func (p *importPlanner) planDefaults(cat *importCat) error {
 	for _, im := range p.b.Artwork.DefaultImages {
 		images[im.ID] = im
 	}
+	// A pick can name a default on the file's first router by its old key (ArtDefault.oldKey).
+	first := ""
+	if len(p.b.Routers) > 0 {
+		first = p.b.Routers[0].UID
+	}
 	for i, d := range p.b.Artwork.Defaults {
 		key := d.key()
-		if !p.picked(catArtwork, key) {
+		if !p.picked(catArtwork, key) && !(d.keyed(d.oldKey(), first) && p.picked(catArtwork, d.oldKey())) {
 			continue
 		}
 		it := importItem{Key: key, Name: d.Name, Kind: kindDefault}

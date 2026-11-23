@@ -7,7 +7,9 @@ import { artOf, artBOf, withDefault, textHidden } from './panellook.js';
 // hidden. null when the name has neither icon.
 export function nameArt(edge, kind, n, defaults) {
   const own = edge?.items?.[n] || {};
-  const drawn = withDefault({ kind, n, art: own.art, artB: own.artB, hideText: own.hideText }, defaults);
+  // The router the number was read with (gridedgerefs.js); none is the first router.
+  const router = edge?.routers?.[n];
+  const drawn = withDefault({ kind, n, ...(router ? { router } : {}), art: own.art, artB: own.artB, hideText: own.hideText }, defaults);
   const a = artOf(drawn);
   const b = artBOf(drawn);
   if (!a && !b) return null;

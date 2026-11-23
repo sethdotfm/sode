@@ -85,8 +85,9 @@ const edgeKey = (e) => {
 // fields is the sidebar's edits: {settings, acts, clientRights}, each present only after an edit. clientRights is
 // left out otherwise so the server keeps the stored Rights (it is possible that an Administrator widened them). grid is Page 1 as
 // stored, whichever Page has focus. pages is the Page list with every Page's edits, and the server refuses a body
-// with both pages and cells.
-export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {
+// with both pages and cells. own is the first router's UID, which a Grid edge's number with no router of its own is on
+// (gridedgerefs.js edgeOut).
+export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel()), own = '') {
   const rest = { ...loaded };
   delete rest.canEdit;
   delete rest.clientRights;
@@ -97,14 +98,17 @@ export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded
     delete rest.rows;
     delete rest.cols;
     const base = newPanel('grid');
-    return edgesOut({
-      ...rest,
-      name: name.trim(),
-      pages: [],
-      sources: rest.sources ?? base.sources,
-      destinations: rest.destinations ?? base.destinations,
-      ...edits,
-    });
+    return edgesOut(
+      {
+        ...rest,
+        name: name.trim(),
+        pages: [],
+        sources: rest.sources ?? base.sources,
+        destinations: rest.destinations ?? base.destinations,
+        ...edits,
+      },
+      own,
+    );
   }
   const { rows, cols, cells } = saved(grid);
   return { ...rest, name: name.trim(), rows, cols, pages: storedPages(pages, cells, rows, cols), ...edits };

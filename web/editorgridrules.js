@@ -46,6 +46,15 @@ const withoutHide = (edge) => {
   return out;
 };
 
+// The editor adds items from the first router's list, so an added number drops the router it was read with
+// (gridedgerefs.js routers).
+function onFirstRouter(edge, ns) {
+  if (!edge.routers || !ns.some((n) => n in edge.routers)) return edge;
+  const routers = { ...edge.routers };
+  for (const n of ns) delete routers[n];
+  return { ...edge, routers };
+}
+
 export function clearEdge(edge, rights, kind) {
   const keep = isAll(edge) ? [] : edge.members.filter((n) => !allowed(rights, kind, n));
   let e = { ...withoutHide(edge), members: keep, items: { ...(edge?.items || {}) } };
@@ -56,7 +65,11 @@ export function clearEdge(edge, rights, kind) {
 export const followRouter = (edge) => ({ ...withoutHide(edge), members: 'all' });
 
 // Follow the router switched off: the edge keeps what it shows now, in the same order, as a list.
-export const stopFollowing = (edge, router) => (isAll(edge) ? { ...withoutHide(edge), members: membersOf(edge, router) } : edge);
+export const stopFollowing = (edge, router) => {
+  if (!isAll(edge)) return edge;
+  const members = membersOf(edge, router);
+  return onFirstRouter({ ...withoutHide(edge), members }, members);
+};
 
 // Add from the router: the router's items the panel does not have, in router order, within the Rights.
 export function routerRows(router, edge, rights, kind) {
@@ -102,7 +115,7 @@ export function addItems(edge, router, selected, { at } = {}) {
   if (selected instanceof Set) add.sort((a, b) => a - b);
   if (!add.length) return edge;
   const i = Number.isInteger(at) ? Math.max(0, Math.min(at, list.length)) : list.length;
-  return { ...withoutHide(edge), members: [...list.slice(0, i), ...add, ...list.slice(i)] };
+  return onFirstRouter({ ...withoutHide(edge), members: [...list.slice(0, i), ...add, ...list.slice(i)] }, add);
 }
 
 // The panel's list keys, by chord (keys.js), while the list itself has focus. go moves the cursor (extend: Shift

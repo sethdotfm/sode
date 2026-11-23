@@ -48,3 +48,15 @@ test('the key changes with the artwork and only then', () => {
   assert.notEqual(k, nameArtKey(nameArt(edge, 'source', 3, defaults)));
   assert.equal(nameArtKey(null), '');
 });
+
+test('a name read with a router shows the Default artwork of that router', () => {
+  const two = defaultsBy(
+    [
+      { kind: 'source', router: 'ra', n: 6, artB: 'A' },
+      { kind: 'source', router: 'rb', n: 6, artB: 'B' },
+    ],
+    'ra',
+  );
+  assert.equal(nameArt({ members: 'all' }, 'source', 6, two).b, 'A');
+  assert.equal(nameArt({ members: [6], routers: { 6: 'rb' } }, 'source', 6, two).b, 'B');
+});
