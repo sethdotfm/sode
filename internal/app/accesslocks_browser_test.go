@@ -44,8 +44,9 @@ func TestChromeLocksGuestRoleAndNewUserDefaults(t *testing.T) {
 	b.eval(`document.getElementById('review-save').click(); true`)
 	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
-	b.waitFor("saved", `!document.getElementById('review').offsetParent && document.getElementById('cfg-guest-role').value === 'trusted'`)
-	// The review closes on settingsSaveResult, which follows the commit.
+	// The review hides while the PIN recheck is open, and the field holds the staged value, so neither says the save
+	// is done. "Unsaved changes" goes on settingsSaveResult, which follows the commit.
+	b.waitFor("saved", `!document.getElementById('settings-path').textContent.includes('Unsaved') && document.getElementById('settings-err').hidden && document.getElementById('cfg-guest-role').value === 'trusted'`)
 	if c := a.r().cfg; c.GuestRole != config.RoleTrusted || !c.NewUserDefaults.Persistent || c.NewUserDefaults.NoAutoLock {
 		t.Fatalf("Guest role %q, New user defaults %+v", c.GuestRole, c.NewUserDefaults)
 	}
