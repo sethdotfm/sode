@@ -252,7 +252,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 
 ## API
 
-1. `POST /takes` accepts an optional `ties` list, one tie line for each hop, with the source that the caller expects on each. A One-off tie line is `{from, to}`.
+1. Each route of `POST /takes` accepts an optional `ties` list: one tie line for each hop before the last, upstream first. Each has the source that the caller expects on it (`{id, expect}`). A One-off tie line is `{from, to}`.
 2. Without `ties`, Sode refuses a route across routers with 409 `tie_line_needed`. The reply lists the ranked paths, cheapest first.
 3. A preset fire with tie lines answers 409 `tie_confirm_needed` with the state of each tie line. A request that names each tie line and its expected source goes through.
 4. If a tie line moved, Sode answers 409 `tie_line_changed` with the state of each tie line now.

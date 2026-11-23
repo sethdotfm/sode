@@ -32,6 +32,8 @@ type routeReq struct {
 	PresetID string `json:"-"`
 	// Stage: levels, by wire number, that go in a native group salvo (fire.go); other levels go as ordinary connects.
 	Stage map[int]bool `json:"-"`
+	// Tie: this route is a hop of a tie take (tietake.go), with what its entry keeps.
+	Tie *tieMark `json:"-"`
 }
 
 // routeLimit: one take runs this many routes at one time; the link sends one message per ACK, so more would time out.
@@ -63,6 +65,11 @@ func (a *App) takeAllowed(c *client, items []routeReq) (unread bool) {
 			items[i].Group, items[i].GroupN = g, len(items)
 		}
 	}
+	return a.runParts(r, c, items)
+}
+
+// runParts runs items, which already have their Group, on their routers side by side.
+func (a *App) runParts(r *runtime, c *client, items []routeReq) (unread bool) {
 	parts := a.byRouter(c, items)
 	reads := make([]bool, len(parts))
 	// Each router has its own link and send queue, so the parts run side by side.
@@ -193,6 +200,9 @@ func (a *App) planPhase(r *runtime, u *routerUnit, c *client, req routeReq) (*wa
 	}
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, PresetID: req.PresetID, Prev: [][2]int{}}
 	e.Router = u.uid
+	if m := req.Tie; m != nil {
+		e.Tie, e.Origin, e.Hops, e.ViaPrev = m.tie, m.origin, m.hops, m.viaPrev
+	}
 	e.BrowserOf = a.browserOf(c)
 	if c.api != nil {
 		e.setActor(c.api.Actor)

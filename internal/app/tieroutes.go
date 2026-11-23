@@ -13,8 +13,8 @@ import (
 )
 
 // Routes across routers (docs/tielines-design.md). internal/tieplan finds and ranks the paths. This file gives it the
-// state of every router. It also turns its Result into the 409 bodies of POST /takes. Sode does not send a tie take
-// yet. Thus a route across routers always gets 409 tie_line_needed or 409 no_path, and nothing goes to a router.
+// state of every router. It also turns its Result into the 409 bodies of POST /takes. A route across routers with
+// no ties gets 409 tie_line_needed or 409 no_path, and nothing goes to a router. tietake.go sends a route with ties.
 
 // apiTiePaths: the most paths one route of a 409 body lists.
 const apiTiePaths = 20
@@ -104,7 +104,7 @@ func (a *App) apiTieProblem(rt *runtime, v apiView, routes []tieRoute) *apiProbl
 	defer a.mu.Unlock()
 	plans := a.planTieRoutes(rt, routes)
 	body := apiTieBody{Routes: make([]apiTieRouteOut, len(routes))}
-	code, msg := "tie_line_needed", "a route across routers needs a tie line for each hop; Sode does not send takes through tie lines yet. The paths are in routes, cheapest first"
+	code, msg := "tie_line_needed", "a route across routers needs a tie line for each hop: send the route again with ties. The paths are in routes, cheapest first"
 	for i, r := range routes {
 		body.Routes[i] = a.apiTieRoute(rt, v, r, plans[i])
 		if plans[i].Usable() == nil {

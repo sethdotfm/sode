@@ -511,10 +511,19 @@ paths:
         Scope `take`. Synchronous, see Writes above. Always 200 after the take ran, even when a
         route failed: read each result. Refusals before anything is sent are errors. With two or more
         routers, a bare number is 400 `router_needed`. A route with its ends on two routers needs tie
-        lines, and Sode does not send takes through tie lines yet. Such a route gets 409
-        `tie_line_needed` with the ranked paths of each such route. A route with no usable path gets
-        409 `no_path` with each reason. Nothing is sent to a router. Rights cover the typed ends
-        first (403 `outside_rights`).
+        lines. Send `ties` with it: one tie line for each hop before the last, upstream first. Without
+        `ties`, such a route gets 409 `tie_line_needed` with the ranked paths of each such route. A
+        route with no usable path gets 409 `no_path` with each reason. Nothing is sent to a router
+        then. Rights cover the typed ends first (403 `outside_rights`); hops need no Rights.
+
+        With `ties`, Sode sends the hops upstream first. Each hop before the last switches all levels
+        of its router; the last hop switches the typed levels. A hop that several routes of the take
+        share is sent one time. A hop whose tie line already carries the source is not sent. If a hop
+        fails, Sode does not send the hops after it. Each hop makes its own History entry (with
+        `tie`), and the take is one Group. The result of a route is the result of its last hop, with
+        `hops`. Ties that make no path get 400 `bad_request`. A tie line that two routes of the take
+        need for two sources gets 409 `conflict`. A router down on the path gets 409 `no_path` or
+        `tie_line_needed` with the paths that remain.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -538,6 +547,19 @@ paths:
                       src: { $ref: "#/components/schemas/RouteEnd" }
                       dst: { $ref: "#/components/schemas/RouteEnd" }
                       levels: { type: array, items: { type: integer }, description: "UI levels from 1; omitted or empty means the server's Default levels, so send them" }
+                      ties:
+                        type: array
+                        description: "Only for a route with its ends on two routers. One tie line for each hop before the last, upstream first. A path of 409 `tie_line_needed` gives them"
+                        items:
+                          type: object
+                          required: [id]
+                          additionalProperties: false
+                          properties:
+                            id: { type: string, description: "The tie line id from GET /tielines" }
+                            expect:
+                              nullable: true
+                              allOf: [{ $ref: "#/components/schemas/RouteEnd" }]
+                              description: "The source that the caller saw on the tie line; null for nothing. Sode does not compare it yet"
             example:
               routes: [{ src: 1, dst: 0, levels: [1] }]
       responses:
@@ -2420,6 +2442,7 @@ components:
               already: { type: array, items: { type: integer }, description: Levels already on the source }
               error: { type: string }
               entry: { type: integer, description: The History entry id; follow it for a late result }
+              hops: { type: array, items: { $ref: "#/components/schemas/EntryHop" }, description: "A route across routers: each hop before the last, upstream first" }
         leftOut: { type: array, items: { type: string }, description: 'Preset parts the router no longer has, as the stored name and the number, for example "CAM 3 (source 13)"' }
         skippedLevels: { type: array, items: { type: integer }, description: Undo only }
         untouchedLevels: { type: array, items: { type: integer }, description: Undo only }
@@ -3136,6 +3159,49 @@ components:
         followGroup: { type: string, description: "External only, the Group of that take" }
         router: { type: string, description: "The router UID. Absent on entries from before v2" }
         routerTitle: { type: string, description: "The router title when the entry was made, kept after a rename" }
+        tie: { type: string, description: "A tie take: this entry is a hop before the last, and it feeds the tie line with this id" }
+        origin:
+          type: object
+          description: "A tie take: on the entry of the destination asked for, the typed source. That entry is the last hop, so src is the real crosspoint on the router of the destination"
+          required: [router, n]
+          properties:
+            router: { type: string }
+            n: { type: integer }
+            name: { type: string }
+        hops: { type: array, items: { $ref: "#/components/schemas/EntryHop" }, description: "A tie take: the hops before the last, upstream first" }
+        viaPrev:
+          type: array
+          description: "A tie take: the Via chain of each typed level before the take. `origin` is null when `nothing`, `unknown` or `loop` is set, or when the caller's hidden visibility does not show it"
+          items:
+            type: object
+            required: [level, origin, via, mixed, nothing, unknown, loop]
+            properties:
+              level: { type: integer }
+              origin:
+                nullable: true
+                type: object
+                properties:
+                  router: { type: string }
+                  n: { type: integer }
+              via: { type: array, items: { type: string }, description: "Tie line ids, upstream first" }
+              mixed: { type: boolean }
+              nothing: { type: boolean }
+              unknown: { type: string }
+              loop: { type: boolean }
+    EntryHop:
+      type: object
+      description: "One hop before the last of a tie take. `entry` is the hop's own History entry; there is none when the tie line already carried the source. `prev` is what the tie line carried before, from that entry"
+      required: [router, src, dst, levels, tie, tieName, result, prev]
+      properties:
+        router: { type: string }
+        src: { type: integer }
+        dst: { type: integer }
+        levels: { type: array, items: { type: integer } }
+        tie: { type: string }
+        tieName: { type: string }
+        entry: { type: integer }
+        result: { type: string, enum: [connected, already, failed] }
+        prev: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 } }
     LogRow:
       type: object
       description: One Communication Log row, a router message or an event such as an `api` row.

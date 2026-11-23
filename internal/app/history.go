@@ -66,6 +66,14 @@ type Entry struct {
 	// the device that set the hold.
 	HoldKind string `json:"holdKind,omitempty"`
 	Device   int    `json:"device,omitempty"`
+	// A tie take (tietake.go). Tie: this entry is a hop before the last, and it feeds the tie line with this id. The
+	// entry of the destination asked for is the last hop, so Src is the real crosspoint on the router of Dst. Its Origin
+	// is the typed source. Hops are the hops before the last, upstream first. ViaPrev is the Via chain of each typed
+	// level before the take.
+	Tie     string     `json:"tie,omitempty"`
+	Origin  *TieEnd    `json:"origin,omitempty"`
+	Hops    []TieHop   `json:"hops,omitempty"`
+	ViaPrev []ViaLevel `json:"viaPrev,omitempty"`
 }
 
 // logLine: off turns 0-based numbers into the router's display numbers.
@@ -283,6 +291,8 @@ func cloneEntry(e Entry) Entry {
 	e.Already = slices.Clone(e.Already)
 	e.Late = slices.Clone(e.Late)
 	e.Unsent = slices.Clone(e.Unsent)
+	e.Hops = slices.Clone(e.Hops)
+	e.ViaPrev = slices.Clone(e.ViaPrev)
 	return e
 }
 

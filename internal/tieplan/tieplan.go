@@ -307,6 +307,38 @@ func Plan(in Input, rt Route) Result {
 	return res
 }
 
+// Through gives the path of rt through the tie lines ids. The ids go in order from the router of the source to the
+// router of the destination. It is the path that Plan gives for that chain, so the take sends what the caller saw.
+// A nil Reason means the chain is a path. Else Why is one of these:
+//   - "unknown_tie": Tie is not a tie line.
+//   - "not_joined": Tie does not start on the router where the chain is, or goes back to a router. With no Tie, the
+//     chain ends on router From, not on To.
+//   - "router_down": Router is down.
+func Through(in Input, rt Route, ids []string) (Path, *Reason) {
+	p := newPlanner(in)
+	at, visited := rt.Src.Router, map[string]bool{rt.Src.Router: true}
+	ties := make([]int, len(ids))
+	for i, id := range ids {
+		ti := slices.IndexFunc(in.Ties, func(t Tie) bool { return t.ID == id })
+		switch {
+		case ti < 0:
+			return Path{}, &Reason{Why: "unknown_tie", Tie: id}
+		case in.Ties[ti].From.Router != at || visited[in.Ties[ti].To.Router]:
+			return Path{}, &Reason{Why: "not_joined", Tie: id}
+		}
+		ties[i] = ti
+		at = in.Ties[ti].To.Router
+		visited[at] = true
+	}
+	if at != rt.Dst.Router {
+		return Path{}, &Reason{Why: "not_joined", From: at, To: rt.Dst.Router}
+	}
+	if down := p.downOn(rt, ties); down != "" {
+		return Path{}, &Reason{Why: "router_down", Router: down}
+	}
+	return p.path(rt, ties), nil
+}
+
 // search finds each chain of tie lines from router at to router to that visits no router two times.
 func (p *planner) search(at, to string, visited map[string]bool, ties []int, found *[][]int) {
 	if len(*found) >= maxPaths {
