@@ -4,15 +4,15 @@ import assert from 'node:assert/strict';
 import './domstub.mjs';
 
 test('failed takes: reasons, undo and changedSince', async () => {
-  const { S, undoPlan, failureGroups, changedSince } = await import('./all.mjs');
+  const { S, undoPlan, failureGroups, changedSince, routerData } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([
+  routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
     [3, {}],
     [4, {}],
   ]);
-  S.srcBy = new Map([
+  routerData('').srcBy = new Map([
     [0, { n: 0, num: 1, name: 'CAM 1', label: 'CAM 1' }],
     [8, { n: 8, num: 9, name: 'CAM 9', label: 'CAM 9' }],
   ]);
@@ -57,7 +57,7 @@ test('failed takes: reasons, undo and changedSince', async () => {
   );
   assert.deepEqual(item.untouched, [1, 2]);
   // Level 4 changed after the take. Level 3 never confirmed, so nothing shows if it changed.
-  S.tally = new Map([
+  routerData('').tally = new Map([
     [
       5,
       new Map([
@@ -74,9 +74,9 @@ test('failed takes: reasons, undo and changedSince', async () => {
 });
 
 test('late confirms: note, putEntry, undo and changedSince', async () => {
-  const { S, entryNote, putEntry, undoPlan, changedSince } = await import('./all.mjs');
+  const { S, entryNote, putEntry, undoPlan, changedSince, routerData } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([
+  routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
     [3, {}],
@@ -129,7 +129,7 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
   );
   assert.deepEqual(item.untouched, []);
   // Late level 3 changed after the take: it counts as any other level of the take.
-  S.tally = new Map([
+  routerData('').tally = new Map([
     [
       5,
       new Map([
@@ -162,9 +162,9 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
 });
 
 test('histRows: followers of a confirm go in its folder', async () => {
-  const { S, histRows, setFilter, entryNote } = await import('./all.mjs');
+  const { S, histRows, setFilter, entryNote, routerData } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([[1, {}]]);
+  routerData('').levelBy = new Map([[1, {}]]);
   const t = (id, dst) => ({
     id,
     dst,
@@ -222,14 +222,14 @@ test('histRows: followers of a confirm go in its folder', async () => {
 });
 
 test('failure banner: grouped lines, shrinks as takes resolve', async () => {
-  const { S, failureBanner } = await import('./all.mjs');
+  const { S, failureBanner, routerData } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([
+  routerData('').levelBy = new Map([
     [1, { label: '1' }],
     [2, { label: '2' }],
     [3, { label: '3' }],
   ]);
-  S.srcBy = new Map([[0, { n: 0, num: 1, name: 'CAM 1', label: 'CAM 1' }]]);
+  routerData('').srcBy = new Map([[0, { n: 0, num: 1, name: 'CAM 1', label: 'CAM 1' }]]);
   const dst = (n) => ({ n, label: `D${n}` });
   const mk = (id, extra = {}) => ({
     id,

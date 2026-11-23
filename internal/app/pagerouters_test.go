@@ -23,7 +23,7 @@ func pageMsgs(t *testing.T, c *client) map[string][]map[string]any {
 	return out
 }
 
-// The hello lists every router with its names, tally, levels and link state, and keeps the flat fields for the first.
+// The hello lists every router with its names, tally, levels and link state. It has no flat fields of one router.
 func TestHelloListsEveryRouter(t *testing.T) {
 	a, _, _, u := twoRouterFiles(t)
 	readUnitNames(a, a.first, []string{"A CAM 1"}, []string{"A MON 1"})
@@ -32,10 +32,7 @@ func TestHelloListsEveryRouter(t *testing.T) {
 	u.router.tally[0] = map[int]int{1: 0}
 	u.status.Router = string(swp08.StateUp)
 	var h struct {
-		Srcs     [][2]any `json:"srcs"`
-		RouterID string   `json:"routerUid"`
-		Prefix   string   `json:"prefix"`
-		Routers  []struct {
+		Routers []struct {
 			UID, Prefix, Title string
 			Levels             []map[string]any
 			Srcs, Dsts         [][2]any
@@ -43,19 +40,26 @@ func TestHelloListsEveryRouter(t *testing.T) {
 			Status             map[string]any
 		} `json:"routers"`
 	}
-	err := json.Unmarshal(a.hello(helloPage{}), &h)
+	raw := a.hello(helloPage{})
+	err := json.Unmarshal(raw, &h)
 	a.mu.Unlock()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(h.Srcs) != 1 || h.Srcs[0][1] != "A CAM 1" || h.Prefix != "A" || h.RouterID != a.r().cfg.UID {
-		t.Errorf("flat fields: %v %q %q", h.Srcs, h.Prefix, h.RouterID)
+	var flat map[string]any
+	if err := json.Unmarshal(raw, &flat); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"srcs", "dsts", "at", "savedAt", "tally", "status", "levels", "prefix", "routerUid"} {
+		if _, ok := flat[k]; ok {
+			t.Errorf("the hello has the flat field %q", k)
+		}
 	}
 	if len(h.Routers) != 2 {
 		t.Fatalf("routers: %+v", h.Routers)
 	}
 	f, b := h.Routers[0], h.Routers[1]
-	if f.UID != a.first.uid || f.Prefix != "A" || len(f.Srcs) != 1 || f.Srcs[0][1] != "A CAM 1" {
+	if f.UID != a.r().cfg.UID || f.Prefix != "A" || len(f.Srcs) != 1 || f.Srcs[0][1] != "A CAM 1" {
 		t.Errorf("first router: %+v", f)
 	}
 	if b.UID != u.uid || b.Prefix != "B" || b.Title != "Second" || len(b.Levels) != 3 || b.Dsts[0][1] != "B MON 1" {

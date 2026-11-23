@@ -1,6 +1,6 @@
 // The setup wizard (docs/agents/server.md, setup.go): a config file with no users opens it in
 // place of the patch page. Nothing is sent but the Router step's address until Finish.
-import { $, S, el, on, emit, onMsg, wsSend, icon, LINK_DOWN } from './core.js';
+import { $, S, el, on, emit, onMsg, wsSend, icon, LINK_DOWN, routerData } from './core.js';
 import { showBrand } from './brand.js';
 import { brandCaution, pickerColors, CAUTION_NOTE } from './accent.js';
 import { statusText } from './statustext.js';
@@ -90,7 +90,7 @@ function statusLine() {
   const line =
     d.again && d.router.trim() !== (S.cfg.router || '')
       ? { ok: false, text: 'Connects on Save' }
-      : routerLine(d.router, S.router, S.srcs.length, S.dsts.length);
+      : routerLine(d.router, routerData('').link, routerData('').srcs.length, routerData('').dsts.length);
   if (!line) return [];
   return [statusText(line.ok ? 'ok' : 'warn', el('span', null, line.text))];
 }
@@ -154,7 +154,7 @@ function sheet() {
 
 function doneText() {
   const addr = () => el('span', { class: 'pb-text-mono' }, d.router.trim());
-  const linked = routerLine(d.router, S.router, S.srcs.length, S.dsts.length)?.ok;
+  const linked = routerLine(d.router, routerData('').link, routerData('').srcs.length, routerData('').dsts.length)?.ok;
   return [
     'You are signed in as ',
     strong(d.name.trim()),
@@ -167,7 +167,7 @@ function doneText() {
 
 // The Level numbering guide: the main page's level chips for the typed count, display only.
 function levelGuide() {
-  const levels = guideLevels(d.levels, d.levelNumbering, S.levels);
+  const levels = guideLevels(d.levels, d.levelNumbering, routerData('').levels);
   if (!levels.length) return null;
   const picks = levelPicks(levels, () => {});
   for (const b of picks) b.setAttribute('aria-pressed', 'true');

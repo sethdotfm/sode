@@ -132,9 +132,9 @@ test('histRows', async () => {
 });
 
 test('rapid changes to one destination stack, from any instance', async () => {
-  const { histRows, S, setFilter, stackBefore, tallyText, stackGapMs, setPref, FILTER_DEFAULT } = await import('./all.mjs');
+  const { histRows, S, setFilter, stackBefore, tallyText, stackGapMs, setPref, FILTER_DEFAULT, routerData } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([
+  routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
   ]);
@@ -237,10 +237,10 @@ test('filter sets', async () => {
 
 test('follows and merged chains', async () => {
   const core = await import('./all.mjs');
-  const { S, histRows, undoPlan, groupUndoPlan, sendTakes, pickSet } = core;
+  const { S, histRows, undoPlan, groupUndoPlan, sendTakes, pickSet, routerData } = core;
   pickSet('all', 'All');
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([
+  routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
   ]);
@@ -348,7 +348,7 @@ test('follows and merged chains', async () => {
 
 test('quick search', async () => {
   const core = await import('./all.mjs');
-  const { S, histRows, setSearch, setFilter, setPref, FILTER_DEFAULT } = core;
+  const { S, histRows, setSearch, setFilter, setPref, FILTER_DEFAULT, routerData } = core;
   S.cfg = { numberOffset: 1, filterSets: [] };
   const T = (s) => new Date(Date.UTC(2026, 9, 23, 14, 0, s)).toISOString();
   const e = (o) => ({ levels: [1], prev: [], ok: true, time: T(0), ...o });
@@ -372,10 +372,10 @@ test('quick search', async () => {
   assert.equal(ids(), '4');
   setSearch({ src: 'CAM 2', dst: '' });
   assert.equal(ids(), '2');
-  S.dstBy = new Map([[2, { n: 2, name: 'MV 76', num: '3', lname: 'mv 76', label: '3 MV 76' }]]);
+  routerData('').dstBy = new Map([[2, { n: 2, name: 'MV 76', num: '3', lname: 'mv 76', label: '3 MV 76' }]]);
   setSearch({ src: '', dst: 'dsm1' });
   assert.equal(ids(), '4');
-  S.dstBy = new Map();
+  routerData('').dstBy = new Map();
   setSearch({ src: 'CAM 2', dst: '' });
   setPref('searchFilters', 'on');
   assert.equal(ids(), '');
@@ -387,10 +387,10 @@ test('quick search', async () => {
 
 test('follows whose take is hidden, and trimming after a search', async () => {
   const core = await import('./all.mjs');
-  const { S, histRows, setFilter, setSearch, FILTER_DEFAULT } = core;
+  const { S, histRows, setFilter, setSearch, FILTER_DEFAULT, routerData } = core;
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.srcBy = new Map();
-  S.dstBy = new Map();
+  routerData('').srcBy = new Map();
+  routerData('').dstBy = new Map();
   const T = (s) => new Date(Date.UTC(2026, 9, 23, 15, 0, s)).toISOString();
   const e = (o) => ({ levels: [1], prev: [], ok: true, time: T(0), ...o });
   const hist = [
@@ -464,9 +464,9 @@ test('history pages', async () => {
 });
 
 test('undo warns about changes since', async () => {
-  const { S, undoPlan, restorePlan, changedSince } = await import('./all.mjs');
+  const { S, undoPlan, restorePlan, changedSince, routerData } = await import('./all.mjs');
   S.cfg = { ...S.cfg, numberOffset: 1 };
-  S.levelBy = new Map([1, 2, 3].map((ui) => [ui, { ui, label: String(ui) }]));
+  routerData('').levelBy = new Map([1, 2, 3].map((ui) => [ui, { ui, label: String(ui) }]));
   // #20 put src 7 on dst 5, levels 1-3, replacing src 1.
   const e = {
     id: 20,
@@ -483,7 +483,7 @@ test('undo warns about changes since', async () => {
     dstName: '',
     time: new Date(0).toISOString(),
   };
-  S.tally = new Map([
+  routerData('').tally = new Map([
     [
       5,
       new Map([
@@ -495,7 +495,7 @@ test('undo warns about changes since', async () => {
   ]);
   assert.deepEqual(changedSince(undoPlan(e).items[0]), []);
   // After that, levels 2 and 3 went to src 9 (an External, or found at resync).
-  S.tally.get(5).set(2, 9).set(3, 9);
+  routerData('').tally.get(5).set(2, 9).set(3, 9);
   assert.deepEqual(changedSince(undoPlan(e).items[0]), [{ src: 9, levels: [2, 3] }]);
   assert.deepEqual(changedSince(undoPlan({ ...e, ok: false }).items[0]), []);
   assert.deepEqual(changedSince({ ...undoPlan(e).items[0], undo: null }), []);

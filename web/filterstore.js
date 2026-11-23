@@ -1,6 +1,6 @@
 // History's filter, per browser (filters.js edits it), and the named filter sets. hidden: show Externals on the destinations that Settings hides.
 
-import { S, on, onMsg, emit, off, srcItem, dstItem } from './core.js';
+import { S, on, onMsg, emit, off, srcItem, dstItem, routerData } from './core.js';
 import { filterFn, entryAllows, stackAllows } from './filter.js';
 import { pref } from './device.js';
 import { profile, profileName } from './profile.js';
@@ -299,8 +299,8 @@ export function filterAllows(e) {
   const s = srcItem(ends.src.n, ends.src.name, ends.src.router),
     d = dstItem(ends.dst.n, ends.dst.name, ends.dst.router);
   const dn = ends.dst.n + off();
-  const router = ends.dst.router || S.routerUid;
-  const srcRouter = ends.src.router || S.routerUid;
+  const router = ends.dst.router || routerData('').uid;
+  const srcRouter = ends.src.router || routerData('').uid;
   const x = {
     ext: !!e.ext,
     sn: ends.src.n + off(),

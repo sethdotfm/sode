@@ -9,17 +9,18 @@ const STATE = { up: 'ok', connecting: 'warn', down: 'error' };
 const WORD = { up: 'connected', connecting: 'connecting', down: 'down' };
 const RANK = { error: 3, warn: 2, idle: 1, ok: 0 };
 
-// One entry per router, in config order. The first router comes from the scalar fields (routerUid, prefix, router,
-// routerAddr, routerLastErr). Each router after it in s.routers comes from of(uid), { link, addr, err }: routerData
-// in core.js. link is the server's own word (up, connecting, down); state is a setDot state.
-export function routerLinks(s, of = null) {
-  const first = routerLink(s, s.routerUid, s.prefix, s.cfg?.routerName, s.routerAddr, s.router, s.routerLastErr);
-  if (!of || !(s.routers?.length > 1)) return [first];
-  const more = s.routers.slice(1).map((r) => {
-    const d = of(r.uid) || {};
-    return routerLink(s, r.uid, r.prefix, r.title, d.addr || r.address, d.link, d.err);
-  });
-  return [first, ...more];
+// One entry per router of s.routers, in config order; before the hello, one entry for the first router. of(uid) gives
+// the router's { uid, prefix, title, link, addr, err }: routerData in core.js, where blank is the first router. A
+// router after the first with no link address yet shows its address from the settings. link is the server's own word
+// (up, connecting, down); state is a setDot state.
+export function routerLinks(s, of) {
+  const first = of('');
+  const list = [routerLink(s, first.uid, first.prefix, first.title, first.addr, first.link, first.err)];
+  for (const r of (s.routers || []).slice(1)) {
+    const d = of(r.uid);
+    list.push(routerLink(s, r.uid, r.prefix, r.title, d.addr || r.address, d.link, d.err));
+  }
+  return list;
 }
 
 export function routerLink(s, uid, prefix, title, addr, link, err) {

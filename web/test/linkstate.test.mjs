@@ -9,21 +9,19 @@ import { logCSV, statesCSV, minutesCSV, LOG_COLS } from '../logfile.js';
 const up = { wsState: 'up' };
 const link = (prefix, state, err = '') => routerLink(up, `u${prefix}`, prefix, '', '10.0.0.1:8910', state, err);
 
-test('routerLinks: the first router from the flat fields, each other one from of(uid)', () => {
+test('routerLinks: every router from of(uid), the first one by a blank UID', () => {
   const s = {
     wsState: 'up',
-    router: 'up',
-    routerUid: 'ua',
-    prefix: 'A',
-    routerAddr: '10.0.0.1:8910',
-    routerLastErr: '',
-    cfg: { routerName: 'Main' },
     routers: [
       { uid: 'ua', prefix: 'A', title: 'Main' },
       { uid: 'ub', prefix: 'B', title: 'Truck', address: '10.0.0.2:8910' },
     ],
   };
-  const of = (uid) => ({ ub: { link: 'down', addr: '10.0.0.2:8910', err: 'refused' } })[uid];
+  const of = (uid) =>
+    ({
+      '': { uid: 'ua', prefix: 'A', title: 'Main', link: 'up', addr: '10.0.0.1:8910', err: '' },
+      ub: { uid: 'ub', link: 'down', addr: '', err: 'refused' },
+    })[uid];
   const list = routerLinks(s, of);
   assert.deepEqual(
     list.map((r) => [r.uid, r.prefix, r.title, r.addr, r.state, r.word, r.err]),
@@ -32,7 +30,7 @@ test('routerLinks: the first router from the flat fields, each other one from of
       ['ub', 'B', 'Truck', '10.0.0.2:8910', 'error', 'down', 'refused'],
     ],
   );
-  assert.equal(routerLinks(s).length, 1, 'with no of, only the first router');
+  assert.equal(routerLinks({ wsState: 'up' }, of).length, 1, 'before the hello, only the first router');
   assert.equal(routerLinks({ ...s, routers: s.routers.slice(0, 1) }, of).length, 1);
 });
 

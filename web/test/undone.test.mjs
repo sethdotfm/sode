@@ -87,15 +87,15 @@ test('a Group header counts whole routes', () => {
 
 const setup = async () => {
   const m = await import('./all.mjs');
-  const { S } = m;
+  const { S, routerData } = m;
   S.cfg = { numberOffset: 1, filterSets: [] };
-  S.levelBy = new Map([
+  routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
   ]);
-  S.srcBy = new Map();
-  S.dstBy = new Map();
-  S.tally = new Map();
+  routerData('').srcBy = new Map();
+  routerData('').dstBy = new Map();
+  routerData('').tally = new Map();
   return m;
 };
 

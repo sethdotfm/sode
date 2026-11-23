@@ -1,7 +1,7 @@
 // The Palette's rows that run on Home (main.js only): presets, filter sets, settings, Settings buttons and Home's own
 // actions. Another page sends its row here (palette.js takeHandoff); Home runs it once the hello, the names and the
 // sign-in are known.
-import { $, S, on, emit } from './core.js';
+import { $, S, on, emit, routerData } from './core.js';
 import { setHomeRunner, takeHandoff, paletteRowsReady, openPalette } from './palette.js';
 import { fire, fillBoxes } from './presets.js';
 import { allPresets } from './presetstore.js';
@@ -78,7 +78,7 @@ let seen = false;
 let pending = takeHandoff();
 async function runPending() {
   // A preset needs the router's names to make its plan.
-  if (!pending || !S.cfg || !seen || (pending.key.startsWith('preset:') && !S.srcBy.size)) return;
+  if (!pending || !S.cfg || !seen || (pending.key.startsWith('preset:') && !routerData('').srcBy.size)) return;
   const h = pending;
   pending = null;
   const row = rowByKey(await paletteRowsReady(), h.key);

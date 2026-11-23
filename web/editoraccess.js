@@ -1,5 +1,5 @@
 // The server decides who is allowed to set up a client (ADR 0006): a Trusted user, within their own Rights.
-import { $, el, S } from './core.js';
+import { $, el, routerData } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, segmented } from './formbits.js';
 import { openShare } from './panelshare.js';
@@ -119,7 +119,7 @@ export function createAccessTab(ed, ctx) {
   hidden.input.addEventListener('change', sendRights);
   limit.input.addEventListener('change', () => {
     if (limit.input.checked) {
-      draft = draftOf(ed.panel()?.clientRights, ctx.offset(), presets, S.routerUid);
+      draft = draftOf(ed.panel()?.clientRights, ctx.offset(), presets, routerData('').uid);
       fill();
       sendRights();
     } else {

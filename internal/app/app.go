@@ -724,11 +724,11 @@ func (a *App) readHello() helloPage {
 	return helloPage{recent, morePages(recent)}
 }
 
-// The hello's flat fields carry the first router, and routers carries every router. Caller holds mu.
+// The hello's routers list carries the names, tally, levels and link of every router. Protects are the first
+// router's. Caller holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	first := a.firstUnit()
-	n := first.namesMsg()
 	// A hello reaches pages under a lock: no users in it (AGENTS.md).
 	cfg := r.cfg
 	users := make([]helloUser, 0, len(cfg.Users))
@@ -737,12 +737,10 @@ func (a *App) hello(p helloPage) []byte {
 	}
 	cfg.Users = nil
 	m := helloMsg{
-		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: first.router.savedAt,
-		Tally: routeTriples(first.router.tally), Protect: protectRows(first.router.protect), ProtectBy: a.protectByList(r),
-		Status: first.status, Recent: p.recent, More: p.more,
-		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
-		ConfigPath: a.cfgPath, Version: BuildLabel(),
-		BrandColors: config.BrandColors, Prefix: r.cfg.Prefix, RouterUID: r.cfg.UID,
+		T: "hello", Protect: protectRows(first.router.protect), ProtectBy: a.protectByList(r),
+		Recent: p.recent, More: p.more,
+		LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
+		ConfigPath: a.cfgPath, Version: BuildLabel(), BrandColors: config.BrandColors,
 		InstallUID: r.cfg.InstallUID, NoAdministrator: noAdministrator(r.cfg),
 		NotSaved: a.cfgPath == "", Setup: a.setupHelloFor(r.cfg), Routers: a.helloRouters(r),
 	}
@@ -762,11 +760,12 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 		rc := lv.rc
 		n := u.namesMsg()
 		out = append(out, helloRouter{
-			UID: u.uid, Prefix: rc.Prefix, Title: rc.Title, Address: rc.Address, Matrix: rc.Matrix,
+			UID: rc.UID, Prefix: rc.Prefix, Title: rc.Title, Address: rc.Address, Matrix: rc.Matrix,
 			NumberOffset: rc.NumberOffset, Levels: lv.levels,
 			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
-			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, Tally: routeTriples(u.router.tally), Status: u.statusOut(),
-			Via: a.pageViaRows(u, x),
+			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: u.router.savedAt, Tally: routeTriples(u.router.tally),
+			Status: u.statusOut(),
+			Via:    a.pageViaRows(u, x),
 		})
 	}
 	return out

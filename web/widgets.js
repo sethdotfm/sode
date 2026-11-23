@@ -1,7 +1,7 @@
 // Widgets both layouts build the same way; each layout passes its own elements.
 
 import { byText } from './lockrules.js';
-import { el, S, needsLink, numText, srcItem, dstItem, tallyText, chevron, icon } from './core.js';
+import { el, S, needsLink, numText, srcItem, dstItem, tallyText, chevron, icon, routerData } from './core.js';
 import { viaMark } from './viaview.js';
 import { listStep, addClick, pickOrAdd, keyLabel } from './keys.js';
 import { levelBar, levelText } from './levelview.js';
@@ -414,7 +414,7 @@ export function stackFrom(e, onPickSrc) {
 // button. addDst(item) is the Ctrl-click on a followed destination.
 
 export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst: onPickDst, addDst: onAddDst }) {
-  const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
+  const lv = (ls) => ls.filter((u) => routerData('').levelBy.has(u));
   const step = (time, levels, text, btn, follows = null, src = null) =>
     el(
       'div',
@@ -459,7 +459,7 @@ export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst:
 // onPickDst(item) makes each fill the Destination box; onAddDst(item) is the Ctrl-click that adds it.
 export function followBoxes(follows, levels, onPickDst, onAddDst) {
   if (!follows?.length) return null;
-  const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
+  const lv = (ls) => ls.filter((u) => routerData('').levelBy.has(u));
   const same = (ls) => lv(ls).join() === lv(levels).join();
   return el(
     'span',

@@ -1,6 +1,6 @@
 // browserCopy makes the server write one Settings saves row (docs/agents/profiles.md).
 
-import { S, on, request } from './core.js';
+import { on, request, routerData } from './core.js';
 import { buildExport } from './exportfmt.js';
 import { browserValues } from './exportcalls.js';
 import { copyDoc, toClear } from './browsercopyrules.js';
@@ -22,8 +22,8 @@ function clear(moved, keep) {
   if (c.presets.length) putLocalPresets(localPresets().filter(gone(c.presets)));
 }
 
-const srcName = (n) => S.srcBy.get(n)?.name || '';
-const dstName = (n) => S.dstBy.get(n)?.name || '';
+const srcName = (n) => routerData('').srcBy.get(n)?.name || '';
+const dstName = (n) => routerData('').dstBy.get(n)?.name || '';
 
 export function openBrowserCopy() {
   const d = copyDoc(browserValues());

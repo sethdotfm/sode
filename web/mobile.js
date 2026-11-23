@@ -20,6 +20,7 @@ import {
   labelNode,
   routerOfItem,
   linkList,
+  routerData,
 } from './core.js';
 import { defaultLevelsWord, allLevels, levelText, levelSource, oneLevel } from './levelview.js';
 import { levelBox } from './levelbox.js';
@@ -207,7 +208,8 @@ function choose(it) {
 // The last + add arms the next add on the empty box, by the Next match behavior setting as on the desktop. Typing, a
 // Next, an edit and a reset end it.
 let lastAdd = null;
-const armed = () => (lastAdd && !inputs.dst.value ? nextAdd(lastAdd, S.dsts, (d) => M.dsts.some((x) => x.n === d.n), nextFind(S.dsts)) : null);
+const armed = () =>
+  lastAdd && !inputs.dst.value ? nextAdd(lastAdd, routerData('').dsts, (d) => M.dsts.some((x) => x.n === d.n), nextFind(routerData('').dsts)) : null;
 
 function paintArmed() {
   const d = armed();

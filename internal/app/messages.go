@@ -50,21 +50,14 @@ type deltaMsg struct {
 
 // helloMsg: every key always sent (none omitempty).
 type helloMsg struct {
-	T       string          `json:"t"` // "hello"
-	Srcs    [][2]any        `json:"srcs"`
-	Dsts    [][2]any        `json:"dsts"`
-	At      time.Time       `json:"at"`
-	SavedAt time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
-	Tally   json.RawMessage `json:"tally"`            // routeTriples
-	Protect json.RawMessage `json:"protected"`        // protectRows: [dst, level, device, kind]
+	T       string          `json:"t"`         // "hello"
+	Protect json.RawMessage `json:"protected"` // protectRows of the first router: [dst, level, device, kind]
 	// ProtectBy: the Protects in Sode's own record, with who set each (protect.go).
-	ProtectBy     []protectBy    `json:"protectBy"`
-	Status        statusMsg      `json:"status"`
-	Recent        []Entry        `json:"history"`
-	More          bool           `json:"more"`
-	Levels        []config.Level `json:"levels"`
-	LevelDefaults []string       `json:"levelDefaults"`
-	Cfg           config.Config  `json:"cfg"`
+	ProtectBy     []protectBy   `json:"protectBy"`
+	Recent        []Entry       `json:"history"`
+	More          bool          `json:"more"`
+	LevelDefaults []string      `json:"levelDefaults"`
+	Cfg           config.Config `json:"cfg"`
 	// Versions: each one Save field's version (onesave.go); a save sends back the one it loaded.
 	Versions map[string]string `json:"versions"`
 	// Users: the sign-in list. It reaches locked pages, so it holds each name and PIN length (0 for
@@ -73,12 +66,8 @@ type helloMsg struct {
 	ConfigPath  string              `json:"configPath"`
 	Version     string              `json:"version"`
 	BrandColors []config.BrandColor `json:"brandColors"`
-	// RouterUID: browsers write it into This browser presets and filter sets. Never shown.
-	RouterUID string `json:"routerUid"`
 	// InstallUID: pages compare it with an Item link's install. Never shown.
 	InstallUID string `json:"installUid"`
-	// Prefix is the router prefix, so typing accepts A.23. Not in cfg, which hides it.
-	Prefix string `json:"prefix"`
 	// NoAdministrator: users and no Administrator (a hand-edited file). The page shows the
 	// recovery banner. Only a restart can change it.
 	NoAdministrator bool `json:"noAdministrator,omitempty"`
@@ -86,13 +75,15 @@ type helloMsg struct {
 	NotSaved bool `json:"notSaved,omitempty"`
 	// Setup opens the setup wizard (setup.go): only while setup is pending.
 	Setup *setupHello `json:"setup,omitempty"`
-	// Routers: every router, the first one first. The flat fields above repeat the first router until the page reads
-	// only this list.
+	// Routers: every router, the first one first. The page reads the names, tally, levels and link of each router only
+	// from this list.
 	Routers []helloRouter `json:"routers"`
 }
 
-// helloRouter is one router of the hello. UID is the router unit's UID, which the tally, names and status messages
-// and a take's route name.
+// helloRouter is one router of the hello. UID is the router's UID in the settings. Browsers write it into This
+// browser presets and filter sets. The tally, names and status messages and a take's route name it too. Only the
+// unit of the first router can carry an older UID (an import changed it). A page takes an unknown UID as the first
+// router.
 type helloRouter struct {
 	UID    string `json:"uid"`
 	Prefix string `json:"prefix"`
@@ -108,7 +99,8 @@ type helloRouter struct {
 	Srcs           [][2]any        `json:"srcs"`
 	Dsts           [][2]any        `json:"dsts"`
 	At             time.Time       `json:"at"`
-	Tally          json.RawMessage `json:"tally"` // routeTriples
+	SavedAt        time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
+	Tally          json.RawMessage `json:"tally"`            // routeTriples
 	Status         statusMsg       `json:"status"`
 	// Via: the rows of the tally whose source a tie line feeds, with their Via (pagevia.go). A `viaRows` message
 	// replaces them.

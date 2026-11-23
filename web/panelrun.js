@@ -1,6 +1,6 @@
 // Runs one panel: the page /panels/<id>, or embedded in the Live Editor with its own ui and call (no keepalive, no
 // instance). The key is the user's session key, the link's key, or a Public panel's short-lived key (panelpublic.go).
-import { emit, on, S, showNote } from './core.js';
+import { emit, on, S, showNote, routerData } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
 import { paintOffline, waitForSode } from './panelwait.js';
@@ -330,7 +330,7 @@ function tallyFeed({ door, body, ui, rights, used, showOffline, onFail }) {
     body.data({ ...shownData(null), pr: null, link, first: false });
     body.render();
   };
-  let router = S.router;
+  let router = routerData('').link;
   const offs = [
     on('tallyRows', (u) => {
       if (door.ended) return;
@@ -356,8 +356,8 @@ function tallyFeed({ door, body, ui, rights, used, showOffline, onFail }) {
       poll();
     }),
     on('conn', () => {
-      if (S.router === router) return;
-      router = S.router;
+      if (routerData('').link === router) return;
+      router = routerData('').link;
       if (feed.live) poll();
     }),
   ];

@@ -206,19 +206,19 @@ function push() {
   const more = places.routers.slice(1).map((r, i) => ({ place: i + 1, rt: routerData(r.uid) }));
   const nm = namesNew
     ? mergeNames(
-        namesReplyOf({ srcs: S.srcs, dsts: S.dsts, numberOffset: off() }),
+        namesReplyOf({ srcs: routerData('').srcs, dsts: routerData('').dsts, numberOffset: off() }),
         more.map(({ place, rt }) => ({ place, reply: namesReplyOf({ srcs: rt.srcs, dsts: rt.dsts, numberOffset: rt.off }) })),
         places,
       )
     : null;
   namesNew = false;
   const tally = tallyReplyOf({
-    router: S.routerUid,
-    levels: S.levels,
+    router: routerData('').uid,
+    levels: routerData('').levels,
     levelNumbering: S.cfg.levelNumbering,
     defaultLevels: S.cfg.defaultLevels,
-    tally: S.tally,
-    via: S.via,
+    tally: routerData('').tally,
+    via: routerData('').via,
   });
   // Each router's own levels go with its tally, so a route on it takes its levels (gridpanellevels.js otherRouterLevels).
   const others = more.map(({ place, rt }) => ({

@@ -2,7 +2,7 @@
 // Destinations lists (#ed-lists). It opens on Panel and switches to Cell when the selection moves to new squares or
 // rows. On a Grid panel the Cell tab edits the rows selected in one list; a selection in the other list ends it.
 // initSidebar(editor) takes what runEditor returns.
-import { $, S, el, on } from './core.js';
+import { $, el, on, routerData } from './core.js';
 import { makeTabs } from './tabs.js';
 import { rectOf } from './gridmodel.js';
 import { createCellTab } from './editorcell.js';
@@ -14,7 +14,7 @@ import { createRowClip } from './editorrowclip.js';
 export function initSidebar(ed) {
   const host = $('ed-side');
 
-  const ctx = { offset: () => ed.names().off || 0, levelCount: () => S.levels.length };
+  const ctx = { offset: () => ed.names().off || 0, levelCount: () => routerData('').levels.length };
   let active = null; // the list whose selection the Cell tab edits
   const picked = () => {
     const rows = active?.picked() || [];
@@ -65,10 +65,12 @@ export function initSidebar(ed) {
   ed.useCellTab({ node: cell.node, openPicker: () => cell.openPicker() });
   tabs.select('ed-panel');
 
-  // Levels come from the hello the page's socket gets (S.levels), which carries each level's label and color.
+  // Levels come from the hello the page's socket gets (routerData('').levels), which carries each level's label and color.
   let seen = '';
   function readLevels() {
-    const now = S.levels.map((l) => `${l.ui}${l.label}${l.color || l.swatch}`).join();
+    const now = routerData('')
+      .levels.map((l) => `${l.ui}${l.label}${l.color || l.swatch}`)
+      .join();
     if (now === seen) return;
     seen = now;
     cell.resetLevels();
