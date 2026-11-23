@@ -21,7 +21,8 @@ import (
 // steps after it are not sent; each one records a failed entry, so the Group keeps its size. A hop whose tie line
 // already carries the source (tieplan: Sends false) is not sent and has no entry.
 //
-// Not here yet: the stale check and tie locks, and the Protect check on every hop before sending. Also the Result
+// tielock.go locks the tie lines and runs the stale check before the first wave. Not here yet: the Protect check on
+// every hop before sending. Also the Result
 // across hops, put-back, One-off tie lines and the Tie line picker. The API is the only caller.
 
 // TieEnd is a router reference with the name that Sode had for it.
@@ -140,6 +141,9 @@ func (a *App) planTieTake(rt *runtime, v apiView, routes []tieRoute, ties map[in
 			}
 			last := len(path.Hops) - 1
 			for _, h := range path.Hops[:last] {
+				if w := r.expect[h.Tie]; w.perLevel && len(w.levels) != len(h.Levels) {
+					return problem(http.StatusBadRequest, "bad_request", "route %d: expect on %s needs one entry for each of its %d levels", r.index, t.name(h.Tie), len(h.Levels))
+				}
 				if s, ok := carries[h.Tie]; ok && s != r.src {
 					return problem(http.StatusConflict, "conflict", "route %d: %s carries another source in this take", r.index, t.name(h.Tie))
 				}

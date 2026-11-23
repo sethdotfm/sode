@@ -132,6 +132,7 @@ type App struct {
 	// Run waits up to drainLimit for them (shutdown.go).
 	writes     inflight
 	checkMu    sync.Mutex // one Broken check at a time
+	tieLocks   tieLocks   // tielock.go
 	drainLimit time.Duration
 
 	// idle.go; tests change both (lock_idle_test.go).
