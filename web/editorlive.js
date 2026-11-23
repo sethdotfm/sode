@@ -31,7 +31,7 @@ export function createLive(host, body, button, ed) {
       ui = liveUi(host, () => api.stop(), grid, grid?.bar || liveBar());
       host.hidden = false;
       body.hidden = true;
-      editor.dataset.live = '';
+      editor.dataset.live = isGrid ? 'grid' : '';
       run = runPanel(id, { ui, call: sessionFetch, page });
       grid?.started(run);
       ui.back.focus();
