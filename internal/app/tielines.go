@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -65,14 +66,25 @@ type apiTieLine struct {
 	Name string    `json:"name"`
 	From apiTieEnd `json:"from"`
 	To   apiTieEnd `json:"to"`
+	// Changed is the last change of the upstream destination, or null when Sode has seen none. Before: Sode was down
+	// after that time, or found the change at a re-read, so the tie line may have changed again.
+	Changed *time.Time `json:"changed"`
+	Before  bool       `json:"before"`
 }
 
 // The router names of the two ends stay out. Thus a caller with hidden visibility sees no name that it cannot see. The
 // Tie line name is not a router name, so it stays.
 func (a *App) apiTieLines(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	out := []apiTieLine{}
-	for _, t := range a.r().cfg.TieLines {
-		out = append(out, apiTieLine{t.ID, t.Name, apiTieEnd{t.From.Router, t.From.N}, apiTieEnd{t.To.Router, t.To.N}})
+	rt := a.r()
+	stamps := a.tieChanges.snapshot(rt.cfg.TieLines)
+	for _, t := range rt.cfg.TieLines {
+		l := apiTieLine{ID: t.ID, Name: t.Name, From: apiTieEnd{t.From.Router, t.From.N}, To: apiTieEnd{t.To.Router, t.To.N}}
+		if st, ok := stamps[t.ID]; ok {
+			at := st.At.UTC()
+			l.Changed, l.Before = &at, st.Found || st.At.Before(a.started)
+		}
+		out = append(out, l)
 	}
 	apiJSONTagged(w, r, map[string][]apiTieLine{"tieLines": out})
 }

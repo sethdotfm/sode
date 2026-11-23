@@ -114,7 +114,7 @@ Rights checks compare the router and the number of each reference. A right for s
 
 ### Last change of a tie line
 
-1. Sode stores the time of the last change of each tie line on disk, next to the saved names table, so it survives a restart.
+1. Sode stores the time of the last change of each tie line on disk, next to the saved names table, so it survives a restart. The file is `names/tielines.changes.yaml`. Any crosspoint change on the upstream destination, on any level, by Sode or an External, stamps it. The first read of a level is a baseline and stamps nothing.
 2. If Sode was down after that time, the picker shows "before HH:MM". Sode never claims more than it knows.
 3. A found entry gives the time when Sode found the change, also as "before HH:MM".
 

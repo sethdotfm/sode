@@ -90,7 +90,7 @@ All paths are under `/api/v1`.
 | `GET /history/groups/last` | `history` | The latest Group with its entries, oldest first |
 | `GET /layouts` | `layouts` | Panel layouts, empty until the panel page exists |
 | `GET /routers` | any | `{"routers":[{"uid","prefix","title"}]}`: each router's router UID, router prefix (A to Z) and router title. See Routers |
-| `GET /tielines` | any | `{"tieLines":[{"id","name","from":{"router","n"},"to":{"router","n"}}]}`: each tie line, with its hidden id, its Tie line name, the destination it starts at (`from`) and the source it feeds on another router (`to`). Numbers are 0-based. The router names of the two ends are not in it |
+| `GET /tielines` | any | `{"tieLines":[{"id","name","from":{"router","n"},"to":{"router","n"},"changed","before"}]}`: each tie line, with its hidden id, its Tie line name, the destination it starts at (`from`) and the source it feeds on another router (`to`). Numbers are 0-based. `changed` is the time (UTC) of the last change on `from`, on any level, or null when Sode has seen none. `before` is true when Sode was down after that time, or found the change at a re-read: the tie line can have changed again. The router names of the two ends are not in it |
 | `GET /log?before=&n=` | `log` | The Communication Log, 100 per page by default, 500 at most. Settings saves rows (`kind` `settings`) are merged in; a key never sees the values of Access or Server fields |
 | `POST /takes` | `take` | A take by routes: `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, 1 to 200 routes. Each end can be a router reference `{"router","n"}` (see Routers) |
 | `POST /presets/{scope}/{name}` | `take` | Fire a preset, scope `everyone` or `me` |
