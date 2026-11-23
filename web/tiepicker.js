@@ -6,8 +6,8 @@
 // A choice has a wire: the chosen one is lit with --pb-tieline (docs/color-roles.md). A Protected or Reserved choice is
 // grey and says why. Under the steps are the Affected destinations of the chosen path.
 //
-// Live update: while the picker is open, each change that the server pushes and that can change the plan (a tally,
-// a Protect, a router status, the tie lines) makes the page ask for the plan again with tiePlan. A change on the chosen
+// Live update: the server pushes each change that can change the plan (a tally, a Protect, a router status, the tie
+// lines). While the picker is open, each one makes the page ask for the plan again with tiePlan. A change on the chosen
 // path starts the lockout again and marks the changed rows (refresh). The selection never moves by itself. The server
 // keeps nothing for an open picker. A take that gets 409 tie_line_changed opens the picker again on the new plan.
 
@@ -113,8 +113,8 @@ export function tiePick(plan, item, opts = {}) {
   return pickWith(plan, item, opts, pickState);
 }
 
-// askPlan asks the server for the plan of item's route, with no take: { route } with the route of the 409 body, or
-// { m } with the answer when the server gave no plan.
+// askPlan asks the server for the plan of item's route, with no take. It gives { route } with the route of the 409
+// body. When the server gave no plan, it gives { m } with the answer.
 async function askPlan(item) {
   const g = item.groups[0];
   const m = await request('tiePlanResult', { t: 'tiePlan', routes: [{ src: ref(g.src), dst: ref(item.dst), levels: g.levels }] });
@@ -385,8 +385,8 @@ function answer(m, text, { plan, item, opts, ids }) {
 }
 
 // reopen: the server refused the take with 409 tie_line_changed and sent nothing (docs/tielines-design.md, The stale
-// check, rule 5). The page says which tie line changed and opens the picker again on the new plan, on the same tie
-// lines when they still make a path. r is the route of the 409 body.
+// check, rule 5). The page says which tie line changed and opens the picker again on the new plan. It chooses the
+// same tie lines when they still make a path. r is the route of the 409 body.
 function reopen(r, { plan, item, opts, ids }) {
   const changed = (r?.changed || []).map((t) => t.id);
   const names = (r?.changed || []).map((t) => t.name || t.id);

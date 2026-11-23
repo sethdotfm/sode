@@ -41,8 +41,8 @@ export function pickState(route) {
   return { route, path: Math.max(0, best(route.paths, [])), step: 0, marks: noMarks() };
 }
 
-// marks: ties are the tie lines whose row changed, end is the destination's hop, hits are the Affected destinations
-// that came new ("router n"), affected is any other change of the Affected destinations or of the cost.
+// marks: ties are the tie lines whose row changed. end is the destination's hop. hits are the new Affected
+// destinations ("router n"). affected is any other change of the Affected destinations or of the cost.
 const noMarks = () => ({ ties: [], end: false, hits: [], affected: false });
 
 // pathKey names a path by its tie lines, upstream first. A new plan keeps the selection on the path with the same key.

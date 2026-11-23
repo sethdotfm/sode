@@ -28,8 +28,8 @@ func pageTiePlan(t *testing.T, a *App, c *client, id int, routes string) tieTake
 	}
 }
 
-// The open picker asks for the plan again and again. A plan sends nothing, writes no Communication Log row and holds
-// no tie line: a take through the same tie line goes while the picker is open.
+// The open picker asks for the plan again and again. A plan sends nothing and writes no Communication Log row. It
+// holds no tie line: a take through the same tie line goes while the picker is open.
 func TestPageTiePlanHoldsNothing(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	defer startLog(t, a)()

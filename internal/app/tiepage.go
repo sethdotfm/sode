@@ -16,9 +16,8 @@ import (
 // (client.forPage) has its who, its Rights and its step-in. Its entries carry no API actor, and its Communication Log rows
 // are command rows (takeEvent), as for a plain take from the page.
 //
-// The message tiePlan asks for the plan only: the same 409 body, with no take and no Communication Log row. The open
-// picker asks again each time the page hears a change that can change the plan: a tally, a Protect, a router status
-// or the tie lines (web/tiepicker.js). Thus the server pushes each change, and an open picker holds nothing on the
+// The message tiePlan asks for the plan only: the same 409 body, with no take and no Communication Log row. Some changes can change the plan: a tally, a
+// Protect, a router status or the tie lines. The open picker asks again each time the page hears one (web/tiepicker.js). Thus the server pushes each change, and an open picker holds nothing on the
 // server.
 
 // takeEvent writes the Communication Log row of an in-process take: a command row of the page for a page's tieTake,
