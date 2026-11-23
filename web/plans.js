@@ -179,7 +179,7 @@ function takeResult(m) {
   const b = takes.get(m.id);
   if (!b) return;
   takes.delete(m.id);
-  noteOwn([m.entry]);
+  noteOwn([m.entry], S.hist);
   b.results.push({ ...b.byId.get(m.id), ok: m.ok, err: m.err, entry: m.entry, already: m.already || [] });
   if (b.results.length < b.byId.size) return;
   const undo = b.verb === 'undo';

@@ -9,9 +9,20 @@ const DEPTH = 50; // a retry chain this long is not real; it guards a loop
 // Levels of an entry that the router confirmed. A failed take lists the levels it did not confirm.
 const confirmed = (x) => (x.ok ? x.levels : x.levels.filter((u) => !(x.failed || x.levels).includes(u)));
 
+// The levels a take's mark is judged on: the ones it confirmed. An undo of a failed take leaves out the levels the router
+// answered for (untouchedLevels in plans.js), so the full levels would never reach Undone. A take that confirmed none
+// keeps all its levels, since its undo sends the ones with no answer.
+export const takeLevels = (x) => {
+  const got = confirmed(x);
+  return got.length ? got : x.levels;
+};
+
+// The mark of one History entry (markFor), on its takeLevels.
+export const takeMark = (x, index) => markFor([x.id], takeLevels(x), index);
+
 // The undo row that a take belongs to. It is the entry itself when it is an undo. Else it is the failed undo that a Retry
 // repeats, also through a Retry of a Retry. null when the chain does not reach a loaded undo.
-function undoRoot(x, byId) {
+export function undoRoot(x, byId) {
   let cur = x;
   for (let i = 0; i < DEPTH && cur; i++) {
     if (cur.undo != null) return cur;
