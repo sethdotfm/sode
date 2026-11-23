@@ -4,7 +4,7 @@
 import { S, srcItem, dstItem, routerOfItem } from './core.js';
 import { hopsVia, alsoNote } from './viarules.js';
 import { undoPlan, againPlan, groupUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
-import { groupPartial, groupIds } from './history.js';
+import { groupPartial, groupIds, groupRowEntries } from './history.js';
 import { UNDO_TIP_ALL } from './widgets.js';
 import { PROTECT_ENTRY, PROTECT_GROUP } from './protects.js';
 import { protectGroup } from './protectrules.js';
@@ -91,7 +91,9 @@ const TAKE = {
           tip: 'Restores the source from before these changes',
         }
       : { plan: undoPlan(e), label: `Undo ${src.label} to ${dst.label}`, text: 'Undo', tip: undefined };
-    return { undo, again: { plan: again, label: `${againWord(again)} ${src.label} to ${dst.label}` }, putBack: [] };
+    // The row of a tie take of one destination holds its hop entries (hopEntries, history.js buildRows).
+    const putBack = e.tieSolo ? putBacks([...e.hopEntries, e]) : [];
+    return { undo, again: { plan: again, label: `${againWord(again)} ${src.label} to ${dst.label}` }, putBack };
   },
   empty: (e) => `Nothing was routed before #${e.id}.`,
 };
@@ -111,7 +113,7 @@ const GROUP = {
     const notes = [
       preset && `Preset: ${preset}`,
       kind,
-      groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
+      groupPartial(f) && `${f.shown.length} of ${groupRowEntries(f).length} shown`,
       nFollow && `+${nFollow} External follow ${nFollow === 1 ? 'entry' : 'entries'}`,
       ...asked.map(partialNote),
       ...asked.map(alsoOf),

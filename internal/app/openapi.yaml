@@ -3485,12 +3485,12 @@ components:
         alsoOthers: { type: integer, description: "The destinations of `also` that the caller's hidden visibility leaves out. Absent when none" }
     EntryHop:
       type: object
-      description: "One hop before the last of a tie take. `entry` is the hop's own History entry; there is none when the tie line already carried the source. `prev` is what the tie line carried before, from that entry"
+      description: "One hop before the last of a tie take. `entry` is the hop's own History entry; there is none when the tie line already carried the source. `prev` is what the tie line carried before, from that entry. A caller with hidden visibility gets null for `src`, `dst` and a `oneOff` end that it cannot see, as in GET /tielines. Its `prev` has no level whose source it cannot see"
       required: [router, src, dst, levels, tie, tieName, result, prev]
       properties:
         router: { type: string }
-        src: { type: integer }
-        dst: { type: integer }
+        src: { type: integer, nullable: true }
+        dst: { type: integer, nullable: true }
         levels: { type: array, items: { type: integer } }
         tie: { type: string }
         tieName: { type: string }
@@ -3502,8 +3502,8 @@ components:
           type: object
           description: "The tie line is a One-off tie line: the two stated ends, with their names then, and who stated them"
           properties:
-            from: { type: object, properties: { router: { type: string }, n: { type: integer }, name: { type: string } } }
-            to: { type: object, properties: { router: { type: string }, n: { type: integer }, name: { type: string } } }
+            from: { type: object, nullable: true, properties: { router: { type: string }, n: { type: integer }, name: { type: string } } }
+            to: { type: object, nullable: true, properties: { router: { type: string }, n: { type: integer }, name: { type: string } } }
             by: { type: string }
     LogRow:
       type: object

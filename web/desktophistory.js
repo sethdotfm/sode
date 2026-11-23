@@ -20,6 +20,7 @@ import {
   undoButton,
   againButton,
   putBackButtons,
+  hopRows,
   stackSteps,
   stackFrom,
   followBoxes,
@@ -74,7 +75,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       ),
       statusNode({ e }),
       disc,
-      el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`e${e.id}`)] : [retry, btn])),
+      el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`e${e.id}`)] : [...putBackButtons(acts.putBack, openConfirm), retry, btn])),
     );
     row.dataset.key = `e${e.id}`;
     row.classList.toggle('sode__hist-row--picked', isPicked(`e${e.id}`));
@@ -88,7 +89,11 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
               el('div', 'sode__label', `Changes on ${dst.label}`),
               ...stackSteps(e, { restore: openConfirm, pickSrc: useRowSrc, pickDst: useRowDst, addDst: addEnd }),
             ]
-          : [el('div', 'sode__label', view.detail(e, dst, groups)), ...groups.map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc))]),
+          : [
+              el('div', 'sode__label', view.detail(e, dst, groups)),
+              ...groups.map((g) => srcRow(g.levels, tallyText(g.src, e.router), g.src, (n) => useEnd('src', srcItem(n, '', e.router)), e.router)),
+              ...hopRows(e),
+            ]),
         ...failureRows(e),
         ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst, addEnd))] : []),
       );

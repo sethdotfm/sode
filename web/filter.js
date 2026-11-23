@@ -207,11 +207,11 @@ export function filterFn(text, opts) {
 }
 
 // Filter sets: x = ext (made elsewhere); sn/sname/dn/dname = source/destination number+name; router = the entry's router UID;
-// hiddenDst = Settings hides that destination.
+// hiddenDst = Settings hides that destination. srcRouter: the router of the typed source of a tie take, when it differs.
 export function entryAllows(f, { srcOk, dstOk }, x) {
   if (x.ext ? !f.ext : !f.sode) return false;
   if (x.ext && !f.hidden && x.hiddenDst) return false;
-  return srcOk(x.sn, x.sname, x.router) && dstOk(x.dn, x.dname, x.router);
+  return srcOk(x.sn, x.sname, x.srcRouter || x.router) && dstOk(x.dn, x.dname, x.router);
 }
 
 // 'or': any set allows it; else every set must. Excludes and kinds count only within their set.

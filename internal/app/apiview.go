@@ -87,6 +87,7 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 		return e, false
 	}
 	e = cloneEntry(e)
+	e.Hops = v.hops(e.Hops)
 	for i := range e.ViaPrev {
 		if o := e.ViaPrev[i].Origin; o != nil && !v.on(o.Router).Source(o.N) {
 			e.ViaPrev[i].Origin = nil

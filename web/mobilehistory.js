@@ -8,7 +8,7 @@ import { layout } from './layout.js';
 import { emptyNote } from './searchbox.js';
 import { rowView, disclosureAria, followersHead } from './historyrows.js';
 import { picking, isPicked, pickBox, bindPick, pickBar } from './historypick.js';
-import { byLabel, disclosure, undoButton, againButton, putBackButtons, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { byLabel, disclosure, undoButton, againButton, putBackButtons, hopRows, arrivals, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const REVEAL = 96;
 const OPEN = 'sode-m__recent-row--open';
@@ -47,17 +47,19 @@ export function mobileHistory({ sheetFor, pickSrc }) {
     const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
     const status = statusNode({ e });
     const retry = redoBtn(acts.again.plan, acts.again.label);
-    const open = !!e.chain && openChanges.has(e.id);
+    // A stacked row opens to its changes; a tie take opens to its hops (what each tie line carried before).
+    const hops = !e.chain && e.hops?.length;
+    const open = (!!e.chain || !!hops) && openChanges.has(e.id);
     const changesId = `m-changes-${e.id}`;
     const disc =
-      e.chain &&
-      disclosure(open, 'Changes', changesId, () => {
+      (e.chain || hops) &&
+      disclosure(open, e.chain ? 'Changes' : 'Hops', changesId, () => {
         toggle(openChanges, e.id);
         renderHistory();
       });
     let changes = null;
     if (open) {
-      changes = el('div', 'sode-m__changes', ...stackSteps(e, { restore: sheetFor, pickSrc }));
+      changes = el('div', 'sode-m__changes', ...(e.chain ? stackSteps(e, { restore: sheetFor, pickSrc }) : hopRows(e)));
       changes.id = changesId;
     }
     const face = el(
@@ -79,6 +81,7 @@ export function mobileHistory({ sheetFor, pickSrc }) {
         byLabel(e),
       ),
       changes,
+      ...(picking() ? [] : putBackButtons(acts.putBack, sheetFor)),
       e.follows && !open ? el('div', 'sode__hint', `External follow: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
       levelBar(
         e.levels.filter((u) => routerData(e.router).levelBy.has(u)),

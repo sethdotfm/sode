@@ -507,6 +507,9 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	if t := plan.Ties; t != nil {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(t.deadline(a)))
 		out := t.out(a.runTieTake(c, t, sink.get))
+		for i := range out.Results {
+			out.Results[i].Hops = a.view(cl).hops(out.Results[i].Hops)
+		}
 		out.LeftOut = plan.LeftOut
 		return jsonAnswer(http.StatusOK, out), true
 	}
