@@ -1,6 +1,6 @@
 # Sode
 
-Sode is a keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It exists to make patching about 1000 times faster and simpler for the people who do it. Today it drives one router. Multiple routers and tie lines are plausible later, after the core product is excellent.
+Sode is a keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It exists to make patching about 1000 times faster and simpler for the people who do it. Today it drives one router. Several routers joined by tie lines are planned.
 
 ## Language
 
@@ -18,8 +18,32 @@ _Avoid_: output
 One of the parallel signal types (such as video or audio) that a source can be connected to a destination on. Levels are numbered 1..N in Sode whatever the router uses on the wire.
 _Avoid_: wire level, layer
 
+**Router**:
+One SW-P-08 matrix that Sode drives, at one address. Two matrices at one address are two routers. A backup address for the same matrix does not make a second router.
+
 **Tie line**:
-A link between two routers that carries signal from one to the other. Sode does not support tie lines yet, and nothing in the interface uses one. Its color is `--pb-tieline`.
+A one-way cable from a destination on one router to a source on another. It carries all levels. Sode knows a tie line only because a person entered it, and it trusts that entry. Its color is `--pb-tieline`.
+
+**Tie line name**:
+The name a person gives a tie line in Sode, such as "TIE 3". Keep it apart from the router names of the two ends.
+
+**One-off tie line**:
+A tie line that a person states in the Tie line picker for one take only. Sode does not keep it unless the person saves it as a tie line.
+
+**Hop**:
+One router's part of a route that goes through tie lines. A route from A.1 to B.42 through one tie line has two hops.
+
+**Affected destination**:
+A destination, other than the one asked for, whose signal changes on any level because a take switches a tie line. Sode counts affected destinations on every router that the change reaches.
+
+**Via**:
+The word for a source that reaches a destination through tie lines. B.42 shows "A.1 CAM 1 via TIE 3". Sode uses "via" for nothing else.
+
+**Reserved tie line**:
+A tie line that a panel always uses to cross between two routers, even when another path affects fewer destinations. It is not Protected. Anyone else who takes it confirms once more.
+
+**Tie line picker**:
+The view that opens before a take with a route that crosses routers. It shows each hop and lets a person choose the tie line for it, with the Affected destinations of each choice.
 
 **Router name**:
 The name the router gives a source or destination. Sode cannot change it, and re-reads names from the router on a timer. Keep it apart from a user's name, a preset's name, a filter set's name and the router title.
@@ -29,7 +53,7 @@ _Avoid_: label, refresh (for the re-read)
 The name a person gives a router in Sode, such as "Studio Ultrix". It is the router's own name, not the name of one of its sources or destinations.
 
 **Router prefix**:
-The one letter, A to Z, that names a router when you type or read a source or destination. B.69 is number 69 on router B. Each router on a server has its own. Sode hides it while there is only one router.
+The one or two letters that name a router when you type or read a source or destination. B.69 is number 69 on router B, and BA.69 is number 69 on router BA. Each router on a server has its own. Sode hides it while there is only one router.
 
 **Router UID**:
 The hidden identity Sode gives a router when it is added. It never changes, never shows in the UI, and is what stored items and export files use to say which router they mean.
@@ -472,11 +496,14 @@ The other three Settings topics. Routers holds the Routers list and one block of
 The connection between a browser and the Sode server.
 
 **Router link**:
-The connection between the Sode server and the router.
+The connection between the Sode server and one router. Each router has its own.
+
+**Healthy** / **Degraded** / **Down**:
+The state of Sode as a whole. Healthy means that every Router link is up. Degraded means that one or more Router links are down and one or more are up. Down means that every Router link is down. Keep Down apart from Offline, which is the page state when the Sode server cannot be reached.
 
 **Server run time**:
 How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The status details show it beside the Router link's uptime.
 _Avoid_: server uptime
 
 **Lost link**:
-The banner a browser shows when the Server link or the Router link is down, naming which one.
+The banner a browser shows when the Server link is down or every Router link is down, naming which one.

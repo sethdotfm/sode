@@ -98,7 +98,7 @@ This is Sode's own list. Add a row when review finds a word that has two meaning
 | ensure | make sure |
 | prior to | before |
 | in order to | to |
-| via | through, with, by |
+| via (except Via in GLOSSARY.md, for tie lines) | through, with, by |
 | facilitate | help |
 | numerous | many |
 | approximately | about |
