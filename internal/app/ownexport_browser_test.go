@@ -36,7 +36,7 @@ func TestChromeOwnExportImport(t *testing.T) {
 	signInSettings(b)
 	b.waitFor("Export & Import shown", `!!document.getElementById('account-transfer')?.offsetParent`)
 	b.eval(`document.getElementById('account-transfer').click(); true`)
-	b.waitFor("own rows listed", `document.querySelectorAll('.sode__xi-own .sode__xi-head').length === 13`)
+	b.waitFor("own rows listed", `document.querySelectorAll('.sode__xi-own .sode__xi-head').length === 14`)
 
 	var got struct {
 		Cats          []string

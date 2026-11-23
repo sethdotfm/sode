@@ -33,6 +33,7 @@ const list = {
       ],
     },
     { name: 'routers', size: 500, items: [{ id: 'r1', name: 'Router A', size: 500 }] },
+    { name: 'tieLines', size: 40, items: [{ id: 'aaaaaaaaaaaaaaa3', name: 'TIE 3', size: 40 }] },
     { name: 'users', size: 7, items: [{ id: 'u-1', name: 'Ada', size: 7, detail: 'administrator' }] },
     {
       name: 'presets',
@@ -172,4 +173,14 @@ test('Everyone bookmarks is one item, sent by its id', () => {
   assert.equal(catState(list, p, 'bookmarks'), 'all');
   assert.equal(catSize(list, p, 'bookmarks'), 60);
   assert.deepEqual(exportBody(list, p, {}), { categories: ['bookmarks'], pick: { bookmarks: ['bookmarks'] }, sections: [], includePins: true });
+});
+
+test('tie lines are picked by id', () => {
+  const p = newPick(list);
+  for (const [c] of CATEGORIES) setCat(list, p, c, false);
+  p.items.tieLines.add('aaaaaaaaaaaaaaa3');
+  const body = exportBody(list, p, { prefs: {} });
+  assert.deepEqual(body.categories, ['tieLines']);
+  assert.deepEqual(body.pick, { tieLines: ['aaaaaaaaaaaaaaa3'] });
+  assert.equal(catSize(list, p, 'tieLines'), 40);
 });
