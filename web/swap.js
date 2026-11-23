@@ -170,7 +170,7 @@ function build() {
   const broken = el('input', { class: 'pb-check__input', type: 'checkbox', id: 'swap-broken' });
   const list = el('div', { class: 'sode__swap-list', 'aria-label': 'Items that use the old number' });
   const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
-  const go = btn('pb-btn--ok', '', done, 'swap-go');
+  const go = btn('sode-btn--primary', '', done, 'swap-go');
   const dlg = modal({
     titleId: 'swap-title',
     title: 'Swap',

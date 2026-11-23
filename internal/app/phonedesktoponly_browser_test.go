@@ -22,7 +22,7 @@ func TestChromePhoneDesktopOnly(t *testing.T) {
 	row := `document.querySelector('[data-id="` + id + `"].sode-ov__item')`
 	b.waitFor("the panel in the list", `!!`+row)
 	b.eval(row + `.click(); true`)
-	b.waitFor("Launch stays", `!!document.querySelector('#panels-detail a.pb-btn--ok')?.offsetParent`)
+	b.waitFor("Launch stays", `!!document.querySelector('#panels-detail a.sode-btn--primary')?.offsetParent`)
 	b.waitFor("the desktop-only message in place of the editor, Assign to, keys and sharing", `(() => {
 		const m = document.querySelector('#panels-detail .sode__desktop-only');
 		return !!m?.offsetParent && m.textContent.includes('Open Sode on a computer to edit, share, assign or delete panels and manage their keys.')

@@ -11,7 +11,7 @@ import { sendBody } from './inboxrules.js';
 
 const people = el('div', { class: 'sode-send__people', role: 'group', 'aria-label': 'Send to' });
 const note = el('span', { class: 'sode__hint', id: 'send-note', role: 'status' });
-const sendBtn = btn('pb-btn--ok', 'Send', () => send(), 'send-go');
+const sendBtn = btn('sode-btn--primary', 'Send', () => send(), 'send-go');
 let dlg = null;
 const ui = () =>
   (dlg ||= modal({

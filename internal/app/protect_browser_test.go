@@ -100,8 +100,8 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	b.eval(`document.getElementById('settings-open').click(); true`)
 	b.waitFor("the Protects list", `[...document.querySelectorAll('#protects-list li')].some((n) => n.textContent.includes('DSM2') && n.textContent.includes('Protected by you'))`)
 	b.eval(`document.getElementById('protects-clear-all').click(); true`)
-	b.waitFor("the Confirm unlocks", `!!document.querySelector('#protects-confirm .pb-btn--ok:not(:disabled)')`)
-	b.eval(`document.querySelector('#protects-confirm .pb-btn--ok').click(); true`)
+	b.waitFor("the Confirm unlocks", `!!document.querySelector('#protects-confirm .sode-btn--primary:not(:disabled)')`)
+	b.eval(`document.querySelector('#protects-confirm .sode-btn--primary').click(); true`)
 	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
 	b.waitFor("cleared", `!!document.querySelector('#protects-confirm + .sode__hint')?.textContent.startsWith("Sode's Protects freed")`)
@@ -158,7 +158,7 @@ func TestChromePaletteProtectPick(t *testing.T) {
 	b.eval(`(() => { const i = document.getElementById('protpick-find'); i.value = 'DSM'; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	b.waitFor("the find narrows the list", `[...document.querySelectorAll('#protpick-list [role=option]')].every((r) => r.textContent.includes('DSM'))`)
 	b.eval(`document.querySelector('#protpick-list [data-dst="2"]').click(); true`)
-	b.waitFor("one picked, in the blue chip", `document.getElementById('protpick-go').textContent === 'Protect 1' && document.getElementById('protpick-count').textContent === '1 picked' && document.getElementById('protpick-count').classList.contains('pb-badge--info')`)
+	b.waitFor("one picked, in the neutral chip", `document.getElementById('protpick-go').textContent === 'Protect 1' && document.getElementById('protpick-count').textContent === '1 picked' && document.getElementById('protpick-count').classList.contains('pb-badge') && !document.getElementById('protpick-count').matches('[class*="pb-badge--"]')`)
 	// After typing, Space types and Cmd+Space does nothing; Ctrl+J outlines the next row, and Ctrl+Space picks it.
 	findKey := func(key, code string, ctrl, meta bool) {
 		b.eval(fmt.Sprintf(`document.getElementById('protpick-find').dispatchEvent(new KeyboardEvent('keydown', { key: %q, code: %q, ctrlKey: %v, metaKey: %v, bubbles: true, cancelable: true })); true`, key, code, ctrl, meta))

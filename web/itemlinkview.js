@@ -22,7 +22,7 @@ export function itemLinkBox() {
   let timer = 0;
   const copiedOff = () => {
     clearTimeout(timer);
-    copy.classList.replace('pb-btn--ok', 'pb-btn--outline');
+    copy.classList.replace('sode-btn--primary', 'pb-btn--outline');
     copy.textContent = 'Copy link';
     copy.style.minWidth = '';
   };
@@ -37,7 +37,7 @@ export function itemLinkBox() {
     status.replaceChildren();
     clearTimeout(timer);
     copy.style.minWidth = `${copy.offsetWidth}px`; // keeps Copy link's width
-    copy.classList.replace('pb-btn--outline', 'pb-btn--ok');
+    copy.classList.replace('pb-btn--outline', 'sode-btn--primary');
     copy.textContent = 'Copied';
     timer = setTimeout(copiedOff, COPIED_MS);
   });

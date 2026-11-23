@@ -46,7 +46,7 @@ func TestChromeSetupRestore(t *testing.T) {
 	}
 	type_("setup-restore-pin", "97531")
 	type_("setup-restore-pin2", "97530")
-	go_ := `document.querySelector('.sode-setup__restore .pb-btn--ok')`
+	go_ := `document.querySelector('.sode-setup__restore .sode-btn--primary')`
 	b.waitFor("PINs that differ stop Restore", go_+`.disabled`)
 	type_("setup-restore-pin2", "97531")
 	b.waitFor("Restore", `!`+go_+`.disabled`)

@@ -30,7 +30,7 @@ export function initTemplates(editor) {
     const withSettings = check('Include the panel settings', { id: 'tpl-settings' });
     const withSources = check('Store with Sources and Presets', { id: 'tpl-sources' });
     const withDests = check('Store with Destinations', { id: 'tpl-dests' });
-    const saveBtn = btn('pb-btn--ok', 'Save template', null, 'tpl-save');
+    const saveBtn = btn('sode-btn--primary', 'Save template', null, 'tpl-save');
 
     const form = el(
       'div',

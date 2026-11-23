@@ -81,8 +81,8 @@ func TestChromePublicPanel(t *testing.T) {
 	b.waitFor("idle letter Lock", `document.querySelector('.sode-lock__letter-line')?.offsetParent && !`+padShown)
 	b.shot("public-idle")
 	b.eval(`Date.now = window.realNow`)
-	b.waitFor("Dismiss ready", `!document.querySelector('.sode-lock .pb-btn--ok')?.disabled`)
-	b.eval(`document.querySelector('.sode-lock .pb-btn--ok').click()`)
+	b.waitFor("Dismiss ready", `!document.querySelector('.sode-lock .sode-btn--primary')?.disabled`)
+	b.eval(`document.querySelector('.sode-lock .sode-btn--primary').click()`)
 	b.waitFor("letter Lock dismissed", `!document.documentElement.dataset.sodeLock`)
 
 	desk := makePanel(t, a, ana, `{"name":"Desk","cells":[{"r":1,"c":1,"kind":"take"}]}`)

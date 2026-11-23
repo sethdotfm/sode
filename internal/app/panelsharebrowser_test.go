@@ -45,12 +45,12 @@ func TestChromeShareModalPeople(t *testing.T) {
 	b.waitFor("Share button", `!!document.querySelector('[data-act="share"]')`)
 	b.eval(`document.querySelector('[data-act="share"]').click()`)
 	b.waitFor("modal with a People tab", `document.querySelector('.sode-ov__share #tab-people')?.getAttribute('aria-selected') === 'true'`)
-	b.waitFor("Save waits for a change", `document.querySelector('.sode-ov__share .pb-modal__footer .pb-btn--ok').disabled === true`)
+	b.waitFor("Save waits for a change", `document.querySelector('.sode-ov__share .pb-modal__footer .sode-btn--primary').disabled === true`)
 	b.eval(`document.querySelector('.sode-ov__share [data-mode="named"]').click()`)
 	b.waitFor("Bo in the picker and the owner left out", `[...document.querySelectorAll('.sode-ov__people .pb-check__label')].map(x => x.textContent).join() === 'Bo'`)
 	b.shot("share-named")
 	b.eval(`document.querySelector('.sode-ov__people input').click()`)
-	b.eval(`document.querySelector('.sode-ov__share .pb-modal__footer .pb-btn--ok').click()`)
+	b.eval(`document.querySelector('.sode-ov__share .pb-modal__footer .sode-btn--primary').click()`)
 	b.waitFor("modal closed", `!document.querySelector('.sode-ov__share')`)
 	b.waitFor("detail shows who it is shared with", `[...document.querySelectorAll('.sode-ov__kv dd')].some(d => d.textContent === 'Bo')`)
 
@@ -64,7 +64,7 @@ func TestChromeShareModalPeople(t *testing.T) {
 	b.eval(`document.querySelector('[data-act="share"]').click()`)
 	b.waitFor("modal reopened on Named users", `document.querySelector('.sode-ov__people input')?.checked === true`)
 	b.eval(`document.querySelector('.sode-ov__share [data-mode="me"]').click()`)
-	b.eval(`document.querySelector('.sode-ov__share .pb-modal__footer .pb-btn--ok').click()`)
+	b.eval(`document.querySelector('.sode-ov__share .pb-modal__footer .sode-btn--primary').click()`)
 	b.waitFor("shared with only the owner", `[...document.querySelectorAll('.sode-ov__kv dd')].some(d => d.textContent === 'Only the owner')`)
 	if got := panelIDs(t, a, bo); got != "" {
 		t.Fatalf("Bo still sees %q", got)
