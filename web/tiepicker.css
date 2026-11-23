@@ -123,8 +123,10 @@
   display: flex;
   gap: var(--pb-space-3);
 }
-/* A row that changed while the picker was open, or that a refused take found changed (tiepicker.js changedMark). */
-.sode-tiepick__mark {
+/* A row that changed while the picker was open, or that a refused take found changed (tiepicker.js changedMark). The
+   tie line that a Redo's take used last time (usedLast) has a neutral badge. */
+.sode-tiepick__mark,
+.sode-tiepick__last {
   justify-self: start;
 }
 .sode-tiepick__hits {

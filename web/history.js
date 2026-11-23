@@ -155,7 +155,11 @@ function buildRows(list) {
       followsOf.has(orig.id) || mark
         ? { ...orig, ...(followsOf.has(orig.id) ? { follows: followsOf.get(orig.id) } : {}), ...(mark ? { undone: mark } : {}) }
         : orig;
-    if (orig.origin && groupOf.has(orig.group)) e = { ...e, hopEntries: hopEntriesOf(orig, groupOf.get(orig.group)) };
+    if (orig.origin && groupOf.has(orig.group)) {
+      const hopEntries = hopEntriesOf(orig, groupOf.get(orig.group));
+      // An undone tie take: its Undo left the tie lines as they were, unless a put-back undid a hop too.
+      e = { ...e, hopEntries, ...(mark ? { tiesKept: !hopEntries.some((h) => undone.has(h.id)) } : {}) };
+    }
     if (solos.get(orig.group) === orig.id) e = { ...e, tieSolo: true };
     const t = Date.parse(e.time);
     return { e, orig, span: [t, t], attached: attached.has(orig), shows: !attached.has(orig) && entryShows(e) };
@@ -194,7 +198,8 @@ function buildRows(list) {
   }
   for (const row of byGroup.values()) {
     row.shows = row.f.shown.length > 0;
-    const mark = groupMark(row.f.entries);
+    // Hop entries and the Protect of a tie take are no routes asked for, as External follows: they do not count.
+    const mark = groupMark(row.f.entries.filter((e) => !isHop(e) && !e.protect));
     if (mark) row.f.undone = mark;
   }
   return mergeRuns(rows, protectFoldOpts(gap)).filter((r) => r.shows);
@@ -420,6 +425,7 @@ export function entryNote(e) {
   if (e.protect && e.ext) parts.push(`device ${e.device ?? 0}`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.undone) parts.push(undoneNote(e.undone));
+  if (e.undone && e.tiesKept) parts.push('tie lines left as they are');
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${oneLevel(e.router) ? 'all levels' : levelText(e.already, e.router)} already`);
   if (e.late?.length) parts.push(`${levelsPhrase(e.late, e.router)} confirmed late`);

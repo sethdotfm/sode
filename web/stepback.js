@@ -2,6 +2,7 @@
 // Ctrl+Shift+Z redoes what Ctrl+Z undid. Only this browser's takes count: their keys are in `sessionStorage`, so a reload
 // keeps them and a new tab starts empty. backStep and forwardStep are pure, so Node tests them.
 import { undoIndex, undoRoot, takeMark } from './undone.js';
+import { isHop } from './tiehistoryrules.js';
 import { readTab, writeTab } from './store.js';
 
 const OWN_KEY = 'sode-own-takes'; // keys of the entries this tab sent, oldest first
@@ -16,8 +17,9 @@ const keyId = (key) => Number.parseInt(key, 10);
 
 // The same rule as the panel Undo cell (panelundo.go). An undo or a Protect set is never a step. A Retry of a failed undo
 // is part of that undo (undoRoot), so it is no step too. A take that a later undo put back is passed over (goneOf). A
-// Free Protect counts, since its Undo sets the Protect again.
-const stepKind = (x, byId) => !x.ext && !undoRoot(x, byId) && x.protect !== 'set';
+// Free Protect counts, since its Undo sets the Protect again. A hop entry of a tie take is part of the route asked
+// for. The step is the destination entry. Its Undo never switches a tie line back (tieundo.js).
+const stepKind = (x, byId) => !x.ext && !isHop(x) && !undoRoot(x, byId) && x.protect !== 'set';
 
 const triedIds = (hist) => new Set(hist.filter((x) => x.undo != null).map((x) => x.undo));
 

@@ -57,6 +57,7 @@ import { gridShown, toggleGrid, stagedCount, takeStaged, dropStaged, takeRoutes,
 import { takeWord } from './gridpanelphone.js';
 import { protectKey } from './protects.js';
 import { tieTake } from './tieflow.js';
+import { guardTieUndo } from './tieundo.js';
 
 const sel = { src: null, dst: null };
 let dsts = [];
@@ -558,6 +559,8 @@ function tryConfirm() {
 }
 
 function openConfirm(plan) {
+  // The Undo of a tie take asks the server first (tieundo.js); it comes back here with the plan to confirm.
+  if (guardTieUndo(plan, openConfirm)) return;
   const { block, prot, tie } = planBlocked(plan);
   if (block) return showResult(block.kind, block.title, block.text);
   if (tie) {

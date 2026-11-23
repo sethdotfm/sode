@@ -702,7 +702,10 @@ paths:
         Scopes `take` and `history`. Restores what the router had before the entry, one route per
         previous source. Levels with nothing routed before, or that a failed take never changed,
         are left as is and listed in `skippedLevels` and `untouchedLevels`. 422 `nothing_to_do`
-        when no level can be restored.
+        when no level can be restored. The Undo of the destination entry of a tie take never
+        switches a tie line back. If the Via chain after the Undo would differ from `viaPrev`,
+        the answer is 409 `tie_line_changed`, and nothing is sent. Its message names what changed,
+        or the hop entry to put back first with `/history/{id}/putback`.
       parameters:
         - { $ref: "#/components/parameters/EntryId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2061,7 +2064,9 @@ paths:
         entries, so a panel key needs no `history` scope. Each call steps one take further back. 422
         `nothing_to_do` when the instance has no take left to undo; 403 `outside_rights` as for a take.
         With `id`, the id GET answered, 409 `conflict` when the take to undo has changed since. The
-        Undo cell stages GET's `routes` and calls this, with that `id`, when the plan is taken.
+        Undo cell stages GET's `routes` and calls this, with that `id`, when the plan is taken. A tie
+        take: its hop entries are left out, and 409 `tie_line_changed` when the Via chain after the
+        Undo would differ, as for `/history/{id}/undo`.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -2664,6 +2669,7 @@ components:
                 - router_needed
                 - no_path
                 - tie_line_needed
+                - tie_line_changed
                 - tie_confirm_needed
                 - tie_lines_off
                 - method_not_allowed

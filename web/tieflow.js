@@ -7,11 +7,12 @@
 // tie line. A tie line that another route uses for a different source is not offered. Clear this route drops one
 // tie route from the take. The take goes as one tieTake (tiepage.go): POST /takes with every route.
 
-import { emit, request, routerData, routerOfItem } from './core.js';
+import { S, emit, request, routerData, routerOfItem } from './core.js';
 import { showResult } from './banner.js';
 import { noteLast } from './plans.js';
+import { noteSent, noteOwn } from './stepback.js';
 import { pickRoute } from './tiepicker.js';
-import { pickState, reopenState, storedState, takeRoute, chosen, oneOffsOf } from './tiepickrules.js';
+import { pickState, reopenState, storedState, lastState, takeRoute, chosen, oneOffsOf } from './tiepickrules.js';
 import { tieIndexes, nextTie, finalAt, planRequest, takeRequest, keptItems, changedAt, resetFrom, failedText } from './tietakerules.js';
 
 const ref = (it) => ({ router: routerData(routerOfItem(it)).uid, n: it.n });
@@ -23,9 +24,10 @@ function routesOf(plan) {
     for (const g of item.groups) {
       const src = ref(g.src);
       const dst = ref(item.dst);
-      // stored: a preset's tie lines (plans.js presetPlan), so its picker is the tie confirm page.
+      // stored: a preset's tie lines (plans.js presetPlan), so its picker is the tie confirm page. last: the tie lines
+      // of a take that this Redo repeats (plans.js tieAgainItem).
       const stored = g.ties?.length ? g.ties : null;
-      out.push({ src, dst, levels: g.levels, tie: src.router !== dst.router, item, label: `${g.src.label} to ${item.dst.label}`, stored });
+      out.push({ src, dst, levels: g.levels, tie: src.router !== dst.router, item, label: `${g.src.label} to ${item.dst.label}`, stored, last: !!g.last });
     }
   }
   return out;
@@ -49,12 +51,13 @@ function step(f, k, state, oneOffs = []) {
   const on = () => step(f, nextTie(f.routes, f.picks, k + 1), pickState);
   // A preset's route opens on its stored tie lines, with no confirm setting that skips it (docs/tielines-design.md,
   // Presets). A reopen after a refused take keeps its own state.
-  const stored = f.routes[k].stored;
+  const { stored, last } = f.routes[k];
   const preset = f.plan.verb === 'preset' ? `Preset ${f.plan.preset}` : '';
   const where = many ? `Route ${ties.indexOf(k) + 1} of ${ties.length} across routers` : '';
+  const first = last ? (route) => lastState(route, stored) : (route) => storedState(route, stored);
   pickRoute({
     routes: () => planRequest(f.routes, f.picks, k),
-    state: stored && state === pickState ? (route) => storedState(route, stored) : state,
+    state: stored && state === pickState ? first : state,
     oneOffs,
     head: [preset, where].filter(Boolean).join(': '),
     final,
@@ -117,13 +120,22 @@ async function send(f, direct) {
   // A preset's take names it, for History and the preset right (tiepage.go).
   const preset = f.plan.verb === 'preset' ? { preset: f.plan.preset, presetId: f.plan.presetId || '' } : {};
   const m = request('tieTakeResult', { t: 'tieTake', routes, ...preset });
-  if (direct) f.opts.onSent?.(f.plan);
+  if (direct) {
+    // The picker sent the take, not sendTakes: the Redo list changes here (Step back, stepback.js).
+    noteSent(f.plan);
+    f.opts.onSent?.(f.plan);
+  }
   answer(f, await m, text, at);
 }
 
 function answer(f, m, text, at) {
   const rs = m.body?.results;
   if (m.status === 200 && rs) {
+    // The destination entries are this tab's takes, for Ctrl+Z. The server sends each entry before this answer.
+    noteOwn(
+      rs.map((r) => r.entry).filter((id) => id != null),
+      S.hist,
+    );
     if (m.body.ok) {
       // Last holds the typed source and destination, not the hops, as after a plain take.
       if (noteLast({ ...f.plan, items: keptItems(f.plan.items, f.routes, f.picks) })) emit('last');

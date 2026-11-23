@@ -171,6 +171,9 @@ type Chain struct {
 	Loop    bool   `json:"loop"`
 }
 
+// Same: the two chains have the same origin, the same tie lines and the same marks. Mixed does not count.
+func (c Chain) Same(o Chain) bool { return c.same(o) }
+
 func (c Chain) same(o Chain) bool {
 	return c.Nothing == o.Nothing && c.Unknown == o.Unknown && c.Loop == o.Loop &&
 		(c.Origin == nil) == (o.Origin == nil) && (c.Origin == nil || *c.Origin == *o.Origin) && slices.Equal(c.Via, o.Via)
