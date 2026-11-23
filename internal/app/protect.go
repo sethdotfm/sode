@@ -340,7 +340,7 @@ func (a *App) protectManyIn(c *client, reqs []protectDst, set bool, approver *co
 		want = "clear"
 	}
 	for i, q := range reqs {
-		u, ok := a.unit(q.Router)
+		u, ok := a.unitOfRouter(r.cfg, q.Router)
 		if !ok {
 			outs[i].Err = refusal(404, "not_found", "no such router")
 			continue

@@ -21,7 +21,7 @@ info:
     Routers. Any call can carry the query parameter `router`, a router UID from `GET /routers`.
     It is optional while Sode has one router. With two or more routers, a read about one router
     without it is 400 `router_needed`. These reads are `/names`, `/tally`, `/protected` and the stream topics
-    names and tally. `/status` and the stream topic status are about every router. A value that is not a router UID is 404 `unknown_router`. The router
+    names and tally. `POST` and `DELETE /protected/{dst}` need it too. `/status` and the stream topic status are about every router. A value that is not a router UID is 404 `unknown_router`. The router
     prefix is for people and can change, so Sode does not accept it here. In a take body, each end
     of a route is a router reference `{router, n}`, or a bare number while Sode has one router.
 
@@ -231,8 +231,9 @@ paths:
       summary: Set a Protect
       description: |
         Scope `protect`, and the Protect right in the caller's Rights with the destination and every
-        level. Sode sets a Protect on every level with its device number for the router, and the
-        call is its own Confirm. A level the router does not confirm rolls back the others; read
+        level. The destination is on the router of the `router` parameter. With two or more
+        routers, a call without it is 400 `router_needed`. Sode sets a Protect on every level with
+        its device number for the router, and the call is its own Confirm. A level the router does not confirm rolls back the others; read
         `ok` and `still`. Sode then refuses takes to the destination, also its own. The body is
         ignored.
       responses:
