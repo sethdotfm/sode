@@ -1,0 +1,1 @@
+- Settings > Routers > Tie lines: an Administrator adds, edits and removes tie lines. A tie line is a one-way cable from a destination on one router to a source on another router. Sode fills the Tie line name from the source name. `GET /api/v1/tielines` lists them.

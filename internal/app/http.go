@@ -393,6 +393,7 @@ type inMsg struct {
 	FilterSets   []config.FilterSet `json:"filterSets"`
 	Presets      []config.Preset    `json:"presets"`
 	Bookmarks    []config.Bookmark  `json:"bookmarks"`    // bookmarks (Everyone), profileSave (Me)
+	TieLines     []config.TieLine   `json:"tieLines"`     // tieLines: the whole list
 	PalettePicks []string           `json:"palettePicks"` // profileSave: the Palette's last picks
 	Page         string             `json:"page"`         // hi: main | log
 	Token        string             `json:"token"`        // hi: session token of a persistent user or a tab sign-in

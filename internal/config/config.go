@@ -38,6 +38,8 @@ type Config struct {
 	Presets          []Preset    `yaml:"presets,omitempty" json:"presets"`
 	// Bookmarks is Everyone's list (GLOSSARY.md, Bookmark).
 	Bookmarks []Bookmark `yaml:"bookmarks,omitempty" json:"bookmarks"`
+	// TieLines: Settings > Routers > Tie lines (tielines.go). An Administrator saves the list apart from the form.
+	TieLines []TieLine `yaml:"tieLines,omitempty" json:"tieLines"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
 	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
@@ -287,6 +289,7 @@ func (c Config) Clone() Config {
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Presets = ClonePresets(c.Presets)
 	c.Bookmarks = CloneBookmarks(c.Bookmarks)
+	c.TieLines = CloneTieLines(c.TieLines)
 	c.Users = slices.Clone(c.Users)
 	for i := range c.Users {
 		c.Users[i].Profile = c.Users[i].Profile.Clone()
@@ -336,6 +339,7 @@ func (c *Config) Normalize() {
 	c.FilterSets = normalizeFilterSets(c.FilterSets)
 	c.normalizePresets()
 	c.Bookmarks = normalizeBookmarks(c.Bookmarks)
+	c.TieLines = normalizeTieLines(c.TieLines)
 	c.normalizeProfiles()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)

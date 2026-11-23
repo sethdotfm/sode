@@ -407,6 +407,53 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /tielines:
+    get:
+      operationId: listTieLines
+      tags: [reads]
+      summary: The tie lines
+      description: |
+        Any key or Guest call. Each tie line is a one-way cable from a destination on one router
+        (`from`) to a source on another router (`to`). An administrator enters them in Settings >
+        Routers > Tie lines. `id` is fixed for the life of the tie line. `name` is the Tie line name.
+        The router names of the two ends are not in the answer; read them with `GET /names`.
+      parameters:
+        - { $ref: "#/components/parameters/IfNoneMatch" }
+      responses:
+        "200":
+          description: Tie lines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tieLines]
+                properties:
+                  tieLines:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, from, to]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        from:
+                          type: object
+                          description: The upstream end, a destination. `n` is 0-based.
+                          required: [router, n]
+                          properties:
+                            router: { type: string, description: "A router UID from GET /routers" }
+                            n: { type: integer }
+                        to:
+                          type: object
+                          description: The downstream end, a source. `n` is 0-based.
+                          required: [router, n]
+                          properties:
+                            router: { type: string, description: "A router UID from GET /routers" }
+                            n: { type: integer }
+        "304": { description: Not modified }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /layouts:
     get:
       operationId: listLayouts
@@ -463,8 +510,8 @@ paths:
       description: |
         Scope `take`. Synchronous, see Writes above. Always 200 after the take ran, even when a
         route failed: read each result. Refusals before anything is sent are errors. Both ends of a
-        route must be on one router: Sode has no tie lines yet, so ends on two routers are 409
-        `no_path`. With two or more routers, a bare number is 400 `router_needed`.
+        route must be on one router. Sode does not send takes through tie lines yet. Thus ends on two routers
+        are 409 `no_path`. With two or more routers, a bare number is 400 `router_needed`.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -2422,7 +2469,7 @@ components:
                 artwork the caller is not allowed to use). 404 unknown_router (the `router` parameter,
                 or the router of a route end, names no router UID). 400 router_needed (Sode has two or
                 more routers, and a read about one router or a route end names none). 409 no_path (the
-                ends of a route are on two routers; Sode has no tie lines yet). 405 method_not_allowed (see `Allow`).
+                ends of a route are on two routers; Sode does not send takes through tie lines yet). 405 method_not_allowed (see `Allow`).
                 409 conflict (Redo of a failed entry, Retry of a successful one, or a full panel or
                 artwork limit). 409 conflict also for a Protect that Sode has already or cannot set
                 yet. 409 protected (a
