@@ -23,6 +23,10 @@ func paletteValues() []string {
 	return append(out, PaletteOff)
 }
 
+// PaletteHomeKey is Home's row key; Home is first in the empty Palette, so it is never a pin (HOME_KEY in
+// web/pinrules.js).
+const PaletteHomeKey = "page:home"
+
 // MaxPalettePicks caps Profile.PalettePicks; MaxPalettePins caps Profile.PalettePins (PINS_MAX in web/pinrules.js);
 // MaxPaletteKey caps one key, in runes.
 const (
@@ -64,6 +68,9 @@ func PalettePinsProblem(list []string) string {
 	}
 	seen := map[string]bool{}
 	for _, k := range list {
+		if k == PaletteHomeKey {
+			return "Home is always first in the Palette, so it is not pinned"
+		}
 		if !RowKeyOK(k) {
 			return "a Palette pin names a Palette row that Sode does not know"
 		}

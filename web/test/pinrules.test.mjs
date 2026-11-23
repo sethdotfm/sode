@@ -16,6 +16,16 @@ test('pinsProblem: the shared cases, with the server’s words', () => {
   for (const c of cases) assert.equal(pinsProblem(c.pins), c.problem, JSON.stringify(c.pins).slice(0, 80));
 });
 
+test('Home is never a pin: refused, and dropped from a stored list', () => {
+  assert.equal(togglePin(['page:log'], 'page:home').err, 'Home is always first in the Palette, so it is not pinned');
+  assert.deepEqual(cleanPins(['page:home', 'page:log']), ['page:log']);
+});
+
+test('pinRows: an unread pin is left out, a read one with no row is Missing', () => {
+  assert.deepEqual(pinRows(['preset:global:gone'], rows, { ready: false }), []);
+  assert.equal(pinRows(['preset:global:gone'], rows, { ready: true })[0].missing, true);
+});
+
 test('cleanPins: a stored list as the page uses it', () => {
   assert.deepEqual(cleanPins(null), []);
   assert.deepEqual(cleanPins({ key: 'page:log' }), []);

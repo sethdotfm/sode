@@ -115,6 +115,13 @@ func TestChromePalettePins(t *testing.T) {
 	esc()
 	b.eval(`localStorage.setItem('sode-palette-pins', JSON.stringify(['page:log'])); true`)
 
+	// Home is never a pin: Alt+P on it says why and saves nothing.
+	open()
+	paletteFind(b, "Home", "page:home")
+	altKey("p", "KeyP")
+	b.waitFor("Home is refused", note+` === 'Home is always first in the Palette, so it is not pinned.' && `+local+` === '["page:log"]'`)
+	esc()
+
 	// Signed in, only Me pins show. Bo's pin goes to Me.
 	b.eval(`document.getElementById('settings-open').click(); document.getElementById('account-login').click(); true`)
 	signInAs(b, "Bo", "5678")
