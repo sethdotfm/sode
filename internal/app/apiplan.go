@@ -76,7 +76,7 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 			p.Skipped = append(p.Skipped, u)
 			continue
 		}
-		if !v.Route(e.Dst, u, s) {
+		if !v.on(e.Router).Route(e.Dst, u, s) {
 			continue
 		}
 		groups[s] = append(groups[s], u)
@@ -121,7 +121,7 @@ func planAgain(r *runtime, v apiView, e Entry, retry bool) (*takePlan, *apiProbl
 	lv := r.levelsOf(e.Router)
 	var ls []int
 	for _, u := range e.Levels {
-		if _, ok := lv.byUI[u]; ok && v.Route(e.Dst, u, e.Src) {
+		if _, ok := lv.byUI[u]; ok && v.on(e.Router).Route(e.Dst, u, e.Src) {
 			ls = append(ls, u)
 		}
 	}

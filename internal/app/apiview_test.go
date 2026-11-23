@@ -142,11 +142,11 @@ func TestHiddenRightsDropHistoryEntries(t *testing.T) {
 }
 
 func TestViewEntryIsTheCheckForUndoPlans(t *testing.T) {
-	hid := apiView{viewRights(config.VisHidden)}
+	hid := apiView{rights: viewRights(config.VisHidden)}
 	if _, ok := hid.Entry(Entry{Src: 1, Dst: 7, Levels: []int{1}}); ok {
 		t.Error("hidden destination entry is visible")
 	}
-	open := apiView{viewRights("")}
+	open := apiView{rights: viewRights("")}
 	e, ok := open.Entry(Entry{Src: 5, Dst: 7, Levels: []int{1}})
 	if !ok || e.Dst != 7 {
 		t.Error("read-only rights hide an entry")

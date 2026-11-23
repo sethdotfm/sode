@@ -19,6 +19,18 @@ test('Rights lists of router references allow the same numbers as bare numbers',
   assert.equal(planOutside({ dsts: [ref(8)] }, plan, 1), 'destination 10 is outside your rights');
 });
 
+test('a right names its router: A.5 allows A.5 and refuses B.5', () => {
+  const r = { sources: [{ router: 'a', n: 5 }], dsts: [{ router: 'a', n: 5 }] };
+  assert.equal(allowed(r, 'sources', 5, 'a'), true);
+  assert.equal(allowed(r, 'sources', 5, 'b'), false);
+  assert.equal(allowed(r, 'dsts', 5, 'b'), false);
+  const uid = (end) => end.router || 'a';
+  const plan = (router) => ({ verb: 'patch', items: [{ dst: { n: 5, router }, groups: [{ src: { n: 5, router }, levels: [1] }] }] });
+  assert.equal(planOutside(r, plan(undefined), 1, String, uid), '');
+  assert.equal(planOutside(r, plan('b'), 1, String, uid), 'destination 6 is outside your rights');
+  assert.equal(planOutside({ sources: r.sources }, plan('b'), 1, String, uid), 'source 6 is outside your rights');
+});
+
 test('a preset is checked by id, so a rename keeps who can fire it', () => {
   const plan = { verb: 'preset', preset: 'Wall 2', presetId: 'p1', items: [] };
   assert.equal(planOutside({ presets: ['p1'] }, plan, 0), '');

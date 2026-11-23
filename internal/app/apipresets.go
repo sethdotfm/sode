@@ -18,7 +18,7 @@ type apiPreset struct {
 
 func (a *App) apiPresets(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	cfg := a.r().cfg
-	v := cl.view()
+	v := a.view(cl)
 	out := []apiPreset{}
 	add := func(scope string, ps []config.Preset) {
 		for _, p := range ps {

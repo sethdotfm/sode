@@ -76,6 +76,22 @@ func waitLogged(t *testing.T, a *App, n int) []Sent {
 	return nil
 }
 
+// waitLoggedWhy waits for a row with this Why. A count can pass before the row under test is written.
+func waitLoggedWhy(t *testing.T, a *App, why string) Sent {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, e := range logged(t, a) {
+			if e.Why == why {
+				return e
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("no %s row in %+v", why, logged(t, a))
+	return Sent{}
+}
+
 func results(rows []Sent, kind string) string {
 	var out []string
 	for _, e := range rows {

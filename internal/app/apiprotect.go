@@ -43,7 +43,7 @@ func (a *App) apiProtect(w http.ResponseWriter, r *http.Request, cl *apiCtx, set
 		return
 	}
 	// The hidden view gets the same answer for a destination it cannot see as for one that is not there.
-	if !cl.view().Destination(dst) {
+	if !a.view(cl).on("").Destination(dst) {
 		apiFail(w, http.StatusNotFound, "not_found", "no such destination")
 		return
 	}

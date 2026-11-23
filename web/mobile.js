@@ -59,7 +59,7 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
     inputs.dst.focus();
   },
   canAdd: () => M.step === 'dst',
-  outside: (it) => rightsOff(M.step === 'src' ? 'sources' : 'dsts', it.n),
+  outside: (it) => rightsOff(M.step === 'src' ? 'sources' : 'dsts', it),
   press: 'click',
   cls: 'sode-m__match',
   hiCls: 'sode-m__match--hi',
