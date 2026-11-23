@@ -87,6 +87,21 @@ test('againPlan: folders', async () => {
   );
 });
 
+test('againPlan: a tie take retries its destination entry only, and has no Redo', async () => {
+  const { againPlan } = await setup();
+  const origin = { router: 'a1', n: 4 };
+  const failed = { entries: [take({ id: 1, tie: 't1' }), take({ id: 2, ok: false, origin })] };
+  const r = againPlan({ f: failed });
+  assert.equal(r.verb, 'retry');
+  assert.deepEqual(
+    r.items.map((i) => i.retry.id),
+    [2],
+  );
+  const ok = { entries: [take({ id: 1, tie: 't1' }), take({ id: 2, origin })] };
+  assert.equal(againPlan({ f: ok }).items.length, 0);
+  assert.equal(againPlan({ e: take({ origin }) }).items.length, 0);
+});
+
 test('alreadyThere: any non-undo item whose dst has the source everywhere', async () => {
   const { S, againPlan, undoPlan, alreadyThere } = await setup();
   const item = (o) => againPlan({ e: take(o) }).items[0];

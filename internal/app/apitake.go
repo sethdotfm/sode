@@ -124,6 +124,8 @@ func (e *apiEnd) UnmarshalJSON(b []byte) error {
 	var ref struct {
 		Router string `json:"router"`
 		N      *int   `json:"n"`
+		// Name: an end in a 409 body has its name. A caller can send that end back as it is; Sode ignores the name.
+		Name string `json:"name"`
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
@@ -284,10 +286,12 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 			return p, nil
 		}
 		switch {
-		case verb == "retry" && e.Tie != "":
-			return nil, problem(http.StatusConflict, "conflict", "entry %d is a hop of a tie take; retry its destination entry, or put the tie line back", id)
+		case e.Tie != "":
+			return nil, problem(http.StatusConflict, "conflict", "entry %d is a hop of a tie take; %s its destination entry, or put the tie line back", id, verb)
 		case verb == "retry" && e.Origin != nil:
-			return a.planTieRetry(rt, cl, e)
+			return a.planTieRetry(rt, cl.Rights, a.view(cl), e)
+		case verb == "redo" && e.Origin != nil && e.OK:
+			return nil, a.tieRedoProblem(rt, cl.Rights, a.view(cl), e)
 		}
 		return planAgain(rt, a.view(cl), e, verb == "retry")
 	})
@@ -425,14 +429,15 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	if plan.Preset != "" {
 		note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
 	}
-	if t := plan.Ties; t != nil {
+	if plan.Ties != nil {
 		// The tie locks and the stale check come before the sent row, so a refused take logs refused.
-		unlock, p := a.tieTakeBegin(rt, a.view(cl), c, t)
+		t, unlock, p := a.tieTakeBegin(rt, a.view(cl), c, plan.Ties)
 		if p != nil {
 			a.apiEvent(cl.Actor, why, "refused", p.Code, fmt.Errorf("%s", p.Msg))
 			return p.answer(), false
 		}
 		defer unlock()
+		plan.Ties = t
 	}
 	a.apiEvent(cl.Actor, why, "sent", note, nil)
 	if t := plan.Ties; t != nil {

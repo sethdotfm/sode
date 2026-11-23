@@ -17,7 +17,7 @@ import (
 //
 // Hops through saved tie lines need no Rights (docs/tielines-design.md, Rights), so a put-back that matches its hop
 // entry skips the Rights check (putBackMatches). The page sends it as a take item with undo and putBack; the API has
-// POST /history/{id}/putback. The hop entry keeps its Prev, which Undo of a tie take (later) also reads.
+// POST /history/{id}/putback. Both send only the levels that the hop changed (planPutBack, putBackLevels). The hop entry keeps its Prev, which Undo of a tie take (later) also reads.
 
 func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/history/{id}/putback", config.ScopeTake + " " + config.ScopeHistory, (*App).apiPutBack})
@@ -90,6 +90,27 @@ func (a *App) putBackHeld(r *runtime, w *waiter, e *Entry, req routeReq) string 
 		}
 	}
 	return fmt.Sprintf("not sent: %s now carries %s, not %s, on levels %s", name, now, srcName(hop.Src), levelList(r.levelsOf(w.u.uid), levels))
+}
+
+// putBackLevels keeps, in each put-back item of a page, only the levels that its hop changed, as planPutBack does
+// for the API. putBackHeld guards only those levels, and putBackMatches skips the Rights for the item. An item with
+// no such level gets its refusal here and is not sent.
+func (a *App) putBackLevels(c *client, items []routeReq) []routeReq {
+	out := items[:0:0]
+	for _, it := range items {
+		if it.PutBack && it.Undo != nil {
+			if hop, ok := a.hist.Get(*it.Undo); ok && hop.Tie != "" {
+				changed := hopChanged(hop)
+				it.Levels = slices.DeleteFunc(slices.Clone(it.Levels), func(l int) bool { return !slices.Contains(changed, l) })
+				if len(it.Levels) == 0 {
+					a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: fmt.Sprintf("not sent: entry %d changed none of these levels of %s", hop.ID, tieNameOf(a.r(), hop.Tie))})
+					continue
+				}
+			}
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 // tieNameOf names a tie line by its id, from the settings.

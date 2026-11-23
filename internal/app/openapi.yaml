@@ -534,8 +534,9 @@ paths:
         fails, Sode does not send the hops after it. Each hop makes its own History entry (with
         `tie`), and the take is one Group. The result of a route is the result of its last hop, with
         `hops`. Ties that make no path get 400 `bad_request`. A tie line that two routes of the take
-        need for two sources gets 409 `conflict`. A router down on the path gets 409 `no_path` or
-        `tie_line_needed` with the paths that remain.
+        need for two sources gets 409 `conflict`. A route on one router to the upstream destination
+        of a tie line that another route of the take goes through gets 409 `conflict`. A router down
+        on the path gets 409 `no_path` or `tie_line_needed` with the paths that remain.
 
         Before it sends anything, Sode locks each tie line of the take, in id order, until the take
         ends. A take to the upstream destination of a tie line waits for that lock. Then Sode reads
@@ -543,7 +544,9 @@ paths:
         `expect`. With `affected`, it also compares the Affected destinations of the path. A tie line
         that moved, or an Affected destination that the caller did not see, gives 409
         `tie_line_changed`. Nothing goes to a router then. Its `routes` gives the path of each
-        route across routers as it is now, with `changed` and `newAffected`.
+        route across routers as it is now, with `changed` and `newAffected`. After the locks, Sode
+        plans the take again from what it read. Thus a tie line that changed during the wait
+        cannot make Sode skip a hop.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -579,7 +582,7 @@ paths:
                             expect:
                               nullable: true
                               allOf: [{ $ref: "#/components/schemas/RouteEnd" }]
-                              description: "What the caller saw on the tie line. A router reference is that source on every level of the upstream router. Null or omitted is nothing on every level. A list holds one router reference or null for each level, from level 1, for a mixed tie line. Sode compares every level: a difference on any level gets 409 `tie_line_changed`. A mixed tie line never matches one source"
+                              description: "What the caller saw on the tie line. A router reference is that source on every level of the upstream router. Null or omitted is nothing on every level. A list holds one router reference or null for each level, from level 1, for a mixed tie line. Sode compares every level: a difference on any level gets 409 `tie_line_changed`. A mixed tie line never matches one source. A tie line downstream of a mixed tie line is mixed too: send the `levels` of its `now`"
                       affected:
                         type: array
                         items: { $ref: "#/components/schemas/RouteEnd" }
@@ -646,7 +649,13 @@ paths:
       operationId: redoEntry
       tags: [writes]
       summary: Redo a successful History entry
-      description: "Scopes `take` and `history`. Takes the entry's source to its destination again as a new take. 409 `conflict` for a failed entry (use retry)."
+      description: |
+        Scopes `take` and `history`. Takes the entry's source to its destination again as a new take,
+        on the router of the entry. 409 `conflict` for a failed entry (use retry), or for the entry
+        of a hop (`tie`). For the entry of a tie take's destination (`origin`), Redo opens the
+        picker. Sode sends nothing. The answer is 409 `tie_line_needed` (or `no_path`) with the
+        paths as they are now. Send the route again to POST /takes with `ties`. The `hops` of the
+        entry name the tie lines that it used last time.
       parameters:
         - { $ref: "#/components/parameters/EntryId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -655,7 +664,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
-        "409": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/TiePaths" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
   /history/{id}/retry:
@@ -3110,6 +3119,7 @@ components:
           properties:
             router: { type: string, description: "A router UID from GET /routers" }
             n: { type: integer }
+            name: { type: string, description: "Ignored. An end in a 409 body has its name, so a caller can send that end back as it is" }
     Route:
       type: object
       description: |
