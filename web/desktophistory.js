@@ -5,7 +5,7 @@ import { listStep, pickOrAdd } from './keys.js';
 import { levelBar, levelsShown } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes, compactOn } from './device.js';
-import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupLevels, groupIds, routeNote } from './history.js';
+import { historyPager, beforeGroups, attachFollows, entryNote, undoneBadge, statusNode, groupLevels, groupIds, routeNote } from './history.js';
 import { planEmpty, showResult } from './plans.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
@@ -60,7 +60,15 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', e.chain ? `#${e.chain[e.chain.length - 1].id}–#${e.id}` : `#${e.id}`),
       histTime(e.time),
       levelBar(known),
-      el('span', 'sode__hist-route sode__hist-route--boxes', ...(e.chain ? stackFrom(e, useRowSrc) : []), ...routeNodes(r), entryNote(e), byLabel(e)),
+      el(
+        'span',
+        'sode__hist-route sode__hist-route--boxes',
+        ...(e.chain ? stackFrom(e, useRowSrc) : []),
+        ...routeNodes(r),
+        entryNote(e),
+        undoneBadge(e.undone),
+        byLabel(e),
+      ),
       statusNode({ e }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`e${e.id}`)] : [retry, btn])),
@@ -152,7 +160,7 @@ export function desktopHistory({ select, addEnd, focusBox, openConfirm, focusSea
       el('span', 'sode__hist-id', groupIds(f)),
       histTime(f.entries[0].time),
       levelBar(groupLevels(f)),
-      el('span', 'sode__hist-route sode__hist-route--boxes', ...routeNodes(view.route(f)), byLabel(f)),
+      el('span', 'sode__hist-route sode__hist-route--boxes', ...routeNodes(view.route(f)), undoneBadge(f.undone), byLabel(f)),
       statusNode({ f }),
       disc,
       el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [retry, undo])),
