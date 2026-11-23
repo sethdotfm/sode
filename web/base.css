@@ -756,6 +756,10 @@ html {
 [data-layout="phone"]:not([data-view="settings"]) #conn-down {
   display: none;
 }
+/* The page's sticky copy would sit over the fixed phone view's header; the phone view draws its own under it. */
+[data-layout="phone"]:not([data-view="settings"]) body > .sode__notsaved {
+  display: none;
+}
 [data-layout="phone"]:not([data-view="settings"]) .sode-m {
   display: flex;
 }

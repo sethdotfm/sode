@@ -233,7 +233,7 @@ function build() {
     signIn: () => emit('login'),
     signOut: endSignIn,
     stepIn: () => emit('stepInOpen'),
-    changePin: () => emit('changePin'),
+    stepOut,
     home: page === 'main',
     stepped: steppedIn,
     stepOffered: stepOpen,

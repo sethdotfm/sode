@@ -28,8 +28,14 @@ const id = panelIdFrom(location.pathname);
 
 on('brand', ({ text }) => {
   const title = document.querySelector('.sode-panels__title');
-  barTitle(title, title.textContent.replace(/^Sode/, text));
-  if (!id) document.title = title.textContent;
+  // A panel page's title becomes the panel's name (panelrun.js); only its first text names the site.
+  if (id) {
+    const site = title.querySelector('.sode-bar__site');
+    if (site) site.textContent = text;
+    return;
+  }
+  barTitle(title, text, title.dataset.page);
+  document.title = title.dataset.pbTip;
 });
 
 // The run page leaves the grid's scrolling to the grid's own code.

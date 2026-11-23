@@ -2,8 +2,11 @@
 import { layout } from './layout.js';
 import { liftFrom, shouldFly, brandFrames, OUT_FACTOR } from './lockrules.js';
 
+// A page header's title flies from its site name (panelsbar.js barTitle), not from the whole title.
 const logo = () =>
-  [...document.querySelectorAll('.sode__mark, .sode-m__mark, .sode-log__title, .sode-panels__title')].find((e) => e.getBoundingClientRect().width > 0);
+  [...document.querySelectorAll('.sode__mark, .sode-m__mark, .sode-bar__site, .sode-panels__title:not(:has(.sode-bar__site))')].find(
+    (e) => e.getBoundingClientRect().width > 0,
+  );
 const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
 export const motionMs = () => (calmMotion.matches ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0);
 
@@ -14,7 +17,7 @@ export function moveBrand(brand, dir) {
   const ms = motionMs();
   if (!ms || !brand.animate) return;
   const from = logo()?.getBoundingClientRect();
-  const fly = !logo()?.classList.contains('sode-log__title') && shouldFly(from, window.scrollY, window.innerHeight); // /log's heading is text: it fades, not scales
+  const fly = !logo()?.closest('.sode-log__title') && shouldFly(from, window.scrollY, window.innerHeight); // /log's heading is text: it fades, not scales
   const t = fly ? liftFrom(from, brand.getBoundingClientRect()) : { x: 0, y: 0, scale: 1 };
   brand.animate(brandFrames(dir, fly, t), {
     duration: dir === 'in' ? ms : ms * OUT_FACTOR,
