@@ -4,7 +4,7 @@
 // until they are sent or cleared. The popup state and the list are page memory only: a reload or the Lock drops them.
 // One Take: a confirm of the staged routes also holds the route in the patch boxes, when they hold one. The rules are in
 // gridpoprules.js.
-import { $, el, icon, S, on, emit, off, linked, needsLink, srcItem, dstItem, labelNode, routerData } from './core.js';
+import { $, el, icon, S, on, emit, off, linked, needsLink, srcItem, dstItem, labelNode, routerData, endSrcLabel } from './core.js';
 import { pagePlaces, itemRights } from './routerplaces.js';
 import { placeOf, routerN, mergeTally, mergeProtected, mergeNames } from './routerids.js';
 import { pickOrAdd, keyLabel } from './keys.js';
@@ -218,11 +218,12 @@ function push() {
     levelNumbering: S.cfg.levelNumbering,
     defaultLevels: S.cfg.defaultLevels,
     tally: S.tally,
+    via: S.via,
   });
   // Each router's own levels go with its tally, so a route on it takes its levels (gridpanellevels.js otherRouterLevels).
   const others = more.map(({ place, rt }) => ({
     place,
-    reply: tallyReplyOf({ router: rt.uid, levels: rt.levels, levelNumbering: rt.numbering, defaultLevels: rt.defaultLevels, tally: rt.tally }),
+    reply: tallyReplyOf({ router: rt.uid, levels: rt.levels, levelNumbering: rt.numbering, defaultLevels: rt.defaultLevels, tally: rt.tally, via: rt.via }),
   }));
   body.data({ tally: mergeTally(tally, others), prot: mergeProtected(protectedReplyOf(S.prot), []), nm, version });
   body.render();
@@ -291,6 +292,8 @@ const adapter = () => ({
   pressMode: () => (presetAdd.active() ? adds : null),
   // The main page holds the Protects of the first router only.
   holdOf: (d) => (placeOf(d) ? null : gridHold(d)),
+  // The label of a Via origin ({ router, n }), as the patch boxes show it.
+  viaLabel: endSrcLabel,
   onStage(list) {
     staged = list;
     paintList();

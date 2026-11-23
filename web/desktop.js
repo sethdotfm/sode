@@ -23,7 +23,8 @@ import { paintConn } from './connview.js';
 import { levelBar, allLevels, levelSource, levelsShown } from './levelview.js';
 import { levelBox } from './levelbox.js';
 import { levelRouterOf } from './levels.js';
-import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
+import { fedBy, bySource, currentlyNodes, pickEnd, fedThroughTies } from './routes.js';
+import { viaMark } from './viaview.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
 import {
   resultNode,
@@ -337,8 +338,8 @@ function underHead(text, up) {
   return el('div', 'sode__under-head', el('span', up ? 'sode__down-arrow sode__down-arrow--up' : 'sode__down-arrow'), el('span', 'sode__label', text));
 }
 
-function sendingRow(src, d, levels, uid) {
-  const t = routerData(uid).tally.get(d);
+// on: the levels of d that have the source. `via`: the Via row of a destination that a tie line feeds.
+function sendingRow(d, on, uid, via = null) {
   const pick = pickEnd('dst', dstLabel(d, uid), 'Add as a destination', () => {
     const have = allDsts();
     const it = dstItem(d, '', uid);
@@ -348,15 +349,7 @@ function sendingRow(src, d, levels, uid) {
     }
     toLevels();
   });
-  return el(
-    'div',
-    'sode__route',
-    levelBar(
-      levels.filter((u) => t.get(u) === src),
-      uid,
-    ),
-    pick,
-  );
+  return el('div', 'sode__route', levelBar(on, uid), pick, ...(via ? [viaMark(via)] : []));
 }
 
 // The route view of one destination: no source, one destination. It offers Protect and Free Protect.
@@ -383,12 +376,20 @@ function renderTally() {
   if (sel.src) {
     const uid = sel.src.router || '';
     const levels = lvl.levels() || allLevels(uid);
-    const fed = fedBy(sel.src.n, levels, uid);
+    const t = routerData(uid).tally;
+    const fed = fedBy(sel.src.n, levels, uid).map((d) =>
+      sendingRow(
+        d,
+        levels.filter((u) => t.get(d).get(u) === sel.src.n),
+        uid,
+      ),
+    );
+    // Through tie lines too, on every level of the router downstream (docs/tielines-design.md, Via).
+    const through = fedThroughTies(sel.src).map((f) => sendingRow(f.dst, f.levels, f.router, f.row));
+    const n = fed.length + through.length;
     srcUnder.replaceChildren(
-      underHead(fed.length ? `Sending to ${fed.length}` : 'Sending'),
-      fed.length
-        ? el('div', 'sode__scroll', ...fed.map((d) => sendingRow(sel.src.n, d, levels, uid)))
-        : el('div', 'sode__hint', 'Not sending to any destination on these levels'),
+      underHead(n ? `Sending to ${n}` : 'Sending'),
+      n ? el('div', 'sode__scroll', ...fed, ...through) : el('div', 'sode__hint', 'Not sending to any destination on these levels'),
     );
   } else srcUnder.replaceChildren();
   const ds = allDsts();
@@ -397,8 +398,8 @@ function renderTally() {
     const srcs = new Set(
       ds.flatMap((d) =>
         bySource(d.n, allLevels(), d.router)
-          .filter((r) => r.src != null && r.src >= 0)
-          .map((r) => `${d.router || ''}.${r.src}`),
+          .filter((r) => (r.via ? r.via.origin : r.src != null && r.src >= 0))
+          .map((r) => (r.via ? `${routerOfItem(r.via.origin)}.${r.via.origin.n}` : `${d.router || ''}.${r.src}`)),
       ),
     );
     dstUnder.replaceChildren(

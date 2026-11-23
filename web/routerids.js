@@ -73,7 +73,8 @@ export function mergeTally(first, more = []) {
   const byPlace = [levelsPart(first)];
   for (const { place, reply } of more) {
     byPlace[place] = levelsPart(reply);
-    for (const r of reply?.routes || []) routes.push({ dst: itemId(place, r.dst), level: r.level, src: itemId(place, r.src) });
+    // A row's Via fields stay: its origin is a router reference, not an item number.
+    for (const r of reply?.routes || []) routes.push({ ...r, dst: itemId(place, r.dst), src: itemId(place, r.src) });
   }
   return { ...first, routes, byPlace };
 }

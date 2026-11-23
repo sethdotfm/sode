@@ -3200,6 +3200,7 @@ components:
             properties:
               router: { type: string }
               n: { type: integer }
+        levelsRouter: { type: string, description: "Only when mixed: the UID of the router upstream of the nearest tie line, whose levels `levels` counts" }
     ProtectedRow:
       type: object
       required: [dst, level, kind, device]

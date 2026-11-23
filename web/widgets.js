@@ -1,7 +1,8 @@
 // Widgets both layouts build the same way; each layout passes its own elements.
 
 import { byText } from './lockrules.js';
-import { el, S, needsLink, numText, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
+import { el, S, needsLink, numText, srcItem, dstItem, tallyText, chevron, icon } from './core.js';
+import { viaMark } from './viaview.js';
 import { listStep, addClick, pickOrAdd, keyLabel } from './keys.js';
 import { levelBar, levelText } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
@@ -547,10 +548,11 @@ export function pullToLoad(scroller, box, pager, when) {
 }
 
 // First two as chips, all when open, toggle for the rest. onPick(d) uses one as the destination.
+// fed: destination items. One that a tie line feeds has `via` (its Via row) and shows the Via mark.
 export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty = 'Not feeding any destination' }) {
   if (!fed.length) return el('div', 'sode__hint', empty);
   const chip = (d) => {
-    const c = el('button', 'pb-chip', dstLabel(d));
+    const c = el('button', 'pb-chip', d.label, ...(d.via ? [' ', viaMark(d.via)] : []));
     c.type = 'button';
     c.dataset.pbTip = 'Use as destination';
     c.addEventListener(hold, (e) => e.preventDefault());

@@ -130,6 +130,8 @@ type apiRouteRow struct {
 	Unknown string         `json:"unknown,omitempty"`
 	Loop    bool           `json:"loop,omitempty"`
 	Levels  []*tieplan.End `json:"levels,omitempty"`
+	// LevelsRouter: only when Mixed, the router unit UID upstream of the nearest tie line, whose levels Levels counts.
+	LevelsRouter string `json:"levelsRouter,omitempty"`
 }
 
 // router.protect maps dst and level to a device, not a source. So visibility asks about dst only.

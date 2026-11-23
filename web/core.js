@@ -50,6 +50,9 @@ export const S = {
   srcBy: new Map(),
   dstBy: new Map(),
   tally: new Map(),
+  // dst → Map(level → Via row): the tally rows whose source a tie line feeds (viarules.js), from the hello and the
+  // `viaRows` message. The first router's; `routerData(uid).via` has each router's.
+  via: new Map(),
   prot: new Map(), // dst → Map(level → {dev, kind}), from the router
   protBy: new Map(), // dst → {by, device, levels}: the Protects in Sode's own record
   levels: [],
@@ -127,6 +130,9 @@ const FIRST = Object.freeze({
   get tally() {
     return S.tally;
   },
+  get via() {
+    return S.via;
+  },
   get namesAt() {
     return S.namesAt;
   },
@@ -141,6 +147,10 @@ export const routerData = (uid) => otherRouter(uid) || FIRST;
 
 // The UID that a take sends for an item's router: blank for the first router.
 export const routerOfItem = (it) => (otherRouter(it?.router) ? it.router : '');
+
+// Each router's Via rows, the first router first, as `[[uid, via]]` (viarules.js fedThrough). uid is the router's own
+// UID.
+export const viaByRouter = () => [[FIRST.uid, S.via], ...[...more.values()].map((r) => [r.uid, r.via])];
 
 // sameEnd: the same number on the same router.
 export const sameEnd = (a, b) => !!a && !!b && a.n === b.n && routerOfItem(a) === routerOfItem(b);
@@ -176,6 +186,7 @@ function newRouter(r) {
     srcBy: new Map(),
     dstBy: new Map(),
     tally: new Map(),
+    via: new Map(),
     namesAt: null,
     link: null,
     addr: '',
@@ -193,6 +204,7 @@ function setRouters(list) {
     setNames(r.srcs || [], r.dsts || [], st);
     st.namesAt = r.at;
     applyTally(r.tally || [], st.tally);
+    st.via = viaMap(r.via);
     setRouterStatus(st, r.status || {});
   }
 }
@@ -263,6 +275,8 @@ export const numText = (it) => (it.prefix ? `${it.prefix}.${it.num}` : it.num);
 // Number is muted and fixed-width so it cannot run into a name starting with a digit.
 export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', numText(it)), ...(it.name ? [' ', it.name] : []));
 export const dstLabel = (n, uid = '') => dstItem(n, '', uid).label;
+// endSrcLabel: the label of a source end { router, n } of any router, as a Via row's origin names it.
+export const endSrcLabel = (e) => srcLabel(e.n, routerOfItem(e));
 export const tallyText = (s, uid = '') => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s, uid));
 
 let retry = 1000;
@@ -397,6 +411,7 @@ function handle(m) {
       S.namesSavedAt = m.savedAt || null;
       S.tally = new Map();
       applyTally(m.tally || []);
+      S.via = viaMap(m.routers?.[0]?.via);
       S.prot = new Map();
       applyProtect(m.protected || []);
       applyProtectBy(m.protectBy || []);
@@ -431,6 +446,15 @@ function handle(m) {
       applyTally(m.u, rt ? rt.tally : S.tally);
       // tallyRows is for the first router: panel pages show only it.
       if (!rt) emit('tallyRows', m.u);
+      emit('tally');
+      break;
+    }
+    case 'viaRows': {
+      // The whole set of one router (internal/app/pagevia.go).
+      const rt = otherRouter(m.routerUid);
+      if (rt) rt.via = viaMap(m.rows);
+      else S.via = viaMap(m.rows);
+      emit('viaRows');
       emit('tally');
       break;
     }
@@ -476,6 +500,16 @@ function setNames(srcs, dsts, to = S) {
   to.dsts = dsts.map(([n, name]) => item(n, name, uid));
   to.srcBy = new Map(to.srcs.map((i) => [i.n, i]));
   to.dstBy = new Map(to.dsts.map((i) => [i.n, i]));
+}
+
+// The Via rows of one router by dst and level.
+function viaMap(rows = []) {
+  const out = new Map();
+  for (const r of rows || []) {
+    if (!out.has(r.dst)) out.set(r.dst, new Map());
+    out.get(r.dst).set(r.level, r);
+  }
+  return out;
 }
 
 function applyTally(list, tally = S.tally) {

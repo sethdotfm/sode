@@ -1,6 +1,7 @@
 // The phone's History rows: swipe left to show Undo, right to show Redo (Retry for failed takes).
 import { $, el, on, dstItem, labelNode, toggle, routerData } from './core.js';
 import { levelBar } from './levelview.js';
+import { viaWordMark } from './viaview.js';
 import { fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, groupLevels, groupRouter, stackBefore, routeNote } from './history.js';
 import { layout } from './layout.js';
@@ -23,7 +24,11 @@ export function closeSwipes(except) {
 
 // r: rowView's route. A lead (a Protect chip) stands where the source is, with no arrow.
 const strong = (x) => el('strong', null, typeof x === 'string' ? x : labelNode(x));
-const routeNodes = (r) => [...(r.lead ? [r.lead, ' '] : [strong(r.src), ' → ']), strong(r.dst), routeNote(r.notes)];
+const routeNodes = (r) => [
+  ...(r.lead ? [r.lead, ' '] : [strong(r.src), ...(r.via ? [' ', viaWordMark(r.via)] : []), ' → ']),
+  strong(r.dst),
+  routeNote(r.notes),
+];
 
 // sheetFor(plan) opens the Confirm sheet; pickSrc(n) puts a source in the composer.
 export function mobileHistory({ sheetFor, pickSrc }) {

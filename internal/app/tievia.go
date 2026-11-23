@@ -57,8 +57,14 @@ func (x *viaTrace) fill(rv routerView, row *apiRouteRow) {
 	}
 	if c.Mixed {
 		// The level pie of the nearest tie line: what each level of its upstream end carries.
-		for _, o := range x.tr.UpLevels(c.Via[len(c.Via)-1]) {
+		near := c.Via[len(c.Via)-1]
+		for _, o := range x.tr.UpLevels(near) {
 			row.Levels = append(row.Levels, seen(o))
+		}
+		for _, t := range x.in.Ties {
+			if t.ID == near {
+				row.LevelsRouter = t.From.Router
+			}
 		}
 	}
 }

@@ -617,6 +617,21 @@ html {
   padding-top: 0;
   vertical-align: middle;
 }
+/* The Via mark (viaview.js): the tie lines after a source that tie lines feed. Tie lines use --pb-tieline only
+   (docs/color-roles.md), and the word Via is the cue that is not color. */
+.sode-via {
+  border: var(--pb-border-w) solid var(--pb-tieline);
+  color: var(--pb-text-strong);
+  display: inline-block;
+  font-size: var(--pb-text-sm);
+  padding: 0 var(--pb-space-3);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+/* The level pie of a mixed chain: one row for each origin upstream, set in under its Via row. */
+.sode-via__pie {
+  padding-left: var(--pb-space-8);
+}
 .sode__arrow {
   color: var(--pb-text-muted);
 }
