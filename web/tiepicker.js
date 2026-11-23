@@ -52,6 +52,7 @@ import {
   protectable,
   protectOn,
   toggleProtect,
+  usedLast,
 } from './tiepickrules.js';
 import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText } from './tiepickrules.js';
 import { mayProtect } from './protects.js';
@@ -377,6 +378,7 @@ function paint() {
     ...(p ? [affectedNode(p, src)] : []),
     ...reserveNode(st),
     ...storedNode(st),
+    ...lastNode(st),
   );
   ui.pKey.hidden = !mayShield();
   paintTake();
@@ -396,6 +398,14 @@ function storedNode(st) {
   const { text, warn } = storedText(st);
   if (!text) return [];
   const n = warn ? el('div', 'pb-alert pb-alert--warn sode-tiepick__stored', text) : el('p', 'sode__hint sode-tiepick__stored', text);
+  n.setAttribute('role', 'status');
+  return [n];
+}
+
+// lastNode says why a Redo could not keep a tie line that the take used last time (lastState). A caution, with text.
+function lastNode(st) {
+  if (!st.lastWhy) return [];
+  const n = el('div', 'pb-alert pb-alert--warn sode-tiepick__stored', st.lastWhy);
   n.setAttribute('role', 'status');
   return [n];
 }
@@ -495,6 +505,7 @@ function choiceNode(s, c, on, src) {
     ...(held ? [el('span', 'sode-tiepick__held', held)] : []),
     ...(on && protectOn(cur.st, c.tie) && protectable(h) ? [el('span', 'sode-tiepick__protect', icon('shield'), 'Protect after the take')] : []),
     ...(c.gone ? [el('span', 'sode-tiepick__held', 'Not in the plan now')] : []),
+    ...(usedLast(cur.st, s, c.tie) ? [el('span', 'pb-badge sode-tiepick__last', 'Used last time')] : []),
     ...(on && tieMarked(cur.st, c.tie) ? [changedMark()] : []),
   );
   b.type = 'button';

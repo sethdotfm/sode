@@ -41,6 +41,9 @@ type undoTarget struct {
 	ID      int
 	Entries []Entry
 	Plan    *takePlan
+	// Tie: the Undo of a tie take that cannot go as it is (tieundo.go). The cell has no confirm that could offer a
+	// put-back or the picker, so it refuses.
+	Tie *apiProblem
 }
 
 // panelUndoTarget is nil when this instance has nothing left to undo within undoScan.
@@ -91,7 +94,13 @@ func (a *App) panelUndoTarget(cl *apiCtx, panelID string) *undoTarget {
 			}
 			if es, p := undoPlanOf(rt, v, take); p != nil {
 				// The newest entry the caller can see, so Hidden visibility never hands out a hidden id.
-				return &undoTarget{es[len(es)-1].ID, es, p}
+				u := &undoTarget{ID: es[len(es)-1].ID, Entries: es, Plan: p}
+				for _, t := range take {
+					if u.Tie == nil && t.Origin != nil {
+						u.Tie = a.tieUndoProblem(rt, t)
+					}
+				}
+				return u
 			}
 		}
 		if !morePages(page) {
@@ -113,12 +122,13 @@ func groupCount(es []Entry, group string) int {
 }
 
 // undoPlanOf joins the undo of each entry of one take, oldest first; nil when none is visible or none restores anything.
+// The Undo of a tie take puts back the destinations asked for, never a tie line (tieundo.go), so hop entries are out.
 func undoPlanOf(rt *runtime, v apiView, take []Entry) ([]Entry, *takePlan) {
 	var es []Entry
 	p := &takePlan{}
 	for i := len(take) - 1; i >= 0; i-- {
 		e, ok := v.Entry(take[i])
-		if !ok {
+		if !ok || e.Tie != "" {
 			continue
 		}
 		u := planUndo(rt, v, e)
@@ -153,6 +163,9 @@ func (a *App) apiPanelUndoNext(w http.ResponseWriter, r *http.Request, cl *apiCt
 	}
 	_, rights := a.callerOf(cl.client())
 	reason := a.outsideRights(rt, rights, u.Plan.Items)
+	if u.Tie != nil {
+		reason = u.Tie.Msg
+	}
 	apiJSON(w, map[string]any{"undo": map[string]any{"id": u.ID, "entries": u.Entries, "routes": routes, "allowed": reason == "", "reason": reason}})
 }
 
@@ -177,6 +190,8 @@ func (a *App) apiPanelUndo(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 			return nil, problem(http.StatusUnprocessableEntity, "nothing_to_do", "this panel instance has no take left to undo")
 		case in.ID != nil && *in.ID != u.ID:
 			return nil, problem(http.StatusConflict, "conflict", "the take to undo is now entry %d, not %d; ask again", u.ID, *in.ID)
+		case u.Tie != nil:
+			return nil, u.Tie
 		}
 		return u.Plan, nil
 	})
