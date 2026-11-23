@@ -58,6 +58,8 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 // some route, so its Prev came from the cache.
 func (a *App) takeAllowed(c *client, items []routeReq) (unread bool) {
 	r := a.r()
+	// A take to the upstream destination of a tie line waits for a tie take that holds it (tielock.go).
+	defer a.tieLocks.lock(a.upstreamTies(r, items))()
 	if len(items) > 1 {
 		g := strconv.FormatInt(time.Now().UnixNano(), 36)
 		for i := range items {

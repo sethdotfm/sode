@@ -24,6 +24,10 @@ type tieRoute struct {
 	index    int // place in the request
 	src, dst tieplan.End
 	levels   []int // UI levels of the router of dst
+	// expect: tie line id → what the caller saw on it. seen: the Affected destinations that the caller saw; nil
+	// when it sent none, and then the stale check does not compare them.
+	expect map[string]tieWant
+	seen   []tieplan.End
 }
 
 // unitUID gives the UID of the router unit that a router UID from the settings names.
@@ -139,6 +143,9 @@ type apiTieChain struct {
 	Nothing bool          `json:"nothing"`
 	Unknown string        `json:"unknown,omitempty"`
 	Loop    bool          `json:"loop"`
+	// Levels: a mixed tie line, the origin of each level of its upstream router from level 1 (null: nothing or
+	// unknown). A caller sends it back as expect.
+	Levels []*apiTieEndOut `json:"levels,omitempty"`
 }
 
 type apiTieHop struct {
@@ -202,6 +209,7 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 		tieName[t.ID] = t.Name
 	}
 	ref := func(id string) apiTieRef { return apiTieRef{id, tieName[id]} }
+	var in *tieplan.Input // read when a tie line is mixed
 	out := apiTieRouteOut{Route: r.index, Src: end(r.src, false), Dst: end(r.dst, true), Levels: r.levels, Paths: []apiTiePath{}, Reasons: []apiTieReason{}}
 	for i, p := range res.Paths {
 		if i == apiTiePaths {
@@ -225,6 +233,20 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 				}
 				for _, id := range c.Via {
 					ac.Via = append(ac.Via, ref(id))
+				}
+				if c.Mixed {
+					if in == nil {
+						x := a.tieInput(rt)
+						in = &x
+					}
+					for _, l := range h.Levels {
+						var o *apiTieEndOut
+						if lc := tieplan.Via(*in, tieplan.End{Router: h.Router, N: h.Dst}, l); lc.Origin != nil {
+							e := end(*lc.Origin, false)
+							o = &e
+						}
+						ac.Levels = append(ac.Levels, o)
+					}
 				}
 				ah.Now = ac
 			}

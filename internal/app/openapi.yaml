@@ -524,6 +524,14 @@ paths:
         `hops`. Ties that make no path get 400 `bad_request`. A tie line that two routes of the take
         need for two sources gets 409 `conflict`. A router down on the path gets 409 `no_path` or
         `tie_line_needed` with the paths that remain.
+
+        Before it sends anything, Sode locks each tie line of the take, in id order, until the take
+        ends. A take to the upstream destination of a tie line waits for that lock. Then Sode reads
+        the upstream destination of each tie line from its router and compares each tie line with
+        `expect`. With `affected`, it also compares the Affected destinations of the path. A tie line
+        that moved, or an Affected destination that the caller did not see, gives 409
+        `tie_line_changed`. Nothing goes to a router then. Its `routes` gives the path of each
+        route across routers as it is now, with `changed` and `newAffected`.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -559,7 +567,11 @@ paths:
                             expect:
                               nullable: true
                               allOf: [{ $ref: "#/components/schemas/RouteEnd" }]
-                              description: "The source that the caller saw on the tie line; null for nothing. Sode does not compare it yet"
+                              description: "What the caller saw on the tie line. A router reference is that source on every level of the upstream router. Null or omitted is nothing on every level. A list holds one router reference or null for each level, from level 1, for a mixed tie line. Sode compares every level: a difference on any level gets 409 `tie_line_changed`. A mixed tie line never matches one source"
+                      affected:
+                        type: array
+                        items: { $ref: "#/components/schemas/RouteEnd" }
+                        description: "Only with `ties`. The Affected destinations that the caller saw. An Affected destination of the path that is not here gets 409 `tie_line_changed`. Omitted: Sode does not compare them. Sode compares only the destinations that the caller can see"
             example:
               routes: [{ src: 1, dst: 0, levels: [1] }]
       responses:
@@ -2416,7 +2428,8 @@ components:
       description: |
         An error, with the reason in `error.code`. For 409 `tie_line_needed` and 409 `no_path`,
         `routes` gives each route across routers with its paths, cheapest first, and the reasons why
-        paths were left out.
+        paths were left out. For 409 `tie_line_changed`, `routes` gives each route across routers
+        with the path through its tie lines as it is now. If there is no path, it gives the reason.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/TiePaths" }
@@ -2967,6 +2980,10 @@ components:
         nothing: { type: boolean, description: "Nothing is routed upstream" }
         unknown: { type: string, description: "The UID of a router that is down or has no state" }
         loop: { type: boolean }
+        levels:
+          type: array
+          items: { nullable: true, allOf: [{ $ref: "#/components/schemas/TieEnd" }] }
+          description: "Only when mixed. The origin of each level of the upstream router, from level 1; null for nothing or unknown. Send it back as expect"
     TieHop:
       type: object
       description: |
@@ -3034,6 +3051,8 @@ components:
               tie: { type: string, description: "The tie line id" }
               tieName: { type: string }
               by: { type: string, description: "protected: who holds the Protect" }
+        changed: { type: array, items: { $ref: "#/components/schemas/TieRef" }, description: "409 tie_line_changed only: each tie line that does not carry the source in expect" }
+        newAffected: { type: array, items: { $ref: "#/components/schemas/TieEnd" }, description: "409 tie_line_changed only: each Affected destination that is not in affected" }
     RouteEnd:
       description: |
         One end of a route: a router reference, or a bare number while Sode has one router.

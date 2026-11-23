@@ -28,7 +28,10 @@ func tieApp(t *testing.T, mut func(*config.Config)) (a *App, fa, fb *fakeRouter,
 	a.onUnitState(a.first, swp08.StateUp, nil)
 	a.onUnitState(b, swp08.StateUp, nil)
 	wire := a.r().byUI[1].Wire
-	fa.seed(10, 3, wire)
+	// TIE 3 carries A.3 on every level of A, so it is not mixed.
+	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+		fa.seed(10, 3, a.r().byUI[l].Wire)
+	}
 	fb.seed(20, 5, wire)
 	fb.seed(21, 5, wire)
 	fb.seed(2, 7, wire)
