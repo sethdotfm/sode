@@ -33,7 +33,7 @@ const prefsBox = el('div', 'sode__rv-sec');
 const rowsBox = el('div', 'sode__rv-sec');
 const sumEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
 const noteEl = el('span', { class: 'sode__hint', 'aria-live': 'polite' });
-const applyBtn = btn('pb-btn--ok', 'Apply', () => apply());
+const applyBtn = btn('sode-btn--primary', 'Apply', () => apply());
 const dlg = modal({
   titleId: 'rv-title',
   title: 'Review import',

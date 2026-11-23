@@ -119,7 +119,7 @@
   display: contents;
 }
 .sode__state[data-state="ok"] {
-  color: var(--pb-status-ok);
+  color: var(--pb-text);
 }
 .sode__state[data-state="warn"] {
   color: var(--pb-status-warn);
@@ -131,7 +131,7 @@
   color: var(--pb-status-idle);
 }
 .sode__state[data-state="info"] {
-  color: var(--pb-status-info);
+  color: var(--pb-text);
 }
 /* Connecting: the spinner turns. Patchbay keeps its own spinners under reduced motion; this one is still there. */
 @media (prefers-reduced-motion: no-preference) {

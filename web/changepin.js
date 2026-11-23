@@ -22,7 +22,7 @@ export function buildChangePin() {
   const remove = btn('pb-btn--ghost', 'Remove my PIN');
   const lead = el('p', 'sode-lock__pin-note');
   const form = el('form', { class: 'pb-modal__body sode-lock__pin-form', id: 'sode-pin-form' }, lead, oldF.row, newF.row, againF.row, note);
-  const save = el('button', { class: 'pb-btn pb-btn--ok', type: 'submit' }, 'Change PIN');
+  const save = el('button', { class: 'pb-btn sode-btn--primary', type: 'submit' }, 'Change PIN');
   save.setAttribute('form', form.id); // the footer is the form's sibling
   const dlg = modal({
     titleId: 'sode-pin-title',

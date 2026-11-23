@@ -37,11 +37,11 @@ func TestChromePushFlow(t *testing.T) {
 	b.waitFor("Push button", `!!document.querySelector('[data-act="push"]')`)
 	b.eval(`document.querySelector('[data-act="push"]').click()`)
 	b.waitFor("the group box", `!!document.querySelector('.sode-ov__share input[data-group="EVS"]')`)
-	b.waitFor("Push waits for a target", `document.querySelector('#panel-push .pb-btn--ok').disabled === true`)
+	b.waitFor("Push waits for a target", `document.querySelector('#panel-push .sode-btn--primary').disabled === true`)
 	b.eval(`document.querySelector('.sode-ov__share input[data-group="EVS"]').click()`)
 	b.waitFor("both targets ticked", `document.querySelectorAll('.sode-ov__indent input:checked').length === 2`)
 	b.shot("push-group")
-	b.eval(`document.querySelector('#panel-push .pb-btn--ok').click()`)
+	b.eval(`document.querySelector('#panel-push .sode-btn--primary').click()`)
 	b.waitFor("the answer", `document.querySelector('.sode-ov__share .pb-modal__footer .sode__hint').textContent.startsWith('Pushed to EVS 2 and EVS 3.')`)
 
 	for _, id := range []string{e2, e3} {

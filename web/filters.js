@@ -347,7 +347,6 @@ function renderSetBar() {
   $('flt-set-saveas').disabled = busy || stack.length > 0;
   $('flt-set-del').disabled = busy || !named;
   $('flt-set-del').textContent = deleting && named ? `Delete “${a.name}”?` : 'Delete';
-  $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
   // The saved set goes, not unsaved edits.
   $('flt-set-send').hidden = !inboxUser();
   $('flt-set-send').disabled = busy || !named;

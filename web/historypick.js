@@ -125,7 +125,7 @@ const followsIn = el('input', 'pb-check__input');
 followsIn.type = 'checkbox';
 const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include External follow entries'));
 followsBox.setAttribute('data-pb-tip', "Adds each chosen entry's External follow entries");
-const addBtn = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Add');
+const addBtn = el('button', 'pb-btn sode-btn--primary pb-btn--sm', 'Add');
 addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
 cancelBtn.type = 'button';

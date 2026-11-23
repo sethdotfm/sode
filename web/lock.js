@@ -199,7 +199,7 @@ function build() {
   padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, digits);
 
   letterKey = el('kbd', 'sode__key sode__key--locked');
-  letterBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
+  letterBtn = el('button', 'pb-btn sode-btn--primary', 'Dismiss');
   letterBtn.type = 'button';
   letterBtn.addEventListener('click', dismissLocalLock);
   letterNote = el('p', 'sode-lock__msg');

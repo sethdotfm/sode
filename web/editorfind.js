@@ -59,7 +59,7 @@ export function initFind(editor) {
   list.setAttribute('aria-multiselectable', 'true');
   const note = el('p', 'sode-find__note');
   note.setAttribute('role', 'status');
-  const fill = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Fill');
+  const fill = el('button', 'pb-btn sode-btn--primary pb-btn--sm', 'Fill');
   fill.type = 'button';
   const foot = el('div', 'sode-find__foot', note, fill);
   const orders = createOrderPicker(order, (id) => api.setOrder(id));

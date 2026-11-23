@@ -31,7 +31,7 @@ export function transferDialog({ id, cls, own = false, api, newPick, bodyOf, dra
     note.classList.toggle('sode__error-text', error);
   };
   const body = () => bodyOf(x.list, x.pick);
-  const exportBtn = btn('pb-btn--ok', 'Export', () => download(() => downloadZip(body(), api)), `${id}-export`);
+  const exportBtn = btn('sode-btn--primary', 'Export', () => download(() => downloadZip(body(), api)), `${id}-export`);
   const backupBtn = backupFile && btn('pb-btn--outline', 'Back up everything', () => download(backupFile), `${id}-backup`);
   const exportActs = el('span', 'sode__xi-acts', ...(backupBtn ? [backupBtn] : []), exportBtn);
   const importer = importTab({

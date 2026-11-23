@@ -179,7 +179,7 @@ function draw() {
   for (const c of addCtl) c.disabled = full;
   fullNote.hidden = !full;
   saveBtn.disabled = ro || busy;
-  saveBtn.classList.toggle('pb-btn--ok', dirty && !ro);
+  saveBtn.classList.toggle('sode-btn--primary', dirty && !ro);
   saveBtn.classList.toggle('pb-btn--commit', !dirty || ro);
   if (at != null) listEl.querySelector(`[data-i="${at}"]`)?.focus();
 }

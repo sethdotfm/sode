@@ -239,7 +239,7 @@
   width: 6rem;
 }
 .sode-m__undo {
-  background: var(--pb-status-error);
+  background: var(--pb-commit);
   right: 0;
 }
 .sode-m__redo {
@@ -454,7 +454,7 @@
   height: calc(var(--pb-control-h-lg) * 1.4);
   min-width: calc(var(--pb-control-h-lg) * 2.2);
 }
-.pb-btn.sode-m__go:not(.pb-btn--danger) {
+.pb-btn.sode-m__go:not(.pb-btn--commit) {
   background: var(--pb-text-strong);
   border-color: var(--pb-text-strong);
   color: var(--pb-surface-base);
@@ -492,7 +492,7 @@
 }
 .sode-m__sheet {
   background: var(--pb-surface-overlay);
-  border-top: var(--pb-accent-bar-w) solid var(--pb-status-error);
+  border-top: var(--pb-accent-bar-w) solid var(--pb-commit);
   box-shadow: var(--pb-shadow-overlay);
   display: flex;
   flex-direction: column;
@@ -503,7 +503,7 @@
   width: 100%;
 }
 .sode-m__sheet-title {
-  color: var(--pb-status-error);
+  color: var(--pb-status-warn);
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
 }

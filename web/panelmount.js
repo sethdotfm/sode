@@ -55,7 +55,7 @@ export function liveUi(host, onBack, edit, top) {
   const updateText = el('span');
   const snooze = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Snooze 60 s');
   snooze.type = 'button';
-  const applyNow = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Apply now');
+  const applyNow = el('button', 'pb-btn sode-btn--primary pb-btn--sm', 'Apply now');
   applyNow.type = 'button';
   const bar = el('div', 'pb-progress sode__banner-time');
   const update = el(
@@ -141,7 +141,7 @@ function takeConfirm() {
     { class: 'pb-modal', id: 'confirm-dialog', ...dialogAttrs('confirm-title') },
     el('div', 'pb-modal__header pb-modal__header--error', el('span', { class: 'pb-modal__title', id: 'confirm-title' }, 'Confirm take')),
     el('div', { class: 'pb-modal__body sode__confirm', id: 'confirm-body' }),
-    el('div', 'pb-modal__footer', btn('pb-btn--outline', 'Cancel', null, 'confirm-cancel'), btn('pb-btn--danger', 'Take', null, 'confirm-ok')),
+    el('div', 'pb-modal__footer', btn('pb-btn--outline', 'Cancel', null, 'confirm-cancel'), btn('pb-btn--commit', 'Take', null, 'confirm-ok')),
   );
   return el('div', { class: 'pb-modal-backdrop sode__scrim', id: 'confirm', hidden: true }, dialog);
 }

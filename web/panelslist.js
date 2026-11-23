@@ -139,7 +139,7 @@ function detail(p) {
   const phone = layout() === 'phone';
   const acts = phone ? [] : actionsFor(p);
   const main = el('div', 'sode-ov__acts-main');
-  main.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), keyLabel('mod+enter')));
+  main.append(link('Launch', 'play', 'sode-btn--primary', launchHref(p.id), keyLabel('mod+enter')));
   if (acts.includes('edit')) main.append(link('Edit', 'pencil', '', editHref(p.id), keyLabel('mod+e')));
   if (acts.includes('copy')) main.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('delete'))

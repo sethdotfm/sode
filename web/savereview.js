@@ -17,7 +17,7 @@ function build() {
   if (ui) return;
   const body = el('div', 'pb-modal__body');
   const back = btn('pb-btn--outline', '', null, 'review-back');
-  const go = btn('pb-btn--ok', '', null, 'review-save');
+  const go = btn('sode-btn--primary', '', null, 'review-save');
   const dlg = modal({ titleId: 'review-title', title: '', cls: 'pb-modal--md', dialogId: 'review', body, foot: [back, go], onEsc: () => step?.esc() });
   ui = { title: dlg.title, body, back, go, dlg };
 }
@@ -57,7 +57,7 @@ function table(groups, { label, show, notes, by }) {
   return el('table', 'pb-table pb-table--compact', el('thead', null, head), tbody);
 }
 
-const badge = (kind, text) => el('span', `pb-badge pb-badge--${kind}`, text);
+const badge = (kind, text) => el('span', kind === 'info' ? 'pb-badge' : `pb-badge pb-badge--${kind}`, text);
 
 // list: the server's Interruptions, or null when it did not answer.
 function interruptionsBlock(list) {
@@ -158,7 +158,7 @@ export function reviewSave({
       relabel(ui.back, 'Keep editing', () => end(false));
       const keep = rows.length - saves.length;
       relabel(ui.go, saveStopsLabel(saves.length, keep, interruptions, saveLabel(saves.length, keep)), next);
-      ui.go.className = 'pb-btn pb-btn--ok';
+      ui.go.className = 'pb-btn sode-btn--primary';
       ui.go.disabled = !saves.length;
       ui.dlg.show();
       ui.go.focus();
@@ -180,7 +180,7 @@ export function reviewSave({
       ui.body.replaceChildren(el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take in progress fails.'));
       relabel(ui.back, 'Back', review);
       relabel(ui.go, 'Save and reconnect', () => end(true));
-      ui.go.className = 'pb-btn pb-btn--danger';
+      ui.go.className = 'pb-btn pb-btn--commit';
       ui.go.disabled = false;
       ui.dlg.show();
       ui.go.focus();

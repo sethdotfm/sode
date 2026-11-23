@@ -34,17 +34,20 @@ function stackEl() {
   return stack;
 }
 
+// Waiting, approved and cancelled are not attention states, so their card has no color (docs/color-roles.md).
+const toastClass = (kind) => `pb-toast${kind === 'warn' || kind === 'error' ? ` pb-toast--${kind}` : ''} sode-approvals__card`;
+
 function toast(kind, title, ...body) {
   const head = el('div', 'pb-toast__title', title);
   const box = el('div', 'pb-toast__body', head, ...body);
-  const node = el('div', `pb-toast pb-toast--${kind} sode-approvals__card`, box);
+  const node = el('div', toastClass(kind), box);
   node.setAttribute('role', 'status');
   stackEl().append(node);
   return { node, head, box };
 }
 
 function ending(card, kind, text, ...extra) {
-  card.node.className = `pb-toast pb-toast--${kind} sode-approvals__card`;
+  card.node.className = toastClass(kind);
   card.head.textContent = text;
   card.box.replaceChildren(card.head, ...extra);
   if (extra.length) return;
@@ -170,7 +173,7 @@ onMsg('approvalCard', (m) => {
   err.setAttribute('role', 'alert');
   err.hidden = true;
   const deny = btn('pb-btn--sm pb-btn--outline', 'Deny', () => answer(m.request, false));
-  const approve = btn('pb-btn--sm pb-btn--ok', 'Approve', () => answer(m.request, true));
+  const approve = btn('pb-btn--sm sode-btn--primary', 'Approve', () => answer(m.request, true));
   deny.dataset.approvalDeny = approve.dataset.approvalApprove = m.request;
   const list = el('ul', 'sode-approvals__list', ...(m.changes || []).map((f) => el('li', '', changeText(f))));
   const stops = (m.interruptions || []).length
