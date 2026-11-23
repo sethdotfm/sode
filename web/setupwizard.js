@@ -2,6 +2,7 @@
 // place of the patch page. Nothing is sent but the Router step's address until Finish.
 import { $, S, el, on, emit, onMsg, wsSend, icon, LINK_DOWN } from './core.js';
 import { showBrand } from './brand.js';
+import { brandCaution, pickerColors, CAUTION_NOTE } from './accent.js';
 import { statusText } from './statustext.js';
 import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
@@ -103,12 +104,16 @@ function statusLine() {
 const presets = () => sheetPresets;
 const presetName = () => presets().find((p) => p.key === d.preset)?.name || d.preset;
 
+// Each color has its name under the swatch, so the colors are told apart by name as well.
 function swatches() {
   const box = el('span', { class: 'sode-setup__swatches', role: 'radiogroup', 'aria-labelledby': 'setup-brand-label' });
-  for (const c of [{ name: '', label: 'Off' }, ...S.brandColors]) {
+  const item = (cls, chip, label) => el('label', { class: cls }, chip, el('span', { class: 'sode-setup__swatch-name', 'aria-hidden': 'true' }, label));
+  for (const c of [{ name: '', label: 'Off' }, ...pickerColors(S.brandColors, d.brandBorder)]) {
     const input = el('input', { type: 'radio', name: 'brandBorder', value: c.name, 'aria-label': c.label });
     input.checked = d.brandBorder === c.name;
-    box.append(el('label', { class: 'sode-setup__swatch', 'data-pb-tip': c.label, 'data-brand': c.name || null }, input, c.name ? null : icon('ban')));
+    box.append(
+      item('sode-setup__swatch', el('span', { class: 'sode-setup__chip', 'data-brand': c.name || null }, input, c.name ? null : icon('ban')), c.label),
+    );
   }
   // A custom color is #rrggbb, the form the native picker gives. Run setup again leaves the swatch out: it writes
   // one Settings field per answer, and a custom color there is two fields.
@@ -116,9 +121,15 @@ function swatches() {
   if (!d.again) {
     const pick = el('input', { type: 'color', name: 'brandBorder', 'aria-label': 'Custom color' });
     pick.value = own ? d.brandBorder : '#5fb2e8';
-    box.append(el('label', { class: `sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, 'data-pb-tip': 'Custom' }, pick));
+    box.append(item(`sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, el('span', { class: 'sode-setup__chip' }, pick), 'Custom'));
   }
-  return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box);
+  const note = el(
+    'p',
+    { class: 'pb-note pb-note--warn sode__brand-caution', id: 'setup-brand-caution', role: 'status', hidden: !brandCaution(d.brandBorder, S.brandColors) },
+    icon('triangle-alert'),
+    el('span', null, CAUTION_NOTE),
+  );
+  return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box, note);
 }
 
 function sheet() {
@@ -363,6 +374,8 @@ $('setup-body').addEventListener('input', (e) => {
   if (t.type === 'radio' && !t.checked) return;
   d[k] = t.value;
   if (k === 'brandText' || k === 'brandBorder') showBrand(d.brandText, d.brandBorder);
+  // The color input keeps its picker open, so the note changes in place and not by a render.
+  if (k === 'brandBorder' && $('setup-brand-caution')) $('setup-brand-caution').hidden = !brandCaution(d.brandBorder, S.brandColors);
   // No render: it would close the open color picker.
   if (t.type === 'color') {
     for (const r of $('setup-body').querySelectorAll('input[name="brandBorder"][type="radio"]')) r.checked = false;
