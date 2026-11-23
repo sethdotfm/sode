@@ -17,8 +17,11 @@ type Config struct {
 	Format int `yaml:"format" json:"-"`
 	// Never changes: Item links and import identify this install by it.
 	InstallUID string `yaml:"installUid" json:"-"`
-	// The file holds it as the only entry of routers (router.go).
+	// The first router: the file holds it as the first entry of routers (router.go). Its fields are the old
+	// single-router fields.
 	Router `yaml:"-"`
+	// MoreRouters: the routers after the first, in file order. Routers gives the whole list.
+	MoreRouters []Router `yaml:"-" json:"-"`
 	// Brand fields are display only.
 	BrandText            string   `yaml:"brandText,omitempty" json:"brandText"`
 	BrandBorder          string   `yaml:"brandBorder,omitempty" json:"brandBorder"`
@@ -270,6 +273,7 @@ func WizardEnv() map[string]string {
 
 // Clone shares no slices, so Normalize cannot touch a config others read.
 func (c Config) Clone() Config {
+	c.MoreRouters = slices.Clone(c.MoreRouters)
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
@@ -291,18 +295,13 @@ func (c Config) Clone() Config {
 }
 
 func (c *Config) Normalize() {
-	c.Address = strings.TrimSpace(c.Address)
-	c.Title = strings.TrimSpace(c.Title)
-	if c.UID == "" {
-		c.UID = newRouterUID()
+	c.Router.normalize()
+	for i := range c.MoreRouters {
+		c.MoreRouters[i].normalize()
 	}
 	c.InstallUID = strings.TrimSpace(c.InstallUID)
 	if c.InstallUID == "" {
 		c.InstallUID = newRouterUID()
-	}
-	c.Prefix = strings.ToUpper(strings.TrimSpace(c.Prefix))
-	if c.Prefix == "" {
-		c.Prefix = "A"
 	}
 	c.BrandText = strings.TrimSpace(c.BrandText)
 	if c.NewPanelActs = strings.ToLower(strings.TrimSpace(c.NewPanelActs)); c.NewPanelActs == "" {
@@ -312,22 +311,6 @@ func (c *Config) Normalize() {
 	c.normalizeAPI()
 	c.dropRetiredKeys()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
-	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
-	if c.RouterShow == "" {
-		c.RouterShow = "address"
-	}
-	c.DefaultLevels = strings.TrimSpace(c.DefaultLevels)
-	c.FireMode = strings.ToLower(strings.TrimSpace(c.FireMode))
-	if c.FireMode == "" {
-		c.FireMode = "sequential"
-	}
-	c.LevelNumbering = strings.ToLower(strings.TrimSpace(c.LevelNumbering))
-	if c.LevelNumbering == "" {
-		c.LevelNumbering = "1"
-	}
-	if c.DefaultLevels == "" && c.Levels > 0 {
-		c.DefaultLevels = fmt.Sprintf("1-%d", c.Levels)
-	}
 	if c.TrustedProxies == nil {
 		c.TrustedProxies = []string{}
 	}

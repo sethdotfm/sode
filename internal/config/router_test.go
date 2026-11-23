@@ -134,6 +134,32 @@ func TestOneRouterOnly(t *testing.T) {
 	}
 }
 
+func TestRoutersListsTheFirstRouterFirst(t *testing.T) {
+	c := Defaults()
+	c.MoreRouters = []Router{{Address: " 10.0.0.9:8910 ", Levels: 1, Prefix: "b"}}
+	c.Normalize()
+	rs := c.Routers()
+	if len(rs) != 2 || rs[0].UID != c.UID || rs[1].Address != "10.0.0.9:8910" || rs[1].Prefix != "B" {
+		t.Fatalf("routers %+v", rs)
+	}
+	if rs[1].UID == "" || rs[1].UID == c.UID || rs[1].DefaultLevels != "1-1" || rs[1].FireMode != "sequential" {
+		t.Errorf("second router not normalized: %+v", rs[1])
+	}
+	for uid, want := range map[string]string{"": c.UID, c.UID: c.UID, rs[1].UID: rs[1].UID} {
+		if r, ok := c.RouterByUID(uid); !ok || r.UID != want {
+			t.Errorf("RouterByUID(%q) = %q %v", uid, r.UID, ok)
+		}
+	}
+	if _, ok := c.RouterByUID("b0b0"); ok {
+		t.Error("RouterByUID of an unknown UID")
+	}
+	d := c.Clone()
+	d.MoreRouters[0].Title = "X"
+	if c.MoreRouters[0].Title == "X" {
+		t.Error("Clone shares MoreRouters")
+	}
+}
+
 func TestPrefixRules(t *testing.T) {
 	for _, p := range []string{"a", " B "} {
 		c := Defaults()
