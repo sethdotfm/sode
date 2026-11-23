@@ -65,8 +65,8 @@ func TestTieLineChangeStamps(t *testing.T) {
 	}
 }
 
-// A change that Sode finds at a re-read (a tally, not a Connected) is a found stamp: its time is when Sode found
-// it, and GET /tielines gives "before" for it.
+// A change that Sode finds at a re-read (a tally, not a Connected) is a found stamp. Its time is when Sode found
+// it. GET /tielines gives "before" for it.
 func TestTieLineFoundStamp(t *testing.T) {
 	a, fa, _, _ := tieApp(t, nil)
 	at := time.Now().Add(time.Minute).UTC().Truncate(time.Second)
@@ -80,8 +80,8 @@ func TestTieLineFoundStamp(t *testing.T) {
 	}
 }
 
-// The stamps survive a restart: a second App on the same config path reads them, and GET /tielines gives "before"
-// because it started after the change. A change after the restart is not "before".
+// The stamps survive a restart. A second App on the same config path reads them. GET /tielines gives "before",
+// because the App started after the change. A change after the restart is not "before".
 func TestTieLineChangeSurvivesRestart(t *testing.T) {
 	a, fa, _, _ := tieApp(t, nil)
 	at := time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Second)

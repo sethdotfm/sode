@@ -67,7 +67,7 @@ type apiTieLine struct {
 	From apiTieEnd `json:"from"`
 	To   apiTieEnd `json:"to"`
 	// Changed is the last change of the upstream destination, or null when Sode has seen none. Before: Sode was down
-	// after that time, or found the change at a re-read, so the tie line may have changed again.
+	// after that time, or found the change at a re-read, so it is possible that the tie line changed again.
 	Changed *time.Time `json:"changed"`
 	Before  bool       `json:"before"`
 }
