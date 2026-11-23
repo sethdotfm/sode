@@ -31,7 +31,7 @@ A tie line that a person states in the Tie line picker for one take only. Sode d
 One router's part of a route that goes through tie lines. A route from A.1 to B.42 through one tie line has two hops.
 
 **Affected destination**:
-A destination, other than the one asked for, whose picture changes because a take switches a tie line. Sode counts affected destinations on every router the change reaches.
+A destination, other than the one asked for, whose signal changes on any level because a take switches a tie line. Sode counts affected destinations on every router that the change reaches.
 
 **Via**:
 The word for a source that reaches a destination through tie lines. B.42 shows "A.1 CAM 1 via TIE 3". Sode uses "via" for nothing else.

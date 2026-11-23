@@ -39,7 +39,7 @@ var steWords = []steWord{
 	{"ensure", wordRe(`(?i)ensur(?:e|es|ed|ing)`)},
 	{"prior to", wordRe(`(?i)prior to`)},
 	{"in order to", wordRe(`(?i)in order to`)},
-	{"via", wordRe(`(?i)via`)},
+	{"via", wordRe(`via`)}, // case-sensitive: capital Via is the glossary term for tie lines
 	{"facilitate", wordRe(`(?i)facilitat(?:e|es|ed|ing)`)},
 	{"numerous", wordRe(`(?i)numerous`)},
 	{"approximately", wordRe(`(?i)approximately`)},
