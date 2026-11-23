@@ -5,9 +5,9 @@ import { el, S, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_D
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
 import { addSaveSource } from './savesources.js';
-import { groupByOwner, parseShown, swapLabel, swapShow, swapValue } from './swaprules.js';
+import { firstTicked, groupByOwner, parseShown, swapLabel, swapShow, swapValue } from './swaprules.js';
 
-const KINDS = { preset: 'Preset', filterSet: 'Filter set', panel: 'Panel' };
+const KINDS = { preset: 'Preset', filterSet: 'Filter set', panel: 'Panel', tieLine: 'Tie line' };
 
 let ui = null;
 let mine = false;
@@ -92,6 +92,7 @@ function paintList() {
       const label = el('label', 'pb-check', box, el('span', 'pb-check__label', `${KINDS[it.kind] || it.kind}: ${it.name}`));
       const li = el('li', null, label);
       if (it.broken) li.append(el('span', 'pb-badge pb-badge--warn', 'Broken'));
+      if (it.kind === 'tieLine') li.append(el('span', 'sode__hint', 'A tie line is a cable. Tick it only if the cable moved.'));
       ul.append(li);
     }
     kids.push(ul);
@@ -116,7 +117,7 @@ onMsg('swapListResult', (m) => {
   const f = fields();
   asked = { side: f.side, from: f.from };
   items = m.items || [];
-  ticked = new Set(items.map((it) => it.id));
+  ticked = new Set(firstTicked(items));
   paintList();
 });
 

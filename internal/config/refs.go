@@ -68,6 +68,11 @@ func (w RefWalk) Item(it *PresetItem) {
 	it.Src, it.Dsts = w.One(MissingSource, it.Src), w.List(MissingDestination, it.Dsts)
 }
 
+// TieLine visits the upstream end (a destination), then the downstream end (a source).
+func (w RefWalk) TieLine(t *TieLine) {
+	t.From, t.To = w.One(MissingDestination, t.From), w.One(MissingSource, t.To)
+}
+
 func (w RefWalk) Rights(r *Rights) {
 	for _, s := range []struct {
 		l    **[]Ref

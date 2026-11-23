@@ -16,11 +16,13 @@ type exportTieLines struct {
 }
 
 // exportTieLinesYAML writes each end's router as its prefix, as other items do, also with one router, since a tie
-// line names two. used brings each router an end names into the file (toPrefixes).
+// line names two. used brings each router an end names into the file (toPrefixes). Name moved marks stay out: the
+// Broken check of the install that imports the file judges the names again.
 func exportTieLinesYAML(cfg config.Config, pick map[string][]string, prefix map[string]string, used map[string]bool) ([]byte, error) {
 	var out exportTieLines
 	for _, t := range cfg.TieLines {
 		if picked(pick, catTieLines, t.ID) {
+			t.Moved = nil
 			out.TieLines = append(out.TieLines, t)
 		}
 	}
@@ -61,6 +63,7 @@ func (p *importPlanner) planTieLines(cand *config.Config, cat *importCat) error 
 			continue
 		}
 		fileID := t.ID
+		t.Moved = nil // the names of another install: the Broken check here judges them
 		it := importItem{Key: t.ID, Name: t.Name}
 		var unmapped []string
 		for _, end := range []*config.Ref{&t.From, &t.To} {

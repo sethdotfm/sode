@@ -8,7 +8,7 @@ import (
 )
 
 // Settings > Routers: an Administrator adds router B with Add router, and Sode connects to it. Every prefix then
-// shows. Remove router lists the preset it breaks, and the save asks for the PIN again.
+// shows. Remove router lists the preset it breaks and the tie line it deletes, and the save asks for the PIN again.
 func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	b := startBrowser(t)
 	simA, simB := startSim(t), startSim(t)
@@ -65,6 +65,7 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	err := a.applyConfig(func(c *config.Config) error {
 		on := config.Ref{Router: uid, N: 1, Name: "CAM"}
 		c.Presets = []config.Preset{{ID: "p1", Name: "Stage", Items: []config.PresetItem{{Src: on, Dsts: []config.Ref{on}}}}}
+		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.UID, N: 1}, To: on}}
 		return nil
 	})
 	a.cfgMu.Unlock()
@@ -72,7 +73,8 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 		t.Fatal(err)
 	}
 	b.eval(`document.querySelector('[data-router="` + uid + `"] .sode__routers-head .pb-btn').click(); true`)
-	b.waitFor("the note lists the preset", `(() => { const n = document.querySelector('[data-router="`+uid+`"] .sode__routers-note'); return !!n && n.textContent.includes('1 preset') && n.textContent.includes('Preset Stage (Everyone)'); })()`)
+	b.waitFor("the note lists the preset", `(() => { const n = document.querySelector('[data-router="`+uid+`"] .sode__routers-note'); return !!n && n.textContent.includes('1 preset') && n.textContent.includes('Preset Stage (Everyone)')
+		&& n.textContent.includes('removes 1 tie line') && n.textContent.includes('Tie line TIE 3'); })()`)
 	b.eval(`[...document.querySelectorAll('[data-router="` + uid + `"] .sode__routers-acts .pb-btn')].find((x) => x.textContent === 'Remove router B').click(); true`)
 	b.waitFor("router B staged", `document.querySelector('[data-router="`+uid+`"]').classList.contains('sode__routers-item--removed')`)
 	save("Remove router B")
@@ -83,6 +85,9 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	}
 	if p := a.r().cfg.Presets[0]; len(p.Broken) != 1 || p.Broken[0].Kind != config.MissingRouter {
 		t.Errorf("preset Stage %+v", p)
+	}
+	if l := a.r().cfg.TieLines; len(l) != 0 {
+		t.Errorf("tie lines left %+v", l)
 	}
 	b.waitFor("one row left", `document.querySelectorAll('#routers-list > li').length === 1 && !document.querySelector('.sode__routers-first-prefix:not([hidden])')`)
 	b.check()
