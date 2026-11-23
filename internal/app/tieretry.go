@@ -9,15 +9,15 @@ import (
 
 // A Late hop and Retry of a tie take (docs/tielines-design.md, "Order and failures").
 //
-// A hop that the router answers late failed when its step gave up, so the hops after it were not sent and are not
-// sent later. lateConfirm amends the hop entry as for any take. lateTieHop then marks the hop Late in each entry of the
-// same Group that keeps it, so the row says "TIE 3 changed late" and offers the put-back.
+// A hop that the router answers late failed when its step gave up. Thus the hops after it were not sent, and Sode
+// does not send them later. lateConfirm amends the hop entry as for any take. lateTieHop then marks the hop Late in
+// each entry of the same Group that keeps it, so the row says "TIE 3 changed late" and offers the put-back.
 //
 // Retry of the entry of the destination asked for plans the same tie lines again. Each hop that held must still
 // carry the typed source: the stale check compares it. A hop that failed is not compared. A hop whose tie line
-// carries the source is no step (tieplan: Sends false), so Sode sends only the failed hops and the hops after them.
-// If a hop no longer holds, the answer is 409 tie_line_changed with the tie lines as they are now: the caller opens
-// the picker. Each step links to the entry that it retries.
+// carries the source is no step (tieplan: Sends false). Thus Sode sends only the failed hops and the hops after
+// them. If a hop no longer holds, the answer is 409 tie_line_changed with the tie lines as they are now: the caller
+// opens the picker. Each step links to the entry that it retries.
 
 // lateHopScan is how many entries after a hop entry lateTieHop reads to find the entries of its Group.
 const lateHopScan = 256

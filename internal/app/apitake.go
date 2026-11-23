@@ -285,7 +285,7 @@ func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Reque
 		}
 		switch {
 		case verb == "retry" && e.Tie != "":
-			return nil, problem(http.StatusConflict, "conflict", "entry %d is a hop of a tie take; retry the entry of the destination asked for, or put the tie line back", id)
+			return nil, problem(http.StatusConflict, "conflict", "entry %d is a hop of a tie take; retry its destination entry, or put the tie line back", id)
 		case verb == "retry" && e.Origin != nil:
 			return a.planTieRetry(rt, cl, e)
 		}
