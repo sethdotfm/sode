@@ -108,6 +108,10 @@ var policy = map[string]rule{
 				a.reply(c, routeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
 			}
 		}},
+	// A route across routers from the main page: POST /takes for the page's caller (tiepage.go).
+	"tieTake": {crit: critNever, role: config.RoleStandard, need: needMain, why: "take", write: true,
+		handle:   func(a *App, c *client, m *inMsg) { a.serveTieTake(c, m) },
+		onRefuse: func(a *App, c *client, m *inMsg, err error) { a.tieTakeRefused(c, m, err) }},
 	"rereadNames": {crit: critNever, role: config.RoleStandard, need: needMain, handle: func(a *App, c *client, _ *inMsg) {
 		a.command(c, "rereadNames", "sent", "", nil)
 		go a.RefreshNames()

@@ -104,7 +104,7 @@ test('items know their router, and a typed prefix picks the router', () => {
   assert.deepEqual([routerOfText('B.4'), routerOfText('A.4'), routerOfText('4'), routerOfText('C.4')], ['bbb', '', '', '']);
 });
 
-test('a take on the second router needs its link; a route across routers is refused', () => {
+test('a take on the second router needs its link; one route across routers opens the Tie line picker', () => {
   const bSrc = srcItem(4, '', 'bbb'),
     bDst = dstItem(2, '', 'bbb');
   assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block, null);
@@ -112,7 +112,13 @@ test('a take on the second router needs its link; a route across routers is refu
   assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block?.text, 'Sode is not connected to router B.');
   assert.equal(planBlocked(patchPlan(srcItem(0), [dstItem(2)], [1])).block, null, 'the first router is still up');
   send({ t: 'status', router: 'up', addr: '10.0.0.2:8910', routerUid: 'bbb' });
-  assert.equal(planBlocked(patchPlan(srcItem(0), [bDst], [1])).block?.title, 'Route across routers');
+  const one = planBlocked(patchPlan(srcItem(0), [bDst], [1]));
+  assert.equal(one.block, null);
+  assert.equal(one.tie?.dst, bDst);
+  // A take with a plain route too waits for the mixed picker.
+  const two = planBlocked(patchPlan(srcItem(0), [bDst, dstItem(3)], [1]));
+  assert.equal(two.block?.title, 'Route across routers');
+  assert.equal(two.tie, undefined);
 });
 
 test('a right for A.5 allows A.5 and refuses B.5, greyed and blocked', () => {

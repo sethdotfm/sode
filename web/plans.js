@@ -272,6 +272,10 @@ export function planBlocked(plan) {
   const live = plan.items.filter((i) => i.groups.length);
   // A take sends each route to the router of its destination, with the source number of that router.
   const across = live.find((i) => i.groups.some((g) => routerOfItem(g.src) !== routerOfItem(i.dst)));
+  // One route across routers opens the Tie line picker (tiepicker.js), which is its only confirm. Mixed takes come later.
+  if (across && live.length === 1 && across.groups.length === 1 && !plan.extra?.on && !across.undo && !across.retry) {
+    return { block: null, prot, tie: across };
+  }
   if (across) {
     return { block: { kind: 'error', title: 'Route across routers', text: `${across.dst.label}: a route across routers needs a tie line.` }, prot };
   }

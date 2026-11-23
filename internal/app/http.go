@@ -355,6 +355,7 @@ type inMsg struct {
 	User         string             `json:"user"` // userSignIn: the user's name (name and PIN mode)
 	ID           int                `json:"id"`   // echoed by save replies
 	Items        []routeReq         `json:"items"`
+	Routes       json.RawMessage    `json:"routes"`   // tieTake: the routes of POST /takes
 	Preset       string             `json:"preset"`   // take: the preset that was fired, if any
 	PresetID     string             `json:"presetId"` // ...and its hidden id
 	Sets         []config.FilterSet `json:"sets"`
