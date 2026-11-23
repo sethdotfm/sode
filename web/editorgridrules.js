@@ -11,14 +11,13 @@ const isAll = (edge) => !Array.isArray(edge?.members);
 const pinnedIn = (edge, n) => edge?.items?.[n]?.pinned === true;
 const pinCount = (edge) => Object.values(edge?.items || {}).filter((it) => it?.pinned === true).length;
 
-// The members in panel order: an "all" edge is the first router in router order, less hide. router can hold the
-// items of every router, on item numbers (routerids.js).
+// The members in panel order: an "all" edge is every router in router order, less hide. router holds the items of
+// every router, on item numbers (routerids.js).
 function membersOf(edge, router) {
   if (!isAll(edge)) return edge.members;
   const hide = new Set(edge?.hide || []);
   return (router || [])
     .map((x) => x.n)
-    .filter((n) => placeOf(n) === 0)
     .sort((a, b) => a - b)
     .filter((n) => !hide.has(n));
 }

@@ -89,6 +89,8 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
     // router: the UID Rights levels and the panel's level subset name these levels by.
     router: tally.router || '',
     levels: (tally.levels || []).map((l) => l.level),
+    // With two or more routers, each router's { router, levels } by place (mergeTally); envAt reads it.
+    places: (tally.byPlace || []).map((t) => t && { router: t.router, levels: (t.levels || []).map((l) => l.level) }),
     tally: rows,
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),
     rights: rights || null,
@@ -101,6 +103,14 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
 
 // reply is GET /names, or the answers of several routers on item numbers (mergeNames in routerids.js). num is the
 // number a person reads, with the router prefix when the answer has prefixes.
+// env for a route on the router at place (routerids.js): its router and levels, so a take on router B never sends
+// router A's levels. A router whose tally has not come yet has no levels.
+export function envAt(env, place) {
+  if (!place) return env;
+  const p = env.places?.[place];
+  return { ...env, router: p?.router || '', levels: p?.levels || [] };
+}
+
 export function namesFrom(reply) {
   const off = reply.numberOffset || 0;
   const num = numText(reply);
@@ -131,6 +141,15 @@ export function namesFrom(reply) {
   };
   const routerName = (kind, n) => (kind === 'source' ? src : kind === 'destination' ? dst : new Map()).get(n) || '';
   return { source, destination, of, off, num, routerName };
+}
+
+// namesFrom for the editor's cells, which hold router numbers and their router. reply is GET /names of every router
+// on item numbers (mergeNames), and places is its makePlaces. source and destination take first-router numbers.
+export function cellNamesFrom(reply, places) {
+  const all = namesFrom(reply);
+  if (!places?.many) return all;
+  const on = (c) => (NEEDS_NUMBER.includes(c?.kind) && Number.isInteger(c.n) ? { ...c, n: places.id(c.router || '', c.n) } : c);
+  return { ...all, of: (c) => all.of(on(c)), routerName: (kind, n, router = '') => all.routerName(kind, places.id(router, n)) };
 }
 
 // Where two cells overlap the first one stays.

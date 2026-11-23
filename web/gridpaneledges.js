@@ -1,26 +1,20 @@
 // Which sources and destinations a Grid panel shows, in display order (ADR 0011). Pure.
 // An edge is { members: 'all' | [n, ...], hide: [n], items: { n: { pinned, art } } }; a missing edge is 'all'.
 // edgesIn (gridedgerefs.js) makes this form from the stored references.
-// 'all' is every item of the first router in router order, less hide. Numbers are item numbers (routerids.js). Display order puts pinned members first, then the rest.
+// 'all' is every item of every router in router order, less hide. Numbers are item numbers (routerids.js). Display order puts pinned members first, then the rest.
 import { rightsAllow } from './panelrules.js';
-import { placeOf } from './routerids.js';
 
 export const PANEL_TYPE_GRID = 'grid'; // keep in step with panelTypeGrid in internal/app/panelgrid.go
 
 export const isGridPanel = (panel) => panel?.type === PANEL_TYPE_GRID;
 
-// 'all' follows the first router: with two or more routers, names holds the items of every router the panel uses.
-// An edge with everyRouter (the Grid popup's, which is never saved) follows every router in names, router by router.
-const routerOrder = (list, every) =>
-  (list || [])
-    .map((x) => x.n)
-    .filter((n) => every || placeOf(n) === 0)
-    .sort((a, b) => a - b);
+// With two or more routers names holds the items of every router on item numbers, so 'all' goes router by router.
+const routerOrder = (list) => (list || []).map((x) => x.n).sort((a, b) => a - b);
 
 const membersOf = (edge, list) => {
   if (Array.isArray(edge?.members)) return edge.members;
   const hide = new Set(edge?.hide || []);
-  return routerOrder(list, edge?.everyRouter === true).filter((n) => !hide.has(n));
+  return routerOrder(list).filter((n) => !hide.has(n));
 };
 
 // Left out: items outside the viewer's Rights (panel.rights, so "all" is per viewer) and items the router no longer

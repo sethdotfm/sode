@@ -134,7 +134,7 @@ test('a typed prefix finds only that router, on the Grid panel and in the editor
   );
 });
 
-test("a Grid panel shows each router's members, and all follows the first router", () => {
+test("a Grid panel shows each router's members, and all covers every router", () => {
   const p = places();
   const nm = mergeNames(
     { sources: [0, 1].map((n) => ({ n, name: `A${n}` })), destinations: [{ n: 0, name: 'MON' }] },
@@ -160,8 +160,9 @@ test("a Grid panel shows each router's members, and all follows the first router
     },
     p,
   );
-  assert.deepEqual(gridAxes(panel, nm), { srcs: [0, 1], dsts: [0, SPAN + 3] });
-  assert.deepEqual(placesUsed(panel), [0, 1]);
+  assert.deepEqual(gridAxes(panel, nm), { srcs: [0, 1, SPAN], dsts: [0, SPAN + 3] });
+  assert.deepEqual(placesUsed(panel, p), [0, 1]);
+  assert.deepEqual(placesUsed({ type: 'grid', sources: { members: 'all' }, destinations: { members: [0] } }, p), [0, 1]);
 });
 
 test('a Buttons panel page reads its cells and Fixed destination on item numbers', () => {

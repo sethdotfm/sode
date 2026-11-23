@@ -21,7 +21,7 @@ import {
   stageText,
 } from './gridpanelstage.js';
 import { createPicks, pickName, pickCount, dropPicks, diagonal, extendPick, dragPick, enterGrid } from './gridpanelpick.js';
-import { pieOn } from './gridpanellevels.js';
+import { pieOn, otherRouterLevels } from './gridpanellevels.js';
 import { otherSources, otherText, stageable, skippedText, refusalText, leftOut, keepLive, leftOutText, leftOutLine } from './gridpanelrights.js';
 import { gridKeyAction, findBoxAction, clearAction } from './gridpanelkeys.js';
 import { sourceJump, holderJump, jumpText } from './gridpaneljump.js';
@@ -50,7 +50,7 @@ import { gridLevelBox } from './gridpanellevelbox.js';
 import { gridEmpty } from './gridpanelempty.js';
 import { gridTake } from './gridpaneltake.js';
 import { gridParts } from './gridpanelmode.js';
-import { placeOf } from './routerids.js';
+import { placeOf, tallyAt } from './routerids.js';
 
 const NOTE_MS = 4000;
 const UNDO_MOVED = 'The Undo target changed. Press u again.';
@@ -165,7 +165,7 @@ export function gridBody(ctx, first) {
   // What release would do: the routes numbered, protected rows skipped, red past the cap.
   const lineDry = () => {
     const pairs = isLine(line.a, line.b) ? linePairs(picks, line.a, line.b, axes, full) : [];
-    const r = lineStage(st, pairs, env, pressLevels());
+    const r = lineStage(st, pairs, env, pairLevels);
     const skip = new Set(r.skipped);
     return { pairs, kept: pairs.filter((x) => !skip.has(x)), r };
   };
@@ -181,7 +181,7 @@ export function gridBody(ctx, first) {
     g.line(null);
     const from = at || (phone() && restPoint(picks, axes, cur));
     const pairs = from && pickCount(picks) && !pressMode() ? pairsAt(from) : [];
-    g.preview(pairs, pairs.length > 1 && stageRoutes(st, pairs, pressLevels()).st.error?.code === 'cap');
+    g.preview(pairs, pairs.length > 1 && stageRoutes(st, pairs, pairLevels).st.error?.code === 'cap');
   };
 
   const render = () => {
@@ -390,6 +390,11 @@ export function gridBody(ctx, first) {
   );
   const paintLevels = () => head?.paintLevels(levelTextOf(pressLevels(), tally?.levels || [], tally?.levelNumbering));
   const pressLevels = () => box.levels();
+  // A route takes the levels of the router of its destination (gridpanellevels.js otherRouterLevels).
+  const pairLevels = ({ dst }) => {
+    const place = placeOf(dst);
+    return place ? otherRouterLevels(pressLevels(), box.empty(), tallyAt(tally, place), panel.rights, panel.settings) : pressLevels();
+  };
 
   const confirm =
     parts.ownConfirm && document.getElementById('confirm')
@@ -471,7 +476,7 @@ export function gridBody(ctx, first) {
       st = { ...st, error: err };
       return render();
     }
-    const r = stageRoutes(st, pairs, pressLevels());
+    const r = stageRoutes(st, pairs, pairLevels);
     st = r.st;
     const keep = new Set(pairs);
     const skipped = all.filter((x) => !keep.has(x));

@@ -1,9 +1,34 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
+	"slices"
 	"testing"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
+
+// twoLevelRouterB: router B has 2 levels, router A the simulator's 17.
+func twoLevelRouterB(c *config.Config) { c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 2, "" }
+
+// lastTakeLevels gives the levels of the newest History entry, which must be on router uid.
+func lastTakeLevels(t *testing.T, a *App, key, uid string) []int {
+	t.Helper()
+	var hist struct {
+		Entries []struct {
+			Router string `json:"router"`
+			Levels []int  `json:"levels"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(apiDo(a, "GET", "/api/v1/history", key, nil).Body.Bytes(), &hist); err != nil || len(hist.Entries) == 0 {
+		t.Fatalf("history: %v %+v", err, hist)
+	}
+	if e := hist.Entries[0]; e.Router != uid {
+		t.Errorf("the newest entry is on router %q, want %q", e.Router, uid)
+	}
+	return hist.Entries[0].Levels
+}
 
 // itemSpan is SPAN in web/routerids.js: an item number of router B is itemSpan plus its router number.
 const itemSpan = 0x10000
@@ -15,13 +40,13 @@ func TestChromeGridPanelTwoRouters(t *testing.T) {
 	b := startBrowser(t)
 	simA := startSim(t)
 	simB := startSim(t, simNames(t, "src 11 Stage Cam", "dst 3 Stage Mon"))
-	a := simRoutersApp(t, []string{simA, simB})
+	a := simRoutersApp(t, []string{simA, simB}, twoLevelRouterB)
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
 	uids := routerUIDs(a)
 	waitRouterRead(t, a, ana, uids[0], "DSM1")
 	waitRouterRead(t, a, ana, uids[1], "Stage Mon")
-	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Two routers","type":"grid","settings":{"mode":"take"},
+	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Two routers","type":"grid","settings":{"mode":"take","levels":{%[1]q:[1,2,3]}},
 		"sources":{"members":[{"router":%[1]q,"n":10},{"router":%[2]q,"n":11}]},
 		"destinations":{"members":[{"router":%[1]q,"n":2},{"router":%[2]q,"n":3}]}}`, uids[0], uids[1]))
 	bSrc, bDst := itemSpan+11, itemSpan+3
@@ -50,6 +75,10 @@ func TestChromeGridPanelTwoRouters(t *testing.T) {
 	gridConfirm(b)
 	routerTallyHas(t, a, ana, uids[1], 3, 11)
 	routerTallyHas(t, a, ana, uids[0], 3, 3)
+	// The Levels box holds router A's 1-3; router B has 2 levels, so the route on B takes 1 and 2 only.
+	if got := lastTakeLevels(t, a, ana, uids[1]); !slices.Equal(got, []int{1, 2}) {
+		t.Errorf("the take on router B sent levels %v, want [1 2]", got)
+	}
 	b.waitFor("router B's tally reaches the crosspoint", gridXp(bSrc, bDst)+`.dataset.on?.startsWith('1')`)
 
 	// The editor lists the members of both routers, and Add from the router has router B's items.
@@ -75,7 +104,7 @@ func TestChromeButtonsPanelTwoRouters(t *testing.T) {
 	b := startBrowser(t)
 	simA := startSim(t)
 	simB := startSim(t, simNames(t, "src 11 Stage Cam", "dst 3 Stage Mon"))
-	a := simRoutersApp(t, []string{simA, simB})
+	a := simRoutersApp(t, []string{simA, simB}, twoLevelRouterB)
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
 	uids := routerUIDs(a)
@@ -104,6 +133,10 @@ func TestChromeButtonsPanelTwoRouters(t *testing.T) {
 	b.eval(cell(1, 4) + `.click()`)
 	routerTallyHas(t, a, ana, uids[1], 3, 11)
 	routerTallyHas(t, a, ana, uids[0], 3, 3)
+	// Router A has 17 levels and router B 2: the take on B sends B's two levels.
+	if got := lastTakeLevels(t, a, ana, uids[1]); !slices.Equal(got, []int{1, 2}) {
+		t.Errorf("the take on router B sent levels %v, want [1 2]", got)
+	}
 	b.waitFor("router B's new source under the destination", cell(1, 1)+`.querySelector('small')?.textContent === 'Stage Cam'`)
 	b.check()
 }

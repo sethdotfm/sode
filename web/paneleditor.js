@@ -2,7 +2,7 @@
 import { $, on, S, routerData } from './core.js';
 import { newPanelActs, actsSavedNote } from './panelsrules.js';
 import { sessionFetch, jsonCall, startSession } from './sessionkey.js';
-import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
+import { namesFrom, cellNamesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
 import { defaultsBy } from './panellook.js';
 import { createGrid, cellsLost, resize, select, deselect, selectAll, rectOf, clearSelection, setAside, putBack, heldThatFit, saved } from './gridmodel.js';
 import { editorTarget, newPanel, saveBody, isDirty, menuArea, saveChord, openFailNote, editorAccess } from './editorrules.js';
@@ -726,14 +726,14 @@ export async function runEditor() {
   // Names come from the REST read, which applies the user's Rights. The socket says when the router's names change,
   // so the cells and the Grid lists show a rename at once, as an open panel does.
   // Returns false when the read was refused; the names already shown stay.
-  // With two or more routers, routerNames holds the items of every router on item numbers (routerids.js), and names
-  // the first router's, for the cells.
+  // With two or more routers, routerNames holds the items of every router on item numbers (routerids.js). names reads
+  // a cell on its own router (cellNamesFrom).
   async function readNames() {
     const next = await readRouterNames((path) => sessionFetch(path).then((r) => (r.ok ? r.json() : null)), places);
     if (!next) return false;
     places = next.places;
     routerNames = next.names;
-    names = namesFrom(next.first);
+    names = cellNamesFrom(next.names, next.places);
     return true;
   }
   const namesFailed = () => say('ed-status', 'Router names did not load. Old names shown.');

@@ -139,8 +139,8 @@ test('a Grid panel member on another router survives an edit and a save', () => 
       { router: B, n: 1 },
     ],
   });
-  // Follow the router follows the first router only.
-  assert.deepEqual(stopFollowing({ members: 'all' }, router).members, [0, 1, 2, 3]);
+  // Follow the router covers every router, router by router.
+  assert.deepEqual(stopFollowing({ members: 'all' }, router).members, [0, 1, 2, 3, SPAN + 1]);
 });
 
 test('a Grid panel is dirty on a type or edge change, and not on an empty items or hide left by an undone edit', () => {

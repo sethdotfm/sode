@@ -1,7 +1,7 @@
 // Rights, protection and other sources on a Grid panel. Pure: no DOM, no clock, no network.
 // env is envFrom's (panelrules.js); names is namesFrom.
-import { rightsAllow } from './panelrules.js';
-import { acrossRouters } from './routerids.js';
+import { rightsAllow, envAt } from './panelrules.js';
+import { acrossRouters, placeOf } from './routerids.js';
 
 // The sources dst has now that the grid does not show, in level order, each one time. shown is a Set of router numbers.
 export function otherSources(env, dst, shown) {
@@ -48,7 +48,8 @@ export const acrossText = (err, names) => `${names.source(err.src)} and ${names.
 
 // Why a staged entry { dst, level, src } no longer applies, or ''. world is { env, rights, names (GET /names) }.
 // A read that has not come yet leaves nothing out, so a slow first poll never drops staged work.
-function whyOut(x, { env, rights, names }) {
+function whyOut(x, { env: all, rights, names }) {
+  const env = envAt(all, placeOf(x.dst));
   if (!rightsAllow(rights, 'dsts', x.dst) || !rightsAllow(rights, 'sources', x.src) || !rightsAllow(rights, 'levels', x.level, env?.router)) return 'rights';
   const has = (list, n) => !Array.isArray(list) || list.some((y) => y.n === n);
   if (!has(names?.sources, x.src) || !has(names?.destinations, x.dst)) return 'gone';

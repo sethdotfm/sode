@@ -16,7 +16,7 @@ import { buttonsBody } from './panelbuttons.js';
 import { gridBody } from './gridpanelrun.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { panelIn, placesUsed } from './panelitems.js';
-import { makePlaces, mergeTally, mergeProtected, mergeNames, wireRoutes, undoIn } from './routerids.js';
+import { makePlaces, mergeTally, mergeProtected, mergeNames, wireRoutes, undoIn, presetsIn } from './routerids.js';
 import { lookOf } from './panellook.js';
 import { pref } from './device.js';
 import { createArt } from './panelart.js';
@@ -276,7 +276,12 @@ function tallyFeed({ door, body, ui, rights, used, showOffline, onFail }) {
         door.callJSON(`api/v1/protected${q(0)}`),
         wantNames ? door.callJSON(`api/v1/names${q(0)}`) : null,
         // A key without the presets scope gets 403: its Preset cells then show as unavailable.
-        wantNames ? door.callJSON('api/v1/presets').catch(() => ({})) : null,
+        wantNames
+          ? door
+              .callJSON('api/v1/presets')
+              .then((r) => presetsIn(r, door.places))
+              .catch(() => ({}))
+          : null,
         // A key without the status scope gets 403: the router link is then unknown, not down.
         door.callJSON('api/v1/status').catch((e) => {
           if (e.status === undefined || e.status >= 500) throw e;
@@ -454,7 +459,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     body,
     ui,
     rights: panel.rights,
-    used: () => placesUsed(panel),
+    used: () => placesUsed(panel, places),
     showOffline: (o) => paintOffline(ui, o),
     onFail(e) {
       const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!door.key && !door.keyIsPublic, door.keyIsPublic);

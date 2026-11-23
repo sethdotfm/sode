@@ -29,8 +29,8 @@ const PANEL = {
   id: '',
   name: 'Grid',
   type: 'grid',
-  sources: { members: 'all', everyRouter: true },
-  destinations: { members: 'all', everyRouter: true },
+  sources: { members: 'all' },
+  destinations: { members: 'all' },
   pages: [],
   settings: {},
 };
@@ -219,7 +219,11 @@ function push() {
     defaultLevels: S.cfg.defaultLevels,
     tally: S.tally,
   });
-  const others = more.map(({ place, rt }) => ({ place, reply: { routes: tallyReplyOf({ levels: [], tally: rt.tally }).routes } }));
+  // Each router's own levels go with its tally, so a route on it takes its levels (gridpanellevels.js otherRouterLevels).
+  const others = more.map(({ place, rt }) => ({
+    place,
+    reply: tallyReplyOf({ router: rt.uid, levels: rt.levels, levelNumbering: rt.numbering, defaultLevels: rt.defaultLevels, tally: rt.tally }),
+  }));
   body.data({ tally: mergeTally(tally, others), prot: mergeProtected(protectedReplyOf(S.prot), []), nm, version });
   body.render();
 }

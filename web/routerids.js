@@ -65,12 +65,32 @@ export const undoIn = (undo, places) =>
 
 // The answers of each router as one answer on item numbers. first is the first router's answer, whose levels and
 // settings the page uses. more is [{ place, reply }] for the other routers. With no more, first is given back as it is.
+// The joined tally keeps the levels of each router in byPlace (tallyAt), so a route on a router takes that router's
+// levels.
 export function mergeTally(first, more = []) {
   if (!more.length) return first;
   const routes = [...(first?.routes || [])];
-  for (const { place, reply } of more)
+  const byPlace = [levelsPart(first)];
+  for (const { place, reply } of more) {
+    byPlace[place] = levelsPart(reply);
     for (const r of reply?.routes || []) routes.push({ dst: itemId(place, r.dst), level: r.level, src: itemId(place, r.src) });
-  return { ...first, routes };
+  }
+  return { ...first, routes, byPlace };
+}
+
+const levelsPart = (t) => ({ router: t?.router || '', levels: t?.levels || [], levelNumbering: t?.levelNumbering, defaultLevels: t?.defaultLevels || '' });
+
+// The levels part of a tally answer for the router at place: { router, levels, levelNumbering, defaultLevels }. A
+// tally of one router is its own part at place 0. null for a router the answer does not hold yet.
+export const tallyAt = (tally, place) => tally?.byPlace?.[place] || (place === 0 && tally ? tally : null);
+
+// GET /presets with each item's source and destinations on item numbers, so a Preset cell can hold routes on any
+// router. A stored item holds router references (presetref.js).
+export function presetsIn(reply, places) {
+  if (!reply?.presets) return reply;
+  const on = (x) => (x && typeof x === 'object' && Number.isInteger(x.n) ? { ...x, n: places.id(x.router || '', x.n) } : x);
+  const item = (it) => ({ ...it, src: on(it.src), dsts: Array.isArray(it.dsts) ? it.dsts.map(on) : it.dsts });
+  return { ...reply, presets: reply.presets.map((p) => (Array.isArray(p.items) ? { ...p, items: p.items.map(item) } : p)) };
 }
 
 export function mergeProtected(first, more = []) {
