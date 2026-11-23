@@ -23,8 +23,8 @@ import (
 //
 // tielock.go locks the tie lines and runs the stale check before the first wave. Then refuseHeld runs the Protect check
 // on every step before any step goes. Every step is an ordinary connect, also in fireMode native. The Result of a
-// route comes from all its hops (routeWord). Put back is in tieputback.go. Not here yet: One-off tie lines and the Tie line picker. The
-// API is the only caller.
+// route comes from all its hops (routeWord). Put back is in tieputback.go, a Late hop and Retry in tieretry.go. Not
+// here yet: One-off tie lines and the Tie line picker. The API is the only caller.
 
 // TieEnd is a router reference with the name that Sode had for it.
 type TieEnd struct {
@@ -35,7 +35,8 @@ type TieEnd struct {
 
 // TieHop is a hop before the last, as the entry of the destination asked for keeps it. Entry is the hop's own
 // entry; there is none when the tie line already carried the source. Result is connected, already or failed. Prev is
-// the Prev of the hop's entry: what the tie line carried before.
+// the Prev of the hop's entry: what the tie line carried before. Late: the router confirmed a level of the hop after
+// the take gave up (lateConfirm). The hops after it were not sent.
 type TieHop struct {
 	Router  string   `json:"router"`
 	Src     int      `json:"src"`
@@ -46,6 +47,7 @@ type TieHop struct {
 	Entry   *int     `json:"entry,omitempty"`
 	Result  string   `json:"result"`
 	Prev    [][2]int `json:"prev"`
+	Late    bool     `json:"late,omitempty"`
 }
 
 // ViaLevel is the Via chain of one typed level of the destination asked for.
@@ -100,6 +102,14 @@ func (t *tieTake) step(req routeReq) *tieStep {
 	s := &tieStep{req: req}
 	t.steps = append(t.steps, s)
 	return s
+}
+
+func (t *tieTake) reqs() []routeReq {
+	out := make([]routeReq, len(t.steps))
+	for i, s := range t.steps {
+		out[i] = s.req
+	}
+	return out
 }
 
 // planTieTake makes the steps of a take with a route across routers. routes holds every route of the request, in
@@ -341,7 +351,23 @@ func (t *tieTake) fillHops(a *App, s *tieStep) {
 		if h.Entry != nil {
 			if e, ok := a.hist.Get(*h.Entry); ok {
 				h.Prev = e.Prev
+				if len(e.Late) > 0 {
+					// The router answered after the step gave up and before this step ran.
+					h.lateFrom(e)
+				}
 			}
+		}
+	}
+}
+
+// lateFrom marks h with the late answer of its hop entry e. The Result follows the amended entry.
+func (h *TieHop) lateFrom(e Entry) {
+	h.Late = true
+	h.Result = "failed"
+	if e.OK {
+		h.Result = "connected"
+		if len(e.Already) >= len(distinct(e.Levels)) {
+			h.Result = "already"
 		}
 	}
 }
