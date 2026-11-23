@@ -29,6 +29,7 @@ const browser = Object.fromEntries(
     'Request',
     'Response',
     'AbortController',
+    'AbortSignal',
     'Event',
     'CustomEvent',
     'KeyboardEvent',

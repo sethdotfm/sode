@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey, jsonCall, endedCode, retryAfterMs, guardFetch } from '../sessionkeyrules.js';
+import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey, jsonCall, endedCode, retryAfterMs, guardFetch, resendable } from '../sessionkeyrules.js';
 
 const answer = (status, body) => async () => ({
   status,
@@ -147,4 +147,14 @@ test('other refusals never stop the calls', async () => {
   await f('x');
   await f('x');
   assert.equal(n, 2);
+});
+
+test('only a read is stopped and sent again when the key drops; a write is never stopped', () => {
+  assert.equal(resendable(), true);
+  assert.equal(resendable({}), true);
+  assert.equal(resendable({ method: 'get' }), true);
+  assert.equal(resendable({ method: 'HEAD' }), true);
+  assert.equal(resendable({ method: 'POST' }), false);
+  assert.equal(resendable({ method: 'PUT' }), false);
+  assert.equal(resendable({ method: 'DELETE' }), false);
 });
