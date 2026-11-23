@@ -41,6 +41,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The site name is bold and the page name after it is not (panelsbar.js barTitle). */
+.sode-bar__page {
+  font-weight: var(--pb-weight-normal);
+}
+/* Off Home the title is in the middle of the whole bar, so a button that shows or goes does not move it. panelsbar.js
+   sets --sode-title-room, the width that keeps it clear of both sides, and data-sode-centre while that room is enough.
+   A narrow window wraps the bar, so the title stays at the left. */
+@media (min-width: 48rem) {
+  :root:not([data-layout="phone"]) .sode-bar[data-sode-centre] > .sode-panels__title {
+    align-items: center;
+    inset: 0;
+    margin: 0 auto;
+    max-width: var(--sode-title-room);
+    position: absolute;
+    width: fit-content;
+  }
+  :root:not([data-layout="phone"], [data-sode-chip]) .sode-bar[data-sode-centre] > .sode-bar__rule--start {
+    display: none;
+  }
+}
 .sode-bar__tools {
   align-items: center;
   display: flex;
