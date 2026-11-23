@@ -11,8 +11,8 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// panelTieApp is tieApp with a second tie line on the link from A to B (TIE 4, A.11 to B.6) and one from B to A
-// (TIE 9, B.30 to A.12).
+// panelTieApp is tieApp with two more tie lines. TIE 4 (A.11 to B.6) is a second tie line from A to B. TIE 9
+// (B.30 to A.12) goes from B to A.
 func panelTieApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter, *fakeRouter, string) {
 	t.Helper()
 	return tieApp(t, func(c *config.Config) {

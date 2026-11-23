@@ -44,6 +44,7 @@ import { shortcutList } from './shortcuts.js';
 import { restPoint, tapMods, pickNote } from './gridpanelphone.js';
 import { onLayout } from './layout.js';
 import { gridHead } from './gridpanelheadview.js';
+import { tiesOn, crossing, affectedLines } from './paneltierules.js';
 import { emptyText } from './gridpanelhead.js';
 import { gridPosition } from './gridpanelpos.js';
 import { gridArtwork } from './gridpanelartwork.js';
@@ -335,7 +336,7 @@ export function gridBody(ctx, first) {
     render();
     let failed = null;
     try {
-      const reply = await (undo ? ctx.post(`api/v1/panels/${ctx.id}/undo`, { id: undoId }) : ctx.post('api/v1/takes', { routes }));
+      const reply = await (undo ? ctx.post(`api/v1/panels/${ctx.id}/undo`, { id: undoId }) : ctx.post('api/v1/takes', { routes, plan: plan.tie }));
       const bad = (reply?.results || []).filter((r) => !r.ok);
       const n = (reply?.results || routes).length;
       note = bad.length
@@ -431,8 +432,25 @@ export function gridBody(ctx, first) {
     st = keepLive(st, world());
     const routes = confirmRoutes(st);
     if (routes && !ask) return send({ routes, left: leftOutText(was, names) });
-    if (routes) confirm.open({ ...planOf(routes, names, tally), routes, warnings: was.map((r) => leftOutLine(r, names)) });
+    if (routes) openTake({ ...planOf(routes, names, tally), routes, warnings: was.map((r) => leftOutLine(r, names)) });
     else if (was.length) note = noteOf(leftOutText(was, names));
+    render();
+  }
+
+  // A take across routers asks the plan of its Reserved tie lines first, so the confirm shows what they also change
+  // (paneltierules.js). A press while the plan is on its way drops it.
+  async function openTake(plan) {
+    if (!crossing(plan.routes) || !ctx.tiePlan) return confirm.open(plan);
+    const was = st.staged;
+    let tie;
+    try {
+      tie = await ctx.tiePlan(plan.routes);
+    } catch (e) {
+      note = noteOf(e.status === undefined ? 'Sode did not answer' : e.message || 'Sode refused the take');
+      return render();
+    }
+    if (stopped || st.staged !== was || st.busy || confirm.isOpen()) return;
+    confirm.open({ ...plan, tie, also: affectedLines(tie) });
     render();
   }
 
@@ -814,7 +832,7 @@ export function gridBody(ctx, first) {
       dirty = true;
       dataSig = sig;
       tally = t;
-      env = envFrom(t, prot, {}, panel.rights);
+      env = envFrom(t, prot, {}, panel.rights, tiesOn(panel));
       const renamed = nmSig !== namesSig;
       if (renamed) {
         namesSig = nmSig;

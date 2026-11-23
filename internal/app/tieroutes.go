@@ -112,8 +112,9 @@ func holderText(h protHold, dev int) string {
 // and tie routes). A route with ties takes the tie lines that it sends to, as the stale check sees them (tieChanged).
 // A plain route to the upstream destination of a tie line takes that tie line for every route. A hop there would
 // fight it (planTieTake gives 409 conflict). Its mark has no real source (N -1), so it never matches one.
-// The result of a route with ties or on one router is empty. opts gives the Reserves and, for a panel caller, its
-// Reserved tie lines: the search then uses only those, and they are not Reserved for it. Caller holds mu.
+// The result of a route with ties or on one router is empty. opts gives the Reserves. For a panel caller it also
+// gives the Reserved tie lines of the panel. The search then uses only those, and they are not Reserved for it.
+// Caller holds mu.
 func (a *App) planTieRoutes(rt *runtime, routes []tieRoute, opts tiePlanOpts) []tieplan.Result {
 	in := a.tieInput(rt)
 	in.Reserves = opts.reserves

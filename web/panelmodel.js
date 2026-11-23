@@ -106,7 +106,7 @@ function pressSourceFixed(st, cell, env, now) {
   const routes = [];
   for (const dst of st.fixed) {
     if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
-    if (acrossRouters(cell.n, dst)) return fail(st, { code: 'across-routers', src: cell.n, dst }, now);
+    if (acrossRouters(cell.n, dst) && !env.ties) return fail(st, { code: 'across-routers', src: cell.n, dst }, now);
     const denied = outsideRights(env, cell.n, dst);
     if (denied) return fail(st, denied, now);
     const levels = shared(st, env, cell.levels, null, dst);
@@ -124,7 +124,7 @@ function pressSourceOne(st, cell, env, now) {
   if (!st.view) return fail(st, { code: 'no-destination' }, now);
   const dst = st.view.dst;
   if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
-  if (acrossRouters(cell.n, dst)) return fail(st, { code: 'across-routers', src: cell.n, dst }, now);
+  if (acrossRouters(cell.n, dst) && !env.ties) return fail(st, { code: 'across-routers', src: cell.n, dst }, now);
   const denied = outsideRights(env, cell.n, dst);
   if (denied) return fail(st, denied, now);
   const levels = shared(st, env, cell.levels, st.view.levels, dst);
@@ -158,7 +158,7 @@ function pressPresetOne(st, cell, env, now) {
       if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
       const denied = outsideRights(env, it.src, dst);
       if (denied) return fail(st, denied, now);
-      if (acrossRouters(it.src, dst)) return fail(st, { code: 'across-routers', src: it.src, dst }, now);
+      if (acrossRouters(it.src, dst) && !env.ties) return fail(st, { code: 'across-routers', src: it.src, dst }, now);
       const levels = shared(st, env, inSet(envAt(env, placeOf(dst)).levels, it.levels?.length ? it.levels : null), cell.levels, dst);
       if (!levels.length) return fail(st, { code: 'no-common-levels', src: it.src, dst }, now);
       routes.push({ dst, src: it.src, levels });

@@ -82,6 +82,8 @@ export function gridSummary(plan, tally) {
       ]
     : [];
   if (plan.verb === 'undo') left.push(el('div', null, "Undo of this instance's last take."));
+  // A take across routers names its Reserved tie lines and the Affected destinations (docs/tielines-design.md, Panels).
+  if (plan.also?.length) left.push(el('div', 'sode__plan-also', el('div', 'sode__label', 'Tie lines'), ...plan.also.map((l) => el('div', null, l))));
   if (n === 1) return [...left, question, ...plan.items[0].groups.map((g) => routeRow(tally, g, plan.items[0])), ...nowRows(tally, plan.items[0], false)];
   return [
     ...left,

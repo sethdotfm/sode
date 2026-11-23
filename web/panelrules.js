@@ -9,6 +9,7 @@ import { fullKey } from './panellink.js';
 import { itemPlain } from './presetref.js';
 import { levelsOn } from './routerlevels.js';
 import { numText, routerN } from './routerids.js';
+import { acrossOffText } from './paneltierules.js';
 
 export const KINDS = [
   'source',
@@ -79,7 +80,9 @@ export const rightsAllow = (rights, list, v, router) => {
   return !Array.isArray(l) || l.some((x) => (x && typeof x === 'object' ? x.n : x) === v);
 };
 
-export function envFrom(tally, protectedReply, presetsReply = {}, rights = null) {
+// ties: the panel's tie line setting is Reserved (tiesOn in paneltierules.js), so a press can stage a route across
+// routers.
+export function envFrom(tally, protectedReply, presetsReply = {}, rights = null, ties = false) {
   const rows = new Map();
   const via = new Map();
   for (const r of tally.routes || []) {
@@ -101,6 +104,7 @@ export function envFrom(tally, protectedReply, presetsReply = {}, rights = null)
     via,
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),
     rights: rights || null,
+    ties: !!ties,
     presets: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), (p.items || []).map(itemPlain)])),
     // Rights name presets by id.
     presetIds: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), p.id])),
@@ -206,9 +210,8 @@ export function errorText(err, names) {
       return 'Select a destination first';
     case 'protected':
       return `${names.destination(err.dst)} is protected`;
-    // Keep in step with acrossText in gridpanelrights.js.
     case 'across-routers':
-      return `${names.source(err.src)} and ${names.destination(err.dst)} are on two routers. Sode has no tie lines yet.`;
+      return acrossOffText(names.source(err.src), names.destination(err.dst));
     case 'no-common-levels':
       return `${names.source(err.src)} and ${names.destination(err.dst)} have no level in common`;
     case 'outside-rights': {

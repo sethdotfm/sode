@@ -79,6 +79,8 @@ export async function runEditor() {
     type: edits.type ?? loaded?.type ?? 'buttons',
     sources: edits.sources ?? loaded?.sources ?? GRID_EDGE,
     destinations: edits.destinations ?? loaded?.destinations ?? GRID_EDGE,
+    // The tie line setting (editorties.js): beside the layout, so Push and templates leave it out.
+    tieLines: edits.tieLines ?? loaded?.tieLines,
   });
   const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());
 

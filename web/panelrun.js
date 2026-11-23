@@ -17,6 +17,7 @@ import { gridBody } from './gridpanelrun.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { panelIn, placesUsed } from './panelitems.js';
 import { makePlaces, mergeTally, mergeProtected, mergeNames, wireRoutes, undoIn, presetsIn } from './routerids.js';
+import { crossing, planOf as tiePlanOf, withTies } from './paneltierules.js';
 import { lookOf } from './panellook.js';
 import { pref } from './device.js';
 import { createArt } from './panelart.js';
@@ -410,9 +411,27 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     const r = await door.callJSON(path, init);
     return (init?.method || 'GET') === 'GET' && /^api\/v1\/panels\/[^/]+\/undo$/.test(path) && r ? { ...r, undo: undoIn(r.undo, places) } : r;
   };
-  const postTake = async (path, sent, init) => {
+  // A route across routers goes on the panel's Reserved tie lines (paneltierules.js). The plan is a POST /takes with
+  // no ties: the server sends nothing and answers 409 tie_line_needed with the path, or refuses with its reason.
+  const tiePlan = async (routes) => {
+    try {
+      await callJSON('api/v1/takes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routes: wireRoutes(routes, places) }),
+      });
+    } catch (e) {
+      const plan = e.status === 409 && e.code === 'tie_line_needed' ? tiePlanOf(e.body) : null;
+      if (plan) return plan;
+      throw e;
+    }
+    return null;
+  };
+  // sent.plan is the plan that the confirm showed; without one (Instant mode, no confirm), the take asks it first.
+  const postTake = async (path, { plan, ...sent }, init) => {
     if (path !== 'api/v1/takes' || !Array.isArray(sent.routes)) return callJSON(path, { ...init, body: JSON.stringify(sent) });
-    const r = await callJSON(path, { ...init, body: JSON.stringify({ ...sent, routes: wireRoutes(sent.routes, places) }) });
+    const ties = plan || (crossing(sent.routes) ? await tiePlan(sent.routes) : null);
+    const r = await callJSON(path, { ...init, body: JSON.stringify({ ...sent, routes: withTies(wireRoutes(sent.routes, places), ties) }) });
     if (!Array.isArray(r?.results)) return r;
     return { ...r, results: r.results.map((x, i) => (sent.routes[i] ? { ...x, src: sent.routes[i].src, dst: sent.routes[i].dst } : x)) };
   };
@@ -448,6 +467,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': takeKey() },
         noWait: true,
       }),
+    // The plan of a take with a route across routers, for the confirm (affectedLines); null when it has none.
+    tiePlan: (routes) => (crossing(routes) ? tiePlan(routes) : Promise.resolve(null)),
     poll: () => feed?.poll(),
     ready: () => !!feed?.ready(),
     instance: () => door.instance,

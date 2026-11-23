@@ -40,6 +40,11 @@ import {
   hitMarked,
   pathUsable,
   heldText,
+  reserveAsk,
+  confirmReserve,
+  reservedHops,
+  reserveText,
+  pathKey,
   protectable,
   protectOn,
   toggleProtect,
@@ -259,9 +264,18 @@ function paint() {
       endNode('Destination', dst, 'sode-tiepick__end--dst', st.marks?.end),
     ),
     ...(p ? [affectedNode(p, src)] : []),
+    ...reserveNode(st),
   );
   ui.pKey.hidden = !mayProtect();
   paintTake();
+}
+
+// reserveNode is the extra confirm of a Reserved tie line: it shows after the first Take, until the path changes.
+function reserveNode(st) {
+  if (!reservedHops(st).length || st.reserveOk !== pathKey(chosen(st))) return [];
+  const n = el('div', 'pb-alert pb-alert--warn sode-tiepick__reserve', reserveText(st));
+  n.setAttribute('role', 'alert');
+  return [n];
 }
 
 // reasonsNode names each reason when no path is usable (The Tie line picker, rule 10). An error alert, with text.
@@ -415,9 +429,15 @@ function affectedNode(p, src) {
   return el('div', 'sode-tiepick__affected', el('div', 'sode-tiepick__head', head, ...mark), el('ul', 'sode-tiepick__hits', ...rows, ...extra));
 }
 
-// send: the person chose the path. tieflow.js sends the take.
+// send: the person chose the path. tieflow.js sends the take. A Reserved tie line asks one more time first, and the
+// lockout starts again.
 function send() {
   if (!cur?.unlocked || !ready(cur.st)) return;
+  if (reserveAsk(cur.st)) {
+    cur.st = confirmReserve(cur.st);
+    startLock();
+    return paint();
+  }
   const { st, o } = cur;
   close(true);
   o.onPick(st);

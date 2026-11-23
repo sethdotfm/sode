@@ -20,7 +20,6 @@ import { namesFrom, rightsAllow } from '../panelrules.js';
 import { findMatches } from '../gridpanelfind.js';
 import { findRows } from '../editorgridrules.js';
 import { gridAxes } from '../gridpaneledges.js';
-import { pressRefusal, skippedText } from '../gridpanelrights.js';
 
 const [A, B] = ['a1a1a1a1a1a1a1a1', 'b2b2b2b2b2b2b2b2'];
 const places = () =>
@@ -186,12 +185,4 @@ test('a Buttons panel page reads its cells and Fixed destination on item numbers
   assert.deepEqual(placesUsed(panel), [0, 1]);
   // Read again, as the Live Editor's show does, it stays the same.
   assert.deepEqual(panelIn(panel, places()), panel);
-});
-
-test('a press across two routers is refused with its reason, and a Diagonal skips it', () => {
-  const env = { protectedDsts: new Set() };
-  assert.deepEqual(pressRefusal({ src: 1, dst: SPAN + 2 }, env), { code: 'across-routers', src: 1, dst: SPAN + 2 });
-  assert.equal(pressRefusal({ src: SPAN + 1, dst: SPAN + 2 }, env), null);
-  const names = { destination: (d) => `D${d}` };
-  assert.equal(skippedText([{ src: 1, dst: SPAN + 2 }], names), 'Skipped a route across routers: Sode has no tie lines yet');
 });

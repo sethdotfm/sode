@@ -163,7 +163,7 @@ func reserveNames(m map[string]panelRef) map[string]string {
 	return out
 }
 
-// panelTies is what a panel caller may use for routes across routers. only is nil for a caller that is no panel.
+// panelTies is what a panel caller can use for routes across routers. only is nil for a caller that is no panel.
 type panelTies struct {
 	panel string // the name of the panel
 	only  map[string]bool

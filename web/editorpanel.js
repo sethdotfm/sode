@@ -11,6 +11,7 @@ import { createLevelBoxes } from './editorlevels.js';
 import { levelsOn, putLevels } from './routerlevels.js';
 import { createSizeFields } from './editorsize.js';
 import { createFixedField } from './editorfixed.js';
+import { createTieField } from './editorties.js';
 import { fixedDestsOf } from './panelrules.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { followRouter, stopFollowing } from './editorgridrules.js';
@@ -148,7 +149,9 @@ export function createPanelTab(ed) {
   const wrapPages = toggle('wrapPages', 'Wrap between Pages');
   // Settings that only a Buttons panel uses; a Grid panel keeps them stored but does not show them.
   const buttonsOnly = [sizes.node, guardField, fixed.node, multi, resultText, wrapPages];
-  const behavior = section('Behavior', modeField, guardField, fixed.node, multi, levelField, resultText, toggle('kiosk', 'Kiosk mode'), wrapPages);
+  const ties = createTieField(ed);
+  let tiesFor = null; // the panel id the tie line list was read for
+  const behavior = section('Behavior', modeField, guardField, fixed.node, multi, levelField, ties.node, resultText, toggle('kiosk', 'Kiosk mode'), wrapPages);
 
   // A Grid panel's edges: each one is the router's list, or holds its own.
   const followSwitches = ['sources', 'destinations'].map((key) => {
@@ -222,6 +225,11 @@ export function createPanelTab(ed) {
       toggles.find((x) => x.key === 'multi').input.disabled = ro || fixedOn;
       multiNote.textContent = fixedOn ? 'No effect while Fixed destination is on: every press stages all of them together.' : '';
       fixed.update();
+      if ((p?.id || '') !== tiesFor) {
+        tiesFor = p?.id || '';
+        ties.read();
+      }
+      ties.update();
       fullscreenHint.textContent = fullscreenNote(s);
       if (document.activeElement !== size) size.value = String(s.fontSize || 100); // shown, so the arrows step from the default
       size.disabled = ro;
