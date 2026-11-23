@@ -248,12 +248,25 @@ func (a *App) apiTieRoute(rt *runtime, v apiView, r tieRoute, res tieplan.Result
 // tieRouteRights: rights cover the typed source and destination only (docs/tielines-design.md, Rights). Hops
 // through saved tie lines need none.
 func (a *App) tieRouteRights(rt *runtime, rights config.Rights, routes []tieRoute) *apiProblem {
-	items := make([]routeReq, len(routes))
-	for i, r := range routes {
-		items[i] = routeReq{Src: r.src.N, Dst: r.dst.N, Levels: r.levels, Router: r.dst.Router}
+	// Each typed end is matched with its own router: a route across routers has its source on another router.
+	out := func(what string, e tieplan.End) *apiProblem {
+		if rights.Hidden() {
+			return problem(http.StatusForbidden, "outside_rights", "%s is outside your rights", what)
+		}
+		return problem(http.StatusForbidden, "outside_rights", "%s %d is outside your rights", what, e.N+rt.routerOf(a.rightsUID(rt, e.Router)).NumberOffset)
 	}
-	if msg := a.outsideRights(rt, rights, items); msg != "" {
-		return problem(http.StatusForbidden, "outside_rights", "%s", msg)
+	for _, r := range routes {
+		if !rights.AllowsDst(config.Ref{Router: a.rightsUID(rt, r.dst.Router), N: r.dst.N}) {
+			return out("destination", r.dst)
+		}
+		for _, ui := range r.levels {
+			if !rights.AllowsLevel(ui) {
+				return problem(http.StatusForbidden, "outside_rights", "level %s is outside your rights", rt.cfg.LevelLabel(ui))
+			}
+		}
+		if !rights.AllowsSource(config.Ref{Router: a.rightsUID(rt, r.src.Router), N: r.src.N}) {
+			return out("source", r.src)
+		}
 	}
 	return nil
 }

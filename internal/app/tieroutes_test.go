@@ -119,7 +119,10 @@ func TestAPITakeAcrossRoutersNoPath(t *testing.T) {
 // Hidden visibility blanks the names that the caller cannot see, and counts the Affected destinations it cannot see.
 func TestAPITakeAcrossRoutersHidden(t *testing.T) {
 	a, _, _, key := tieApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Sources: nums(4), Dsts: nums(2, 20)}
+		// Rights name routers (a blank router becomes the first one), so the Dsts are on router B.
+		c.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden,
+			Sources: &[]config.Ref{{Router: c.UID, N: 4}},
+			Dsts:    &[]config.Ref{{Router: "b2b2b2b2", N: 2}, {Router: "b2b2b2b2", N: 20}}}
 	})
 	for _, code := range []string{"tie_line_needed", "no_path"} {
 		if code == "no_path" {
