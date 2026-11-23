@@ -38,6 +38,10 @@ type Config struct {
 	Presets          []Preset    `yaml:"presets,omitempty" json:"presets"`
 	// Bookmarks is Everyone's list (GLOSSARY.md, Bookmark).
 	Bookmarks []Bookmark `yaml:"bookmarks,omitempty" json:"bookmarks"`
+	// TieLines: Settings > Routers > Tie lines (tielines.go). An Administrator saves the list apart from the form.
+	TieLines []TieLine `yaml:"tieLines,omitempty" json:"tieLines"`
+	// TieHopWeight is the cost of each hop that a route through tie lines sends upstream (internal/tieplan).
+	TieHopWeight int `yaml:"tieHopWeight" json:"tieHopWeight"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
 	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
@@ -197,6 +201,7 @@ func Defaults() Config {
 		},
 		ConfirmLockoutMs:     500,
 		ResultDismissSeconds: 8,
+		TieHopWeight:         DefaultTieHopWeight,
 		TrustedProxies:       []string{},
 		LevelColors:          []string{},
 		PinWaits:             true,
@@ -239,6 +244,7 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_NUM_OFFSET", &c.NumberOffset)
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
 	num("SODE_RESULT_DISMISS_S", &c.ResultDismissSeconds)
+	num("SODE_TIE_HOP_WEIGHT", &c.TieHopWeight)
 	num("SODE_NAME_REREAD_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
@@ -287,6 +293,7 @@ func (c Config) Clone() Config {
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Presets = ClonePresets(c.Presets)
 	c.Bookmarks = CloneBookmarks(c.Bookmarks)
+	c.TieLines = CloneTieLines(c.TieLines)
 	c.Users = slices.Clone(c.Users)
 	for i := range c.Users {
 		c.Users[i].Profile = c.Users[i].Profile.Clone()
@@ -336,6 +343,7 @@ func (c *Config) Normalize() {
 	c.FilterSets = normalizeFilterSets(c.FilterSets)
 	c.normalizePresets()
 	c.Bookmarks = normalizeBookmarks(c.Bookmarks)
+	c.TieLines = normalizeTieLines(c.TieLines)
 	c.normalizeProfiles()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)

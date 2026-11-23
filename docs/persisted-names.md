@@ -116,6 +116,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
   - `localStorage` key `sode-panel-device` (the instance's name).
   - `api` row kinds `panelLost` and `panelBack`, and a `command` row `panelAlarm`.
   - The `Actor` field `owner`, set only for a panel's own API client.
+- `localStorage` key `sode-tieline-dismissed` (a JSON list of the two ends of each dismissed tie line suggestion, `router/n/router/n`).
 - `localStorage` key `sode-panel-full` (`1` when the panel page runs at Full width).
 - `localStorage` key `sode-panel-page-<panel id>`: the id of the Page the panel page last showed in that browser, read on open. A Page that is gone or disabled reads as the first enabled Page.
 - Session key: socket messages `sessionKey` (browser to server, optional key name) and `sessionKeyResult`. Also the socket message `myRights` (server to browser, the signed-in user's own Rights, never in the hello). A session key is a `keys.json` record with `sess` (sha256 of the session token), so it ends with the session. Session mode panels ask for it named `Panel <id>`.

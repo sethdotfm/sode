@@ -86,4 +86,5 @@ test('labels and values of other keys', () => {
   assert.equal(stageShow({ key: 'user/u-1/rights' }, {}), 'All');
   assert.equal(stageShow({ key: 'user/u-1/rights' }, { sources: [{ n: 1 }, { n: 2 }], levels: [] }), '2 sources, no levels');
   assert.equal(stageShow({ key: 'user/u-1/role' }, 'trusted'), 'Trusted user');
+  assert.equal(stageShow({ key: 'guestRights' }, { sources: [], tieLines: false }), 'no sources, no tie lines');
 });

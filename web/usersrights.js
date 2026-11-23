@@ -111,6 +111,13 @@ export function makeRightsTab({ users, clients, touched }) {
       dirty('rights');
     });
     parts.push(selectField('rights-protect', 'Protect', prot, "Set and free Sode's Protects"));
+    const ties = select('rights-tie-lines', [opt('yes', 'Yes'), opt('no', 'No')]);
+    ties.value = e.draft.tieLines ? 'yes' : 'no';
+    ties.addEventListener('change', () => {
+      e.draft.tieLines = ties.value === 'yes';
+      dirty('rights');
+    });
+    parts.push(selectField('rights-tie-lines', 'Use tie lines', ties, 'Send routes across routers'));
     if (kind === 'user') parts.push(flagBox(e, dirty));
     body.replaceChildren(el('h3', 'sode__profiles-h', titleOf(pick)), ...parts);
   }
@@ -153,6 +160,14 @@ export function makeRightsTab({ users, clients, touched }) {
       e.draft.noAutoLock = v;
       e.dirty.add('noAutoLock');
       if (pick === `user:${rid}`) draw();
+    },
+    // Apply an Access preset writes the Guest's Use tie lines right. Only into Guest Rights that loaded, so the lists stay.
+    setGuestTieLines(v) {
+      const e = entries.get('guest');
+      if (!e) return;
+      e.draft.tieLines = v;
+      e.dirty.add('rights');
+      if (pick === 'guest') draw();
     },
     adoptUser(rid, u) {
       entries.set(`user:${rid}`, newEntry(u.rights || {}, off(), { noAutoLock: !!u.noAutoLock }, [...presets(), ...(u.presets || [])], S.routerUid));

@@ -17,6 +17,7 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
+	"github.com/sethdotfm/sode/internal/tieplan"
 )
 
 // levels, byWire and byUI are the first router's levels; lv holds every router's, by router UID (levelsOf).
@@ -138,6 +139,7 @@ type App struct {
 	// Run waits up to drainLimit for them (shutdown.go).
 	writes     inflight
 	checkMu    sync.Mutex // one Broken check at a time
+	tieLocks   tieLocks   // tielock.go
 	drainLimit time.Duration
 
 	// idle.go; tests change both (lock_idle_test.go).
@@ -180,6 +182,12 @@ type App struct {
 	streams map[*apiStream]struct{} // apistream.go, guarded by mu
 
 	names *namesStore // namestable.go
+	// tieChanges: the last change of each tie line (tiechanges.go).
+	tieChanges *tieChanges
+	// viaPend: upstream ends of tie lines whose Via changed since the last flush (tievia.go). viaGen is bumped with
+	// it and keys App.tallyCache, as a tally body carries the Via of other routers. Guarded by App.mu.
+	viaPend map[tieplan.End]bool
+	viaGen  int
 
 	inbox *inboxStore // inbox.go
 
@@ -294,6 +302,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	}
 	a.routers.Store(&units)
 	a.names = newNamesStore(cfgPath)
+	a.tieChanges = loadTieChanges(cfgPath)
 	a.sweepStages()
 	for _, u := range a.units() {
 		if t, ok := a.names.load(u.uid); ok {
@@ -465,6 +474,9 @@ func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	}
 	u.up.State(s == swp08.StateUp)
 	a.logLink(u, s, err)
+	if (s == swp08.StateUp) != (u.status.Router == string(swp08.StateUp)) {
+		a.viaTouchRouter(u, a.r())
+	}
 	u.status.Router = string(s)
 	u.status.Addr = a.r().routerOf(u.uid).Address
 	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
@@ -543,6 +555,10 @@ func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 		t[l.UI] = xp.Src
 		u.router.tallyGen++
 		u.router.pend = append(u.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
+		a.viaTouch(u, r, xp.Dst)
+		if known { // the first read of a level is a baseline, not a change
+			a.stampTieLines(u, r, xp.Dst, !xp.Changed())
+		}
 		// A dump or an interrogate shows a route change that the router did not announce. Sode notes it too, unless
 		// it is Sode's own.
 		switch u.classify(xp, l.UI, known) {
@@ -642,6 +658,7 @@ func (a *App) flush() {
 			u.router.pend = nil
 		}
 	}
+	a.flushVia()
 	// The protected message carries only the first router.
 	if first := a.firstUnit(); len(first.router.pendProt) > 0 {
 		a.broadcast(protectMsg{T: "protected", U: first.router.pendProt, By: a.protectByList(a.r())})
@@ -652,6 +669,9 @@ func (a *App) flush() {
 		a.pendSent = nil
 	}
 	save, check = a.namesTickMu()
+	if ties := a.r().cfg.TieLines; a.tieChanges.dirtyNow() {
+		save = append(save, func() { a.tieChanges.write(ties) })
+	}
 }
 
 // [[dst, level, value], ...]. A hello on a 2500 by 750 router holds 12750 of them.

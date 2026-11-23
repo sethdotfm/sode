@@ -1,5 +1,6 @@
 // Find in the panel editor: entries, Rights, rank and fill. Pure; the page side is editorfind.js.
 import { allowed } from './rightsrules.js';
+import { numText, routerN, placeOf } from './routerids.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned, cellAt } from './gridmodel.js';
 
 export const CATEGORIES = [
@@ -67,8 +68,12 @@ const RIGHTS_KIND = { source: 'sources', destination: 'dsts', preset: 'presets' 
 // the router's own (n); num is what a person sees. Hidden removes what the Rights exclude, Read-only
 // (the default) keeps it with off set. Names and presets are the /api/v1 replies. With fixed (the panel's
 // Fixed destination is on) every Destination is off too, whatever the Rights, since its cell would not be drawn.
-export function findEntries(namesReply, presetsReply, rights, { fixed = false } = {}) {
+// places (routerids.js): with two or more routers, names hold the items of every router on item numbers. Then num is
+// the number with its router prefix (B.12), and an entry carries its router and router number (rn) for the cell.
+export function findEntries(namesReply, presetsReply, rights, { fixed = false, places = null } = {}) {
   const off = namesReply?.numberOffset || 0;
+  const many = !!places?.many && !!namesReply?.prefixes;
+  const shown = numText(namesReply);
   const hide = rights?.visibility === 'hidden';
   const out = [];
   const add = (e, value) => {
@@ -80,10 +85,10 @@ export function findEntries(namesReply, presetsReply, rights, { fixed = false } 
   };
   const numbered = (category, list) => {
     for (const x of [...(list || [])].sort((a, b) => a.n - b.n)) {
-      add(
-        { category, key: `${category}:${x.n}`, label: x.name || `${category === 'source' ? 'Source' : 'Destination'} ${x.n + off}`, n: x.n, num: x.n + off },
-        x.n,
-      );
+      const num = many ? shown(x.n) : x.n + off;
+      const e = { category, key: `${category}:${x.n}`, label: x.name || `${category === 'source' ? 'Source' : 'Destination'} ${num}`, n: x.n, num };
+      if (many) Object.assign(e, { rn: routerN(x.n), router: places.uid(placeOf(x.n)) });
+      add(e, x.n);
     }
   };
   numbered('source', namesReply?.sources);
@@ -181,7 +186,9 @@ export function applyFind(g, plan) {
     return out;
   }
   const page = plan.kind === 'page';
-  let out = applyFill(g, { ...plan, kind: page ? 'goToPage' : plan.kind, slots: plan.slots.map((s) => ({ ...s, n: s.entry.n ?? 0 })) });
+  let out = applyFill(g, { ...plan, kind: page ? 'goToPage' : plan.kind, slots: plan.slots.map((s) => ({ ...s, n: s.entry.rn ?? s.entry.n ?? 0 })) });
+  // An entry of another router (findEntries with places) puts its router on the cell.
+  for (const s of plan.slots) if (s.entry.router) out = setCell(out, s, { router: s.entry.router });
   if (page) {
     for (const s of plan.slots) out = setCell(out, s, { n: undefined, page: s.entry.id });
     return out;
@@ -224,8 +231,10 @@ export function wordScore(e, word) {
   else if (label.includes(word)) best = 40;
   else if (word.length > 1 && subsequence(label, word)) best = 15;
   if (e.alias?.includes(word)) best = Math.max(best, 40);
+  if (e.num !== undefined && String(e.num).toLowerCase() === word) best = Math.max(best, 70);
   if (/^\d+$/.test(word) && e.num !== undefined) {
-    const num = String(e.num);
+    // A prefixed number (B.12) matches its digits too.
+    const num = String(e.num).replace(/^[a-z]{1,2}\./i, '');
     if (num === word) best = Math.max(best, 70);
     else if (num.startsWith(word)) best = Math.max(best, 50);
   }

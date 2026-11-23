@@ -4,6 +4,7 @@
 // Matching and ranking are the main page's fuzzy scoring, with no cut-off. Find goes to the best match first. A
 // Filter shows its matches in panel order.
 import { fuzzyScore } from './fuzzy.js';
+import { numText, placeOf, typedPlace } from './routerids.js';
 
 // at is the router number of the current match, or null for the first one.
 const empty = () => ({ text: '', at: null });
@@ -20,15 +21,20 @@ export function stepBox(f) {
   return hasText(f, other(f.last)) ? other(f.last) : null;
 }
 
-// order is router numbers in display order; list is that edge of GET /names ({ n, name }). offset is the reply's
-// numberOffset, so a typed number matches the number as shown. Best first; equal scores keep display order.
-export function findMatches(order, list, text, offset = 0) {
-  const q = text.trim().toLowerCase();
+// order is item numbers (routerids.js) in display order; list is that edge of GET /names ({ n, name }). reply is the
+// names answer, or its numberOffset, so a typed number matches the number as shown. A typed router prefix (B.12, B12)
+// matches only that router's items. Best first; equal scores keep display order.
+export function findMatches(order, list, text, reply = 0) {
+  const r = typeof reply === 'number' ? { numberOffset: reply } : reply || {};
+  const typedAt = typedPlace(r, text.trim());
+  const q = typedAt.text.trim().toLowerCase();
   if (!q) return [];
+  const num = numText({ ...r, prefixes: r.prefixes?.map((p) => ({ ...p, prefix: '' })) });
   const by = new Map((list || []).map((x) => [x.n, x.name || '']));
   const hits = [];
   order.forEach((n, i) => {
-    const s = fuzzyScore({ num: String(n + offset), lname: (by.get(n) ?? '').toLowerCase() }, q);
+    if (typedAt.place !== null && placeOf(n) !== typedAt.place) return;
+    const s = fuzzyScore({ num: num(n), lname: (by.get(n) ?? '').toLowerCase() }, q);
     if (s >= 0) hits.push([s, i, n]);
   });
   return hits.sort((a, b) => b[0] - a[0] || a[1] - b[1]).map((x) => x[2]);

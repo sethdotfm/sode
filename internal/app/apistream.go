@@ -337,6 +337,7 @@ func (a *App) streamFan(v any) {
 	if len(a.streams) == 0 {
 		return
 	}
+	var x *viaTrace // built once for a tally change, when a stream wants it
 	for st := range a.streams {
 		switch m := v.(type) {
 		case deltaMsg:
@@ -344,6 +345,9 @@ func (a *App) streamFan(v any) {
 				continue
 			}
 			rows := []apiRouteRow{}
+			if x == nil {
+				x = a.newViaTrace(a.r())
+			}
 			for _, c := range m.U {
 				if !st.view.on(st.unit.uid).Destination(c.Dst) {
 					continue
@@ -351,7 +355,9 @@ func (a *App) streamFan(v any) {
 				if !st.view.on(st.unit.uid).Route(c.Dst, c.Level, c.Src) {
 					continue
 				}
-				rows = append(rows, apiRouteRow(c))
+				row := apiRouteRow{Dst: c.Dst, Level: c.Level, Src: c.Src}
+				x.fill(st.view.on(st.unit.uid), &row)
+				rows = append(rows, row)
 			}
 			if len(rows) > 0 {
 				a.streamQueue(st, streamMsg{T: "tally", Topic: "tally", Data: map[string]any{"routes": rows}})

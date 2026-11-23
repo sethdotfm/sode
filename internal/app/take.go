@@ -20,6 +20,9 @@ type routeReq struct {
 	Levels []int `json:"levels"`
 	Undo   *int  `json:"undo"`  // history ID of the take to undo
 	Retry  *int  `json:"retry"` // history ID of the failed take to retry
+	// PutBack: with Undo of a hop entry, put the tie line back (tieputback.go). Sode sends it only while the tie line
+	// still carries what the take set.
+	PutBack bool `json:"putBack"`
 	// Router: the UID of the router that the route is on, from the hello's routers list; blank is the first router.
 	// takeAllowed fills it.
 	Router string `json:"router"`
@@ -31,6 +34,8 @@ type routeReq struct {
 	PresetID string `json:"-"`
 	// Stage: levels, by wire number, that go in a native group salvo (fire.go); other levels go as ordinary connects.
 	Stage map[int]bool `json:"-"`
+	// Tie: this route is a hop of a tie take (tietake.go), with what its entry keeps.
+	Tie *tieMark `json:"-"`
 }
 
 // routeLimit: one take runs this many routes at one time; the link sends one message per ACK, so more would time out.
@@ -56,16 +61,24 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 // some route, so its Prev came from the cache.
 func (a *App) takeAllowed(c *client, items []routeReq) (unread bool) {
 	r := a.r()
+	// A take to the upstream destination of a tie line waits for a tie take that holds it (tielock.go).
+	defer a.tieLocks.lock(a.upstreamTies(r, items))()
 	if len(items) > 1 {
 		g := strconv.FormatInt(time.Now().UnixNano(), 36)
 		for i := range items {
 			items[i].Group, items[i].GroupN = g, len(items)
 		}
 	}
+	return a.runParts(r, c, items, true)
+}
+
+// runParts runs items, which already have their Group, on their routers side by side. Without stage, fireMode native
+// stages nothing: a tie take sends ordinary connects (docs/tielines-design.md, "Order and failures").
+func (a *App) runParts(r *runtime, c *client, items []routeReq, stage bool) (unread bool) {
 	parts := a.byRouter(c, items)
 	reads := make([]bool, len(parts))
 	// Each router has its own link and send queue, so the parts run side by side.
-	runLimited(len(parts), len(parts), func(i int) { reads[i] = a.takeOnRouter(r, c, parts[i].u, parts[i].items) })
+	runLimited(len(parts), len(parts), func(i int) { reads[i] = a.takeOnRouter(r, c, parts[i].u, parts[i].items, stage) })
 	return slices.Contains(reads, false)
 }
 
@@ -100,9 +113,9 @@ func (a *App) byRouter(c *client, items []routeReq) []routerPart {
 
 // takeOnRouter runs the routes of a take that are on router u. read is false when the check before take did not
 // finish for some route, so its Prev came from the cache.
-func (a *App) takeOnRouter(r *runtime, c *client, u *routerUnit, items []routeReq) (read bool) {
+func (a *App) takeOnRouter(r *runtime, c *client, u *routerUnit, items []routeReq, stage bool) (read bool) {
 	ext, read := a.checkRoutes(r, u, c, items)
-	if r.cfg.FireMode == "native" && len(items) > 1 {
+	if stage && r.cfg.FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
 			a.takeNative(r, u, c, items, ext)
 			return read
@@ -189,6 +202,9 @@ func (a *App) planPhase(r *runtime, u *routerUnit, c *client, req routeReq) (*wa
 	}
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, PresetID: req.PresetID, Prev: [][2]int{}}
 	e.Router = u.uid
+	if m := req.Tie; m != nil {
+		e.Tie, e.Origin, e.Hops, e.ViaPrev = m.tie, m.origin, m.hops, m.viaPrev
+	}
 	e.BrowserOf = a.browserOf(c)
 	if c.api != nil {
 		e.setActor(c.api.Actor)
@@ -286,6 +302,14 @@ func (a *App) prepare(r *runtime, u *routerUnit, c *client, req routeReq, ext *e
 	if protected := a.guardPhase(w, e); len(protected) > 0 {
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r.levelsOf(u.uid), protected)))
 		return nil
+	}
+	if req.PutBack {
+		if why := a.putBackHeld(r, w, e, req); why != "" {
+			e.Failed = slices.Sorted(slices.Values(e.Levels))
+			e.Unsent = slices.Clone(e.Failed)
+			a.finish(c, res, e, errors.New(why))
+			return nil
+		}
 	}
 	a.registerPhase(w, e)
 	return &routeRun{c: c, res: res, w: w, e: e}

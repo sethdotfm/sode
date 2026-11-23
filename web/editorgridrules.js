@@ -5,12 +5,14 @@ import { allowed } from './rightsrules.js';
 import { filterFn } from './filter.js';
 import { chord, modChord } from './keys.js';
 import { artRun } from './arttoolrules.js';
+import { placeOf, routerN, typedPlace } from './routerids.js';
 
 const isAll = (edge) => !Array.isArray(edge?.members);
 const pinnedIn = (edge, n) => edge?.items?.[n]?.pinned === true;
 const pinCount = (edge) => Object.values(edge?.items || {}).filter((it) => it?.pinned === true).length;
 
-// The members in panel order: an "all" edge is the router in router order, less hide.
+// The members in panel order: an "all" edge is every router in router order, less hide. router holds the items of
+// every router, on item numbers (routerids.js).
 function membersOf(edge, router) {
   if (!isAll(edge)) return edge.members;
   const hide = new Set(edge?.hide || []);
@@ -46,15 +48,6 @@ const withoutHide = (edge) => {
   return out;
 };
 
-// The editor adds items from the first router's list, so an added number drops the router it was read with
-// (gridedgerefs.js routers).
-function onFirstRouter(edge, ns) {
-  if (!edge.routers || !ns.some((n) => n in edge.routers)) return edge;
-  const routers = { ...edge.routers };
-  for (const n of ns) delete routers[n];
-  return { ...edge, routers };
-}
-
 export function clearEdge(edge, rights, kind) {
   const keep = isAll(edge) ? [] : edge.members.filter((n) => !allowed(rights, kind, n));
   let e = { ...withoutHide(edge), members: keep, items: { ...(edge?.items || {}) } };
@@ -68,7 +61,7 @@ export const followRouter = (edge) => ({ ...withoutHide(edge), members: 'all' })
 export const stopFollowing = (edge, router) => {
   if (!isAll(edge)) return edge;
   const members = membersOf(edge, router);
-  return onFirstRouter({ ...withoutHide(edge), members }, members);
+  return { ...withoutHide(edge), members };
 };
 
 // Add from the router: the router's items the panel does not have, in router order, within the Rights.
@@ -80,11 +73,16 @@ export function routerRows(router, edge, rights, kind) {
     .map((x) => ({ n: x.n, name: x.name ?? '' }));
 }
 
-// Find uses the main page's filter language on the numbers as shown (off is numberOffset). Text it cannot read
-// matches nothing.
-export function findRows(rows, text, off) {
-  const f = filterFn(text, { fuzzy: true });
-  return f ? rows.filter((r) => f(r.n + off, r.name)) : [];
+// Find uses the main page's filter language on the numbers as shown. names is the GET /names answer the rows come
+// from (merged on item numbers with two or more routers, routerids.js), or its numberOffset. A typed router prefix
+// (B.12, B12) finds only that router's rows. Text it cannot read matches nothing.
+export function findRows(rows, text, names) {
+  const reply = typeof names === 'number' ? { numberOffset: names } : names || {};
+  const typedAt = typedPlace(reply, text);
+  const f = filterFn(typedAt.text, { fuzzy: true });
+  if (!f) return [];
+  const offOf = (n) => (reply.prefixes ? reply.prefixes[placeOf(n)]?.numberOffset || 0 : reply.numberOffset || 0);
+  return rows.filter((r) => (typedAt.place === null || placeOf(r.n) === typedAt.place) && f(routerN(r.n) + offOf(r.n), r.name));
 }
 
 // s is { selected: Set of router numbers, anchor }. They are router numbers, so they stay through moves and edits. Shift adds
@@ -115,7 +113,7 @@ export function addItems(edge, router, selected, { at } = {}) {
   if (selected instanceof Set) add.sort((a, b) => a - b);
   if (!add.length) return edge;
   const i = Number.isInteger(at) ? Math.max(0, Math.min(at, list.length)) : list.length;
-  return onFirstRouter({ ...withoutHide(edge), members: [...list.slice(0, i), ...add, ...list.slice(i)] }, add);
+  return { ...withoutHide(edge), members: [...list.slice(0, i), ...add, ...list.slice(i)] };
 }
 
 // The panel's list keys, by chord (keys.js), while the list itself has focus. go moves the cursor (extend: Shift

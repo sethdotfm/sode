@@ -67,15 +67,16 @@ const againItem = (e) =>
 // The Grid popup's staged routes (routesOf, gridpanelstage.js) as one take: one item for each destination, one group
 // for each source on it. Route ends are router numbers. A route with box set is the patch boxes' route (One Take,
 // gridpopup.js). Then the plan is mixed and each group says if it is staged, so the Confirm keeps the two apart.
-export function gridPlan(routes, warnings) {
+// ends gives the items of the route numbers: the Grid popup's are item numbers (routerids.js).
+export function gridPlan(routes, warnings, ends = { src: (n) => srcItem(n), dst: (n) => dstItem(n) }) {
   const mixed = routes.some((r) => r.box);
   const by = new Map();
   for (const r of routes) {
     if (!by.has(r.dst)) by.set(r.dst, []);
-    const g = { src: srcItem(r.src), levels: r.levels };
+    const g = { src: ends.src(r.src), levels: r.levels };
     by.get(r.dst).push(mixed ? { ...g, staged: !r.box } : g);
   }
-  const plan = { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(dstItem(dst), groups)) };
+  const plan = { verb: 'grid', warnings, items: [...by].map(([dst, groups]) => routeItem(ends.dst(dst), groups)) };
   return mixed ? { ...plan, mixed } : plan;
 }
 
@@ -150,6 +151,8 @@ export function againPlan(row) {
 export const VERBS = {
   patch: { word: 'take', ask: 'take', busy: 'Taking…', resets: true },
   undo: { word: 'undo', ask: 'undo', busy: 'Undoing…', resets: false },
+  // Put a tie line back: the Undo of a hop entry (historyrows.js putBacks).
+  putback: { word: 'put back', ask: 'put back', busy: 'Putting back…', resets: false },
   retry: { word: 'retry', ask: 'retry the take of', busy: 'Retrying…', resets: false },
   redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
   preset: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
@@ -189,7 +192,7 @@ function takeResult(m) {
   const failed = b.results.filter((r) => !r.ok);
   if (!failed.length) {
     const many = dsts > 1 ? ` ${dsts} destinations` : '';
-    const title = undo ? `Undone${many && ' on' + many}` : `Success${many && ':' + many}`;
+    const title = undo ? `Undone${many && ' on' + many}` : b.verb === 'putback' ? 'Put back' : `Success${many && ':' + many}`;
     showResult('ok', title, capped(b.results.map((r) => routeText(r, r.already))));
     return;
   }
@@ -601,6 +604,7 @@ export function sendTakes(p) {
       const msg = { id, src: g.src.n, dst: it.dst.n, levels: g.levels };
       if (routerOfItem(it.dst)) msg.router = routerOfItem(it.dst);
       if (it.undo) msg.undo = it.undo.id;
+      if (it.putBack) msg.putBack = true;
       if (it.retry) msg.retry = it.retry.id;
       items.push(msg);
       take.byId.set(id, { dst: it.dst, g });

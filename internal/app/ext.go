@@ -113,6 +113,7 @@ func (a *App) flushFound(u *routerUnit, dst int) {
 	}
 	// Grouped by now; the rest of the burst, written later, gets that group.
 	es := u.extEntries(map[int]map[int]*extLevel{dst: found}, time.Now())
+	a.noteAlso(u, es)
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)

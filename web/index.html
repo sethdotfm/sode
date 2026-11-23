@@ -400,6 +400,54 @@
       <button type="button" class="pb-btn pb-btn--sm sode__routers-add" id="router-add" data-find data-label="Add router" hidden>Add router</button>
     </fieldset>
 
+    <fieldset class="sode__group" data-section="tie-lines" data-topic="routers">
+      <legend>Tie lines</legend>
+      <p class="sode__hint" id="tielines-note">A tie line is a one-way cable from a destination on one router to a source on another router. It carries all levels.</p>
+      <div class="sode__field sode__field--half">
+        <label for="cfg-tie-hop-weight" data-pb-tip="The cost of each hop that changes a tie line, added to the number of Affected destinations. Sode offers the path with the lowest cost first">Hop weight</label>
+        <span class="pb-number-wrap"><input type="number" id="cfg-tie-hop-weight" class="pb-input" data-key="tieHopWeight" data-type="int" min="0" max="100"></span>
+      </div>
+      <ul class="sode__tielines" id="tielines-list" aria-label="Tie lines"></ul>
+      <div id="tielines-suggest" hidden>
+        <p><strong>Suggested tie lines</strong></p>
+        <p class="sode__hint">A destination and a source on different routers have the same name. Sode uses a suggestion only after you accept it.</p>
+        <ul class="sode__tielines" id="tielines-suggest-list" aria-label="Suggested tie lines"></ul>
+      </div>
+      <div id="tielines-form" data-apart>
+        <div class="sode__fields">
+          <div class="sode__field">
+            <label for="tieline-from-router">From router</label>
+            <span class="pb-select-wrap"><select id="tieline-from-router" class="pb-select"></select></span>
+          </div>
+          <div class="sode__field">
+            <label for="tieline-from">Destination</label>
+            <span class="pb-number-wrap"><input type="number" id="tieline-from" class="pb-input" min="0"></span>
+            <span class="sode__hint" id="tieline-from-name"></span>
+          </div>
+        </div>
+        <div class="sode__fields">
+          <div class="sode__field">
+            <label for="tieline-to-router">To router</label>
+            <span class="pb-select-wrap"><select id="tieline-to-router" class="pb-select"></select></span>
+          </div>
+          <div class="sode__field">
+            <label for="tieline-to">Source</label>
+            <span class="pb-number-wrap"><input type="number" id="tieline-to" class="pb-input" min="0"></span>
+            <span class="sode__hint" id="tieline-to-name"></span>
+          </div>
+        </div>
+        <div class="sode__field sode__field--half">
+          <label for="tieline-name" data-pb-tip="Sode fills it from the source name. You can change it">Tie line name</label>
+          <input id="tieline-name" class="pb-input" maxlength="32" spellcheck="false">
+        </div>
+        <div class="sode__tielines-acts">
+          <button type="button" class="pb-btn sode-btn--primary" id="tieline-add">Add tie line</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="tieline-cancel" hidden>Cancel</button>
+        </div>
+      </div>
+      <p class="sode__hint" id="tielines-status" role="status"></p>
+    </fieldset>
+
     <fieldset class="sode__group" data-section="router-levels" data-topic="routers" id="router-levels-group">
       <legend>Router levels</legend>
       <p class="sode__hint" id="router-levels-note"></p>

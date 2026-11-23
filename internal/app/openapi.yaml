@@ -20,7 +20,7 @@ info:
 
     Routers. Any call can carry the query parameter `router`, a router UID from `GET /routers`.
     It is optional while Sode has one router. With two or more routers, a read about one router
-    without it is 400 `router_needed`. These reads are `/names`, `/tally` and the stream topics
+    without it is 400 `router_needed`. These reads are `/names`, `/tally`, `/protected` and the stream topics
     names and tally. `/status` and the stream topic status are about every router. A value that is not a router UID is 404 `unknown_router`. The router
     prefix is for people and can change, so Sode does not accept it here. In a take body, each end
     of a route is a router reference `{router, n}`, or a bare number while Sode has one router.
@@ -74,7 +74,8 @@ info:
     Rights. If any route in a take is outside the key's rights, Sode refuses the whole take
     before it sends anything. The answer is 403 `outside_rights`, with no results and no History
     entry, and Sode writes an `api` row in the Communication Log. Undo checks the destination
-    and level but not the source it restores.
+    and level but not the source it restores. The Use tie lines right (`tieLines`, unset is on)
+    lets a caller send a route across routers. Without it, such a take is 403 `tie_lines_off`.
 
     Roles. A user's key acts with its owner's Role as it is now, never above Trusted user. After
     a demotion, the next call uses the lower Role and the key keeps working. An API client holds
@@ -201,6 +202,7 @@ paths:
       description: |
         Scope `protected`. A take to one is refused before anything is sent. Each row is one level
         with its kind and the device that set it; Sode's own Protects also name the Sode user.
+        The rows are of one router: send `router` with two or more routers.
       parameters:
         - { $ref: "#/components/parameters/IfNoneMatch" }
       responses:
@@ -403,6 +405,59 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /tielines:
+    get:
+      operationId: listTieLines
+      tags: [reads]
+      summary: The tie lines
+      description: |
+        Any key or Guest call. Each tie line is a one-way cable from a destination on one router
+        (`from`) to a source on another router (`to`). An administrator enters them in Settings >
+        Routers > Tie lines. `id` is fixed for the life of the tie line. `name` is the Tie line name.
+        The router names of the two ends are not in the answer; read them with `GET /names`.
+      parameters:
+        - { $ref: "#/components/parameters/IfNoneMatch" }
+      responses:
+        "200":
+          description: Tie lines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tieLines]
+                properties:
+                  tieLines:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, from, to, changed, before]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        changed:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          description: "The last change on the upstream destination, on any level, by Sode or another system. Null when Sode has seen none"
+                        before: { type: boolean, description: "Sode was down after `changed`, or found the change at a re-read, so the tie line can have changed again" }
+                        from:
+                          type: object
+                          description: The upstream end, a destination. `n` is 0-based.
+                          required: [router, n]
+                          properties:
+                            router: { type: string, description: "A router UID from GET /routers" }
+                            n: { type: integer }
+                        to:
+                          type: object
+                          description: The downstream end, a source. `n` is 0-based.
+                          required: [router, n]
+                          properties:
+                            router: { type: string, description: "A router UID from GET /routers" }
+                            n: { type: integer }
+        "304": { description: Not modified }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /layouts:
     get:
       operationId: listLayouts
@@ -458,9 +513,30 @@ paths:
       summary: Take by routes
       description: |
         Scope `take`. Synchronous, see Writes above. Always 200 after the take ran, even when a
-        route failed: read each result. Refusals before anything is sent are errors. Both ends of a
-        route must be on one router: Sode has no tie lines yet, so ends on two routers are 409
-        `no_path`. With two or more routers, a bare number is 400 `router_needed`.
+        route failed: read each result. Refusals before anything is sent are errors. With two or more
+        routers, a bare number is 400 `router_needed`. A route with its ends on two routers needs tie
+        lines. Send `ties` with it: one tie line for each hop before the last, upstream first. Without
+        `ties`, such a route gets 409 `tie_line_needed` with the ranked paths of each such route. A
+        route with no usable path gets 409 `no_path` with each reason. Nothing is sent to a router
+        then. Rights cover the typed ends first (403 `outside_rights`); hops need no Rights. A
+        caller without the Use tie lines right (`tieLines` false) then gets 403 `tie_lines_off`.
+
+        With `ties`, Sode sends the hops upstream first. Each hop before the last switches all levels
+        of its router; the last hop switches the typed levels. A hop that several routes of the take
+        share is sent one time. A hop whose tie line already carries the source is not sent. If a hop
+        fails, Sode does not send the hops after it. Each hop makes its own History entry (with
+        `tie`), and the take is one Group. The result of a route is the result of its last hop, with
+        `hops`. Ties that make no path get 400 `bad_request`. A tie line that two routes of the take
+        need for two sources gets 409 `conflict`. A router down on the path gets 409 `no_path` or
+        `tie_line_needed` with the paths that remain.
+
+        Before it sends anything, Sode locks each tie line of the take, in id order, until the take
+        ends. A take to the upstream destination of a tie line waits for that lock. Then Sode reads
+        the upstream destination of each tie line from its router and compares each tie line with
+        `expect`. With `affected`, it also compares the Affected destinations of the path. A tie line
+        that moved, or an Affected destination that the caller did not see, gives 409
+        `tie_line_changed`. Nothing goes to a router then. Its `routes` gives the path of each
+        route across routers as it is now, with `changed` and `newAffected`.
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -484,6 +560,23 @@ paths:
                       src: { $ref: "#/components/schemas/RouteEnd" }
                       dst: { $ref: "#/components/schemas/RouteEnd" }
                       levels: { type: array, items: { type: integer }, description: "UI levels from 1; omitted or empty means the server's Default levels, so send them" }
+                      ties:
+                        type: array
+                        description: "Only for a route with its ends on two routers. One tie line for each hop before the last, upstream first. A path of 409 `tie_line_needed` gives them"
+                        items:
+                          type: object
+                          required: [id]
+                          additionalProperties: false
+                          properties:
+                            id: { type: string, description: "The tie line id from GET /tielines" }
+                            expect:
+                              nullable: true
+                              allOf: [{ $ref: "#/components/schemas/RouteEnd" }]
+                              description: "What the caller saw on the tie line. A router reference is that source on every level of the upstream router. Null or omitted is nothing on every level. A list holds one router reference or null for each level, from level 1, for a mixed tie line. Sode compares every level: a difference on any level gets 409 `tie_line_changed`. A mixed tie line never matches one source"
+                      affected:
+                        type: array
+                        items: { $ref: "#/components/schemas/RouteEnd" }
+                        description: "Only with `ties`. The Affected destinations that the caller saw. An Affected destination of the path that is not here gets 409 `tie_line_changed`. Omitted: Sode does not compare them. Sode compares only the destinations that the caller can see"
             example:
               routes: [{ src: 1, dst: 0, levels: [1] }]
       responses:
@@ -493,7 +586,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "413": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
-        "409": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/TiePaths" }
         "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
@@ -563,7 +656,13 @@ paths:
       operationId: retryEntry
       tags: [writes]
       summary: Retry a failed History entry
-      description: "Scopes `take` and `history`. Like redo, but linked to the failed entry. 409 `conflict` for an entry that succeeded."
+      description: |
+        Scopes `take` and `history`. Like redo, but linked to the failed entry. 409 `conflict` for an
+        entry that succeeded, or for the entry of a hop (`tie`). For the entry of a tie take's
+        destination (`origin`), Sode uses the same tie lines again. Each hop that did not fail must
+        still carry the source; a hop that failed is not compared. Sode sends only the failed hops,
+        the hops after them and the last hop. If a hop no longer holds, the answer is 409
+        `tie_line_changed` with the tie lines as they are now, and nothing is sent.
       parameters:
         - { $ref: "#/components/parameters/EntryId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -573,6 +672,30 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /history/{id}/putback:
+    post:
+      operationId: putBackEntry
+      tags: [writes]
+      summary: Put a tie line back
+      description: |
+        Scopes `take` and `history`. The id is the entry of a hop of a tie take (an entry with `tie`).
+        Sode sends the source that the tie line carried before the hop, on each level that the hop
+        changed. It locks the tie line and reads it first. The tie line must still carry what the
+        take set on each such level. Else nothing is sent, and the route fails with "not sent: TIE 3
+        now carries ...". A hop needs no Rights. 409 `conflict` for an entry that is not a hop, 422
+        `nothing_to_do` when the hop changed no level that had a source before it.
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
   /panels:
@@ -1836,6 +1959,7 @@ paths:
                             src: { type: integer }
                             dst: { type: integer }
                             levels: { type: array, items: { type: integer } }
+                            router: { type: string, description: "The UID of the router of the take" }
                       allowed: { type: boolean }
                       reason: { type: string, description: "Why not, when allowed is false" }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -2320,7 +2444,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
-      description: "`scope`: the key lacks the scope. `outside_rights`: a route or preset is outside the rights, and nothing was sent. `https_required`. `not_owner`: a panel the caller is allowed only to use. `user_required`: a panel needs a user's key to own it. `trusted_required`: only a Trusted user can make a panel act as an API client or change its rights. A user who is not Trusted also gets it when they save a template to Everyone without the Advanced Settings PIN"
+      description: "`scope`: the key lacks the scope. `outside_rights`: a route or preset is outside the rights, and nothing was sent. `https_required`. `not_owner`: a panel the caller is allowed only to use. `user_required`: a panel needs a user's key to own it. `trusted_required`: only a Trusted user can make a panel act as an API client or change its rights. `tie_lines_off`: a route across routers, and the caller does not have the Use tie lines right; nothing was sent. A user who is not Trusted also gets it when they save a template to Everyone without the Advanced Settings PIN"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -2336,6 +2460,15 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    TiePaths:
+      description: |
+        An error, with the reason in `error.code`. For 409 `tie_line_needed` and 409 `no_path`,
+        `routes` gives each route across routers with its paths, cheapest first, and the reasons why
+        paths were left out. For 409 `tie_line_changed`, `routes` gives each route across routers
+        with the path through its tie lines as it is now. If there is no path, it gives the reason.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TiePaths" }
   schemas:
     RouterLink:
       type: object
@@ -2385,11 +2518,12 @@ components:
               src: { type: integer }
               dst: { type: integer }
               levels: { type: array, items: { type: integer } }
-              result: { type: string, enum: [connected, already, failed] }
+              result: { type: string, enum: [connected, already, failed], description: "A route across routers: connected when any hop changed, already when no hop changed" }
               ok: { type: boolean }
-              already: { type: array, items: { type: integer }, description: Levels already on the source }
+              already: { type: array, items: { type: integer }, description: "Levels already on the source. Empty on a route across routers that is connected" }
               error: { type: string }
               entry: { type: integer, description: The History entry id; follow it for a late result }
+              hops: { type: array, items: { $ref: "#/components/schemas/EntryHop" }, description: "A route across routers: each hop before the last, upstream first" }
         leftOut: { type: array, items: { type: string }, description: 'Preset parts the router no longer has, as the stored name and the number, for example "CAM 3 (source 13)"' }
         skippedLevels: { type: array, items: { type: integer }, description: Undo only }
         untouchedLevels: { type: array, items: { type: integer }, description: Undo only }
@@ -2424,6 +2558,8 @@ components:
                 - unknown_router
                 - router_needed
                 - no_path
+                - tie_line_needed
+                - tie_lines_off
                 - method_not_allowed
                 - not_owner
                 - user_required
@@ -2449,8 +2585,10 @@ components:
                 GIF or SVG). 404 not_found (no such path, entry, visible preset, or a panel or
                 artwork the caller is not allowed to use). 404 unknown_router (the `router` parameter,
                 or the router of a route end, names no router UID). 400 router_needed (Sode has two or
-                more routers, and a read about one router or a route end names none). 409 no_path (the
-                ends of a route are on two routers; Sode has no tie lines yet). 405 method_not_allowed (see `Allow`).
+                more routers, and a read about one router or a route end names none). 409 tie_line_needed
+                (a route across routers and no tie lines given; `routes` has the paths). 409 no_path
+                (a route across routers has no usable path; `routes` has the reasons). 403 tie_lines_off
+                (a route across routers, and the caller does not have the Use tie lines right). 405 method_not_allowed (see `Allow`).
                 409 conflict (Redo of a failed entry, Retry of a successful one, or a full panel or
                 artwork limit). 409 conflict also for a Protect that Sode has already or cannot set
                 yet. 409 protected (a
@@ -2637,6 +2775,7 @@ components:
             dsts: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
             levels: { $ref: "#/components/schemas/RightsLevels" }
             presets: { type: array, items: { type: string }, description: Preset ids }
+            tieLines: { type: boolean, description: "The Use tie lines right: send a route across routers. Unset is on" }
             visibility: { type: string, enum: [readonly, hidden] }
     PanelTemplateIn:
       type: object
@@ -2885,6 +3024,115 @@ components:
       properties:
         n: { type: integer }
         name: { type: string }
+    TiePaths:
+      allOf:
+        - { $ref: "#/components/schemas/Error" }
+        - type: object
+          properties:
+            routes:
+              type: array
+              items: { $ref: "#/components/schemas/TieRoutePlan" }
+    TieEnd:
+      type: object
+      required: [router, n, name]
+      properties:
+        router: { type: string, description: "A router UID" }
+        n: { type: integer }
+        name: { type: string, description: "Blank when the caller's hidden visibility does not show it" }
+    TieRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, description: "The tie line id from GET /tielines" }
+        name: { type: string, description: "The Tie line name" }
+    TieChain:
+      type: object
+      description: |
+        The Via chain of the upstream end of a tie line: where its signal comes from. `origin` is
+        null when `nothing`, `unknown` or `loop` is set.
+      required: [origin, via, mixed, nothing, loop]
+      properties:
+        origin:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/TieEnd" }]
+        via: { type: array, items: { $ref: "#/components/schemas/TieRef" }, description: "Tie lines, upstream first" }
+        mixed: { type: boolean, description: "The levels upstream have different sources" }
+        nothing: { type: boolean, description: "Nothing is routed upstream" }
+        unknown: { type: string, description: "The UID of a router that is down or has no state" }
+        loop: { type: boolean }
+        levels:
+          type: array
+          items: { nullable: true, allOf: [{ $ref: "#/components/schemas/TieEnd" }] }
+          description: "Only when mixed. The origin of each level of the upstream router, from level 1; null for nothing or unknown. Send it back as expect"
+    TieHop:
+      type: object
+      description: |
+        One crosspoint on one router. Each hop before the last feeds the tie line `tie` and
+        switches all levels of its router. The last hop switches the typed levels.
+      required: [router, src, dst, levels, tie, sends]
+      properties:
+        router: { type: string }
+        src: { $ref: "#/components/schemas/TieEnd" }
+        dst: { $ref: "#/components/schemas/TieEnd" }
+        levels: { type: array, items: { type: integer } }
+        tie:
+          nullable: true
+          description: "The tie line that this hop feeds. Null on the last hop"
+          allOf: [{ $ref: "#/components/schemas/TieRef" }]
+        sends: { type: boolean, description: "false when the tie line already carries the source, or the last hop is already routed" }
+        now: { $ref: "#/components/schemas/TieChain" }
+        protect: { type: string, description: "Who holds a Protect on the upstream end of the tie line" }
+        reserve: { type: string, description: "The panel that Reserved the tie line" }
+        changed: { type: string, format: date-time, description: "The last change of the tie line" }
+        before: { type: boolean, description: "Sode started after `changed`, so the tie line can have changed again" }
+    TiePath:
+      type: object
+      required: [cost, hops, affected, others, unknown, loop, protected, reserved, changedLately]
+      properties:
+        cost: { type: integer, description: "The Affected destinations plus the hop weight for each hop that sends upstream" }
+        hops: { type: array, items: { $ref: "#/components/schemas/TieHop" } }
+        affected: { type: array, items: { $ref: "#/components/schemas/TieEnd" }, description: "Destinations, other than the one asked for, whose signal changes" }
+        others: { type: integer, description: "Affected destinations that the hidden visibility of the caller leaves out" }
+        unknown:
+          type: array
+          description: "Parts that Sode cannot count: why is down, no_state or one_off"
+          items:
+            type: object
+            required: [why]
+            properties:
+              router: { type: string }
+              tie: { type: string }
+              why: { type: string, enum: [down, no_state, one_off] }
+        loop: { type: boolean, description: "The trace downstream came back to a tie line that it passed" }
+        protected: { type: boolean, description: "A tie line that the path changes is Protected. The path is not usable" }
+        reserved: { type: boolean, description: "A tie line that the path changes is Reserved by a panel" }
+        changedLately: { type: boolean, description: "A tie line of the path changed in the last 5 minutes" }
+        newest: { type: string, format: date-time }
+    TieRoutePlan:
+      type: object
+      required: [route, src, dst, levels, paths, more, reasons]
+      properties:
+        route: { type: integer, description: "Position in the request, from 0" }
+        src: { $ref: "#/components/schemas/TieEnd" }
+        dst: { $ref: "#/components/schemas/TieEnd" }
+        levels: { type: array, items: { type: integer } }
+        paths: { type: array, maxItems: 20, items: { $ref: "#/components/schemas/TiePath" }, description: "Cheapest first" }
+        more: { type: integer, description: "Paths past the first 20" }
+        reasons:
+          type: array
+          items:
+            type: object
+            required: [why]
+            properties:
+              why: { type: string, enum: [no_tie_line, router_down, protected, taken] }
+              from: { type: string, description: "no_tie_line: the router of the source" }
+              to: { type: string, description: "no_tie_line: the router of the destination" }
+              router: { type: string, description: "router_down: the router" }
+              tie: { type: string, description: "The tie line id" }
+              tieName: { type: string }
+              by: { type: string, description: "protected: who holds the Protect" }
+        changed: { type: array, items: { $ref: "#/components/schemas/TieRef" }, description: "409 tie_line_changed only: each tie line that does not carry the source in expect" }
+        newAffected: { type: array, items: { $ref: "#/components/schemas/TieEnd" }, description: "409 tie_line_changed only: each Affected destination that is not in affected" }
     RouteEnd:
       description: |
         One end of a route: a router reference, or a bare number while Sode has one router.
@@ -2899,11 +3147,37 @@ components:
             n: { type: integer }
     Route:
       type: object
+      description: |
+        One level of a destination. `src` is the real crosspoint on the router of the destination. When a tie line
+        feeds `src`, the row also has the Via chain of this level: `via` and, when known, `origin`. `origin` is
+        absent when `nothing`, `unknown` or `loop` is set, or when the caller's hidden visibility does not show it.
+        A row with no tie line has none of these fields.
       required: [dst, level, src]
       properties:
         dst: { type: integer }
         level: { type: integer, description: UI level }
         src: { type: integer, description: -1 = nothing routed }
+        via: { type: array, items: { $ref: "#/components/schemas/TieRef" }, description: "Tie lines, upstream first" }
+        origin:
+          type: object
+          description: "The router and source at the start of the chain"
+          required: [router, n]
+          properties:
+            router: { type: string, description: "A router UID" }
+            n: { type: integer }
+        mixed: { type: boolean, description: "The levels upstream of a tie line have different sources. `origin` is then the source of the lowest level" }
+        nothing: { type: boolean, description: "Nothing is routed upstream" }
+        unknown: { type: string, description: "The UID of a router upstream that is down or has no state" }
+        loop: { type: boolean, description: "The chain upstream comes back to itself" }
+        levels:
+          type: array
+          description: "Only when mixed: the origin of each level upstream of the nearest tie line, from level 1, for the level pie. Null for nothing, unknown or hidden"
+          items:
+            nullable: true
+            type: object
+            properties:
+              router: { type: string }
+              n: { type: integer }
     ProtectedRow:
       type: object
       required: [dst, level, kind, device]
@@ -3020,6 +3294,61 @@ components:
         followGroup: { type: string, description: "External only, the Group of that take" }
         router: { type: string, description: "The router UID. Absent on entries from before v2" }
         routerTitle: { type: string, description: "The router title when the entry was made, kept after a rename" }
+        tie: { type: string, description: "A tie take: this entry is a hop before the last, and it feeds the tie line with this id" }
+        origin:
+          type: object
+          description: "A tie take: on the entry of the destination asked for, the typed source. That entry is the last hop, so src is the real crosspoint on the router of the destination"
+          required: [router, n]
+          properties:
+            router: { type: string }
+            n: { type: integer }
+            name: { type: string }
+        hops: { type: array, items: { $ref: "#/components/schemas/EntryHop" }, description: "A tie take: the hops before the last, upstream first" }
+        viaPrev:
+          type: array
+          description: "A tie take: the Via chain of each typed level before the take. `origin` is null when `nothing`, `unknown` or `loop` is set, or when the caller's hidden visibility does not show it"
+          items:
+            type: object
+            required: [level, origin, via, mixed, nothing, unknown, loop]
+            properties:
+              level: { type: integer }
+              origin:
+                nullable: true
+                type: object
+                properties:
+                  router: { type: string }
+                  n: { type: integer }
+              via: { type: array, items: { type: string }, description: "Tie line ids, upstream first" }
+              mixed: { type: boolean }
+              nothing: { type: boolean }
+              unknown: { type: string }
+              loop: { type: boolean }
+        also:
+          type: array
+          description: "An External on the upstream end of a tie line: each destination downstream that it also changes, worked out when Sode wrote the entry. `name` is blank when the caller's hidden visibility does not show it"
+          items:
+            type: object
+            required: [router, n, via]
+            properties:
+              router: { type: string }
+              n: { type: integer }
+              name: { type: string }
+              via: { type: array, items: { $ref: "#/components/schemas/TieRef" }, description: "Tie lines, upstream first" }
+    EntryHop:
+      type: object
+      description: "One hop before the last of a tie take. `entry` is the hop's own History entry; there is none when the tie line already carried the source. `prev` is what the tie line carried before, from that entry"
+      required: [router, src, dst, levels, tie, tieName, result, prev]
+      properties:
+        router: { type: string }
+        src: { type: integer }
+        dst: { type: integer }
+        levels: { type: array, items: { type: integer } }
+        tie: { type: string }
+        tieName: { type: string }
+        entry: { type: integer }
+        result: { type: string, enum: [connected, already, failed] }
+        prev: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 } }
+        late: { type: boolean, description: "The router confirmed the hop after the take gave up. Sode did not send the hops after it. `result` follows the hop's entry" }
     LogRow:
       type: object
       description: One Communication Log row, a router message or an event such as an `api` row.

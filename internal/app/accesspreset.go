@@ -19,6 +19,8 @@ type accessPresetView struct {
 	Fields map[string]json.RawMessage `json:"fields"`
 	Users  config.NewUserDefaults     `json:"users"`
 	Rows   map[string]bool            `json:"rows"`
+	// GuestTieLines: the Guest's "Use tie lines" right. The page stages it in the Guest entry of Manage users.
+	GuestTieLines bool `json:"guestTieLines"`
 }
 
 // Read back from a config that p was applied to, so the values cannot drift from Apply
@@ -38,7 +40,8 @@ func accessPresetViews() []accessPresetView {
 	out := make([]accessPresetView, 0, len(config.AccessPresets))
 	for _, p := range config.AccessPresets {
 		u := p.Values.NewUserDefaults
-		out = append(out, accessPresetView{p.Key, p.Name, presetSaveFields(p), config.NewUserDefaults{Persistent: u.Persistent, NoAutoLock: u.NoAutoLock}, setupRows(p.Values)})
+		out = append(out, accessPresetView{p.Key, p.Name, presetSaveFields(p), config.NewUserDefaults{Persistent: u.Persistent, NoAutoLock: u.NoAutoLock}, setupRows(p.Values),
+			p.Values.GuestTieLines})
 	}
 	return out
 }

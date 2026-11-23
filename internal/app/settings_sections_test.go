@@ -56,6 +56,7 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 		"levelColors":          []string{"#abcdef"},
 		"confirmLockoutMs":     900,
 		"resultDismissSeconds": 9,
+		"tieHopWeight":         3,
 		"confirmEnter":         true,
 		"router":               "127.0.0.1:1",
 		"routerName":           "Studio B",

@@ -7,10 +7,12 @@ import { keyLabel } from './keys.js';
 import { btn } from './formbits.js';
 import { axisSpan, spanMax, OVER } from './gridpanelwindow.js';
 import { routerRows, findRows, addItems, selectRows } from './editorgridrules.js';
+import { numText } from './routerids.js';
 
 const ROW_REM = 2; // keep in step with .sode-rlist__row in panels.css
 
-// o: { key, what, edge(), router(), rights(), kind, off(), readOnly(), fixed() (why adding is off, or ''), set(edge) }.
+// o: { key, what, edge(), router(), rights(), kind, names() (the GET /names answer, routerids.js), readOnly(), fixed()
+// (why adding is off, or ''), set(edge) }.
 // The Live Editor's Insert (editorlivemenu.js) also gives title, at() and onAdd(ns). at() is the members index where
 // the items go in (addItems), and onAdd gets the items added, in list order.
 export function createRouterList(o) {
@@ -78,7 +80,7 @@ export function createRouterList(o) {
       rowsKey = now;
       rows = routerRows(now[0], now[1], now[2], o.kind);
     }
-    const s = [rows, text, o.off()];
+    const s = [rows, text, o.names()];
     if (!s.every((x, i) => x === shownKey[i])) {
       shownKey = s;
       shown = findRows(rows, text, s[2]);
@@ -114,7 +116,7 @@ export function createRouterList(o) {
     const need = spanMax(axis);
     while (pool.length < need) pool.push(makeRow());
     const { lo, hi: end } = axisSpan(axis);
-    const off = o.off();
+    const num = numText(o.names());
     pool.forEach((r, k) => {
       const i = lo + k;
       const row = i < end ? shown[i] : null;
@@ -127,8 +129,8 @@ export function createRouterList(o) {
       r.classList.toggle('is-cur', i === hi);
       if (i === hi) find.setAttribute('aria-activedescendant', r.id);
       const t = texts.get(r);
-      setText(t.num, String(row.n + off));
-      setText(t.name, row.name || `${what} ${row.n + off}`);
+      setText(t.num, num(row.n));
+      setText(t.name, row.name || `${what} ${num(row.n)}`);
     });
   }
   const setText = (t, s) => t.data !== s && (t.data = s);

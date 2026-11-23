@@ -39,13 +39,16 @@ export const pressCrosspoint = (st, xp, levels) => stageRoutes(st, [xp], levels)
 // Returns { st, send, confirm }. confirm asks for the take confirm at once. In Take mode, a press that adds nothing to
 // the stage is the second press. Examples are the same crosspoint, Diagonal or line again, on the same or fewer levels.
 // It keeps the stage and asks for the take confirm. Instant mode sends every press at once, however many routes.
+// levels is a list, or a function of the pair, since a route takes the levels of its own router (gridpanelrun.js).
 export function stageRoutes(st, pairs, levels) {
   const none = { send: null, confirm: false };
-  if (!levels.length) return { st: fail(st, 'no-levels'), ...none };
+  const of = typeof levels === 'function' ? levels : () => levels;
+  const lv = new Map(pairs.map((x) => [x.dst, of(x)]));
+  const noLevels = pairs.length ? ![...lv.values()].some((l) => l.length) : Array.isArray(levels) && !levels.length;
+  if (noLevels) return { st: fail(st, 'no-levels'), ...none };
   const base = st.mode === 'instant' ? [] : st.staged;
-  const dsts = new Set(pairs.map((x) => x.dst));
-  const kept = base.filter((x) => !(dsts.has(x.dst) && levels.includes(x.level)));
-  const staged = [...kept, ...pairs.flatMap(({ src, dst }) => levels.map((level) => ({ dst, level, src })))];
+  const kept = base.filter((x) => !(lv.has(x.dst) && lv.get(x.dst).includes(x.level)));
+  const staged = [...kept, ...pairs.flatMap(({ src, dst }) => lv.get(dst).map((level) => ({ dst, level, src })))];
   if (base.length && sameStage(base, staged)) return { st: { ...st, error: null }, send: null, confirm: true };
   const next = { ...st, staged, error: null };
   if (stagedCount(next) > STAGE_MAX) return { st: { ...st, error: { code: 'cap', add: pairs.length, have: stagedCount({ staged: base }) } }, ...none };

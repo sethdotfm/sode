@@ -19,19 +19,26 @@ type takePlan struct {
 	LeftOut   []string // preset parts the router does not have
 	Skipped   []int    // undo: levels with nothing routed before, left as is
 	Untouched []int    // undo: levels a failed take never changed, left as is
+	// Ties: a take with a route across routers runs as steps (tietake.go); Items is then empty.
+	Ties *tieTake
 }
 
 // The code is one listed in openapi.yaml.
 type apiProblem struct {
 	Status    int
 	Code, Msg string
+	// body replaces the plain error body; it carries its own error object (the 409 bodies of tieroutes.go).
+	body any
 }
 
 func problem(status int, code, format string, args ...any) *apiProblem {
-	return &apiProblem{status, code, fmt.Sprintf(format, args...)}
+	return &apiProblem{Status: status, Code: code, Msg: fmt.Sprintf(format, args...)}
 }
 
 func (p *apiProblem) answer() apiAnswer {
+	if p.body != nil {
+		return jsonAnswer(p.Status, p.body)
+	}
 	return jsonAnswer(p.Status, apiErrBody{apiErr{Code: p.Code, Message: p.Msg}})
 }
 
@@ -102,7 +109,7 @@ func planUndo(r *runtime, v apiView, e Entry) *takePlan {
 	for _, s := range srcs {
 		ls := groups[s]
 		sort.Ints(ls)
-		p.Items = append(p.Items, routeReq{Src: s, Dst: e.Dst, Levels: ls, Undo: &id})
+		p.Items = append(p.Items, routeReq{Src: s, Dst: e.Dst, Levels: ls, Undo: &id, Router: e.Router})
 	}
 	return p
 }

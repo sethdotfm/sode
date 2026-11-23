@@ -74,11 +74,26 @@ func (v apiView) Entry(e Entry) (Entry, bool) {
 	if !v.Hidden() {
 		return e, true
 	}
+	// A tie take's entry is seen by its typed source (Origin), as Rights cover the typed ends only.
 	rv := v.on(e.Router)
-	if !rv.Destination(e.Dst) || (e.Src >= 0 && !rv.Source(e.Src)) {
+	srcRV, src := rv, e.Src
+	if e.Origin != nil {
+		srcRV, src = v.on(e.Origin.Router), e.Origin.N
+	}
+	if !rv.Destination(e.Dst) || (src >= 0 && !srcRV.Source(src)) {
 		return e, false
 	}
 	e = cloneEntry(e)
+	for i := range e.ViaPrev {
+		if o := e.ViaPrev[i].Origin; o != nil && !v.on(o.Router).Source(o.N) {
+			e.ViaPrev[i].Origin = nil
+		}
+	}
+	for i := range e.Also {
+		if !v.on(e.Also[i].Router).Destination(e.Also[i].N) {
+			e.Also[i].Name = ""
+		}
+	}
 	var gone []int
 	for _, p := range e.Prev {
 		if p[1] >= 0 && !rv.Source(p[1]) {

@@ -146,7 +146,7 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	strmWantType(t, m, "snapshot", "tally")
 	var ty strmTally
 	json.Unmarshal(m.Data, &ty)
-	if len(ty.Routes) != 1 || ty.Routes[0] != (apiRouteRow{2, 1, 1}) {
+	if len(ty.Routes) != 1 || !plainRow(ty.Routes[0], 2, 1, 1) {
 		t.Errorf("tally snapshot %s", m.Data)
 	}
 	strmWantType(t, s.next(), "snapshot", "status")
@@ -159,7 +159,7 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	m = s.next()
 	strmWantType(t, m, "tally", "tally")
 	json.Unmarshal(m.Data, &ty)
-	if len(ty.Routes) != 1 || ty.Routes[0] != (apiRouteRow{2, 2, 1}) {
+	if len(ty.Routes) != 1 || !plainRow(ty.Routes[0], 2, 2, 1) {
 		t.Errorf("tally delta %s", m.Data)
 	}
 

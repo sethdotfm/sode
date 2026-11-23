@@ -2,6 +2,8 @@
 // grid. Ranking, Rights and the fill itself are findrules.js; this file is the DOM. initFind(editor) takes what runEditor returns.
 import { el, icon, $, on } from './core.js';
 import { myRights, onMyRights } from './editorrights.js';
+import { readRouterNames } from './routernames.js';
+import { itemRights } from './routerplaces.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { resultStep } from './keys.js';
 import { selSquares, single, selCells } from './gridmodel.js';
@@ -90,7 +92,8 @@ export function initFind(editor) {
   }
 
   function rebuild() {
-    entries = findEntries(data.names, data.presets, rights, { fixed: editor.fixedOn() });
+    const places = data.places;
+    entries = findEntries(data.names, data.presets, places ? itemRights(rights, places) : rights, { fixed: editor.fixedOn(), places });
     draw();
   }
 
@@ -104,8 +107,9 @@ export function initFind(editor) {
     if (data.loading || (!force && Date.now() - data.at < STALE_MS)) return;
     data.loading = true;
     const get = (path) => jsonCall(sessionFetch)(path).catch(() => null);
-    const [names, presets] = await Promise.all([get('api/v1/names'), get('api/v1/presets')]);
-    data = { names, presets, at: Date.now(), loading: false };
+    // Every router's names, on item numbers (routerids.js), so Find lists the items of every router with their prefix.
+    const [read, presets] = await Promise.all([readRouterNames(get, editor.places()).catch(() => null), get('api/v1/presets')]);
+    data = { names: read?.names || null, places: read?.places || null, presets, at: Date.now(), loading: false };
     rebuild();
   }
 
