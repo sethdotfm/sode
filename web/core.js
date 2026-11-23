@@ -59,6 +59,7 @@ export const S = {
   namesSavedAt: null, // the hello's savedAt: names from the saved names table, until a read
   wsState: 'connecting',
   wsLost: false,
+  wsErr: '',
   router: null,
   routerAddr: '',
   routerErr: '',
@@ -144,7 +145,7 @@ function drop(ws) {
   } catch {
     /* already closed */
   }
-  lost?.();
+  lost?.({ stale: true });
 }
 
 export function connect() {
@@ -164,8 +165,10 @@ export function connect() {
     S.wsLost = false;
     emit('conn');
   };
-  ws.onclose = () => {
+  ws.onclose = (e) => {
     clearInterval(watch);
+    // The why for the Lost link banner. A browser gives no more than the close code: 1006 is a drop with no close frame.
+    S.wsErr = `${location.host}: ` + (e?.stale ? `no data for ${STALE_MS / 1000} s` : `connection closed (code ${e?.code}${e?.reason ? `, ${e.reason}` : ''})`);
     S.ws = null;
     S.wsState = 'down';
     S.wsLost = true;
@@ -355,7 +358,7 @@ export function connState() {
   const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
   let down = null;
   if (S.wsLost) {
-    down = { title: 'Lost link: Server link down', links: [false, null] };
+    down = { title: 'Lost link: Server link down', err: S.wsErr, links: [false, null] };
   } else if (S.wsState === 'up' && S.router === 'down' && !S.routerAddr) {
     down = { title: 'No router set', text: 'Set the router address in Settings.' };
   } else if (S.wsState === 'up' && (S.router === 'down' || (S.router === 'connecting' && S.routerLastErr))) {
@@ -404,12 +407,12 @@ export function renderDown(box, c) {
   const { title, text, err, links } = c.down;
   // links[k] is the wire into node k + 1: true ok, false lost, null unknown (past a lost link).
   const wire = (ok) => {
-    const kind = ok === true ? 'ok' : ok === false ? 'lost' : 'unknown';
+    const [tone, word] = ok === true ? ['ok', 'ok'] : ok === false ? ['error', 'lost'] : ['idle', 'unknown'];
     return el(
       'span',
-      `sode__down-link sode__down-link--${kind}`,
-      el('span', 'sode__down-wire', ok === false ? icon('x', false) : null),
-      el('span', 'sode__down-word', kind),
+      `sode__down-link sode__down-link--${tone}`,
+      el('span', 'sode__down-word', icon(STATE_GLYPH[tone], false), word),
+      el('span', 'sode__down-wire'),
     );
   };
   const node = (glyph, ok, ...label) =>
@@ -432,7 +435,7 @@ export function renderDown(box, c) {
           ),
         ),
       text && el('div', null, text),
-      err && el('div', null, el('code', null, err)),
+      err && el('div', 'sode__down-why', el('span', null, 'Reason'), el('code', null, err)),
     ].filter(Boolean),
   );
 }
