@@ -496,11 +496,14 @@ The other three Settings topics. Routers holds the Routers list and one block of
 The connection between a browser and the Sode server.
 
 **Router link**:
-The connection between the Sode server and the router.
+The connection between the Sode server and one router. Each router has its own.
+
+**Healthy** / **Degraded**:
+The state of Sode as a whole. Healthy means that every Router link is up. Degraded means that one or more Router links are down and one or more are up.
 
 **Server run time**:
 How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The status details show it beside the Router link's uptime.
 _Avoid_: server uptime
 
 **Lost link**:
-The banner a browser shows when the Server link or the Router link is down, naming which one.
+The banner a browser shows when the Server link is down or every Router link is down, naming which one.

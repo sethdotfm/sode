@@ -273,5 +273,5 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 ## Open items
 
 1. Test the openGear bridge for a Connected message on a connect that changes nothing. (Routers, item 3.)
-2. A GLOSSARY.md term for the degraded state.
+2. A GLOSSARY.md name for "every router down". Offline is taken: it is the page state when the Sode server cannot be reached.
 3. How to split the work into issues. The owner expects one large spec with many issues.
