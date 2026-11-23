@@ -74,7 +74,8 @@ info:
     Rights. If any route in a take is outside the key's rights, Sode refuses the whole take
     before it sends anything. The answer is 403 `outside_rights`, with no results and no History
     entry, and Sode writes an `api` row in the Communication Log. Undo checks the destination
-    and level but not the source it restores.
+    and level but not the source it restores. The Use tie lines right (`tieLines`, unset is on)
+    lets a caller send a route across routers. Without it, such a take is 403 `tie_lines_off`.
 
     Roles. A user's key acts with its owner's Role as it is now, never above Trusted user. After
     a demotion, the next call uses the lower Role and the key keeps working. An API client holds
@@ -520,7 +521,8 @@ paths:
         lines. Send `ties` with it: one tie line for each hop before the last, upstream first. Without
         `ties`, such a route gets 409 `tie_line_needed` with the ranked paths of each such route. A
         route with no usable path gets 409 `no_path` with each reason. Nothing is sent to a router
-        then. Rights cover the typed ends first (403 `outside_rights`); hops need no Rights.
+        then. Rights cover the typed ends first (403 `outside_rights`); hops need no Rights. A
+        caller without the Use tie lines right (`tieLines` false) then gets 403 `tie_lines_off`.
 
         With `ties`, Sode sends the hops upstream first. Each hop before the last switches all levels
         of its router; the last hop switches the typed levels. A hop that several routes of the take
@@ -2444,7 +2446,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
-      description: "`scope`: the key lacks the scope. `outside_rights`: a route or preset is outside the rights, and nothing was sent. `https_required`. `not_owner`: a panel the caller is allowed only to use. `user_required`: a panel needs a user's key to own it. `trusted_required`: only a Trusted user can make a panel act as an API client or change its rights. A user who is not Trusted also gets it when they save a template to Everyone without the Advanced Settings PIN"
+      description: "`scope`: the key lacks the scope. `outside_rights`: a route or preset is outside the rights, and nothing was sent. `https_required`. `not_owner`: a panel the caller is allowed only to use. `user_required`: a panel needs a user's key to own it. `trusted_required`: only a Trusted user can make a panel act as an API client or change its rights. `tie_lines_off`: a route across routers, and the caller does not have the Use tie lines right; nothing was sent. A user who is not Trusted also gets it when they save a template to Everyone without the Advanced Settings PIN"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -2527,6 +2529,7 @@ components:
                 - router_needed
                 - no_path
                 - tie_line_needed
+                - tie_lines_off
                 - method_not_allowed
                 - not_owner
                 - user_required
@@ -2554,7 +2557,8 @@ components:
                 or the router of a route end, names no router UID). 400 router_needed (Sode has two or
                 more routers, and a read about one router or a route end names none). 409 tie_line_needed
                 (a route across routers and no tie lines given; `routes` has the paths). 409 no_path
-                (a route across routers has no usable path; `routes` has the reasons). 405 method_not_allowed (see `Allow`).
+                (a route across routers has no usable path; `routes` has the reasons). 403 tie_lines_off
+                (a route across routers, and the caller does not have the Use tie lines right). 405 method_not_allowed (see `Allow`).
                 409 conflict (Redo of a failed entry, Retry of a successful one, or a full panel or
                 artwork limit). 409 conflict also for a Protect that Sode has already or cannot set
                 yet. 409 protected (a
@@ -2732,6 +2736,7 @@ components:
             dsts: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
             levels: { type: array, items: { type: integer }, description: UI levels }
             presets: { type: array, items: { type: string }, description: Preset ids }
+            tieLines: { type: boolean, description: "The Use tie lines right: send a route across routers. Unset is on" }
             visibility: { type: string, enum: [readonly, hidden] }
     PanelTemplateIn:
       type: object

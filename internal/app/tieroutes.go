@@ -294,5 +294,9 @@ func (a *App) tieRouteRights(rt *runtime, rights config.Rights, routes []tieRout
 			return out("source", r.src)
 		}
 	}
+	// After the ends, so a caller outside both learns of the ends first.
+	if !rights.AllowsTieLines() {
+		return problem(http.StatusForbidden, "tie_lines_off", "you do not have the Use tie lines right, so Sode cannot send a route across routers")
+	}
 	return nil
 }
