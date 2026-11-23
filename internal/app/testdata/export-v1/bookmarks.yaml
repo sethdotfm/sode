@@ -1,8 +1,6 @@
 bookmarks:
   - key: preset:global:pr-0001
     label: Show
-    inPalette: true
   - url: https://example.com/run
     label: Run sheet
     newTab: true
-    inPalette: false

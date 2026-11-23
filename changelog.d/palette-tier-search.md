@@ -1,3 +1,3 @@
 - The Palette searches in one category when you type its name first, then a space and the search: "panel studio", "set theme" or "preset desk". A short form, a part of the name or one typo is also correct ("p", "pnl", "sett", "panle"). The rows of that category come first, and other matches follow. The line above the list shows the category.
 - Panels, presets and filter sets now rank above settings with a close name, so "new panel" finds the panel New Panel first.
-- The Palette no longer shows rows that you cannot use. A bookmark with Show in Palette stays as a grey row that tells why.
+- The Palette no longer shows rows that you cannot use. A Palette pin stays as a grey row that tells why.

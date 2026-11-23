@@ -7,11 +7,14 @@
 // setHomeRunner. Another page puts the row in sessionStorage and opens Home.
 //
 // Bookmarks (bookmarks.js) open their rows through runRow, and a grey one through explainRow. The empty query lists
-// the shown list's bookmarks that have Show in Palette. A grey row (outside the Rights or Role) shows only as such a
-// bookmark. Alt+B or a row's Bookmark button adds the row to Me, or to This
-// browser for a Guest. openPalette({ pick }) hands the picked row to pick instead (the Bookmarks editor's Add).
+// Home, Pinned, Last picks and Categories. Pinned has the person's Palette pins in their saved order (pinstore.js). They
+// are Me for a signed-in user, else This browser, at most 24. A grey row (outside the Rights or Role) shows only as a
+// pin, and a pin whose row is gone shows Missing. Alt+arrows or a drag in the Pinned section put the pins in order.
+// Each row's ⋯ menu (palettemenu.js), or Alt+P and Alt+B, pins or unpins the row and adds or removes its bookmark. They
+// change only the person's own list, never Everyone's. A bookmark list holds at most 24 too. openPalette({ pick }) hands the picked row to pick
+// instead (the Bookmarks editor's Add).
 import { $, el, S, on, emit, icon, request, sentence, LINK_DOWN } from './core.js';
-import { chord, listStep, keyLabel } from './keys.js';
+import { chord, listStep } from './keys.js';
 import { modal, fadeOut, stopFade } from './modal.js';
 import { bigScroll } from './bigscroll.js';
 import { closeShown } from './dialogkeys.js';
@@ -26,7 +29,7 @@ import { allPresets } from './presetstore.js';
 import { allSets } from './filterstore.js';
 import { layout } from './layout.js';
 import { steppedIn, stepOut } from './stepin.js';
-import { settingsRows } from './palettesettings.js';
+import { settingsRows, settingsRead } from './palettesettings.js';
 import { catalogue, pageOf } from './palettecatalogue.js';
 import { showResult } from './banner.js';
 import {
@@ -50,8 +53,11 @@ import {
 import { hiddenCounts, hiddenLine, numberHint, footKeys } from './palettehints.js';
 import { hasKeyList } from './shortcuts.js';
 import { rereadNames } from './rereadnames.js';
-import { shownBookmarks, bookmarksIn, saveBookmarks } from './bookmarkstore.js';
-import { paletteMarks, ownScope, addBookmark, fromRow } from './bookmarkrules.js';
+import { bookmarksIn, saveBookmarks } from './bookmarkstore.js';
+import { ownScope, addBookmark, fromRow } from './bookmarkrules.js';
+import { ownPins, savePins, pinScope } from './pinstore.js';
+import { pinRows, togglePin, movePin } from './pinrules.js';
+import { rowMenu } from './palettemenu.js';
 
 const PICKS_KEY = 'sode-palette-picks';
 // How often each row was picked, per user name ('' a Guest): { [name]: uses } (paletterules.js cleanUses). This browser
@@ -70,6 +76,11 @@ let homeRunner = null;
 export const setHomeRunner = (fn) => {
   homeRunner = fn;
 };
+
+// The settings and the panels were read, once. Until then a pin with no row is not Missing. This is also true when a
+// read failed (link down, no settings copy). An older good read stays.
+let ready = false;
+const SCOPE_NAME = { user: 'Me', local: 'This browser' };
 
 let panels = [];
 let panelsHidden = 0; // panels the server did not list for this sign-in (palettePanels hidden)
@@ -202,18 +213,29 @@ const dlg = modal({
 });
 // A panel page draws no bars of its own (bigScrollAll), so the list gets one here.
 bigScroll(list);
+const menu = rowMenu(dlg.dialog.querySelector('.sode-palette__body'), (what, row) => (what === 'pin' ? pinRow(row) : bookmarkRow(row)));
 
-function rowNode(row, i) {
+const tagText = (row) => (row.missing ? 'Missing' : row.access.why.startsWith('Outside your Rights') ? 'Outside your Rights' : 'Outside your Role');
+
+// pinned: the row is in the Pinned section, so it can be dragged there.
+function rowNode(row, i, pinned) {
   const off = !row.access.ok;
   const li = el(
     'li',
-    { id: `palette-opt-${i}`, role: 'option', class: `sode-palette__row${off ? ' sode-palette__row--off' : ''}`, 'data-i': i, 'data-key': row.key },
+    {
+      id: `palette-opt-${i}`,
+      role: 'option',
+      class: `sode-palette__row${off ? ' sode-palette__row--off' : ''}`,
+      'data-i': i,
+      'data-key': row.key,
+      ...(pinned ? { draggable: 'true', 'data-pin': '' } : {}),
+    },
     row.icon ? icon(row.icon) : null,
     el('span', 'sode-palette__label', row.label),
     row.hint ? el('span', 'sode-palette__hint', row.hint) : null,
   );
   if (row.access.lock) li.append(el('span', 'sode-palette__tag', icon('lock'), 'Sign in'));
-  if (off) li.append(el('span', 'sode-palette__tag', row.access.why.startsWith('Outside your Rights') ? 'Outside your Rights' : 'Outside your Role'));
+  if (off) li.append(el('span', 'sode-palette__tag', tagText(row)));
   if (!pickFn && row.kind !== 'url')
     li.append(
       el(
@@ -222,20 +244,26 @@ function rowNode(row, i) {
           type: 'button',
           tabindex: -1,
           class: 'pb-btn pb-btn--ghost pb-btn--sm pb-btn--icon pb-tip--end sode-palette__mark',
-          'aria-label': `Bookmark ${row.label}`,
-          'data-pb-tip': `Bookmark (${keyLabel('alt+b')})`,
+          'aria-label': `More for ${row.label}`,
+          'aria-haspopup': 'menu',
+          'aria-expanded': 'false',
+          'data-pb-tip': 'Pin and Bookmark',
           'data-mark': '',
         },
-        icon('bookmark-plus'),
+        icon('ellipsis'),
       ),
     );
   return li;
 }
 
+const pinnedKey = (key) => ownPins().includes(key);
+const bookmarkedKey = (key) => bookmarksIn(ownScope(!!profileName())).some((b) => b.key === key);
+
 function draw(keep = false) {
+  menu.close();
   rows = paletteRows();
-  const marks = pickFn ? [] : paletteMarks(shownBookmarks().list, rows);
-  items = [...paletteView(rows, { path, query: input.value, last: pickFn ? [] : picks(), marks, uses: pickFn ? {} : uses() }), ...extraLines(marks)];
+  const pins = pickFn ? [] : pinRows(ownPins(), rows, { ready });
+  items = [...paletteView(rows, { path, query: input.value, last: pickFn ? [] : picks(), pins, uses: pickFn ? {} : uses() }), ...extraLines(pins)];
   if (!keep || !items[cur] || items[cur].type === 'head') cur = firstIndex(items, { empty: !input.value.trim() });
   where.textContent = pathText(path, rows, input.value);
   where.hidden = !where.textContent;
@@ -257,7 +285,7 @@ function draw(keep = false) {
           el('span', 'sode-palette__hint', String(it.count)),
           icon('chevron-right'),
         );
-      return rowNode(it.row, i);
+      return rowNode(it.row, i, !!it.pinned);
     }),
   );
   if (!items.length) list.append(el('li', { role: 'presentation', class: 'sode-palette__none' }, 'Nothing found'));
@@ -271,13 +299,13 @@ function pageRows() {
 }
 
 // The lines after the rows: a hint for a number, and the count of matches that the user cannot use (Enter signs in).
-function extraLines(marks) {
+function extraLines(pins) {
   const out = [];
   const hint = path.length ? '' : numberHint(input.value, PAGE);
   if (hint) out.push({ type: 'head', note: true, label: hint });
   if (pickFn || path.length) return out;
   const w = who();
-  const line = hiddenLine(hiddenCounts(rows, input.value, { marks, panels: panelsHidden }), {
+  const line = hiddenLine(hiddenCounts(rows, input.value, { pins, panels: panelsHidden }), {
     signedIn: !!w.user,
     canSignIn: rows.some((r) => r.key === 'action:signIn'),
     canStepIn: rows.some((r) => r.key === 'action:stepIn'),
@@ -287,7 +315,9 @@ function extraLines(marks) {
 }
 
 function mark() {
-  foot.replaceChildren(...footOf(footKeys(items[cur], { query: input.value, path, pick: !!pickFn, why: !!picked })));
+  const key = items[cur]?.type === 'row' ? items[cur].row.key : '';
+  const own = { pinned: !!key && pinnedKey(key), bookmarked: !!key && bookmarkedKey(key) };
+  foot.replaceChildren(...footOf(footKeys(items[cur], { query: input.value, path, pick: !!pickFn, why: !!picked, ...own })));
   for (const n of list.querySelectorAll('[role="option"]')) n.setAttribute('aria-selected', String(+n.dataset.i === cur));
   if (cur >= 0) input.setAttribute('aria-activedescendant', `palette-opt-${cur}`);
   else input.removeAttribute('aria-activedescendant');
@@ -356,14 +386,45 @@ export function explainRow(row) {
   showWhy(row);
 }
 
-// The row's Bookmark action: Me for a signed-in user, else This browser.
+// The row's Bookmark toggle, in the person's own list: Me for a signed-in user, else This browser. A row bookmarked only
+// in Everyone shows Bookmark, and this adds it to the own list. Everyone's list does not change here.
 async function bookmarkRow(row) {
   if (!row || row.kind === 'url') return;
   const scope = ownScope(!!profileName());
-  const r = addBookmark(bookmarksIn(scope), fromRow(row));
+  const list = bookmarksIn(scope);
+  const had = list.some((b) => b.key === row.key);
+  if (!had && row.missing) return;
+  let next = list.filter((b) => b.key !== row.key);
+  if (!had) {
+    const r = addBookmark(list, fromRow(row));
+    if (r.err) return say(sentence(r.err));
+    next = r.list;
+  }
+  const res = await saveBookmarks(scope, next);
+  const where = SCOPE_NAME[scope];
+  say(res.ok ? `${row.label}: ${had ? `bookmark removed from ${where}` : `bookmarked in ${where}`}.` : sentence(res.err) || 'Bookmark not saved.');
+  if (dlg.shown()) mark();
+}
+
+// The row's Pin toggle (Alt+P, the ⋯ menu), in the person's own pins.
+async function pinRow(row) {
+  if (!row || row.kind === 'url') return;
+  const where = SCOPE_NAME[pinScope()];
+  const r = togglePin(ownPins(), row.key);
   if (r.err) return say(sentence(r.err));
-  const res = await saveBookmarks(scope, r.list);
-  say(res.ok ? `${row.label}: bookmarked ${scope === 'user' ? 'for you' : 'in this browser only'}.` : sentence(res.err) || 'Bookmark not saved.');
+  const res = await savePins(r.list);
+  say(res.ok ? `${row.label}: ${r.pinned ? `pinned in ${where}` : `unpinned from ${where}`}.` : sentence(res.err) || 'Pin not saved.');
+}
+
+// Moves the pin at item i (Alt+arrows: { by }, a drag: { before } as an index in the pins). The cursor stays on it.
+function movePinned(key, where) {
+  const pins = ownPins();
+  const next = movePin(pins, pins.indexOf(key), where);
+  if (!next) return;
+  savePins(next).then((res) => res.ok || say(sentence(res.err) || 'Pin order not saved.'));
+  const to = items.findIndex((it) => it.pinned && it.row.key === key);
+  if (to >= 0) cur = to;
+  mark();
 }
 function say(text) {
   note.textContent = text;
@@ -462,8 +523,9 @@ on('access', () => {
   }
 });
 
-// Esc: the why line, then the search, then one level up, then close.
+// Esc: the row menu, then the why line, then the search, then one level up, then close.
 function back1() {
+  if (menu.close()) return;
   if (picked) return hideWhy();
   if (input.value) {
     input.value = '';
@@ -495,9 +557,15 @@ input.addEventListener('keydown', (e) => {
     pick(e.shiftKey);
     return;
   }
-  if (chord(e) === 'alt+b') {
+  const c = chord(e);
+  if (c === 'alt+b' || c === 'alt+p') {
     e.preventDefault();
-    if (!e.repeat && !pickFn && items[cur]?.type === 'row') bookmarkRow(items[cur].row);
+    if (!e.repeat && !pickFn && items[cur]?.type === 'row') (c === 'alt+p' ? pinRow : bookmarkRow)(items[cur].row);
+    return;
+  }
+  if ((c === 'alt+up' || c === 'alt+down') && items[cur]?.pinned && !input.value.trim()) {
+    e.preventDefault();
+    movePinned(items[cur].row.key, { by: c === 'alt+up' ? -1 : 1 });
     return;
   }
   if (e.key === 'Backspace' && !input.value) {
@@ -519,26 +587,61 @@ input.addEventListener('keydown', (e) => {
     box.focus();
   }
 });
-list.addEventListener('mousedown', (e) => e.preventDefault());
+// The focus stays in the search box. A pinned row lets the press through, since a drag starts there; the box gets the
+// focus back after the click or the drag.
+list.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('[data-pin]') || e.target.closest('[data-mark]')) e.preventDefault();
+});
 list.addEventListener('click', (e) => {
   const n = e.target.closest('[data-i]');
   if (!n) return;
+  input.focus();
   cur = +n.dataset.i;
-  if (e.target.closest('[data-mark]')) {
+  const more = e.target.closest('[data-mark]');
+  if (more) {
     mark();
-    return bookmarkRow(items[cur]?.row);
+    const row = items[cur]?.row;
+    if (row) menu.open(more, row, { pinned: pinnedKey(row.key), bookmarked: bookmarkedKey(row.key), canBookmark: !row.missing || bookmarkedKey(row.key) });
+    return;
   }
   pick(e.shiftKey);
+});
+// A drag in the Pinned section: a drop on a row's lower half puts the pin after that row.
+let dragKey = '';
+list.addEventListener('dragstart', (e) => {
+  const n = e.target.closest?.('[data-pin]');
+  if (!n) return;
+  dragKey = n.dataset.key;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragKey);
+  n.classList.add('is-dragging');
+});
+list.addEventListener('dragover', (e) => {
+  if (dragKey && e.target.closest('[data-pin]')) e.preventDefault();
+});
+list.addEventListener('drop', (e) => {
+  const n = e.target.closest('[data-pin]');
+  if (!dragKey || !n) return;
+  e.preventDefault();
+  const pins = ownPins();
+  const r = n.getBoundingClientRect();
+  movePinned(dragKey, { before: pins.indexOf(n.dataset.key) + (e.clientY > r.top + r.height / 2 ? 1 : 0) });
+});
+list.addEventListener('dragend', () => {
+  dragKey = '';
+  list.querySelector('.is-dragging')?.classList.remove('is-dragging');
+  input.focus();
 });
 
 // The panels the browser's own sign-in reaches; asked on each open, since a sign-in or a share changes them.
 async function readPanels() {
   const r = await request('palettePanelsResult', { t: 'palettePanels' });
-  if (r.err === LINK_DOWN) return;
+  if (r.err === LINK_DOWN) return false;
   panels = r.ok && Array.isArray(r.panels) ? r.panels : [];
   panelsHidden = r.ok && Number.isInteger(r.hidden) ? r.hidden : 0;
   if (dlg.shown()) draw(true);
   emit('paletteRows');
+  return true;
 }
 
 // The box grows into the Palette. --pb-motion-normal is 0 under reduced motion, so it opens at once there.
@@ -575,9 +678,9 @@ export function openPalette({ from = null, pick = null, cancel = null } = {}) {
   draw();
   if (from) grow(from);
   input.focus();
-  readPanels();
-  settingsRows().then((s) => {
+  Promise.all([readPanels(), settingsRows()]).then(([panelsOk, s]) => {
     settings = s;
+    ready = ready || (panelsOk && settingsRead);
     if (dlg.shown()) draw(true);
   });
 }
@@ -691,4 +794,5 @@ on('locking', () => close(false));
 on('access', () => dlg.shown() && draw(true));
 on('presets', () => dlg.shown() && draw(true));
 on('filters', () => dlg.shown() && draw(true));
-on('bookmarks', () => dlg.shown() && draw(true));
+on('bookmarks', () => dlg.shown() && mark());
+on('pins', () => dlg.shown() && draw(true));

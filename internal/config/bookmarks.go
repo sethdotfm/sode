@@ -17,21 +17,26 @@ type Bookmark struct {
 	// URL is an http: or https: address. A bookmark has a Key or a URL, never both.
 	URL string `yaml:"url,omitempty" json:"url,omitempty"`
 	// Label is the name the strip shows. A row's live label wins; this one shows while the target is Missing.
-	Label  string `yaml:"label" json:"label"`
-	NewTab bool   `yaml:"newTab,omitempty" json:"newTab"`
-	// InPalette: Show in Palette. The Palette's empty query lists these first.
-	InPalette bool           `yaml:"inPalette" json:"inPalette"`
-	Extra     map[string]any `yaml:",inline" json:"-"`
+	Label  string         `yaml:"label" json:"label"`
+	NewTab bool           `yaml:"newTab,omitempty" json:"newTab"`
+	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 
 const (
-	MaxBookmarks       = 30
+	MaxBookmarks       = 24
 	MaxBookmarkLabel   = 40
 	MaxBookmarkURLSize = 2000
 )
 
 // The kinds of Palette row that a Key can name (palettecatalogue.js).
-var bookmarkKinds = []string{"action", "preset", "page", "panel", "filterSet", "setting"}
+var rowKinds = []string{"action", "preset", "page", "panel", "filterSet", "setting"}
+
+// RowKeyOK says if key can name a Palette row: a known kind, a colon, and at most MaxPaletteKey runes. Bookmarks and
+// Palette pins use it, as rowKeyOK in web/bookmarkrules.js does.
+func RowKeyOK(key string) bool {
+	kind, _, ok := strings.Cut(key, ":")
+	return ok && slices.Contains(rowKinds, kind) && len([]rune(key)) <= MaxPaletteKey
+}
 
 func CloneBookmarks(in []Bookmark) []Bookmark { return slices.Clone(in) }
 
@@ -59,8 +64,7 @@ func BookmarkProblem(b Bookmark) string {
 	case b.Key != "" && b.URL != "":
 		return "a bookmark opens a Palette row or a web address, not both"
 	case b.Key != "":
-		kind, _, ok := strings.Cut(b.Key, ":")
-		if !ok || !slices.Contains(bookmarkKinds, kind) || len([]rune(b.Key)) > MaxPaletteKey {
+		if !RowKeyOK(b.Key) {
 			return "a bookmark names a Palette row that Sode does not know"
 		}
 		return ""

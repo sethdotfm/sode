@@ -92,7 +92,7 @@ A saved plan that can be fired in one confirm and bookmarked. It is Sode's own f
 _Avoid_: salvo
 
 **Bookmark**:
-A saved link that opens a Palette row or an outside web address. A Palette row can be a preset, a filter set, a page, a Settings button or a setting. The Bookmarks strip shows them, and a bookmark with Show in Palette also shows at the top of the Palette. Bookmarks are saved to Me, This browser or Everyone, and the strip shows one list: This browser's, else Me, else Everyone. A bookmark that the user cannot use shows No access, and one whose target is gone shows Missing.
+A saved link that opens a Palette row or an outside web address. A Palette row can be a preset, a filter set, a page, a Settings button or a setting. The Bookmarks strip shows them. Bookmarks are saved to Me, This browser or Everyone, and the strip shows one list: This browser's, else Me, else Everyone. A bookmark that the user cannot use shows No access, and one whose target is gone shows Missing.
 _Avoid_: pinned preset, preset pin
 
 **Salvo**:
@@ -474,8 +474,11 @@ The desktop main page with History hidden and the title, patch boxes and a small
 The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page. Alt+Shift+h opens Home from every page, and on Home it closes what is open and puts the focus in the Source box.
 
 **Palette**:
-A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. To search in one category, type its name first, then a space and the search, for example "panel studio". A short form, a part of the name or one typo is also correct ("p", "pnl", "sett", "panle"). The rows of that category come first, and other matches follow under Other matches. A row outside a person's Rights or Role does not show. But a bookmark with Show in Palette stays as a grey row. When such rows match a search, one line gives their count, and Enter on it starts Sign in. Picking it tells why and offers Step in or Request approval. Picking an action or a Settings button does it. Sign in opens the sign-in, and Sign out signs out. A button that opens a dialog opens it where you are. Each action shows one time. Rows that the person uses most come first among equal matches.
+A search list of the actions, presets, pages, panels, filter sets and settings a person can use. The Palette character or Ctrl+Shift+P opens it. Picking a preset still needs a Confirm. To search in one category, type its name first, then a space and the search, for example "panel studio". A short form, a part of the name or one typo is also correct ("p", "pnl", "sett", "panle"). The rows of that category come first, and other matches follow under Other matches. A row outside a person's Rights or Role does not show. But a Palette pin stays as a grey row. When such rows match a search, one line gives their count, and Enter on it starts Sign in. Picking it tells why and offers Step in or Request approval. Picking an action or a Settings button does it. Sign in opens the sign-in, and Sign out signs out. A button that opens a dialog opens it where you are. Each action shows one time. Rows that the person uses most come first among equal matches.
 _Avoid_: command palette
+
+**Palette pin**:
+A Palette row that a person pins to show first, in their own order, when the Palette opens with nothing typed. Pins are kept in Me for a signed-in user, else in This browser. They are apart from Bookmarks.
 
 **Palette character**:
 The character that opens the Palette when it is the first one typed in an empty Source or Destination box. It is a setting for Everyone, Me or This browser, and no character turns it off. Type it twice to search for the character itself.

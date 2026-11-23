@@ -6,8 +6,8 @@ import { PREFS } from './prefs.js';
 const ME_PREFS = Object.keys(PREFS);
 
 // The lists in browserValues() that are not prefs. The copy takes filter sets and presets as rows, and leaves this
-// browser's bookmarks where they are.
-const NOT_PREFS = ['filterSets', 'presets', 'bookmarks'];
+// browser's bookmarks and Palette pins where they are.
+const NOT_PREFS = ['filterSets', 'presets', 'bookmarks', 'palettePins'];
 
 // values: browserValues() from exportcalls.js. A pref with no Me counterpart is shown, not copied.
 export function copyDoc(values, mePrefs = ME_PREFS) {

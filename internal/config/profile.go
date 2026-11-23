@@ -21,8 +21,10 @@ type Profile struct {
 	// Bookmarks is the user's Me list (GLOSSARY.md, Bookmark).
 	Bookmarks []Bookmark `yaml:"bookmarks,omitempty" json:"bookmarks"`
 	// PalettePicks holds the keys of the user's last Palette picks, newest first.
-	PalettePicks []string       `yaml:"palettePicks,omitempty" json:"palettePicks"`
-	Extra        map[string]any `yaml:",inline" json:"-"`
+	PalettePicks []string `yaml:"palettePicks,omitempty" json:"palettePicks"`
+	// PalettePins is the user's Me pin list (GLOSSARY.md, Palette pin): row keys in the user's order.
+	PalettePins []string       `yaml:"palettePins,omitempty" json:"palettePins"`
+	Extra       map[string]any `yaml:",inline" json:"-"`
 }
 
 // Go twin of PREFS in web/prefs.js; keep in step (TestPrefTable).
@@ -41,11 +43,11 @@ var PrefValues = map[string][]string{
 }
 
 func (p Profile) Empty() bool {
-	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.Bookmarks) == 0 && len(p.PalettePicks) == 0
+	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.Bookmarks) == 0 && len(p.PalettePicks) == 0 && len(p.PalettePins) == 0
 }
 
 func (p Profile) Clone() Profile {
-	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), Bookmarks: CloneBookmarks(p.Bookmarks), PalettePicks: slices.Clone(p.PalettePicks), Extra: p.Extra}
+	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), Bookmarks: CloneBookmarks(p.Bookmarks), PalettePicks: slices.Clone(p.PalettePicks), PalettePins: slices.Clone(p.PalettePins), Extra: p.Extra}
 }
 
 func knownPref(k string) bool {
@@ -80,6 +82,7 @@ func (p Profile) Normalized() Profile {
 	p.Presets = normalizePresets(p.Presets, "")
 	p.Bookmarks = normalizeBookmarks(p.Bookmarks)
 	p.PalettePicks = normalizePalettePicks(p.PalettePicks)
+	p.PalettePins = normalizePalettePins(p.PalettePins)
 	return p
 }
 
@@ -115,6 +118,9 @@ func validateProfile(owner string, p Profile) []error {
 	}
 	for _, e := range validateBookmarks(p.Bookmarks) {
 		bad("%v", e)
+	}
+	if why := PalettePinsProblem(p.PalettePins); why != "" {
+		bad("Palette pins: %s", why)
 	}
 	if b, err := json.Marshal(p); err == nil && len(b) > MaxProfileBytes {
 		bad("too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxProfileBytes>>10)

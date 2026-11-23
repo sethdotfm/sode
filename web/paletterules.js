@@ -270,7 +270,7 @@ export function dropUse(uses, key) {
 }
 
 // A row outside the Rights or Role is grey: it only explains why it does nothing. The Palette lists one only when it
-// is a bookmark with Show in Palette.
+// is a Palette pin.
 const usable = (row) => row?.access?.ok !== false;
 
 // Rows that match q, best first, as [{ row, weak }]. weak: a loose match or a danger row (isDanger). Such a row is never
@@ -317,28 +317,30 @@ export function settingsSections(rows) {
 }
 
 // What the Palette lists. path is [] (the top), [category] or ['settings', section]. The items:
-// - { type: 'row', row, weak }: a catalogue row. weak: Enter does not pick it first (rankMatches).
+// - { type: 'row', row, weak, pinned }: a catalogue row. weak: Enter does not pick it first (rankMatches). pinned: it is
+//   in the Pinned section, so Alt+arrows and a drag move it.
 // - { type: 'cat', id, label, count }: a category (top) or a Settings section (path ['settings']).
 // - { type: 'head', label }: a heading line, never picked.
-// The empty top lists Home (on every page but Home), the bookmarks with Show in Palette (marks, as rows), the last
-// picks, then the categories. A query at the top searches every row (searchView). Grey rows show only as marks.
-export function paletteView(rows, { path = [], query = '', last = [], marks = [], uses = {}, now = Date.now() } = {}) {
+// The empty top lists Home (on every page but Home), the Palette pins, the last picks, then the categories. pins are
+// rows, in their saved order. A query at the top searches every row (searchView), and a pin ranks there as any row.
+// Grey rows show only as pins.
+export function paletteView(rows, { path = [], query = '', last = [], pins = [], uses = {}, now = Date.now() } = {}) {
   const use = { uses, now };
   const q = String(query || '').trim();
-  // An alias (a Settings button that an action row does) shows only as a bookmark, so a search finds one Sign out.
-  rows = rows.filter((r) => (usable(r) && !r.alias) || marks.includes(r));
+  // An alias (a Settings button that an action row does) shows only as a pin, so a search finds one Sign out.
+  rows = rows.filter((r) => (usable(r) && !r.alias) || pins.includes(r));
   const rowItems = (list) => list.map((row) => ({ type: 'row', row }));
   if (!path.length) {
     if (q) return searchView(dropTwins(rows), String(query), use);
     const home = rowByKey(rows, 'page:home');
-    const marked = marks.filter((r) => r !== home);
+    const pinned = pins.filter((r) => r !== home);
     const picks = cleanPicks(last)
       .map((k) => rowByKey(rows, k))
-      .filter((r) => r && r !== home && !marked.includes(r));
+      .filter((r) => r && r !== home && !pinned.includes(r));
     const cats = CATEGORIES.map((c) => catItem(c.id, rows)).filter((c) => c.count);
     return [
       ...(home && !home.here ? rowItems([home]) : []),
-      ...(marked.length ? [{ type: 'head', label: 'Bookmarks' }, ...rowItems(marked)] : []),
+      ...(pinned.length ? [{ type: 'head', label: 'Pinned' }, ...pinned.map((row) => ({ type: 'row', row, pinned: true }))] : []),
       ...(picks.length ? [{ type: 'head', label: 'Last picks' }, ...rowItems(picks)] : []),
       { type: 'head', label: 'Categories' },
       ...cats,

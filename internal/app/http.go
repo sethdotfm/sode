@@ -394,6 +394,7 @@ type inMsg struct {
 	Presets      []config.Preset    `json:"presets"`
 	Bookmarks    []config.Bookmark  `json:"bookmarks"`    // bookmarks (Everyone), profileSave (Me)
 	PalettePicks []string           `json:"palettePicks"` // profileSave: the Palette's last picks
+	PalettePins  []string           `json:"palettePins"`  // profileSave: the Palette pins in Me
 	Page         string             `json:"page"`         // hi: main | log
 	Token        string             `json:"token"`        // hi: session token of a persistent user or a tab sign-in
 	Tab          bool               `json:"tab"`          // userSignIn: no lock on, wants a tab session token

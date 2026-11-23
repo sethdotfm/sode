@@ -17,8 +17,8 @@ func altDigit(b *tab, d string, shift bool) {
 
 // The Bookmarks strip on Home, with Everyone's list: Alt+1 fires a preset through the Confirm and Alt+Shift+1 fills
 // the boxes. A deleted preset shows Missing. Signed in as Bo, a Settings button bookmark presses the button. A preset
-// outside his Rights shows No access, and a click opens the Palette's why. The Palette's Alt+B adds to Me, so the strip shows Me. The editor refuses a javascript:
-// address, and a This browser list wins over Me.
+// outside his Rights shows No access, and a click opens the Palette's why. The Palette's Alt+B adds to Me, so the strip
+// shows Me, and Alt+B again removes it. The editor refuses a javascript: address, and a This browser list wins over Me.
 func TestChromeBookmarks(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -31,7 +31,7 @@ func TestChromeBookmarks(t *testing.T) {
 			{ID: "p-out", Name: "Studio Out", Items: []config.PresetItem{presetItem(simSrc, []int{1}, simDst+1)}},
 		}
 		c.Bookmarks = []config.Bookmark{
-			{Key: "preset:global:p-in", Label: "Old name", InPalette: true},
+			{Key: "preset:global:p-in", Label: "Old name"},
 			{Key: "preset:global:p-out", Label: "Studio Out"},
 			{Key: "preset:global:gone", Label: "Gone show"},
 			{URL: "https://example.com/rundown", Label: "Rundown", NewTab: true},
@@ -74,7 +74,9 @@ func TestChromeBookmarks(t *testing.T) {
 	}
 	b.eval(`document.querySelector('.sode-palette__why button:last-child').click(); true`)
 	b.eval(`(() => { const i = document.querySelector('.sode-palette__q'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
-	b.waitFor("Show in Palette lists the bookmark first", `document.querySelector('#palette-list .sode-palette__head')?.textContent === 'Bookmarks' && document.querySelector('#palette-list [data-key="preset:global:p-in"]') !== null`)
+	if b.eval(`[...document.querySelectorAll('#palette-list .sode-palette__head')].some((h) => h.textContent === 'Bookmarks' || h.textContent === 'Pinned')`) == true {
+		t.Error("the Palette lists bookmarks, or pins that nobody made")
+	}
 
 	paletteFind(b, "Communication Log", "page:log")
 	b.eval(`document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', altKey: true, bubbles: true, cancelable: true })); true`)
@@ -87,6 +89,7 @@ func TestChromeBookmarks(t *testing.T) {
 			t.Fatalf("Bo's bookmarks in Me: %+v", u.Profile.Bookmarks)
 		}
 	}
+	b.waitFor("the note says where", `document.querySelector('.sode-palette__note').textContent === 'Communication Log: bookmarked in Me.'`)
 	b.eval(`document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); true`)
 	b.eval(`document.querySelector('.sode-palette__q').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); true`)
 	b.waitFor("the strip shows Me, not Everyone", bookmarkChips+`.length === 1 && `+bookmarkChips+`[0].textContent.startsWith('Communication Log')`)
@@ -109,7 +112,7 @@ func TestChromeBookmarks(t *testing.T) {
 	b.check()
 }
 
-// The editor's count shows only from 25 bookmarks. At 30 the add controls are off and a visible line says why.
+// The editor's count shows only from 19 bookmarks. At 24 the add controls are off and a visible line says why.
 func TestChromeBookmarksCount(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -123,18 +126,18 @@ func TestChromeBookmarksCount(t *testing.T) {
 	const count = `document.getElementById('bm-count')`
 	b.open(srv.URL + "/")
 	b.waitFor("the page stamped its storage", `localStorage.getItem('sode-format') === '2'`)
-	seed(24)
-	b.waitFor("no count below 25", `document.querySelectorAll('#bm-list [data-i]').length === 24 && `+count+`.hidden && !`+count+`.offsetParent`)
+	seed(18)
+	b.waitFor("no count below 19", `document.querySelectorAll('#bm-list [data-i]').length === 18 && `+count+`.hidden && !`+count+`.offsetParent`)
 	b.eval(`document.getElementById('bm-url').value = 'https://example.com/new'; document.getElementById('bm-add-url').click(); true`)
-	b.waitFor("the count at 25", `!!`+count+`.offsetParent && `+count+`.textContent === '25 of 30 bookmarks in this list'`)
+	b.waitFor("the count at 19", `!!`+count+`.offsetParent && `+count+`.textContent === '19 of 24 bookmarks in this list'`)
 	if b.eval(`document.getElementById('bm-add-url').disabled || !!document.getElementById('bm-full').offsetParent`) != false {
-		t.Error("the add controls are off below 30")
+		t.Error("the add controls are off below 24")
 	}
 
-	seed(30)
-	b.waitFor("the count at 30", count+`.textContent === '30 of 30 bookmarks in this list'`)
+	seed(24)
+	b.waitFor("the count at 24", count+`.textContent === '24 of 24 bookmarks in this list'`)
 	if b.eval(`['bm-add-row', 'bm-url', 'bm-url-name', 'bm-add-url'].every((id) => document.getElementById(id).disabled)`) != true {
-		t.Error("the add controls are on at 30")
+		t.Error("the add controls are on at 24")
 	}
 	if b.eval(`!!document.getElementById('bm-full').offsetParent && document.getElementById('bm-add-url').getAttribute('aria-describedby') === 'bm-full'`) != true {
 		t.Error("nothing says why the add controls are off")

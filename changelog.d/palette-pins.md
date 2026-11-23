@@ -1,0 +1,3 @@
+- **Palette pins** are a list of their own, apart from Bookmarks. With nothing typed, the Palette shows Home, Pinned, Last picks and Categories, and your pins show in your own order. Alt+P pins or unpins a row, in Me, or in This browser for a Guest. A list holds 24 pins.
+- Each Palette row has a ⋯ menu with Pin or Unpin (Alt+P) and Bookmark or Remove bookmark (Alt+B). Both change only your own list, never Everyone's. Alt+arrows or a drag in the Pinned list put the pins in order. A pin whose row is gone shows Missing, and you can unpin it.
+- Bookmarks no longer have Show in Palette. A bookmark list holds 24.
