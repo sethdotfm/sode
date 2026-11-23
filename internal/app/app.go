@@ -49,40 +49,30 @@ func (r *runtime) probe() []byte {
 
 // App is all server state. A router change (applyConfig with reconnect) replaces router and ext, fails waiters and
 // checks (cutRoutes) and sets status to "connecting". All other state stays; clients get a new hello.
-// Fields from mu down to dumpAt are guarded by mu.
+// Fields from mu down to sessionsAt are guarded by mu, as are the fields of each router unit.
 type App struct {
+	// The first router (routerunit.go). Its fields are the old single-router App fields.
+	*routerUnit
+	// routers: every router unit by router UID. One entry today, the embedded one. Fixed after New.
+	routers map[string]*routerUnit
+
 	// profMemo: the marshalled profile per user for one config snapshot. Guarded by mu.
 	profMemoRT *runtime
 	profMemo   map[string]string
-
-	sw      *swp08.Client
-	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
 
 	hist    *History
 	sent    *SentLog
 	txq     chan swp08.TxEvent
 	evq     chan Sent
 	txLost  atomic.Int64 // events dropped because txq or evq was full, or not saved
-	up      *Uptime
 	saves   *SaveLog
 	cfgPath string
 	rt      atomic.Pointer[runtime]
 
 	mu       sync.Mutex
-	router   *routerState
-	ext      *extTracker
-	status   statusMsg
 	started  time.Time
 	clients  map[*client]struct{}
-	waiters  map[*waiter]struct{}
-	checks   map[*tallyCheck]struct{}
 	pendSent []Sent
-	linkSeen string
-	linkErr  string
-	fire     *fireState
-
-	// Take timers; only tests shorten them (shortTimers).
-	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration
 
 	// Run waits up to drainLimit for them (shutdown.go).
 	writes     inflight
@@ -96,11 +86,7 @@ type App struct {
 
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests). Set by Run before the router link starts, then fixed.
 
-	nameReqAt  time.Time
 	sessionsAt time.Time
-	nameRxAt   time.Time
-	namesDirt  bool
-	dumpAt     time.Time
 
 	userPins map[string]*pinPool // by user id; "" for names that match no user
 	// pinFirstWait: the first wait after wrong user PINs; tests shorten it.
@@ -126,26 +112,18 @@ type App struct {
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
-	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
-	// fireHolder: what holds fireMu now, for the wait in the next fire's lock row. Guarded by mu.
-	fireHolder string
-
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 
 	apiS apiState // apiauth.go
 
 	streams map[*apiStream]struct{} // apistream.go, guarded by mu
 
-	tallyCache tallyBody // apireads.go, guarded by mu
-	namesCache namesBody // apireads.go, guarded by mu
-
 	names *namesStore // namestable.go
 
 	inbox *inboxStore // inbox.go
 
-	protects  *protectStore          // protect.go: Sode's record of the Protects it set
-	protWaits map[*protWait]struct{} // guarded by mu
-	protMu    sync.Mutex             // one Protect set or clear at a time
+	protects *protectStore // protect.go: Sode's record of the Protects it set
+	protMu   sync.Mutex    // one Protect set or clear at a time
 	// inboxTTL: how long a card waits before it expires; tests shorten it. inboxAt: the last sweep.
 	inboxTTL time.Duration
 	inboxAt  time.Time
@@ -218,26 +196,20 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	if sent == nil {
 		sent, _ = OpenSentLog("", 0)
 	}
+	u := newRouterUnit(cfg.Router)
 	a := &App{
-		hist:         hist,
-		sent:         sent,
-		txq:          make(chan swp08.TxEvent, 1024),
-		evq:          make(chan Sent, 256),
-		cfgPath:      cfgPath,
-		router:       newRouterState(),
-		ext:          newExtTracker(),
-		clients:      map[*client]struct{}{},
-		started:      time.Now(),
-		waiters:      map[*waiter]struct{}{},
-		checks:       map[*tallyCheck]struct{}{},
-		checkTimeout: defaultCheckTimeout,
-		routeTimeout: defaultRouteTimeout,
-		routeGrace:   defaultRouteGrace,
-		queueMax:     defaultQueueMax,
-		drainLimit:   defaultDrainLimit,
-		now:          time.Now,
-		idleEvery:    defaultIdleEvery,
-		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Address},
+		routerUnit: u,
+		routers:    map[string]*routerUnit{u.uid: u},
+		hist:       hist,
+		sent:       sent,
+		txq:        make(chan swp08.TxEvent, 1024),
+		evq:        make(chan Sent, 256),
+		cfgPath:    cfgPath,
+		clients:    map[*client]struct{}{},
+		started:    time.Now(),
+		drainLimit: defaultDrainLimit,
+		now:        time.Now,
+		idleEvery:  defaultIdleEvery,
 	}
 	a.userPins, a.pinFirstWait, a.recheckFor = map[string]*pinPool{}, pinFirstWait, recheckFor
 	a.asks, a.approvalWait = map[*client]*approvalRequest{}, defaultApprovalWait
@@ -251,7 +223,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
-	a.protects, a.protWaits = loadProtects(cfgPath), map[*protWait]struct{}{}
+	a.protects = loadProtects(cfgPath)
 	a.names = newNamesStore(cfgPath)
 	a.sweepStages()
 	if t, ok := a.names.load(cfg.UID); ok {
@@ -262,23 +234,9 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
 	}
-	a.up, _ = openUptime("", time.Now)
 	a.saves, _ = OpenSaveLog("")
 	a.rt.Store(r)
-	a.sw = swp08.NewClient(cfg.Address, r.probe())
-	a.sw.Debug = debug
-	a.sw.OnUp = a.onRouterUp
-	a.sw.OnMsg = a.onRouterMsg
-	a.sw.OnState = a.onRouterState
-	a.sw.OnTx = a.onTx
-	a.sendMsg = func(m []byte, why swp08.Why) error {
-		err := a.sw.Send(m, why)
-		// Only a take's refusals are logged; refused re-reads while down would flood the log.
-		if err != nil && !background[why.Reason] {
-			a.onTx(swp08.TxEvent{Msg: m, Why: why, At: time.Now(), Result: "unsent", Err: err.Error()})
-		}
-		return err
-	}
+	a.link(u, r, debug)
 	return a, nil
 }
 
@@ -293,12 +251,21 @@ func (a *App) Run(ctx context.Context) {
 	a.logEvent(start)
 	link, cut := context.WithCancel(context.WithoutCancel(ctx))
 	a.lateQ = make(chan lateJob, 64)
-	go a.sw.Run(link)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	for _, u := range a.routers {
+		go u.sw.Run(link)
+		wg.Add(1)
+		go func() { defer wg.Done(); u.up.Run(link) }()
+	}
+	wg.Add(1)
 	go func() { defer wg.Done(); a.logSent(link) }()
-	go func() { defer wg.Done(); a.up.Run(link) }()
-	defer func() { cut(); wg.Wait(); a.up.Stop() }()
+	defer func() {
+		cut()
+		wg.Wait()
+		for _, u := range a.routers {
+			u.up.Stop()
+		}
+	}()
 	go a.lateWorker(link)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
@@ -370,7 +337,7 @@ func (a *App) periodic() {
 	}
 }
 
-func (a *App) onRouterUp() {
+func (a *App) onUnitUp(u *routerUnit) {
 	a.RefreshNames()
 	a.requestDumps()
 	go a.clearStaleSalvo()
@@ -400,43 +367,43 @@ func (a *App) SetSettingsSaves(l *SaveLog) {
 	a.saves = l
 }
 
-func (a *App) onRouterState(s swp08.State, err error) {
+func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.up.State(s == swp08.StateUp)
-	a.logLink(s, err)
-	a.status.Router = string(s)
-	a.status.Addr = a.r().cfg.Address
+	u.up.State(s == swp08.StateUp)
+	a.logLink(u, s, err)
+	u.status.Router = string(s)
+	u.status.Addr = a.r().cfg.Address
 	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
 	if s != swp08.StateConnecting {
-		a.status.Err = ""
+		u.status.Err = ""
 	}
 	if err != nil {
-		a.status.Err = err.Error()
+		u.status.Err = err.Error()
 	}
-	a.broadcast(a.status)
+	a.broadcast(u.status)
 }
 
 // A retry is logged only when the error changes. Caller holds mu.
-func (a *App) logLink(s swp08.State, err error) {
+func (a *App) logLink(u *routerUnit, s swp08.State, err error) {
 	why := ""
 	if err != nil {
 		why = err.Error()
 	}
 	switch {
-	case s == swp08.StateUp && a.linkSeen != upUp:
-		a.linkSeen, a.linkErr = upUp, ""
-	case s == swp08.StateDown && (a.linkSeen != upDown || a.linkErr != why):
-		a.linkSeen, a.linkErr = upDown, why
+	case s == swp08.StateUp && u.linkSeen != upUp:
+		u.linkSeen, u.linkErr = upUp, ""
+	case s == swp08.StateDown && (u.linkSeen != upDown || u.linkErr != why):
+		u.linkSeen, u.linkErr = upDown, why
 	default:
 		return
 	}
-	e := event(kindLink, "", "", a.linkSeen)
-	e.Err, e.Note = a.linkErr, a.r().cfg.Address
+	e := event(kindLink, "", "", u.linkSeen)
+	e.Err, e.Note = u.linkErr, a.r().cfg.Address
 	a.logEvent(e)
 }
 
-func (a *App) onRouterMsg(msg []byte) {
+func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 	ev, err := swp08.Parse(msg)
 	if err != nil {
 		log.Printf("parse: %v (% X)", err, msg)
@@ -445,10 +412,10 @@ func (a *App) onRouterMsg(msg []byte) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, xp := range ev.Crosspoints {
-		a.applyTally(r, xp)
+		a.applyUnitTally(u, r, xp)
 	}
 	for _, p := range ev.Protects {
-		a.applyProtect(r, p, ev.Cmd != swp08.CmdExtProtectTally && ev.Cmd != swp08.CmdExtProtectDump)
+		a.applyProtect(u, r, p, ev.Cmd != swp08.CmdExtProtectTally && ev.Cmd != swp08.CmdExtProtectDump)
 	}
 	if nb := ev.Names; nb != nil {
 		a.applyNames(nb)
@@ -459,7 +426,10 @@ func (a *App) onRouterMsg(msg []byte) {
 }
 
 // Caller holds mu.
-func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
+func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) { a.applyUnitTally(a.routerUnit, r, xp) }
+
+// Caller holds mu.
+func (a *App) applyUnitTally(u *routerUnit, r *runtime, xp swp08.Crosspoint) {
 	if xp.Matrix != r.cfg.Matrix {
 		return
 	}
@@ -470,42 +440,42 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 	if xp.Src == 0xFFFF { // router's "nothing routed"
 		xp.Src = -1
 	}
-	a.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
-	t := a.router.tally[xp.Dst]
+	u.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
+	t := u.router.tally[xp.Dst]
 	if t == nil {
 		t = map[int]int{}
-		a.router.tally[xp.Dst] = t
+		u.router.tally[xp.Dst] = t
 	}
 	if old, known := t[l.UI]; !known || old != xp.Src {
 		t[l.UI] = xp.Src
-		a.router.tallyGen++
-		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
+		u.router.tallyGen++
+		u.router.pend = append(u.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
 		// A dump or an interrogate shows a route change that the router did not announce. Sode notes it too, unless
 		// it is Sode's own.
 		switch a.classify(xp, l.UI, known) {
 		case verdictExt:
-			a.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
+			u.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
 		case verdictOurs:
 			a.sawOwn(xp)
 		}
-	} else if xp.Changed() && a.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
+	} else if xp.Changed() && u.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
 		// A tally already cached Sode's own route: the Connected of a native salvo came after the interrogate answer
 		// (fire.go).
 		// This uses up its key.
 		a.sawOwn(xp)
 	}
-	for w := range a.waiters {
+	for w := range u.waiters {
 		if w.see(xp) && xp.Changed() {
 			w.cause.saw(time.Now())
 		}
 	}
-	for c := range a.checks {
+	for c := range u.checks {
 		c.see(xp)
 	}
 }
 
 // announced: a 0x8D or 0x8F, not an answer to a re-read. Caller holds mu.
-func (a *App) applyProtect(r *runtime, p swp08.Protect, announced bool) {
+func (a *App) applyProtect(u *routerUnit, r *runtime, p swp08.Protect, announced bool) {
 	if p.Matrix != r.cfg.Matrix {
 		return
 	}
@@ -514,22 +484,22 @@ func (a *App) applyProtect(r *runtime, p swp08.Protect, announced bool) {
 		return
 	}
 	h := protHold{dev: p.Device, kind: p.Kind}
-	for w := range a.protWaits {
+	for w := range u.protWaits {
 		if w.dst == p.Dst {
 			w.see(l.UI, h, p.Protected)
 		}
 	}
-	t := a.router.protect[p.Dst]
+	t := u.router.protect[p.Dst]
 	old, had := t[l.UI]
 	k := [2]int{p.Dst, l.UI}
-	known := a.router.protSeen[k]
-	a.router.protSeen[k] = true
+	known := u.router.protSeen[k]
+	u.router.protSeen[k] = true
 	if !p.Protected {
 		if !had {
 			return
 		}
 		delete(t, l.UI)
-		a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, -1, 0})
+		u.router.pendProt = append(u.router.pendProt, protChange{p.Dst, l.UI, -1, 0})
 		a.noteProtect(r, p.Dst, l.UI, old, false, known, announced)
 		return
 	}
@@ -542,10 +512,10 @@ func (a *App) applyProtect(r *runtime, p swp08.Protect, announced bool) {
 	a.noteProtect(r, p.Dst, l.UI, h, true, known, announced)
 	if t == nil {
 		t = map[int]protHold{}
-		a.router.protect[p.Dst] = t
+		u.router.protect[p.Dst] = t
 	}
 	t[l.UI] = h
-	a.router.pendProt = append(a.router.pendProt, protChange{p.Dst, l.UI, h.dev, h.kind})
+	u.router.pendProt = append(u.router.pendProt, protChange{p.Dst, l.UI, h.dev, h.kind})
 }
 
 func (a *App) flush() {
