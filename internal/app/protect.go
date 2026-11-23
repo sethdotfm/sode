@@ -99,15 +99,16 @@ func (a *App) protectSend(r *runtime, u *routerUnit, dst int, devOf func(ui int)
 	}()
 	var last <-chan struct{}
 	unsent := map[int]bool{}
+	lv := r.levelsOf(u.uid)
 	for _, ui := range levels {
-		l, found := r.levelsOf(u.uid).byUI[ui]
+		l, found := lv.byUI[ui]
 		if !found {
 			unsent[ui] = true
 			continue
 		}
-		msg := swp08.ExtProtectDisconnect(r.cfg.Matrix, l.Wire, dst, devOf(ui))
+		msg := swp08.ExtProtectDisconnect(lv.rc.Matrix, l.Wire, dst, devOf(ui))
 		if set {
-			msg = swp08.ExtProtectConnect(r.cfg.Matrix, l.Wire, dst, devOf(ui))
+			msg = swp08.ExtProtectConnect(lv.rc.Matrix, l.Wire, dst, devOf(ui))
 		}
 		w := why
 		w.Done = make(chan struct{})
@@ -339,7 +340,7 @@ func (a *App) protectManyIn(c *client, reqs []protectDst, set bool, approver *co
 		want = "clear"
 	}
 	for i, q := range reqs {
-		u, ok := a.unit(q.Router)
+		u, ok := a.unitOfRouter(r.cfg, q.Router)
 		if !ok {
 			outs[i].Err = refusal(404, "not_found", "no such router")
 			continue

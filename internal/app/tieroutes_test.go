@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -182,6 +183,29 @@ func TestAPITakeAcrossRoutersHidden(t *testing.T) {
 }
 
 // Rights cover the typed ends before Sode lists any path.
+// The typed levels of a route across routers are levels of the destination's router, as for a route on one router.
+// On B, with one level, levels 1-17 are level 1, which the Rights allow.
+func TestAPITakeAcrossRoutersTypedLevels(t *testing.T) {
+	a, _, _, key := tieApp(t, func(c *config.Config) {
+		c.APIClients[0].Rights = config.Rights{Levels: config.RouterLevels{"b2b2b2b2": {1}}}
+	})
+	all := `[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]`
+	body := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":%s}]}`, a.r().cfg.UID, all)
+	if rec := apiPost(a, "/api/v1/takes", key, body, nil); rec.Code != http.StatusConflict || apiErrCode(t, rec) != "tie_line_needed" {
+		t.Fatalf("levels 1-17 to B: %d %s", rec.Code, rec.Body.String())
+	}
+	// A Rights limit on B names B's level, in B's numbering.
+	a, _, _, key = tieApp(t, func(c *config.Config) {
+		c.MoreRouters[0].Levels, c.MoreRouters[0].LevelNumbering = 3, "0"
+		c.APIClients[0].Rights = config.Rights{Levels: config.RouterLevels{"b2b2b2b2": {1}}}
+	})
+	body = fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1,2]}]}`, a.r().cfg.UID)
+	rec := apiPost(a, "/api/v1/takes", key, body, nil)
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "level 1 is outside") {
+		t.Fatalf("level 2 of B: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAPITakeAcrossRoutersOutsideRights(t *testing.T) {
 	a, _, _, key := tieApp(t, func(c *config.Config) {
 		c.APIClients[0].Rights = config.Rights{Dsts: nums(3)}

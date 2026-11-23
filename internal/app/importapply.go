@@ -163,6 +163,10 @@ func (a *App) serveImportApply(w http.ResponseWriter, r *http.Request) {
 	defer a.cfgMu.Unlock()
 	live := a.r().cfg
 	p := planImport(live, a.liveNameSet(), a.importLive(), b, req, act.User, secureRequest(r, a.r().proxies))
+	if p.clash != nil {
+		apiFail(w, http.StatusBadRequest, "bad_request", p.clash.Error())
+		return
+	}
 	if p.noAdmin {
 		apiFail(w, http.StatusConflict, "refused", errNoAdministrator.Error())
 		return

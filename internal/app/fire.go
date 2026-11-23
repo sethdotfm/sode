@@ -74,8 +74,9 @@ func markStages(r *runtime, items []routeReq) int {
 		it := &items[i]
 		it.Stage = nil
 		for _, ui := range it.Levels {
-			l, ok := r.levelsOf(it.Router).byUI[ui]
-			if !ok || !swp08.ExtSalvoFits(r.cfg.Matrix, l.Wire, it.Dst, it.Src) || uses[dl{it.Dst, l.Wire}] != 1 {
+			lv := r.levelsOf(it.Router)
+			l, ok := lv.byUI[ui]
+			if !ok || !swp08.ExtSalvoFits(lv.rc.Matrix, l.Wire, it.Dst, it.Src) || uses[dl{it.Dst, l.Wire}] != 1 {
 				continue
 			}
 			if it.Stage == nil {
@@ -267,7 +268,8 @@ func (a *App) fireLocked(r *runtime, u *routerUnit, staged []*routeRun) (sent bo
 	fs := &fireState{acks: make(chan swp08.SalvoAck, n+16)}
 	a.setFire(u, fs)
 	defer a.setFire(u, nil)
-	mx, g := r.cfg.Matrix, r.cfg.SalvoGroup
+	rc := r.routerOf(u.uid)
+	mx, g := rc.Matrix, rc.SalvoGroup
 	ext := staged[0].w.ext
 	why := staged[0].w.why
 
@@ -382,8 +384,8 @@ func (a *App) clearSalvo(u *routerUnit, ext *extTracker, fs *fireState, g int, w
 
 // clearStaleSalvo: staged crosspoints outlive a dropped link of router u. Native mode only.
 func (a *App) clearStaleSalvo(u *routerUnit) {
-	r := a.r()
-	if r.cfg.FireMode != "native" {
+	rc := a.r().routerOf(u.uid)
+	if rc.FireMode != "native" {
 		return
 	}
 	a.lockFire(u, "the salvo clear after a connect")
@@ -394,8 +396,8 @@ func (a *App) clearStaleSalvo(u *routerUnit) {
 	ext := u.ext
 	a.mu.Unlock()
 	defer a.setFire(u, nil)
-	if err := a.clearSalvo(u, ext, fs, r.cfg.SalvoGroup, swp08.Why{Reason: swp08.ReasonResync}); err != nil {
-		log.Printf("salvo: clearing group %d on connect: %v", r.cfg.SalvoGroup, err)
+	if err := a.clearSalvo(u, ext, fs, rc.SalvoGroup, swp08.Why{Reason: swp08.ReasonResync}); err != nil {
+		log.Printf("salvo: clearing group %d on connect: %v", rc.SalvoGroup, err)
 	}
 }
 

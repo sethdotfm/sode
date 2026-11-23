@@ -17,7 +17,7 @@ import (
 //   - putBack: the chain differs only because a hop of this take switched a tie line that still carries what the
 //     take set. The page's Undo confirm offers to put those tie lines back, with their Affected destinations.
 //   - changed: any other difference. Undo sends nothing, says what changed and offers the picker.
-// The page asks with the message tieUndo before its confirm opens. POST /history/{id}/undo and the panel Undo cell
+// The page asks with the message tieUndo before its confirm opens. Its take asks again (tieUndoesHold). POST /history/{id}/undo and the panel Undo cell
 // have no confirm that could offer a choice. So they refuse an Undo that is not same with 409 tie_line_changed.
 
 // tieUndoPut is one tie line that the Undo confirm offers to put back. It has the hop entry and its Affected
@@ -230,6 +230,27 @@ func (a *App) tieUndoProblem(rt *runtime, e Entry) *apiProblem {
 		return problem(http.StatusConflict, "tie_line_changed", "entry %d: %s. Sode sent nothing; take the route again with the tie lines that you choose", e.ID, c.Text)
 	}
 	return nil
+}
+
+// tieUndoesHold judges again, at send, each Undo of the destination of a tie take that a page sends. The page asked
+// tieUndo before its confirm opened, but a tie line can move while the confirm is open. A verdict of changed sends
+// nothing for that item and says why (docs/tielines-design.md, Undo rule 4). putBack still goes: the confirm offered
+// the put-back, which the person can leave off.
+func (a *App) tieUndoesHold(c *client, items []routeReq) []routeReq {
+	rt := a.r()
+	out := items[:0:0]
+	for _, it := range items {
+		if it.Undo != nil && !it.PutBack {
+			if e, ok := a.hist.Get(*it.Undo); ok && e.Origin != nil {
+				if v := a.tieUndoVerdict(rt, e); v.Verdict == "changed" {
+					a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: "not sent: " + v.Text})
+					continue
+				}
+			}
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 // serveTieUndo answers the page's tieUndo: the verdict on the Undo of each entry in m.Entries that this caller can

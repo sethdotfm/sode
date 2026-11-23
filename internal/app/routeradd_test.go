@@ -213,6 +213,40 @@ func TestDropRouterRemovesItsTieLines(t *testing.T) {
 	}
 }
 
+// Remove router drops the number and range terms of the hidden destinations when they are numbers of that router.
+// Name terms stay. If no term that hides remains, the text goes, so the hidden destinations never get wider.
+func TestDropRouterNarrowsHiddenDestinations(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"9", ""},
+		{"4, 9-12", ""},
+		{"9, !CAM", ""},
+		{"9, MON", "MON"},
+		{`9, "MON 2", !3`, `"MON 2"`},
+		{"/^MON/i, 9", "/^MON/i"},
+		{"MON, !3", "MON"},
+		{"'unclosed", ""},
+	} {
+		cfg := config.Defaults()
+		cfg.MoreRouters = []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1)}
+		cfg.Normalize()
+		b := cfg.MoreRouters[0].UID
+		cfg.HiddenDsts, cfg.HiddenDstsRouter = c.in, b
+		dropRouter(&cfg, b)
+		if cfg.HiddenDsts != c.want || cfg.HiddenDstsRouter != "" {
+			t.Errorf("%q: hidden %q on %q, want %q", c.in, cfg.HiddenDsts, cfg.HiddenDstsRouter, c.want)
+		}
+	}
+	// The hidden destinations of another router stay as they are.
+	cfg := config.Defaults()
+	cfg.MoreRouters = []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1)}
+	cfg.Normalize()
+	cfg.HiddenDsts, cfg.HiddenDstsRouter = "9, !3", cfg.UID
+	dropRouter(&cfg, cfg.MoreRouters[0].UID)
+	if cfg.HiddenDsts != "9, !3" || cfg.HiddenDstsRouter != cfg.UID {
+		t.Errorf("first router's: %q on %q", cfg.HiddenDsts, cfg.HiddenDstsRouter)
+	}
+}
+
 // With two routers, a name read of one router keeps the marks of references on the other router. A reference on a
 // router that Sode does not have is Broken.
 func TestBrokenCheckKeepsOtherRouterMarks(t *testing.T) {

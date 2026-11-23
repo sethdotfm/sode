@@ -252,7 +252,7 @@ Rights checks compare the router and the number of each reference. A right for s
 11. A panel in Take mode shows the Affected destinations in its confirm. A panel in Instant mode sends on its Reserved tie line with no confirm.
 12. A choice of tie line for each button press is out of scope.
 13. The setting is `tieLines` on the panel (`mode` `off` or `reserved`, and the `reserved` ids), beside the layout and not in `settings`. Thus rule 7 holds by itself. Save a copy and an Inbox card drop it. An import drops each tie line that another panel Reserves (agent decision).
-14. A panel asks the plan of its Reserved tie lines as a take with no ties, which answers 409 `tie_line_needed`. It then sends the ties of that plan with what it showed. A Buttons panel has no confirm box, so in Take mode the first Take shows the Affected destinations and a second Take sends (agent decision).
+14. A panel asks the plan of its Reserved tie lines with `POST /takes/plan`, which answers 409 `tie_line_needed`. It takes nothing and writes no Communication Log row. It then sends the ties of that plan with what it showed. A Buttons panel has no confirm box, so in Take mode the first Take shows the Affected destinations and a second Take sends (agent decision).
 
 ## Presets
 
