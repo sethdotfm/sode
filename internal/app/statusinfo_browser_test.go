@@ -31,6 +31,14 @@ const statusInfoOpen = `!document.querySelector('#conn > .sode-statusinfo').hidd
 func TestChromeStatusInfoWithLogRights(t *testing.T) {
 	b, hover := statusInfoPage(t, config.Locks{})
 	b.waitFor("no native title", `!document.getElementById('conn').hasAttribute('title') && document.getElementById('conn').tabIndex === 0`)
+	b.waitFor("a Server and a Router icon, each with its state badge, spoken name and visible word", `(() => {
+		const st = [...document.querySelectorAll('#conn .sode__state')];
+		const use = (n, sel) => n.querySelector(sel)?.getAttribute('href');
+		return st.length === 2 && st.every((d) => d.dataset.state === 'ok' && d.getAttribute('role') === 'img' && use(d, '.sode__state-badge use') === '#pb-i-circle-check')
+			&& use(st[0], ':scope > svg use') === '#pb-i-server' && use(st[1], ':scope > svg use') === '#pb-i-server-nas'
+			&& st.map((d) => d.getAttribute('aria-label')).join('|') === 'Server connected|Router connected'
+			&& [...document.querySelectorAll('#conn .pb-status')].map((s) => s.textContent).join('|') === 'Server|Router';
+	})()`)
 	hover()
 	b.waitFor("details open", statusInfoOpen)
 	b.waitFor("Server run time from api/health", `/Server run time\s*\d+ (second|minute)/.test(document.querySelector('.sode-statusinfo').innerText)`)

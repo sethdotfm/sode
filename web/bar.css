@@ -64,13 +64,39 @@
 .sode-bar > .sode-inbox__slot {
   flex: none;
 }
-/* The Server and Router state glyph (core.js setDot) in place of patchbay's square: the glyph takes the status colour. */
+/* The Server and Router status (core.js setDot) in place of patchbay's square: the link's icon takes the status colour,
+   and the state's glyph sits on its lower end corner, ringed in the surface colour so the two stay apart. */
 .sode__state {
+  align-items: center;
   display: inline-flex;
+  position: relative;
 }
 .sode__state > .pb-icon {
-  height: var(--pb-icon-size-sm);
-  width: var(--pb-icon-size-sm);
+  height: var(--pb-icon-size);
+  width: var(--pb-icon-size);
+}
+.sode__state-badge {
+  background: var(--sode-state-ring, var(--pb-surface-base));
+  display: inline-flex;
+  left: calc(var(--pb-icon-size) - 0.5rem);
+  padding: 0.0625rem;
+  position: absolute;
+  top: calc(var(--pb-icon-size) - 0.5rem);
+}
+.sode__state-badge > .pb-icon {
+  height: 0.6875rem;
+  width: 0.6875rem;
+}
+/* The badge reaches past the icon's end: the count, or its empty room, keeps the word clear of it. */
+.sode__state-count {
+  font-family: var(--pb-font-num);
+  margin-inline-start: var(--pb-space-2);
+}
+.sode__state-count:empty {
+  margin-inline-start: var(--pb-space-1);
+}
+.sode__conn-routers {
+  display: contents;
 }
 .sode__state[data-state="ok"] {
   color: var(--pb-status-ok);
@@ -89,7 +115,7 @@
 }
 /* Connecting: the spinner turns. Patchbay keeps its own spinners under reduced motion; this one is still there. */
 @media (prefers-reduced-motion: no-preference) {
-  .sode__state[data-state="warn"] > .pb-icon {
+  .sode__state[data-state="warn"] > .sode__state-badge > .pb-icon {
     animation: pb-spin 1s linear infinite;
   }
 }
