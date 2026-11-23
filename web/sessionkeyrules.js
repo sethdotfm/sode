@@ -20,6 +20,11 @@ export const endedCode = (status, code) => status === 401 && (code === 'key_revo
 // The answers a session key is asked again for, one time, while still signed in. invalid_key is an older Sode's word.
 export const renewable = (status, code) => endedCode(status, code) || (status === 401 && code === 'invalid_key');
 
+// A read that the page can stop and send again with the next key. The page drops its key at the Lock or a sign-out.
+// Then such a read still on the way stops, so Sode never sees it under a locked session. A write is never stopped:
+// the server can have done it already, so only its own answer can say what happened.
+export const resendable = (init = {}) => ['GET', 'HEAD'].includes((init.method || 'GET').toUpperCase());
+
 // Retry-After in seconds as ms; 0 for none.
 export function retryAfterMs(v) {
   const s = Number(v);
