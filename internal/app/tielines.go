@@ -107,6 +107,8 @@ type apiTieLine struct {
 	// after that time, or found the change at a re-read, so it is possible that the tie line changed again.
 	Changed *time.Time `json:"changed"`
 	Before  bool       `json:"before"`
+	// Reserve is the panel that Reserves the tie line (panelties.go), if one does.
+	Reserve *panelRef `json:"reserve,omitempty"`
 }
 
 // The router names of the two ends stay out. A caller with hidden visibility gets null for an end that it cannot see.
@@ -117,8 +119,12 @@ func (a *App) apiTieLines(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	rt := a.r()
 	v := a.view(cl)
 	stamps := a.tieChanges.snapshot(rt.cfg.TieLines)
+	reserves := a.tieReserves()
 	for _, t := range rt.cfg.TieLines {
 		l := apiTieLine{ID: t.ID, Name: t.Name}
+		if p, ok := reserves[t.ID]; ok {
+			l.Reserve = &p
+		}
 		from := v.on(t.From.Router).Destination(t.From.N)
 		if from {
 			l.From = &apiTieEnd{t.From.Router, t.From.N}

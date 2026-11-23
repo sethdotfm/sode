@@ -340,6 +340,11 @@ func (a *App) writeCardPanels(by Actor, p *cardPlanner, card string) map[string]
 		return fp, err
 	}
 	for _, pp := range p.panels {
+		// A card is a copy: the tie line setting is the recipient's own (panelties.go).
+		pp.P.TieLines = nil
+		if pp.Live != nil {
+			pp.P.TieLines = pp.Live.TieLines
+		}
 		_, err := a.storePanel(pp, create, func(x PanelArt) ([]byte, bool) { return a.inbox.artData(card, pp.FileID, x.ID) })
 		if err != nil {
 			failed[pp.FileID] = err.Error()

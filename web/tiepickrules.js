@@ -15,10 +15,11 @@
 // tieOf is the tie line id that hop h of path p feeds, or '' for the last hop.
 const tieOf = (p, h) => p.hops[h]?.tie?.id || '';
 
-// A hop that would change a Protected or Reserved tie line is grey: a person cannot choose it.
-export const hopHeld = (h) => !!(h.sends && (h.protect || h.reserve));
+// A hop that would change a Protected tie line is grey: a person cannot choose it. A tie line Reserved by a panel is
+// not Protected: a person can choose it, and confirms one more time (reserveAsk).
+export const hopHeld = (h) => !!(h.sends && h.protect);
 // A gone path is the chosen path after a new plan left it out (refresh): the picker shows it, but cannot send it.
-export const pathUsable = (p) => !!p && !p.gone && !p.protected && !p.reserved && !p.hops.some(hopHeld);
+export const pathUsable = (p) => !!p && !p.gone && !p.protected && !p.hops.some(hopHeld);
 
 // The number of steps of path p: one for each tie line.
 export const stepsOf = (p) => (p ? p.hops.length - 1 : 0);
@@ -228,6 +229,24 @@ export function heldText(h, clock) {
 
 // ready: the chosen path can go.
 export const ready = (st) => pathUsable(chosen(st));
+
+// reservedHops: the hops of the chosen path that change a tie line Reserved by a panel (docs/tielines-design.md,
+// Panels, rule 8).
+export const reservedHops = (st) => (chosen(st)?.hops || []).filter((h) => h.sends && h.reserve);
+
+// reserveAsk: Take asks one more time before it sends. The chosen path changes a Reserved tie line, and the person
+// has not confirmed this path yet. reserveOk holds the key of the path that the person confirmed.
+export const reserveAsk = (st) => reservedHops(st).length > 0 && st.reserveOk !== pathKey(chosen(st));
+
+// confirmReserve notes that the person confirmed the Reserved tie lines of the chosen path.
+export const confirmReserve = (st) => ({ ...st, reserveOk: pathKey(chosen(st)) });
+
+// reserveText is the question of the extra confirm.
+export function reserveText(st) {
+  const hs = reservedHops(st);
+  const each = hs.map((h) => `${h.tie?.name || h.tie?.id} is Reserved by panel ${h.reserve}`).join('. ');
+  return `${each}. The panel can change it at any time. Press Take again to use ${hs.length === 1 ? 'it' : 'them'}.`;
+}
 
 const ref = (e) => ({ router: e.router, n: e.n });
 

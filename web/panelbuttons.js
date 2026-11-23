@@ -30,6 +30,10 @@ import { withDefault, defaultsBy } from './panellook.js';
 import { pagesOf } from './panelpages.js';
 import { NAV_KINDS, landingPage, pageIndex, wrapOf } from './panelnav.js';
 import { savedPage, keepPage } from './pagekeep.js';
+import { tiesOn, crossing, affectedLines } from './paneltierules.js';
+
+// The status of a take across routers that waits for its second Take.
+const tieAskText = (plan) => `${affectedLines(plan).join('. ')}. Press Take again to send.`;
 
 const UNDO_MOVED = 'Undo target changed. Press again.';
 
@@ -69,13 +73,17 @@ export function buttonsBody(ctx, first) {
   // The take this instance's Undo cell would undo (GET /panels/<id>/undo), asked for only while a Page has the cell.
   let undoNext;
   let undoCells = hasUndo(panel);
+  // A take across routers that waits for its second Take (askTies): the staged routes it was asked for, and its plan.
+  let tieAsk = null; // { key, plan }
+  const tieKey = (s) => JSON.stringify(s.staged);
 
   const render = () => {
     const now = Date.now();
     paintGrid(grid, { st, env, names, now, panelName: panel.name, instance: ctx.instance(), pages: pagesOf(panel), wrap: wrapOf(panel), undo: undoNext });
     const err = errorOf(st, now);
     const undone = err ? null : undoneOf(st, now);
-    showNote(ui.status, err ? errorText(err, names) : undoneText(undone, names));
+    const ask = !err && !st.busy && tieAsk?.key === tieKey(st) ? tieAskText(tieAsk.plan) : '';
+    showNote(ui.status, err ? errorText(err, names) : ask || undoneText(undone, names));
     ui.status.classList.toggle('sode-panel__status--ok', !!undone && !undone.failed.length);
   };
   const build = () => buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
@@ -107,9 +115,30 @@ export function buttonsBody(ctx, first) {
       ? { path: `api/v1/panels/${id}/undo`, body: { id: started.undoId }, finish: finishUndo, word: 'undo', onConflict: UNDO_MOVED }
       : { path: 'api/v1/takes', body: { routes: started.routes }, finish: finishTake, word: 'take' };
 
+  // A take across routers in Take mode: the first Take asks the plan of the Reserved tie lines (paneltierules.js). The
+  // status shows what they also change. A second Take with the same routes sends that plan. Instant mode sends with no
+  // confirm. tieAsk is declared before the first render.
+  async function askTies(started) {
+    const key = tieKey(st);
+    let tiePlan;
+    try {
+      tiePlan = await ctx.tiePlan(started.routes);
+    } catch (e) {
+      st = failTake(st, e.code || String(e.status), e.status === undefined ? 'Sode did not answer' : e.message || 'Sode refused the take', Date.now());
+      return render();
+    }
+    if (tieKey(st) === key && !st.busy) tieAsk = { key, plan: tiePlan };
+    render();
+  }
+
   async function send(started) {
     if (!started) return;
     const { path, body, finish, word, onConflict } = takeOpts(started);
+    if (word === 'take' && st.mode === 'take' && crossing(body.routes)) {
+      if (tieAsk?.key !== tieKey(st)) return void askTies(started);
+      body.plan = tieAsk.plan;
+    }
+    tieAsk = null;
     st = started.state;
     render();
     try {
@@ -194,7 +223,7 @@ export function buttonsBody(ctx, first) {
         presets = pr;
       }
       const was = env;
-      const from = [tally, prot, presets, panel.rights];
+      const from = [tally, prot, presets, panel.rights, tiesOn(panel)];
       if (from.some((x, i) => x !== envOf[i])) env = envFrom(...from);
       envOf = from;
       st = applyTally(st, env);

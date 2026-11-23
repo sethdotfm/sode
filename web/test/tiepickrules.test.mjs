@@ -25,6 +25,9 @@ import {
   protectable,
   protectOn,
   heldText,
+  reserveAsk,
+  confirmReserve,
+  reserveText,
   withOneOffs,
   oneOffEnds,
   addOneOff,
@@ -72,7 +75,8 @@ test('the picker opens on the best usable path', () => {
   for (const c of plans) {
     if (!c.want.paths.length) continue;
     const st = pickState(apiRoute(c));
-    const first = c.want.paths.findIndex((p) => !p.protected && !p.reserved);
+    // A Reserved path is usable: the person confirms one more time (reserveAsk).
+    const first = c.want.paths.findIndex((p) => !p.protected);
     assert.equal(st.path, Math.max(first, 0), c.name);
     assert.equal(st.step, 0, c.name);
   }
@@ -356,6 +360,26 @@ test('after tie_line_changed the picker keeps the Protects that the person asked
   const route = apiRoute(byName('line: one tie line'));
   assert.deepEqual(reopenState(route, ['t1'], [], [], ['t1']).protect, ['t1']);
   assert.deepEqual(reopenState(route, ['t1']).protect, []);
+});
+
+test('a tie line Reserved by a panel is not grey, and Take asks one more time', () => {
+  const route = apiRoute(byName('Reserve: t1'));
+  route.paths[1].hops[0].reserve = 'Lobby';
+  const st = pickState(route);
+  assert.deepEqual(ties(st), ['t2']);
+  assert.ok(!reserveAsk(st), 'a path with no Reserve asks nothing more');
+  const c = choices(st, 0).find((x) => x.tie === 't1');
+  assert.ok(c && !c.held, 'the Reserved choice is not held');
+  const on = keys(st, 'j');
+  assert.deepEqual(ties(on), ['t1'], 'J moves onto the Reserved tie line');
+  assert.ok(ready(on));
+  assert.ok(reserveAsk(on));
+  assert.equal(reserveText(on), 'T1 is Reserved by panel Lobby. The panel can change it at any time. Press Take again to use it.');
+  const ok = confirmReserve(on);
+  assert.ok(!reserveAsk(ok));
+  // Another path asks again.
+  assert.ok(!reserveAsk(keys(ok, 'k')));
+  assert.ok(reserveAsk({ ...keys(ok, 'k', 'j'), reserveOk: 't2' }));
 });
 
 // The One-off tie line case of the fixture: a path through t1 and a path through the One-off tie line "oneoff". The

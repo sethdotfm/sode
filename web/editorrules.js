@@ -6,6 +6,7 @@ import { chord, modChord, keyLabel } from './keys.js';
 import { nameMismatch } from './panellook.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { edgesOut } from './gridedgerefs.js';
+import { tiesKey } from './paneltierules.js';
 
 // The Cell tab's lines about Default artwork. d is the item's default or null, and own is whether the cell sets
 // artwork of its own. routerName is the router's name for the cell's number now ('' when not known).
@@ -69,7 +70,7 @@ export const newPanel = (type) =>
       };
 
 // The editor's own fields of a panel, beside the grid. type is sent only for a new panel; the server keeps a stored one.
-const OWN_FIELDS = ['settings', 'acts', 'slug', 'clientRights', 'type', 'sources', 'destinations'];
+const OWN_FIELDS = ['settings', 'acts', 'slug', 'clientRights', 'type', 'sources', 'destinations', 'tieLines'];
 
 // One form for an edge, so an edit that left an empty items or hide reads as no change.
 const edgeKey = (e) => {
@@ -135,7 +136,15 @@ const layoutShape = (g, f, pages) =>
         ]),
       ];
 const shape = (name, g, f, pages) =>
-  JSON.stringify([name.trim(), layoutShape(g, f, pages), sorted(f.settings || {}), f.acts || 'session', f.slug || '', f.clientRights ?? null]);
+  JSON.stringify([
+    name.trim(),
+    layoutShape(g, f, pages),
+    sorted(f.settings || {}),
+    f.acts || 'session',
+    f.slug || '',
+    f.clientRights ?? null,
+    tiesKey(f.tieLines),
+  ]);
 
 // A field not edited counts as what was loaded. clientRights has no loaded side here: any edit is a change.
 export function isDirty(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {

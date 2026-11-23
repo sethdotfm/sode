@@ -259,8 +259,13 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		if prob := a.tieRouteRights(rt, cl.Rights, all); prob != nil {
 			return nil, prob
 		}
+		// A panel's tie line setting comes after the Use tie lines right (docs/tielines-design.md, Panels).
+		pt, prob := a.panelTieRule(rt, cl, all)
+		if prob != nil {
+			return nil, prob
+		}
 		if bare {
-			return nil, a.apiTieProblem(rt, a.view(cl), all)
+			return nil, a.apiTieProblemFor(rt, a.view(cl), all, pt)
 		}
 		if prob := tieProtectAllowed(cl, protect); prob != nil {
 			return nil, prob
