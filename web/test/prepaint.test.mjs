@@ -5,17 +5,18 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 import { PREFS, resolve, cachedProfile } from '../prefs.js';
+import { accentFor, accentTokens, ACCENT_TOKENS } from '../accent.js';
 
 const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'prepaint.js'), 'utf8');
 
 // The page's dataset: theme (not set for system), layout, flip and compact (present when on).
-function run({ own = {}, profile, global, session, tab, phoneMedia = false, only }) {
+function run({ own = {}, profile, global, session, tab, phoneMedia = false, only, style = {} }) {
   const store = new Map(Object.entries({ 'sode-format': '2', ...own }));
   if (profile !== undefined) store.set('sode-profile-prefs', JSON.stringify(profile));
   if (global !== undefined) store.set('sode-browser-defaults', JSON.stringify(global));
   if (session) store.set('sode-session', 'tok');
   const dataset = {};
-  const document = { documentElement: { dataset }, currentScript: { dataset: only ? { only } : {} } };
+  const document = { documentElement: { dataset, style: { setProperty: (k, v) => (style[k] = v) } }, currentScript: { dataset: only ? { only } : {} } };
   const localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null) };
   const sessionStorage = { getItem: (k) => (k === 'sode-tab-session' && tab ? 'tok' : null) };
   vm.runInNewContext(src, { document, localStorage, sessionStorage, matchMedia: () => ({ matches: phoneMedia }) });
@@ -73,4 +74,24 @@ test('prepaint ignores a cached profile with no user or no prefs object', () => 
 test('prepaint with data-only=theme sets only the theme', () => {
   const ds = run({ global: { theme: 'dark', layout: 'phone', flip: true }, only: 'theme' });
   assert.deepEqual({ ...ds }, { theme: 'dark' });
+});
+
+test('prepaint sets the accent tokens brand.js keeps, on every page', () => {
+  const tokens = accentTokens(accentFor('#5fb2e8'));
+  for (const only of [undefined, 'theme']) {
+    const style = {};
+    run({ own: { 'sode-accent': JSON.stringify(tokens) }, only, style });
+    assert.deepEqual(style, tokens);
+  }
+  assert.deepEqual(Object.keys(tokens), ACCENT_TOKENS);
+  assert.ok(src.includes(ACCENT_TOKENS.map((k) => `'${k}'`).join(', ')), 'prepaint.js lists ACCENT_TOKENS');
+});
+
+test('prepaint sets no accent with no key or a bad one', () => {
+  const bad = [undefined, 'junk', '{}', JSON.stringify({ '--pb-accent': 'red;x' }), JSON.stringify({ '--pb-bg': 'light-dark(#000000, #ffffff)' })];
+  for (const v of bad) {
+    const style = {};
+    run({ own: v === undefined ? {} : { 'sode-accent': v }, style });
+    assert.deepEqual(style, {}, v);
+  }
 });

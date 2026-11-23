@@ -7,6 +7,7 @@ import { fmtTime } from './device.js';
 import { parseLevelsAs } from './levels.js';
 import { resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
+import { brandCaution, pickerColors, CAUTION_NOTE } from './accent.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { intProblem, namesTimeText } from './settingsrules.js';
 import { rereadNames } from './rereadnames.js';
@@ -37,11 +38,12 @@ function renderBrandPreview() {
   $('cfg-brandcustom-wrap').hidden = $('cfg-brandborder').value !== 'custom';
   setBrand($('brand-swatch'), c);
   $('brand-icon').src = iconURL(180, c);
+  $('brand-caution').hidden = !brandCaution(c, S.brandColors);
 }
 function fillBrandColors(v) {
   const sel = $('cfg-brandborder');
   const opt = (value, text) => Object.assign(el('option', null, text), { value });
-  sel.replaceChildren(opt('', 'Off'), ...S.brandColors.map((c) => opt(c.name, c.label)), opt('custom', 'Custom…'));
+  sel.replaceChildren(opt('', 'Off'), ...pickerColors(S.brandColors, v).map((c) => opt(c.name, c.label)), opt('custom', 'Custom…'));
   const custom = (v || '').startsWith('#');
   sel.value = custom ? 'custom' : v || '';
   if (custom) $('cfg-brandcustom').value = v;
@@ -57,6 +59,7 @@ $('cfg-brandborder').addEventListener('change', () => {
 // select's change handler opens it at the select instead.
 $('cfg-brandcustom-wrap').append(icon('paintbrush', false));
 $('cfg-brandcustom').addEventListener('input', renderBrandPreview);
+$('brand-caution').append(icon('triangle-alert'), el('span', null, CAUTION_NOTE));
 
 export function fillForm() {
   for (const f of fields()) {

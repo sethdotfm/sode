@@ -21,8 +21,8 @@ Colors are of two kinds. **Identity** colors say what a thing is. They can alway
 | Destination | `--pb-dest` (khaki) | Destination ends, patch boxes and chips, the plan items in a Confirm | The word Destination, the box label, the "to" side of a route |
 | Level | `--pb-signal-*`, or the level's own color (`levelStyle` in `web/levels.js`) | Only inside a level chip that shows the level's label. Never as a state, a fill or an outline anywhere else | The level's label in the chip |
 | Tie line | `--pb-tieline` (fern) | Tie lines only: the wires in the Tie line picker and the Via marks | The word Via, the tie line's name |
-| Page border | `--brand-color` from Branding (`[data-brand]` in `web/base.css`) | The border round the page: which server this is | The site name in the title bar |
-| Stepped in | `--pb-signal-10` (`.sode__stepframe`, `.sode__stepbar`) | The border and bar while a user is stepped in. No Branding color uses this hue | "Bo stepped in" with Step out in the bar |
+| Page border | `--brand-color` from Branding (`[data-brand]` in `web/base.css`) | The border round the page: which server this is. Sode makes the accent from it (see Accent) | The site name in the title bar |
+| Stepped in | `--pb-signal-10` (`.sode__stepframe`, `.sode__stepbar`) | The border and bar while a user is stepped in. No offered Branding color uses this hue | "Bo stepped in" with Step out in the bar |
 
 The Communication Log (`/log`) and later monitoring pages show no identity fills, only state colors. A level chip with its label is the one exception.
 
@@ -49,6 +49,34 @@ Healthy states are neutral:
 Info is neutral: info badges and notes are a plain `pb-badge` or text, with the badge's square. Blue has no state job.
 
 A Tie line picker shows a Protected or a Reserved tie line in grey (`--pb-text-disabled`). Its words say who set it and when, or which panel reserves it. A person cannot pick it.
+
+## Accent
+
+With a page border color, the accent (`--pb-accent`, `--pb-accent-hover`, `--pb-accent-wash`, and the `--pb-accent-*` tokens that patchbay mixes from `--pb-accent`) is that color. This shows which server this is on every page that shows the brand: the main page, /log, /panels and the panel pages. With no page border color, the accent is patchbay's periwinkle.
+
+The rule is in `web/accent.js` (tests in `web/test/accent.test.mjs`):
+
+- Sode keeps the OKLCH hue and chroma of the border color, and moves only its lightness, for each theme. It moves it only as far as necessary for two checks. Accent text has at least 4.5:1 on every surface of that theme (`--pb-surface-*`). `--pb-text-on-accent` has at least 4.5:1 on an accent fill. Light makes it darker, dark makes it lighter. The sRGB gamut can lower the chroma.
+- The hover color is 0.07 darker (light) or lighter (dark), with the same check.
+- The page border itself keeps its own color. Only the accent changes.
+- The Step in frame and the red lost-link outline do not change.
+- `brand.js` sets the tokens on the root when the hello comes, and keeps them in the `localStorage` key `sode-accent`. `prepaint.js` sets them from that key before the first paint, so a reload shows no periwinkle first. No border color removes the key.
+
+### Reserved hues
+
+These OKLCH hues are measured from patchbay 2.2.1 in both themes:
+
+| State | Hue |
+|---|---|
+| Failure (red) | 24 to 26 |
+| Caution (amber, Take) | 59 to 81 |
+| Tie line (`--pb-tieline`) | 127 to 129 |
+| Routed (green) | 155 to 159 |
+| Protected (magenta) | 347 to 350 |
+
+A hue in a range or 30 degrees from it is in the reserved zone. An accent there can look like a state, or a selected tie line can look like any other tie line. The free band is about 189 to 317. Step in (`--pb-signal-10`, about 320) is in protected's zone. A grey (OKLCH chroma below 0.02) has no hue and is never in the zone.
+
+Branding offers Blue, Teal, Sky (hue about 215), Slate (hue about 263, low chroma) and Violet, all in the free band, and Custom. Green, amber and pink are retired (`Retired` in `config.BrandColors`): a config with one still loads and draws. Sode never refuses a custom color. For a color in the reserved zone, Settings and the setup wizard show an amber caution note with an icon under the picker. The accent still uses the color.
 
 ### Buttons
 
