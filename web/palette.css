@@ -17,6 +17,22 @@
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-2);
+  position: relative;
+}
+/* A row's ⋯ menu (palettemenu.js), placed under its button. */
+.sode-palette__menu {
+  list-style: none;
+  position: absolute;
+}
+.sode-palette__menu[hidden] {
+  display: none;
+}
+/* Pinned rows move by a drag (and Alt+arrows). */
+.sode-palette__row[data-pin] {
+  cursor: grab;
+}
+.sode-palette__row.is-dragging {
+  opacity: 0.4;
 }
 .sode-palette__where {
   color: var(--pb-text-muted);
@@ -40,7 +56,7 @@
   min-height: var(--pb-control-h);
   padding: var(--pb-space-1) var(--pb-space-2);
 }
-/* On the desktop the right-hand parts sit in fixed columns: icon, name, where it is, status, Bookmark. */
+/* On the desktop the right-hand parts sit in fixed columns: icon, name, where it is, status, the ⋯ menu. */
 :root:not([data-pb-layout="phone"]) .sode-palette__row {
   display: grid;
   grid-template-columns: 1.25rem minmax(0, 1fr) minmax(0, 18rem) 8.5rem var(--pb-control-h-sm);

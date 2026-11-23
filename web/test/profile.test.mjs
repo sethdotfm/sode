@@ -16,7 +16,7 @@ test('toProfile: a clear or junk is the empty profile', () => {
 
 test('toProfile: missing parts become empty ones', () => {
   const p = toProfile({ name: 'Ana', prefs: { theme: 'dark' } });
-  assert.deepEqual(p, { name: 'Ana', prefs: { theme: 'dark' }, filterSets: [], presets: [], bookmarks: [], palettePicks: [] });
+  assert.deepEqual(p, { name: 'Ana', prefs: { theme: 'dark' }, filterSets: [], presets: [], bookmarks: [], palettePicks: [], palettePins: [] });
 });
 
 test('editTarget: one shape for both editors, entry found ignoring case', () => {

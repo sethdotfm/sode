@@ -47,6 +47,9 @@ func TestExportFormat1Fixture(t *testing.T) {
 	if len(b.Users) != 2 || b.Users[0].Extra != nil || b.Users[0].Pin == "" || b.Users[0].Role != config.RoleAdministrator {
 		t.Errorf("users: %+v", b.Users)
 	}
+	if pins := b.Users[0].Profile.PalettePins; !slices.Equal(pins, []string{"page:log", "preset:user:pr-me1"}) {
+		t.Errorf("Me pins: %q", pins)
+	}
 	me := b.Users[0].Profile.Presets[0].Items[0]
 	if me.Src.Router != uid || me.Src.N != 1 || me.Dsts[0].Router != uid {
 		t.Errorf("Me preset: %+v", me)
@@ -82,8 +85,11 @@ func TestExportFormat1Fixture(t *testing.T) {
 	if n := b.Names[uid]; len(n.Sources) != 2 || n.Destinations[0].Name != "MON 1" {
 		t.Errorf("names: %+v", n)
 	}
-	if bm := b.Bookmarks; len(bm) != 2 || bm[0].Key != "preset:global:pr-0001" || !bm[0].InPalette || bm[1].URL != "https://example.com/run" || !bm[1].NewTab {
+	if bm := b.Bookmarks; len(bm) != 2 || bm[0].Key != "preset:global:pr-0001" || bm[1].URL != "https://example.com/run" || !bm[1].NewTab {
 		t.Errorf("bookmarks: %+v", bm)
+	}
+	if pins, _ := b.Browser["palettePins"].([]any); len(pins) != 2 || pins[0] != "page:log" {
+		t.Errorf("browser pins: %v", b.Browser["palettePins"])
 	}
 	if bl, _ := b.Browser["bookmarks"].([]any); b.Browser["theme"] != "light" || len(bl) != 1 {
 		t.Errorf("browser: %v", b.Browser)

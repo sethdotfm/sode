@@ -4,6 +4,7 @@ import { oneEdit, wordsMatch, searchWordHit, moreMatch, SEARCH_WORDS } from '../
 import { rankRows, countsAsUse, dropPick, dropUse, addUse, paletteView } from '../paletterules.js';
 import { catalogue, rowByKey } from '../palettecatalogue.js';
 import { hiddenCounts, hiddenLine, numberHint, footKeys, shiftEnterDoes } from '../palettehints.js';
+import { keyLabel } from '../keys.js';
 
 const users = [
   { name: 'Ana', len: 4 },
@@ -121,8 +122,8 @@ test('hidden matches: a signed-in user is told the Rights or Role, with Step in 
   assert.deepEqual(c, { settings: 1 });
   assert.deepEqual(hiddenLine(c, { signedIn: true }), { act: '', label: '1 setting is outside your Rights or Role.' });
   assert.equal(hiddenLine(c, { signedIn: true, canStepIn: true }).act, 'stepIn');
-  const marks = [rowByKey(rows, 'setting:router-matrix/cfg-router')];
-  assert.deepEqual(hiddenCounts(rows, 'router address', { marks }), {}, 'a bookmark shows, so it is not hidden');
+  const pins = [rowByKey(rows, 'setting:router-matrix/cfg-router')];
+  assert.deepEqual(hiddenCounts(rows, 'router address', { pins }), {}, 'a Palette pin shows, so it is not hidden');
 });
 
 test('number hint: digits only', () => {
@@ -145,7 +146,20 @@ test('key hint: only the keys that apply to the row and the level', () => {
   assert.ok(keys({ type: 'cat', id: 'settings' }, { path: ['settings'] }).includes('Esc back'));
   assert.ok(keys({ type: 'hidden', act: 'signIn' }).includes('Enter sign in'));
   assert.ok(keys(preset).some((k) => k.endsWith(' bookmark')));
-  assert.ok(!keys(preset, { pick: true }).some((k) => k.endsWith(' bookmark')));
+  assert.ok(keys(preset).some((k) => k.endsWith(' pin')));
+  assert.ok(!keys(preset, { pick: true }).some((k) => k.endsWith(' bookmark') || k.endsWith(' pin')));
+  assert.ok(keys(preset, { pinned: true, bookmarked: true }).some((k) => k.endsWith(' unpin')));
+  assert.ok(keys(preset, { pinned: true, bookmarked: true }).some((k) => k.endsWith(' remove bookmark')));
+  const altMove = `${keyLabel('alt+up')}↓ move`;
+  assert.ok(!keys(preset).includes(altMove), 'only a row in the Pinned section moves');
+  assert.ok(keys({ ...preset, pinned: true }).includes(altMove));
+  assert.ok(!keys({ ...preset, pinned: true }, { query: 'st' }).includes(altMove));
+  // A grey pin can be unpinned; a Missing one has no Bookmark.
+  const gone = { type: 'row', pinned: true, row: { key: 'preset:global:gone', kind: 'missing', missing: true, access: { ok: false } } };
+  assert.deepEqual(
+    keys(gone, { pinned: true }).filter((k) => !k.startsWith('↑↓') && !k.startsWith('Esc')),
+    ['Enter why', `${keyLabel('alt+p')} unpin`, `${keyLabel('alt+up')}↓ move`],
+  );
 });
 
 test('uses: a clear or reset row is no use, and a first pick left at once goes', () => {

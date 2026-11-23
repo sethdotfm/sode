@@ -6,6 +6,7 @@ import { ownPref } from './device.js';
 import { localSets } from './filterstore.js';
 import { localPresets } from './presetstore.js';
 import { localBookmarks } from './bookmarkstore.js';
+import { localPins } from './pinstore.js';
 import { readStr, writeStr } from './store.js';
 import { backupBody, fileNameOf } from './exportrules.js';
 
@@ -14,12 +15,12 @@ const LAST_BACKUP = 'sode-last-backup'; // ISO time (docs/persisted-names.md)
 
 let token = null; // null: not asked yet; '' with no users
 
-// This browser: its own preferences as top-level keys, with its filter sets, presets and bookmarks (browser.yaml in
-// internal/app/testdata/export-v1).
+// This browser: its own preferences as top-level keys, with its filter sets, presets, bookmarks and Palette pins
+// (browser.yaml in internal/app/testdata/export-v1).
 export function browserValues() {
   const out = {};
   for (const n of Object.keys(PREFS)) if (ownPref(n)) out[n] = ownPref(n);
-  return { ...out, filterSets: localSets(), presets: localPresets(), bookmarks: localBookmarks() };
+  return { ...out, filterSets: localSets(), presets: localPresets(), bookmarks: localBookmarks(), palettePins: localPins() };
 }
 
 async function session() {

@@ -183,6 +183,7 @@ func TestOwnImportTouchesOnlyOwnProfile(t *testing.T) {
 		for i := range cfg.Users {
 			if cfg.Users[i].Name == "Ana" {
 				cfg.Users[i].Profile.Prefs = map[string]string{"theme": "light"}
+				cfg.Users[i].Profile.PalettePins = []string{"page:log"}
 				cfg.Users[i].Profile.FilterSets = append(cfg.Users[i].Profile.FilterSets, config.FilterSet{Name: "Mons", Dst: "MON", Sode: true})
 			}
 		}
@@ -194,6 +195,7 @@ func TestOwnImportTouchesOnlyOwnProfile(t *testing.T) {
 		for i := range cfg.Users {
 			if cfg.Users[i].Name == "Ana" {
 				cfg.Users[i].Profile.Prefs = map[string]string{"theme": "dark", "clock": "12", "flip": "on"}
+				cfg.Users[i].Profile.PalettePins = []string{"page:panels", "action:lock"}
 			}
 		}
 	})
@@ -221,6 +223,9 @@ func TestOwnImportTouchesOnlyOwnProfile(t *testing.T) {
 	ana := profileOf(t, a, "Ana")
 	if !maps.Equal(ana.Prefs, map[string]string{"theme": "light"}) {
 		t.Errorf("profile not overwritten whole: %v", ana.Prefs)
+	}
+	if !slices.Equal(ana.PalettePins, []string{"page:log"}) {
+		t.Errorf("Me pins do not go with the profile: %q", ana.PalettePins)
 	}
 	if len(ana.FilterSets) != 2 {
 		t.Errorf("filter sets: %+v", ana.FilterSets)

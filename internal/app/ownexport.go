@@ -39,6 +39,7 @@ func ownFileUser(u config.User, req exportReq) config.User {
 	out.Profile = config.Profile{}
 	if want(catProfile) {
 		out.Profile.Prefs, out.Profile.Bookmarks = maps.Clone(u.Profile.Prefs), config.CloneBookmarks(u.Profile.Bookmarks)
+		out.Profile.PalettePins = slices.Clone(u.Profile.PalettePins)
 	}
 	if want(catPresets) {
 		for _, p := range u.Profile.Presets {
@@ -130,7 +131,7 @@ func (a *App) serveOwnExportItems(w http.ResponseWriter, r *http.Request) {
 		c.Size += len(b)
 	}
 	prof := exportListCat{Name: catProfile}
-	add(&prof, catProfile, "Profile", config.Profile{Prefs: u.Profile.Prefs, Bookmarks: u.Profile.Bookmarks})
+	add(&prof, catProfile, "Profile", config.Profile{Prefs: u.Profile.Prefs, Bookmarks: u.Profile.Bookmarks, PalettePins: u.Profile.PalettePins})
 	presets := exportListCat{Name: catPresets}
 	for _, p := range u.Profile.Presets {
 		add(&presets, p.ID, p.Name, &exportPresets{Presets: []config.Preset{p}})
@@ -203,7 +204,7 @@ func (a *App) planOwn(id string, b *exportBundle, req importReq) (*cardPlanner, 
 	}
 	p.file, p.same, p.plan.SameInstall = true, same, same
 	var profile func(*config.Config, *importCat) error
-	if len(from.Profile.Prefs) > 0 || len(from.Profile.Bookmarks) > 0 {
+	if len(from.Profile.Prefs) > 0 || len(from.Profile.Bookmarks) > 0 || len(from.Profile.PalettePins) > 0 {
 		profile = p.planProfile(from.Profile)
 	}
 	p.run(profile)
@@ -218,10 +219,11 @@ func (p *cardPlanner) planProfile(from config.Profile) func(*config.Config, *imp
 		}
 		prof := p.profile(cand)
 		it := importItem{Key: catProfile, Name: "Profile", Note: noteReplacesProfile}
-		if maps.Equal(prof.Prefs, from.Prefs) && sameBookmarks(prof.Bookmarks, from.Bookmarks) {
+		if maps.Equal(prof.Prefs, from.Prefs) && sameBookmarks(prof.Bookmarks, from.Bookmarks) && slices.Equal(prof.PalettePins, from.PalettePins) {
 			it.Same = true
 		} else {
 			prof.Prefs, prof.Bookmarks = maps.Clone(from.Prefs), config.CloneBookmarks(from.Bookmarks)
+			prof.PalettePins = slices.Clone(from.PalettePins)
 		}
 		cat.Items = append(cat.Items, it)
 		return nil
@@ -288,7 +290,7 @@ func (a *App) serveOwnImportApply(w http.ResponseWriter, r *http.Request) {
 			}
 			to := &cur.Users[i].Profile
 			if writes(catProfile) {
-				to.Prefs, to.Bookmarks = next.Prefs, next.Bookmarks
+				to.Prefs, to.Bookmarks, to.PalettePins = next.Prefs, next.Bookmarks, next.PalettePins
 			}
 			if writes(catPresets) {
 				to.Presets = next.Presets
