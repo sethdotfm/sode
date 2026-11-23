@@ -125,3 +125,59 @@ func TestPageTieUndoAsks(t *testing.T) {
 		}
 	}
 }
+
+// pageUndo sends the page's Undo of entry dest (B.20 back to B.5) as a take message and gives its result.
+func pageUndo(t *testing.T, a *App, dest int) routeResult {
+	t.Helper()
+	e, _ := a.hist.Get(dest)
+	c := tiePageClient(a)
+	a.take(c, []routeReq{{ID: 7, Src: 5, Dst: 20, Levels: []int{1}, Undo: &dest, Router: e.Router}})
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case b := <-c.send:
+			var got routeResult
+			if json.Unmarshal(b, &got) == nil && got.T == "takeResult" && got.ID == 7 {
+				return got
+			}
+		case <-deadline:
+			t.Fatal("no takeResult")
+		}
+	}
+}
+
+// The page asked tieUndo before its confirm opened. Someone moved TIE 3 while the confirm was open. The Undo then
+// sends nothing and says what TIE 3 carries now (docs/tielines-design.md, Undo rule 4).
+func TestPageTieUndoChecksAgainAtSend(t *testing.T) {
+	a, fa, fb, _, dest, _ := undoTie(t, 20)
+	if c := tieVerdict(t, a, dest); c.Verdict != "putBack" {
+		t.Fatalf("verdict at the confirm %+v", c)
+	}
+	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+		fa.seed(10, 8, a.r().byUI[l].Wire)
+	}
+	log := connectLog(fa, fb)
+	before := a.hist.Len()
+	r := pageUndo(t, a, dest)
+	if r.OK || !strings.Contains(r.Err, "TIE 3 now carries CAM 9, not CAM 3") {
+		t.Fatalf("result %+v", r)
+	}
+	if got := log(); len(got) != 0 {
+		t.Errorf("connects %v", got)
+	}
+	if n := a.hist.Len(); n != before {
+		t.Errorf("%d entries written", n-before)
+	}
+}
+
+// With TIE 3 as the take left it, the page's Undo goes: the confirm left the put-back unticked.
+func TestPageTieUndoGoesWhenItHolds(t *testing.T) {
+	a, fa, fb, _, dest, _ := undoTie(t, 20)
+	log := connectLog(fa, fb)
+	if r := pageUndo(t, a, dest); r.Err != "" {
+		t.Fatalf("result %+v", r)
+	}
+	if got := log(); len(got) != 1 || got[0] != "B 5>20" {
+		t.Errorf("connects %v, want B 5>20", got)
+	}
+}

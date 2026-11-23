@@ -48,7 +48,7 @@ const bigTake = 6
 // take is the one entry point for every take from a page (browser plan, Undo, Redo, Retry, presets). Results go
 // to c.send. It returns the refusal when the rights of the caller do not cover every route; nothing ran then. A
 // Retry of a tie take runs as the API Retry does (pageTieRetry), and a put-back keeps only the levels that its hop
-// changed (putBackLevels).
+// changed (putBackLevels). The Undo of a tie take is judged again at send (tieUndoesHold).
 func (a *App) take(c *client, items []routeReq) (refused string) {
 	items, ties := a.tieRetries(items)
 	items = a.putBackLevels(c, items)
@@ -58,6 +58,7 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 		}
 		return msg
 	}
+	items = a.tieUndoesHold(c, items)
 	for _, it := range ties {
 		a.pageTieRetry(c, it)
 	}
