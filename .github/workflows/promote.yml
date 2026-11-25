@@ -69,7 +69,7 @@ jobs:
             echo "rc=${RC_TAG#v}"; echo "rel=$REL"; echo "minor=$MA.$MI"; echo "major=$MA"
             echo "latest=$LATEST"; echo "moveminor=$MINOR"; echo "movemajor=$MAJOR"; echo "sha=$SHA"
           } >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false # anything run on main can write the cache this job would read
