@@ -55,6 +55,7 @@ import {
   protectOn,
   toggleProtect,
   usedLast,
+  choiceLook,
 } from './tiepickrules.js';
 import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText, chainWords, feedingHop } from './tiepickrules.js';
 import { mayProtect } from './protects.js';
@@ -475,7 +476,8 @@ function stepNode(s, src) {
   const list = el('div', 'sode-tiepick__choices');
   list.setAttribute('role', 'listbox');
   list.setAttribute('aria-label', `Tie lines from router ${prefix(hop.router)} to router ${prefix(next.router)}`);
-  for (const c of choices(st, s)) list.append(choiceNode(s, c, c.tie === hop.tie.id, src));
+  const cs = choices(st, s);
+  for (const c of cs) list.append(choiceNode(s, c, c.tie === hop.tie.id, src, cs));
   const node = el(
     'div',
     'sode-tiepick__step',
@@ -520,8 +522,29 @@ function shieldNode(s, hop) {
   return b;
 }
 
-function choiceNode(s, c, on, src) {
+// LOOKS gives the class of each state of choiceLook. Each class is a literal, so the color checks see it
+// (web/test/colorroles.test.mjs).
+const LOOKS = {
+  held: 'sode-tiepick__choice--grey',
+  has: 'sode-tiepick__choice--has',
+  change: 'sode-tiepick__choice--change',
+  free: 'sode-tiepick__choice--free',
+};
+
+// lookNodes are the words of the state of a choice. "Has it" has a check, and "3 change" is a caution badge.
+// "Free" is text, and "Best" is a neutral badge.
+function lookNodes(look) {
+  const out = [];
+  if (look.state === 'has') out.push(el('span', 'sode-tiepick__has', icon('check'), look.text));
+  if (look.state === 'change') out.push(el('span', 'pb-badge pb-badge--warn sode-tiepick__changes', look.text));
+  if (look.state === 'free') out.push(el('span', 'sode-tiepick__free', look.text));
+  if (look.best) out.push(el('span', 'pb-badge sode-tiepick__best', 'Best'));
+  return out;
+}
+
+function choiceNode(s, c, on, src, cs) {
   const h = c.hop;
+  const look = choiceLook(cur.st, s, c, cs);
   const will = h.sends ? `Will carry ${src.label}` : 'Carries the source now';
   const held = heldText(h, fmtClock);
   const changed = el('span', 'sode-tiepick__ago', changedText(h, Date.now(), fmtClock));
@@ -533,7 +556,7 @@ function choiceNode(s, c, on, src) {
     'button',
     'sode-tiepick__choice',
     el('span', 'sode-tiepick__wire'),
-    el('span', 'sode-tiepick__tie', c.name),
+    el('span', 'sode-tiepick__tierow', el('span', 'sode-tiepick__tie', c.name), ...lookNodes(look)),
     el('span', 'sode-tiepick__now', `Now ${chainText(h.now)}`),
     el('span', 'sode-tiepick__will', will),
     changed,
@@ -549,6 +572,8 @@ function choiceNode(s, c, on, src) {
   b.setAttribute('aria-selected', on ? 'true' : 'false');
   b.classList.toggle('sode-tiepick__choice--on', on);
   b.classList.toggle('sode-tiepick__choice--held', c.held);
+  b.classList.add(LOOKS[look.state]);
+  b.classList.toggle('sode-tiepick__choice--best', look.best);
   // The selection is the focus of the list: a press keeps the focus on the dialog, so the keys stay with the picker.
   b.tabIndex = -1;
   b.addEventListener('pointerdown', (e) => e.preventDefault());

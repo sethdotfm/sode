@@ -41,6 +41,7 @@ import {
   fitQuestion,
   shownSteps,
   memberChanges,
+  choiceLook,
 } from '../tiepickrules.js';
 
 // The shared plan fixture (internal/tieplan, web/test/tieplan.test.mjs). The page reads the 409 body of POST /takes;
@@ -543,4 +544,47 @@ test('a change on the path of another destination of the question marks it', () 
   assert.deepEqual(memberChanges(was, now, [1], ['ab1']), [1]);
   assert.deepEqual(memberChanges(was, now, [1], ['ab2']), [], 'a change on another path is not the hop of the question');
   assert.deepEqual(memberChanges(was, [now[0]], [1], ['ab1']), [1], 'a route that the plan left out');
+});
+
+test('each choice has one state that a person reads at a glance, and the best choice is marked', () => {
+  // A route from A to B over five tie lines, in rank order. t1 carries the source already, and t2 changes two
+  // Affected destinations. t3 changes nothing, t4 is Reserved and t5 is Protected.
+  const path = (tie, hop, extra = {}) => ({
+    cost: 0,
+    affected: [],
+    others: 0,
+    unknown: [],
+    ...extra,
+    hops: [
+      { router: 'a', tie: { id: tie, name: tie }, sends: true, now: { nothing: true }, ...hop },
+      { router: 'b', sends: true },
+    ],
+  });
+  const route = {
+    route: 0,
+    src: end('a', 1),
+    dst: end('b', 3),
+    levels: [1],
+    reasons: [],
+    paths: [
+      path('t1', { sends: false }),
+      path('t2', {}, { affected: [end('b', 7)], others: 1 }),
+      path('t3', {}),
+      path('t4', { reserve: 'Wall' }),
+      path('t5', { protect: 'Ana' }, { protected: true }),
+    ],
+  };
+  const st = pickState(route);
+  const looks = Object.fromEntries(choices(st, 0).map((c) => [c.tie, choiceLook(st, 0, c)]));
+  assert.deepEqual(looks.t1, { state: 'has', text: 'Has it', best: true });
+  assert.deepEqual(looks.t2, { state: 'change', text: '2 change', best: false });
+  assert.deepEqual(looks.t3, { state: 'free', text: 'Free', best: false });
+  assert.equal(looks.t4.state, 'held');
+  assert.equal(looks.t5.state, 'held');
+  // A Protected tie line that carries the source already is not grey: the take sends nothing to it.
+  const carried = { ...route, paths: [path('t5', { sends: false, protect: 'Ana' })] };
+  assert.equal(choiceLook(pickState(carried), 0, choices(pickState(carried), 0)[0]).state, 'has');
+  // A part that Sode cannot see makes the count open.
+  const unknown = { ...route, paths: [path('t6', {}, { unknown: [{ router: 'b', why: 'down' }] })] };
+  assert.deepEqual(choiceLook(pickState(unknown), 0, choices(pickState(unknown), 0)[0]), { state: 'change', text: 'Unknown change', best: true });
 });

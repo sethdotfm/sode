@@ -345,6 +345,27 @@ export function memberChanges(was, now, members, prefix) {
   });
 }
 
+// choiceLook gives the state of choice c of step s, so a person can read it at a glance (docs/color-roles.md):
+// { state, text, best }. cs are the choices of the step.
+//   - held: a Protected, Reserved or gone tie line. It is grey, and heldText says why.
+//   - has: the tie line carries the source already. Routed bar, "Has it".
+//   - change: the take changes Affected destinations ("3 change"). Caution bar and badge. The count is of the best
+//     path through the choice, so it holds the later hops too.
+//   - free: the take changes nothing else. No color.
+// best: the first choice that a person can choose, as the planner ranks them. It can have any other state.
+export function choiceLook(st, s, c, cs = choices(st, s)) {
+  const best = cs.find((x) => !x.held)?.tie === c.tie;
+  const h = c.hop;
+  if (c.held || c.gone || (h.sends && h.reserve)) return { state: 'held', text: '', best };
+  if (!h.sends) return { state: 'has', text: 'Has it', best };
+  const p = st.route.paths[c.path];
+  const n = (p?.affected?.length || 0) + (p?.others || 0);
+  const unknown = !!(p?.unknown?.length || p?.loop);
+  if (unknown) return { state: 'change', text: n ? `${n} or more change` : 'Unknown change', best };
+  if (n) return { state: 'change', text: `${n} change`, best };
+  return { state: 'free', text: 'Free', best };
+}
+
 // ready: the chosen path can go.
 export const ready = (st) => pathUsable(chosen(st));
 
