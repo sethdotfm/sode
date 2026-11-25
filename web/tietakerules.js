@@ -1,53 +1,125 @@
 // The rules of a take with tie routes (docs/tielines-design.md, Takes with plain routes and tie routes). Pure, so
 // node tests run them. tieflow.js drives the pickers and the confirm with them.
 //
-// routes: each route of the take, in plan order: { src, dst, levels, tie, item }. src and dst are router references
-// ({ router, n }); tie: the ends are on two routers; item: the plan item of the route.
+// routes: each route of the take, in plan order: { src, dst, levels, tie, item, stored, last }. src and dst are router
+// references ({ router, n }); tie: the ends are on two routers; item: the plan item of the route. stored: the tie
+// lines of a preset or of a Redo.
 //
-// picks: one entry for each tie route, by its place in routes. After the person chose a path, it is { take, names, prot }.
-// take is the route that POST /takes gets. names are the tie line names, and prot the names that it protects. After
-// Clear this route, it is { cleared: true }. Else it is empty.
+// picks: one entry for each tie route, by its place in routes. When a question chose the first hops of the route
+// only, it is { ids }: those tie lines, upstream first. After the route has its whole path, it is
+// { take, names, prot, ids, seq }. take is the route that POST /takes gets. names are the tie line names, and prot
+// the names that it protects. seq is the order in which the routes got their path. After Clear this route, it is
+// { cleared: true }. Else it is empty.
+//
+// Questions: the picker asks one question for each hop that routes share. A hop is shared when the routes have the
+// same source, levels and tie lines before it. Their best paths must also go from and to the same routers there.
+
+import { best, stepsOf } from './tiepickrules.js';
 
 const bare = (r) => ({ src: r.src, dst: r.dst, levels: r.levels });
 
 // tieIndexes gives the place of each tie route.
 export const tieIndexes = (routes) => routes.flatMap((r, i) => (r.tie ? [i] : []));
 
-// nextTie gives the first tie route at or after from that has no pick, or -1.
-export function nextTie(routes, picks, from) {
-  for (let i = from; i < routes.length; i++) if (routes[i].tie && !picks[i]) return i;
-  return -1;
-}
+// openAt gives the place of each tie route that has no path yet and is not cleared, in plan order.
+export const openAt = (routes, picks) => routes.flatMap((r, i) => (r.tie && !picks[i]?.cleared && !picks[i]?.take ? [i] : []));
 
-// finalAt: the picker of tie route k is the last step, so its Take sends the take. This is true when the take has
-// only tie routes and k is the last of them. Then the picker replaces the churning-letter confirm (The Tie line
-// picker, rule 9). When the take has a plain route, the confirm comes after the pickers.
-export const finalAt = (routes, k) => routes.every((r) => r.tie) && tieIndexes(routes).at(-1) === k;
+// doneAt gives the place of each tie route with a path, in the order that they got it.
+const doneAt = (routes, picks) =>
+  tieIndexes(routes)
+    .filter((i) => picks[i]?.take)
+    .sort((a, b) => picks[a].seq - picks[b].seq);
 
-// planRequest gives the routes of the plan of tie route k. These are every plain route, the tie routes with a pick,
-// and route k with no ties. The server counts the other routes. Thus it does not offer a tie line that another route
-// uses for a different source. A tie line with the same source is shared. The tie routes after k have no pick yet
-// and stay out.
-export function planRequest(routes, picks, k) {
-  const out = [];
-  routes.forEach((r, i) => {
-    if (!r.tie || i === k) out.push(bare(r));
-    else if (picks[i]?.take) out.push(picks[i].take);
-  });
+// planRequest gives the routes of a plan, and at, the place in routes of each one. First come the plain routes, then
+// the tie routes with a path in the order that they got it. Each open tie route with no ties comes last. The server counts
+// the routes before each one. Thus it does not offer a tie line that another route uses for a different source.
+// A tie line with the same source is shared. The take keeps this order (takeRequest), so the stale check sees
+// the plan that the person saw. through names the tie lines that a question chose before.
+export function planRequest(routes, picks) {
+  const out = { routes: [], at: [] };
+  const add = (r, i) => {
+    out.routes.push(r);
+    out.at.push(i);
+  };
+  routes.forEach((r, i) => r.tie || add(bare(r), i));
+  for (const i of doneAt(routes, picks)) add(picks[i].take, i);
+  for (const i of openAt(routes, picks)) add(picks[i]?.ids?.length ? { ...bare(routes[i]), through: picks[i].ids } : bare(routes[i]), i);
   return out;
 }
 
-// takeRequest gives the routes of the take: every plain route and each tie route with its pick, in plan order. A
-// cleared route stays out. at gives the place in routes of each route of the request.
+// takeRequest gives the routes of the take: every plain route, then each tie route with its path, in the order of
+// planRequest. A cleared route stays out. at gives the place in routes of each route of the request.
 export function takeRequest(routes, picks) {
   const out = { routes: [], at: [] };
   routes.forEach((r, i) => {
-    if (r.tie && !picks[i]?.take) return;
-    out.routes.push(r.tie ? picks[i].take : bare(r));
+    if (r.tie) return;
+    out.routes.push(bare(r));
     out.at.push(i);
   });
+  for (const i of doneAt(routes, picks)) {
+    out.routes.push(picks[i].take);
+    out.at.push(i);
+  }
   return out;
 }
+
+// hopOf gives the question key of open tie route i and its hop: { key, from, hop: [router, router] }. plan is the
+// route of the 409 body. A route with no path is a question of its own.
+function hopOf(routes, plan, picks, i) {
+  const r = routes[i];
+  const pre = picks[i]?.ids || [];
+  const j = plan ? best(plan.paths, pre) : -1;
+  if (j < 0) return { key: `alone ${i}`, from: 0, hop: [] };
+  const p = plan.paths[j];
+  const from = Math.min(pre.length, Math.max(stepsOf(p) - 1, 0));
+  const hop = [p.hops[from]?.router, p.hops[from + 1]?.router];
+  // A preset or a Redo that stores another tie line for this hop is a question of its own.
+  const mark = r.stored ? (r.stored[from] ?? '') : null;
+  return { key: JSON.stringify([r.src.router, r.src.n, [...r.levels].sort((a, b) => a - b), pre.slice(0, from), hop, mark, !!r.last]), from, hop };
+}
+
+// nextQuestion gives the next question, or null when every tie route has a path or is cleared. plans[i] is the route
+// of the 409 body for the route at place i. split lists the keys that the person opened per destination.
+// The question is { at, members, from, to, only, key }. at is the route whose plan the picker shows. members are
+// the routes that share the hop, at first. from is the step of the hop. When every member ends on one router, the
+// question goes on to the destination (to is null). Else it is the one hop (to is from), and only names the router
+// that the hop goes to.
+export function nextQuestion(routes, plans, picks, split = []) {
+  const open = openAt(routes, picks);
+  if (!open.length) return null;
+  const at = open[0];
+  const lead = hopOf(routes, plans[at], picks, at);
+  const members = split.includes(lead.key) ? [at] : open.filter((i) => i === at || hopOf(routes, plans[i], picks, i).key === lead.key);
+  const one = members.every((i) => routes[i].dst.router === routes[at].dst.router);
+  return { at, members, from: lead.from, to: one ? null : lead.from, only: one ? '' : lead.hop[1] || '', key: lead.key };
+}
+
+// questionIds gives what a question chose for each member, from path, the chosen path of route at: { k, ids, full }.
+// ids are the tie lines up to the last step of the question. full: they reach the router of the destination.
+export function questionIds(q, path, routes) {
+  const n = stepsOf(path);
+  const last = q.to == null ? n - 1 : Math.min(q.to, n - 1);
+  const ids = path.hops.slice(0, last + 1).map((h) => h.tie?.id || '');
+  const reach = path.hops[last + 1]?.router;
+  return q.members.map((k) => ({ k, ids, full: reach === routes[k].dst.router }));
+}
+
+// questionHead names the hop of a question and its destinations: "A → B, for B.1 B.2". path is the chosen path,
+// names the destinations as shown, prefix(uid) the prefix of a router.
+export function questionHead(q, path, names, prefix) {
+  const dsts = `for ${names.join(' ')}`;
+  if (!path || !stepsOf(path)) return dsts;
+  const n = stepsOf(path);
+  const last = q.to == null ? n - 1 : Math.min(q.to, n - 1);
+  const routers = path.hops.slice(q.from, last + 2).map((h) => prefix(h.router));
+  return `${routers.join(' → ')}, ${dsts}`;
+}
+
+// finalAt: the question is the last step, so its Take sends the take. This is true when the take has only tie
+// routes, the question has every open route, and it goes on to the destination. Then the picker replaces the
+// churning-letter confirm (The Tie line picker, rule 9). When the take has a plain route, the confirm comes after the
+// pickers.
+export const finalAt = (routes, picks, q) => routes.every((r) => r.tie) && q.to == null && openAt(routes, picks).every((i) => q.members.includes(i));
 
 // keptItems gives the plan items that stay after Clear this route, for the confirm. A tie item gets the names of its
 // tie lines, so the confirm marks it "Via TIE n". A tie item has one route.
@@ -61,16 +133,19 @@ export function keptItems(items, routes, picks) {
   return out;
 }
 
-// changedAt gives the place in routes of the first route that a 409 tie_line_changed body names, or -1. Each route of
-// the body has route, its place in the request; at maps it back.
+// changedAt gives the place in routes of the route that a 409 tie_line_changed body names first, or -1. The body
+// lists every tie route, so the first one with a changed tie line or a new Affected destination counts. Each route
+// of the body has route, its place in the request; at maps it back.
 export function changedAt(body, at) {
-  const ks = (body?.routes || []).map((r) => at[r.route]).filter((k) => k != null);
+  const list = (body?.routes || []).filter((r) => at[r.route] != null);
+  const hit = list.filter((r) => r.changed?.length || r.newAffected?.length);
+  const ks = (hit.length ? hit : list).map((r) => at[r.route]);
   return ks.length ? Math.min(...ks) : -1;
 }
 
-// resetFrom drops each pick from route k on, but keeps Clear this route. The person chooses those routes again,
-// since a later route can share a tie line with route k.
-export const resetFrom = (picks, k) => picks.map((p, i) => (i < k || p?.cleared ? p : undefined));
+// reopenPicks drops each choice, but keeps Clear this route. The person answers the questions again, since a route
+// can share a tie line with the route that changed.
+export const reopenPicks = (picks) => picks.map((p) => (p?.cleared ? p : undefined));
 
 // failedText says why a route of a 200 answer failed: the hop that failed, else the error.
 export function failedText(r) {

@@ -34,6 +34,8 @@ type tieRoute struct {
 	oneOffs []oneOffTie
 	// protect: the tie lines of ties whose upstream destination Sode protects after the take (tieprotect.go).
 	protect []string
+	// through: on a route with no ties, the plan keeps only the paths whose first tie lines are these.
+	through []string
 }
 
 // unitUID gives the UID of the router unit that a router UID from the settings names.
@@ -149,13 +151,33 @@ func (a *App) planTieRoutes(rt *runtime, routes []tieRoute, opts tiePlanOpts) []
 				take(r.src, p.Hops)
 			}
 		default:
-			out[i] = tieplan.Plan(in, rr)
+			out[i] = throughOnly(tieplan.Plan(in, rr), r.through)
 			if p := out[i].Usable(); p != nil {
 				take(r.src, p.Hops)
 			}
 		}
 	}
 	return out
+}
+
+// throughOnly keeps the paths of res whose first tie lines are ids. Thus the 20 paths of a 409 body hold the paths
+// through the hops that the caller chose before (apiRouteIn.Through).
+func throughOnly(res tieplan.Result, ids []string) tieplan.Result {
+	if len(ids) == 0 {
+		return res
+	}
+	res.Paths = slices.DeleteFunc(res.Paths, func(p tieplan.Path) bool {
+		if len(p.Hops)-1 < len(ids) {
+			return true
+		}
+		for i, id := range ids {
+			if p.Hops[i].Tie != id {
+				return true
+			}
+		}
+		return false
+	})
+	return res
 }
 
 // planned: the route gets a plan in a 409 body, as a route across routers with no ties.

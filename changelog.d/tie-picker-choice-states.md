@@ -1,0 +1,1 @@
+- The Tie line picker shows the state of each tie line at a glance. A tie line that carries the source already has a routed left bar and "Has it". A tie line whose take changes other destinations has a caution left bar and a count badge ("3 change"). A free tie line has "Free" and no color. The best choice has an outline and "Best". A Protected or Reserved tie line stays grey.
