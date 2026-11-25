@@ -133,10 +133,11 @@ Handoff: branch `alpha-round1` off `alpha-notes`, one commit per entry in the or
   - Phone: mobile.js:260 shows no key on its Last chip, so it needs no change.
   - docs/agents/web-layout.md (Next chips) states the rule. Fragment: changelog.d/next-chip-no-key-hint.md.
   - Checks: `go test -short ./...` ok (internal/app, config, swp08, tieplan); `go vet ./...` clean; staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1923, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainNextChipNoKeys (2.90s)`, `--- PASS: TestChromeMainChips (3.35s)`.
+  - Commit: 18b33556.
 
 ### AB-04: Next chip animation strobes and no longer slides
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Main page, Next chip open on hover, focus or Shift (web/base.css `.sode__next`, `.sode__next-open`, `.sode__next-slot`, `html[data-shift]`; web/desktop.js `renderLast`)
 - **Reported:** "The animation behavior is totally scuffed up. It's just kind of a mess." Grilled (was AB-05, "the chips on the top are different in functionality"): "Just visual glitchiness as far as I can tell. If near the edge of the hitbox it opens and closes repeatedly, looking like a strobe. The animation used to be a smooth transition and now it disappears into nothing."
 - **Now:** The Next chip opens through CSS to show the value on hover, focus or Shift held, and hides Last meanwhile (web-layout.md). The slot keeps the closed chip's room.
@@ -150,7 +151,16 @@ Handoff: branch `alpha-round1` off `alpha-notes`, one commit per entry in the or
   - Do AB-03 first; the hint removal changes the widths.
 - **Open questions:** none.
 - **Proof:** frame strips (screenshots every 50 ms through the open and close) for main, alpha and fixed. A browser check that holds the pointer on the edge of the chip for 1 s and asserts the open state does not toggle. Respect `prefers-reduced-motion`.
+  - Reproduced on alpha: a pointer held still at the centre of the Next chip makes it open and close every few frames. Sampled every 25 ms: `shut shut open open open open shut shut ... open open open shut`. On main the same occurs only near the left edge of the chip.
+  - Test: `TestChromeMainNextChipHoldsOpen` (internal/app/mainnextchip_browser_test.go). It holds the pointer for 1 s at the centre and on the left edge, and it fails if the chip shuts after it opened. It also asserts no transition with `prefers-reduced-motion: reduce`. It fails on alpha ("pointer still on the centre: the chip opened at sample 2, then sample 6 of 33 is shut") and passes after. On main it passed in 3 runs, since the strobe on main needs the pointer in the narrow band of the hint.
+  - Frame strips, one shot each 50 ms from 0 to 450 ms (left column: open on hover; right column: close): `docs/research/alpha-proof/AB-04/{main,alpha,fixed}-strip.png`. Each frame pauses the CSS transitions at its time, so the shot is of a still page.
 - **Notes:**
+  - Root cause: the hover target was the chip itself, and the chip held a part that hid as it opened: the key hint after the Next tag (`.sode__tag-key`, `display: none` on hover). The chip is anchored at its right, so it became narrower on the left, and its edge moved off the pointer. Then the chip closed, the hint came back, and the chip opened again. On main the hint was `⌃⇧d` (about 26 px), so only a band at the left edge strobed. 6dc0e524 ("Keys: every shown key label comes from keyLabel") made it "Ctrl+Shift+d" (about 84 px) and so made most of the chip strobe. The open transition never got its 100 ms delay done, so the chip seemed to disappear with no transition. This is the commit that broke it.
+  - Change: AB-03 removed the hint, so the closed chip is now the left part of the open chip. In this commit the hover target is the slot, not the chip (web/base.css:1558 comment, rules at :1581 to :1619). The slot keeps the size of the closed chip and holds the open chip, so the open chip's new room still counts as a hover on the slot. Focus and Shift open the chip as before. No change in function.
+  - Reduced motion: patchbay sets `--pb-motion-fast` and `--pb-motion-normal` to 0 ms for `prefers-reduced-motion: reduce`, so the open part and the Last fade have no transition. The check asserts this.
+  - Found on the way: on a still page, headless Chrome holds a mouse event about 5 s and answers `Page.captureScreenshot` only after a new frame. The check moves the pointer only four times for this reason.
+  - docs/agents/web-layout.md (Next chips) names the slot as the hover target. Fragment: changelog.d/next-chip-hover-steady.md.
+  - Checks: `go test -short ./...` ok; `go vet ./...` and staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1923, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainNextChipHoldsOpen (9.41s)`, `--- PASS: TestChromeMainNextChipNoKeys (2.77s)`, `--- PASS: TestChromeMainChips (3.23s)`.
 
 ### AB-05: folded into AB-04
 

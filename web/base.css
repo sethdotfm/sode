@@ -1552,6 +1552,9 @@ html {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The slot is the hover target, not the chip: the slot keeps its size while the chip opens. The open chip is inside
+   the slot, so a pointer on its new room still holds it open. A hover on the chip itself made it strobe when a part of
+   it hid as it opened and its edge moved off the pointer. */
 .sode__next-slot {
   flex: none;
   position: relative;
@@ -1575,18 +1578,19 @@ html {
   color: var(--pb-text-muted);
   font-weight: var(--pb-weight-bold);
 }
-.pb-chip.sode__next:is(:hover, :focus-visible),
+.sode__next-slot:hover > .pb-chip.sode__next,
+.pb-chip.sode__next:focus-visible,
 html[data-shift] .pb-chip.sode__next {
   border-color: var(--pb-accent);
 }
-.sode__next:is(:hover, :focus-visible) > .sode__tag,
+:is(.sode__next-slot:hover > .sode__next, .sode__next:focus-visible) > .sode__tag,
 html[data-shift] .sode__next > .sode__tag {
   color: var(--pb-accent);
 }
 [data-last] > .sode__last:not(.sode__next) {
   transition: opacity var(--pb-motion-normal) var(--pb-ease);
 }
-[data-last]:has(.sode__next:is(:hover, :focus-visible)) > .sode__last:not(.sode__next),
+[data-last]:has(.sode__next-slot:hover, .sode__next:focus-visible) > .sode__last:not(.sode__next),
 html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) {
   opacity: 0;
 }
@@ -1607,12 +1611,12 @@ html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) {
   overflow: hidden;
   white-space: nowrap;
 }
-.sode__next:is(:hover, :focus-visible) > .sode__next-open,
+:is(.sode__next-slot:hover > .sode__next, .sode__next:focus-visible) > .sode__next-open,
 html[data-shift] .sode__next > .sode__next-open {
   grid-template-columns: 1fr;
   opacity: 1;
 }
-.sode__next:is(:hover, :focus-visible) > .sode__next-open {
+:is(.sode__next-slot:hover > .sode__next, .sode__next:focus-visible) > .sode__next-open {
   transition-delay: var(--pb-motion-fast);
 }
 

@@ -1,0 +1,1 @@
+- The Next chip on the main page opens and closes smoothly again. A pointer held on its edge no longer makes it open and close over and over.

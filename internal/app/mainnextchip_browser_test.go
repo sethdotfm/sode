@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/web"
 )
@@ -68,6 +69,59 @@ func TestChromeMainNextChipNoKeys(t *testing.T) {
 		return r <= room + 1 || [r, room].join(' > ');
 	})()`); got != true {
 		t.Fatalf("the open Next chip is wider than its tag and its value: %v", got)
+	}
+	b.check()
+}
+
+// A pointer held still for 1 s on the Next chip keeps it open: it does not open and close over and over. On alpha the
+// centre strobed, and on main the left edge did. Opening only adds room on the left, so the chip never moves its edge
+// away from the pointer. With reduced motion the chip opens and closes with no transition.
+func TestChromeMainNextChipHoldsOpen(t *testing.T) {
+	b := mainWithLast(t)
+	r := b.eval(`(() => { const r = document.querySelector('[data-last="dst"] .sode__next').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; })()`).([]any)
+	l, tp, rt, bt := r[0].(float64), r[1].(float64), r[2].(float64), r[3].(float64)
+	cy := (tp + bt) / 2
+	move := func(x, y float64) {
+		b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": x, "y": y})
+	}
+	// Open is what the person sees: the Next tag in the accent, not in Last's muted color. Neither has a transition.
+	state := `(() => { const c = (s) => getComputedStyle(document.querySelector('[data-last="dst"] ' + s + ' > .sode__tag')).color; return c('.sode__next') !== c('button.sode__last:not(.sode__next)') ? 'open' : 'shut'; })()`
+	for _, p := range []struct {
+		name string
+		x, y float64
+	}{{"centre", (l + rt) / 2, cy}, {"left edge", l + 0.5, cy}} {
+		move(10, 700)
+		b.waitFor("the chip is shut", state+` === 'shut'`)
+		move(p.x, p.y)
+		var seq []string
+		for start := time.Now(); time.Since(start) < time.Second; time.Sleep(25 * time.Millisecond) {
+			seq = append(seq, b.eval(state).(string))
+		}
+		// The first samples can come before the hover lands. After the chip opens it must stay open.
+		opened := -1
+		for i, s := range seq {
+			if s == "open" && opened < 0 {
+				opened = i
+			}
+			if s != "open" && opened >= 0 {
+				t.Fatalf("pointer still on the %s: the chip opened at sample %d, then sample %d of %d is %q: %v", p.name, opened, i, len(seq), s, seq)
+			}
+		}
+		if opened < 0 || opened > 4 {
+			t.Fatalf("pointer still on the %s: the chip opened at sample %d of %d, want in the first 100 ms: %v", p.name, opened, len(seq), seq)
+		}
+	}
+	if got := b.eval(`document.querySelector('[data-last="dst"] .sode__next .sode__last-text').getBoundingClientRect().width > 0`); got != true {
+		t.Fatal("the held chip does not show its value")
+	}
+
+	move(10, 700)
+	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-reduced-motion", "value": "reduce"}}})
+	if got := b.eval(`(() => {
+		const q = (s) => getComputedStyle(document.querySelector('[data-last="dst"] ' + s)).transitionDuration.split(',').every((d) => parseFloat(d) === 0);
+		return q('.sode__next-open') && q('button.sode__last:not(.sode__next)');
+	})()`); got != true {
+		t.Fatal("with reduced motion, the Next chip or Last still has a transition")
 	}
 	b.check()
 }
