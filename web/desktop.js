@@ -263,13 +263,7 @@ function renderLast() {
     const what = { src: 'source', dst: 'destination', lvl: 'levels' }[k];
     const chips = [];
     if (last[k]) {
-      const b = el(
-        'button',
-        'pb-chip sode__last',
-        el('span', 'sode__tag', 'Last'),
-        el('span', 'sode__last-text', ...last[k]),
-        el('kbd', 'sode__key-note', keyLabel(`ctrl+${key}`)),
-      );
+      const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', 'Last'), el('span', 'sode__last-text', ...last[k]));
       b.dataset.pbTip = `Last ${what} (${keyLabel(`ctrl+${key}`)})`;
       b.addEventListener('click', () => useLast(k));
       chips.push(b);
@@ -279,19 +273,12 @@ function renderLast() {
         'button',
         'pb-chip sode__last sode__next',
         el('span', 'sode__tag', 'Next'),
-        el('kbd', 'sode__key-note sode__tag-key', keyLabel(`ctrl+shift+${key}`)),
-        el(
-          'span',
-          'sode__next-open',
-          el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', keyLabel(`ctrl+shift+${key}`))),
-        ),
+        el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]))),
       );
       b.dataset.pbTip = `Next ${what} (${keyLabel(`ctrl+shift+${key}`)})`;
       b.addEventListener('click', () => useLast(k, true));
       // The closed chip's room stays in the slot so nothing in the row moves.
-      chips.push(
-        el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', keyLabel(`ctrl+shift+${key}`))), b),
-      );
+      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next'), b));
     }
     for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';

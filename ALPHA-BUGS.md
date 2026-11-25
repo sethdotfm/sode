@@ -112,7 +112,7 @@ Handoff: branch `alpha-round1` off `alpha-notes`, one commit per entry in the or
 
 ### AB-03: Next chip too wide from its key hint
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Main page, Last and Next chips (web/desktop.js `renderLast`, web/base.css `.sode__next*`, `.sode__key-note`)
 - **Reported:** "The Next chip is extended very wide because of the full-length Control plus Shift plus D helper text. I think we can hide the helper text on those. A user who's keyboard focused is going to read the docs, so it doesn't need to be shown there."
 - **Now:** web/desktop.js:282 writes the hint as `keyLabel('ctrl+shift+d')`, which spells out "Ctrl+Shift+d". On `main` it was the short glyph `⌃⇧d`. The hint is in the chip three times: the tag, the open part, and the hidden size chip that holds the slot.
@@ -123,7 +123,16 @@ Handoff: branch `alpha-round1` off `alpha-notes`, one commit per entry in the or
   - Check the phone layout (mobile.js) too; same rule if it shows hints on these chips.
 - **Open questions:** none.
 - **Proof:** screenshots main vs alpha vs fixed with Last and Next showing. A browser check asserts that the chips hold no `kbd` and that the open Next chip is no wider than its tag plus its value.
+  - Reproduced on alpha: after one take (Zoom 1 to DSM1), the chips read "Next 12 Zoom 2 Ctrl+Shift+s" and "Last 1 Ctrl+f". The new check failed on alpha with "Last and Next chips hold 9 kbd, want none".
+  - Test: `TestChromeMainNextChipNoKeys` (internal/app/mainnextchip_browser_test.go). It fails on alpha and on main, and passes after. `TestChromeMainChips` now asserts no `kbd` in Last (it asserted a `kbd` edge before).
+  - Screenshots, 1920×1080, Next closed and open (Shift held): `docs/research/alpha-proof/AB-03/{main,alpha,fixed}-{closed,open}.png`.
 - **Notes:**
+  - Change: web/desktop.js:276 and :281 (`renderLast`) no longer make the three `kbd` elements (Last's key, the Next tag key and the key in the open part) or the `kbd` in the hidden size chip. The tooltips keep the key (`Last source (Ctrl+s)`, `Next source (Ctrl+Shift+s)`), and so does the keys list in web/index.html.
+  - Removed the CSS that served only those `kbd`: the patchbay kbd look for `.sode__last`/`.sode__next-in` key notes, `.sode__last > .sode__key-note`, and the `.sode__tag-key` rules (web/base.css).
+  - Root cause: 6dc0e524 ("Keys: every shown key label comes from keyLabel") changed the hint from the glyphs `⌃⇧d` to the long `Ctrl+Shift+d`, and alpha also gave it the kbd edge. The chip held the hint three times.
+  - Phone: mobile.js:260 shows no key on its Last chip, so it needs no change.
+  - docs/agents/web-layout.md (Next chips) states the rule. Fragment: changelog.d/next-chip-no-key-hint.md.
+  - Checks: `go test -short ./...` ok (internal/app, config, swp08, tieplan); `go vet ./...` clean; staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1923, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainNextChipNoKeys (2.90s)`, `--- PASS: TestChromeMainChips (3.35s)`.
 
 ### AB-04: Next chip animation strobes and no longer slides
 

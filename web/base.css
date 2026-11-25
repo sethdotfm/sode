@@ -1546,26 +1546,11 @@ html {
 :root:not([data-layout="phone"]) .pb-chip.sode__last:is(:hover, :focus-visible) {
   background: var(--pb-overlay-hover);
 }
-/* The keys in patchbay's kbd look, as everywhere else they are named. */
-:root:not([data-layout="phone"]) :is(.sode__last, .sode__next-in) > .sode__key-note {
-  background: var(--pb-surface-sunken);
-  border: var(--pb-border-w) solid var(--pb-edge-soft);
-  color: var(--pb-text);
-  font-family: var(--pb-font-mono);
-  font-size: var(--pb-text-2xs);
-  padding: 0 var(--pb-space-1);
-}
 .sode__last-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.sode__last > .sode__key-note,
-.sode__next-in > .sode__key-note {
-  font-size: 0.7em;
-  position: static;
-  transform: none;
 }
 .sode__next-slot {
   flex: none;
@@ -1589,13 +1574,6 @@ html {
 .sode__tag {
   color: var(--pb-text-muted);
   font-weight: var(--pb-weight-bold);
-}
-.sode__next > .sode__tag-key {
-  margin-left: 0;
-}
-.sode__next:is(:hover, :focus-visible) > .sode__tag-key,
-html[data-shift] .sode__next > .sode__tag-key {
-  display: none;
 }
 .pb-chip.sode__next:is(:hover, :focus-visible),
 html[data-shift] .pb-chip.sode__next {
