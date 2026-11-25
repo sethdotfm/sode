@@ -93,6 +93,11 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   gap: var(--pb-space-2);
   position: relative;
 }
+/* With two or more routers the Source and Destination heads hold the router button, which is an action high. Every
+   head in the row then has that height, so the arrow, +, Levels, Take and Clear stay level with the boxes. */
+.sode__boxes:has(.sode__box-router:not([hidden])) .sode__box-head {
+  min-height: var(--sode-h-action);
+}
 .sode__entry {
   display: flex;
   gap: var(--pb-space-2);

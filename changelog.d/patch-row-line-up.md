@@ -1,0 +1,1 @@
+- With two or more routers, the + button, Levels, Take and Clear on the main page line up with the Source and Destination boxes again.

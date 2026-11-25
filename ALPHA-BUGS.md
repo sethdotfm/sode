@@ -161,6 +161,7 @@ Handoff: branch `alpha-round1` off `alpha-notes`, one commit per entry in the or
   - Found on the way: on a still page, headless Chrome holds a mouse event about 5 s and answers `Page.captureScreenshot` only after a new frame. The check moves the pointer only four times for this reason.
   - docs/agents/web-layout.md (Next chips) names the slot as the hover target. Fragment: changelog.d/next-chip-hover-steady.md.
   - Checks: `go test -short ./...` ok; `go vet ./...` and staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1923, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainNextChipHoldsOpen (9.41s)`, `--- PASS: TestChromeMainNextChipNoKeys (2.77s)`, `--- PASS: TestChromeMainChips (3.23s)`.
+  - Commit: d8d24b02.
 
 ### AB-05: folded into AB-04
 
@@ -169,7 +170,7 @@ Handoff: branch `alpha-round1` off `alpha-notes`, one commit per entry in the or
 
 ### AB-06: + button, Levels, Take and Clear sit higher than the boxes
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Main page patch row layout (web/desktop.css `.sode__boxes`, `.sode__group--dst`, `.sode__group--levels`)
 - **Reported:** "To the right of the destination box, the plus icon, the levels, Take and Clear all seem to be vertically aligned differently. They are now higher than they were before."
 - **Now:** Alpha made the patch row three groups of one width with a subgrid (1bcf487a, cd0e549e, 3a7a0857). The + button, Levels box, Take and Clear now sit higher than on `main`.
@@ -177,4 +178,13 @@ Handoff: branch `alpha-round1` off `alpha-notes`, one commit per entry in the or
 - **Decisions:** Keep the three-groups layout; fix only the vertical alignment. Measure on `main` what "lined up" was (centres or tops) and match it.
 - **Open questions:** none.
 - **Proof:** screenshots main vs alpha vs fixed, with and without a Last chip showing, and with 4 and 17 levels. TestChromeMainBoxesLayout gets an assert on the vertical position of these controls against the Destination box (fails on alpha, passes after).
+  - Reproduced on alpha with two routers (both on swp08sim): the + button, Levels, Take and Clear (and the arrow) are 8 px higher than the Source and Destination boxes, with or without Last, with 4 or 17 levels. Measured: `#dst` 395–459 px, `#dst-add`, `#lvl`, `#patch`, `#clear-all` 387–451 px. With one router everything lines up, as on main.
+  - Main lines up the tops and the bottoms (all controls 250.5–330.5 px on main). The fix matches that.
+  - Test: `TestChromeMainBoxesLayout` (internal/app/mainboxes_browser_test.go) gets `lined`: the arrow, +, Levels, Take and Clear must have the top and the bottom of `#dst`. It runs with one router, with 4 levels, with Last showing, and after a second router is added. It fails on alpha ("two routers, Last showing: the patch row does not line up: #flip 369.06-433.06, #dst-add ... against #dst 377.06-441.06") and passes after.
+  - Screenshots, 1920×1080, with and without Last, with 17 and 4 levels: `docs/research/alpha-proof/AB-06/main-one-router-*.png` (main has one router only), `alpha-two-routers-*.png`, `fixed-two-routers-*.png`.
 - **Notes:**
+  - Root cause: with two or more routers, the Source and Destination heads show the router button (`.sode__box-router`, d321cbff "Routers 5: Prefix typing"). On the patch page every button is an action high (40 px, 9cbfd934 "Desktop root 100%, three control heights"), and the other heads are a compact 32 px. So the Source and Destination boxes moved 8 px down, and the boxes of the arrow, +, Levels and Take did not. The three-groups subgrid commits were not the cause.
+  - Change: web/desktop.css:98 (`.sode__boxes:has(.sode__box-router:not([hidden])) .sode__box-head`) gives every head in the row the action height when a router button shows. The three-groups layout does not change, and with one router nothing moves.
+  - Found on the way: on alpha the router button also leaves little room for Last and Next, so they were cut off ("Last A…"). AB-03 gives them back their room.
+  - docs/agents/browser-checks.md (TestChromeMainBoxesLayout) names the new assert. Fragment: changelog.d/patch-row-line-up.md.
+  - Checks: `go test -short ./...` ok; `go vet ./...` and staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1923, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainBoxesLayout (4.48s)`.
