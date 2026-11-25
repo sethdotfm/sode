@@ -38,6 +38,9 @@ import {
   storedText,
   tieIdsOf,
   oneOffPicked,
+  fitQuestion,
+  shownSteps,
+  memberChanges,
 } from '../tiepickrules.js';
 
 // The shared plan fixture (internal/tieplan, web/test/tieplan.test.mjs). The page reads the 409 body of POST /takes;
@@ -501,4 +504,43 @@ test('a path that comes into a picker with no path turns Take on, and the lockou
   assert.ok(ready(r.st));
   assert.ok(r.changed, 'Take went from off to on');
   assert.ok(!refresh(r.st, structuredClone(route)).changed);
+});
+
+// A route from A to C. The tie lines ab1 and ab2 go from A to B, ad from A to D, and bc and dc to C.
+const hop = (router, tie) => ({
+  router,
+  src: end(router, 1),
+  dst: end(router, 2),
+  sends: true,
+  now: { nothing: true },
+  ...(tie ? { tie: { id: tie, name: tie } } : { tie: null }),
+});
+const toC = (...ties) => ({ cost: 1, affected: [], hops: [hop('a', ties[0]), hop(ties[0] === 'ad' ? 'd' : 'b', ties[1]), hop('c')] });
+const chain = { route: 0, src: end('a', 1), dst: end('c', 3), levels: [1], paths: [toC('ad', 'dc'), toC('ab1', 'bc'), toC('ab2', 'bc')], reasons: [] };
+
+test('a question of one hop shows that step only, and offers the tie lines to its router only', () => {
+  const st = fitQuestion(pickState(chain), { from: 0, to: 0, only: 'b' });
+  assert.deepEqual(tieIdsOf(st), ['ab1', 'bc'], 'the best path that goes to router B');
+  assert.deepEqual(shownSteps(st), { from: 0, to: 0 });
+  assert.deepEqual(
+    choices(st, 0).map((c) => c.tie),
+    ['ab1', 'ab2'],
+  );
+  assert.equal(moveStep(st, 1), st, 'L stays on the one step');
+  assert.equal(keyStep(st, 'd').act, 'split');
+  // A question from the second step on shows the steps after the choices before it.
+  const later = fitQuestion(choose(pickState(chain), 0, 'ab2'), { from: 1, to: null });
+  assert.deepEqual(shownSteps(later), { from: 1, to: 1 });
+  assert.equal(later.step, 1);
+  assert.equal(moveStep(later, -1), later);
+});
+
+test('a change on the path of another destination of the question marks it', () => {
+  const was = [chain, { ...chain, route: 1, dst: end('c', 4) }];
+  assert.deepEqual(memberChanges(was, structuredClone(was), [1], ['ab1']), []);
+  const now = structuredClone(was);
+  now[1].paths[1].hops[0].now = { origin: end('a', 9), via: [] };
+  assert.deepEqual(memberChanges(was, now, [1], ['ab1']), [1]);
+  assert.deepEqual(memberChanges(was, now, [1], ['ab2']), [], 'a change on another path is not the hop of the question');
+  assert.deepEqual(memberChanges(was, [now[0]], [1], ['ab1']), [1], 'a route that the plan left out');
 });

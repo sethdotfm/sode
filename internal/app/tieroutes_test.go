@@ -212,3 +212,34 @@ func TestAPITakeAcrossRoutersOutsideRights(t *testing.T) {
 	})
 	wantErr(t, apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.UID, "b2b2b2b2", 4, 2), nil), http.StatusForbidden, "outside_rights")
 }
+
+// through keeps the paths whose first tie lines it names. Thus a plan of a later hop holds the paths through the
+// hops that the caller chose before. A route with ties, or on one router, refuses it.
+func TestAPITakeAcrossRoutersThrough(t *testing.T) {
+	a, _, _, key := tieApp(t, func(c *config.Config) {
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: c.UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}})
+	})
+	uidA := a.r().cfg.UID
+	route := func(extra string) string {
+		return fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1]%s}]}`, uidA, extra)
+	}
+	ids := func(b tieBodyIn) []string {
+		var out []string
+		for _, p := range b.Routes[0].Paths {
+			out = append(out, p.Hops[0].Tie.ID)
+		}
+		return out
+	}
+	if got := ids(tieBody(t, apiPost(a, "/api/v1/takes", key, route(""), nil).Body)); len(got) != 2 {
+		t.Fatalf("paths with no through: %v", got)
+	}
+	rec := apiPost(a, "/api/v1/takes", key, route(`,"through":["t2"]`), nil)
+	wantErr(t, rec, http.StatusConflict, "tie_line_needed")
+	if got := ids(tieBody(t, rec.Body)); len(got) != 1 || got[0] != "t2" {
+		t.Errorf("paths through t2: %v", got)
+	}
+	wantErr(t, apiPost(a, "/api/v1/takes", key, route(`,"through":["nope"]`), nil), http.StatusConflict, "no_path")
+	wantErr(t, apiPost(a, "/api/v1/takes", key, route(`,"through":["t1"],"ties":[{"id":"t1","expect":null}]`), nil), http.StatusBadRequest, "bad_request")
+	same := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":%q,"n":2},"levels":[1],"through":["t1"]}]}`, uidA, uidA)
+	wantErr(t, apiPost(a, "/api/v1/takes", key, same, nil), http.StatusBadRequest, "bad_request")
+}

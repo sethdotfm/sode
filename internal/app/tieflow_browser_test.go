@@ -9,9 +9,9 @@ import (
 
 // A take with plain routes and tie routes, with two simulators (docs/tielines-design.md, Takes with plain routes and
 // tie routes). A route with no path opens the picker with the reason by name. A take from A.11 to A.3, B.4 and B.5
-// opens the picker for B.4, then for B.5, then the churning-letter confirm with every route. Clear this route drops
-// B.4, and a cancel of the confirm sends nothing. Then B.4 and B.5 share TIE 1, as they want the same source: the
-// second picker sends nothing upstream. The take lands on both simulators.
+// asks one question for the hop A to B of B.4 and B.5. Then the churning-letter confirm opens with every route. The
+// split gives each destination its own question, Clear this route drops B.4, and a cancel of the confirm sends
+// nothing. Then B.4 and B.5 share TIE 1 in one question. The take lands on both simulators.
 func TestChromeTiePickerMixedTake(t *testing.T) {
 	b := startBrowser(t)
 	simA := startSim(t)
@@ -73,12 +73,15 @@ func TestChromeTiePickerMixedTake(t *testing.T) {
 	add("B4", "B.4 Stage Mon")
 	pick("dst", "B5", "B.5 Side Mon")
 
-	// Clear this route drops B.4. The confirm lists A.3 and B.5 Via TIE 1, and its cancel sends nothing.
+	// Per destination, then Clear this route drops B.4. The confirm lists A.3 and B.5 Via TIE 1, and its cancel sends
+	// nothing.
 	press()
-	picker("Route 1 of 2 across routers")
-	b.waitFor("Clear this route shows", `!document.getElementById('tiepick-clear').hidden`)
+	picker("A → B, for B.4 B.5")
+	b.waitFor("Clear these routes shows", `!document.getElementById('tiepick-clear').hidden && document.getElementById('tiepick-clear').textContent === 'Clear these routes'`)
+	b.eval(`document.getElementById('tiepick-split').click(); true`)
+	picker("A → B, for B.4")
 	b.eval(`document.getElementById('tiepick-clear').click(); true`)
-	picker("Route 2 of 2 across routers")
+	picker("A → B, for B.5")
 	b.waitFor("the picker is for B.5", `document.querySelector('#tiepick .sode-tiepick__route').textContent.includes('B.5')`)
 	next()
 	b.waitFor("the confirm lists the plain route and the tie route Via TIE 1",
@@ -87,14 +90,9 @@ func TestChromeTiePickerMixedTake(t *testing.T) {
 	b.waitFor("the confirm closes", `document.getElementById('confirm').hidden`)
 	routerTallyHas(t, a, ana, uids[0], 5, 5)
 
-	// B.4 and B.5 share TIE 1: the plan of B.5 counts the pick of B.4, so its hop sends nothing upstream.
+	// B.4 and B.5 share TIE 1 in one question.
 	press()
-	picker("Route 1 of 2 across routers")
-	next()
-	picker("Route 2 of 2 across routers")
-	b.waitFor("the second route shares TIE 1", `(() => {
-		const c = document.querySelector('.sode-tiepick__choice[data-tie="`+tie+`"]');
-		return c.getAttribute('aria-selected') === 'true' && c.querySelector('.sode-tiepick__will').textContent === 'Carries the source now'; })()`)
+	picker("A → B, for B.4 B.5")
 	next()
 	b.waitFor("the confirm lists every route, the tie routes Via TIE 1",
 		`!document.getElementById('confirm').hidden && `+confirmBody+`.split('Via TIE 1').length === 3 && !document.getElementById('confirm-ok').disabled`)

@@ -618,6 +618,10 @@ paths:
                           properties:
                             from: { $ref: "#/components/schemas/RouteEnd" }
                             to: { $ref: "#/components/schemas/RouteEnd" }
+                      through:
+                        type: array
+                        items: { type: string }
+                        description: "Only for a route across routers with no ties. Tie line ids, upstream first: the 409 body then lists only the paths whose first tie lines are these. The Tie line picker uses it to plan a later hop through the choices of the earlier hops"
                       affected:
                         type: array
                         items: { $ref: "#/components/schemas/RouteEnd" }
