@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LIST_KEY, addKey, freePrefix, listKey, readRouter, removeKey, routerListProblem, usesNote } from '../routerlistrules.js';
+import { LIST_KEY, addKey, freePrefix, listKey, readRouter, removeKey, routerDisplay, routerListProblem, usesNote } from '../routerlistrules.js';
 import { critical, reconnects, sectionOfKey } from '../savereviewrules.js';
 
 test('freePrefix: the first letter no router has, then two letters', () => {
@@ -61,4 +61,11 @@ test('the Routers list keys: section routers, and Add, Remove, Address and Matri
   for (const k of [addKey(1), removeKey('b1'), listKey('b1', 'address'), listKey('b1', 'matrix')]) assert.ok(critical(k), k);
   assert.ok(reconnects(listKey('b1', 'address')));
   assert.ok(!critical(listKey('b1', 'title')) && !critical(listKey('b1', 'prefix')));
+});
+
+test('routerDisplay: the prefix and the Router title, or Router and the prefix with no title', () => {
+  assert.equal(routerDisplay({ prefix: 'B', title: 'Studio B' }), 'B Studio B');
+  assert.equal(routerDisplay({ prefix: 'B', title: '' }), 'Router B');
+  assert.equal(routerDisplay({ prefix: 'B', title: '  ' }), 'Router B');
+  assert.equal(routerDisplay({ prefix: 'B', title: 'Router B' }), 'Router B');
 });

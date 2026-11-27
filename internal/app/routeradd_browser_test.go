@@ -27,15 +27,14 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 		t.Helper()
 		b.eval(`document.getElementById('settings-save').click(); true`)
 		b.waitFor("the review lists "+want, `(() => { const d = document.getElementById('review'); return !!d?.offsetParent && d.textContent.includes('`+want+`'); })()`)
-		b.eval(`document.getElementById('review-save').click(); true`)
-		b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
-		b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
-		// A save that changes the router connections can ask one more time.
-		b.waitFor("the save goes", `(() => {
+		// A save that changes the router connections asks Save and reconnect before the PIN recheck.
+		b.waitFor("PIN recheck asked", `(() => {
 			const d = document.getElementById('review');
-			if (d?.offsetParent && document.getElementById('review-save').textContent !== 'Save 1 change') document.getElementById('review-save').click();
-			return !d?.offsetParent;
+			if (d?.offsetParent) document.getElementById('review-save').click();
+			return !!document.getElementById('recheck-pin')?.offsetParent;
 		})()`)
+		b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
+		b.waitFor("the save goes", `!document.getElementById('review')?.offsetParent && !document.getElementById('recheck-pin')?.offsetParent`)
 	}
 	save("New router B")
 

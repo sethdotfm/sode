@@ -4,6 +4,15 @@
 export const LIST_ATTRS = ['prefix', 'title', 'address', 'matrix'];
 export const ATTR_LABELS = { prefix: 'Prefix', title: 'Title', address: 'Address', matrix: 'Matrix' };
 
+// routerDisplay: the one shown form of a router, the Router prefix and then the Router title ("B Studio B"). A router
+// with no title, or with a title that only repeats the default ("Router B"), shows "Router B". With one router Sode
+// hides the prefix (GLOSSARY.md), so callers use it only when there are two or more.
+export function routerDisplay(r) {
+  const title = String(r?.title || '').trim();
+  const prefix = r?.prefix || '';
+  return !title || title === `Router ${prefix}` ? `Router ${prefix}`.trim() : `${prefix} ${title}`.trim();
+}
+
 export const listKey = (uid, attr) => `router/${uid}/${attr}`;
 export const addKey = (n) => `router/new:${n}/add`;
 export const removeKey = (uid) => `router/${uid}/remove`;

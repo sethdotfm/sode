@@ -1,0 +1,1 @@
+- Settings: with two or more routers, Save and reconnect names each router that reconnects, with its new address. Before, it always gave the first router's address. It now comes before the PIN recheck, so nothing asks again after the PIN.

@@ -11,7 +11,8 @@ import { requesting, cancelRequest } from './approvalcards.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { askInterruptions, initInterruptions } from './interruptions.js';
-import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical, sectionOfKey } from './savereviewrules.js';
+import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, reconnectTargets, reconnectQuestion, critical, sectionOfKey } from './savereviewrules.js';
+import { routerDisplay, listKey } from './routerlistrules.js';
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
 import { sectionView, approvalWho } from './settingsrolerules.js';
@@ -350,6 +351,14 @@ function stillDiffers(gaps) {
   return el('div', null, el('p', null, `Still different from ${applied.name}:`), el('ul', null, ...items));
 }
 
+// addressAfter(form)(uid): the address a router has after the save. The first router's is the form's Address; the
+// others are in the Routers list (settingsrouterlist.js).
+function addressAfter(form) {
+  const list = Object.assign({}, ...saveSources().map((src) => src.now()));
+  const first = S.routers[0]?.uid || '';
+  return (uid) => (uid === first ? form.router : (list[listKey(uid, 'address')] ?? S.routers.find((r) => r.uid === uid)?.address ?? ''));
+}
+
 async function review({ focusField }) {
   const now = readSettings();
   const bad = formProblem(now);
@@ -387,7 +396,16 @@ async function review({ focusField }) {
     criticalAction: (r) => critical(r.key),
     role,
     reconnects: (r) => reconnects(r.key),
-    address: now.router,
+    question: (saves) =>
+      reconnectQuestion(
+        reconnectTargets(
+          saves.map((r) => r.key),
+          S.routers,
+          routerDisplay,
+          addressAfter(now),
+        ),
+        S.routers.length > 1,
+      ),
     recheckNeeded: S.users.length > 0,
   });
   if (!send || !isOpen()) return;

@@ -60,6 +60,23 @@ const ROUTER_RECONNECT = /^router\/[^/]+\/(levels|levelWireOffset|address|matrix
 const ROUTER_COUNT = /^router\/[^/]+\/(add|remove)$/;
 export const reconnects = (key) => RECONNECT.has(key) || ROUTER_RECONNECT.test(key);
 
+// reconnectTargets: the routers that the keys reconnect, in list order, each {uid, name, address}. routers is the
+// hello's list, the first router first; the first router's keys are plain. nameOf(router) gives its shown name and
+// addressOf(uid) the address it will have after the save.
+export function reconnectTargets(keys, routers, nameOf, addressOf) {
+  const uids = new Set(keys.filter(reconnects).map((k) => (RECONNECT.has(k) ? routers[0]?.uid || '' : k.split('/')[1])));
+  const list = routers.length ? routers : [{ uid: '' }];
+  return list.filter((r) => uids.has(r.uid || '')).map((r) => ({ uid: r.uid || '', name: nameOf(r), address: addressOf(r.uid || '') }));
+}
+
+// The Save and reconnect question. targets: reconnectTargets; many: there are two or more routers, so each is named.
+export function reconnectQuestion(targets, many) {
+  const at = (t) => t.address || 'no address';
+  if (!many) return { title: `Save and reconnect${targets[0]?.address ? ` to ${targets[0].address}` : ''}?`, lines: [] };
+  if (targets.length === 1) return { title: `Save and reconnect ${targets[0].name} to ${at(targets[0])}?`, lines: [] };
+  return { title: `Save and reconnect ${targets.length} routers?`, lines: targets.map((t) => `${t.name} to ${at(t)}`) };
+}
+
 // Critical fields of the form (criticalEdits in internal/app/recheck.go). The page asks the PIN recheck before it
 // sends them; a server refusal still asks if this list falls behind.
 const CRITICAL = new Set([

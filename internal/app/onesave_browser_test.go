@@ -42,9 +42,8 @@ func TestChromeOneSaveReview(t *testing.T) {
 			&& document.getElementById('review-save').textContent === 'Save 2 changes';
 	})()`)
 	b.eval(`document.getElementById('review-save').click(); true`)
-	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
-	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
-	b.waitFor("Save and reconnect asked", `document.getElementById('review')?.offsetParent && document.getElementById('review-save').textContent === 'Save and reconnect' && document.getElementById('review').textContent.includes('127.0.0.1:1')`)
+	// The confirm comes before the PIN recheck, so nothing asks again after the PIN.
+	b.waitFor("Save and reconnect asked", `document.getElementById('review')?.offsetParent && document.getElementById('review-save').textContent === 'Save and reconnect' && document.getElementById('review').textContent.includes('127.0.0.1:1') && !document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('review-back').click(); true`)
 	b.waitFor("back on the review", `document.getElementById('review-back').textContent === 'Keep editing'`)
 	b.eval(`document.getElementById('review-back').click(); true`)
