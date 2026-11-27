@@ -1291,6 +1291,117 @@ html {
   flex-wrap: wrap;
   gap: var(--pb-space-4);
 }
+/* The table of tie lines: grouped by router pair, of bounded height with a big scroll bar (bigscroll.js SCROLLERS).
+   The column heads and each pair's heading stay in view while the rows scroll, as in the Protects list. */
+.sode__tlist {
+  --sode-phead-h: 2rem;
+  max-height: clamp(16rem, calc(100vh - 31rem), 44rem);
+  overflow-y: auto;
+}
+.sode__trow {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-4);
+  grid-template-columns: minmax(6rem, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  min-height: 3rem;
+  padding: var(--pb-space-2) var(--pb-space-3);
+}
+.sode__trow--head {
+  background: var(--pb-surface-raised);
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  height: var(--sode-phead-h);
+  min-height: 0;
+  padding-block: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.sode__trow--edit {
+  background: var(--pb-surface-raised);
+  display: block;
+}
+.sode__trow-name {
+  overflow-wrap: anywhere;
+}
+.sode__tend,
+.sode__tstate {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sode__tstate {
+  align-items: flex-start;
+  gap: var(--pb-space-1);
+}
+.sode__tend-n {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+}
+.sode__tend-title {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+.sode__tstate-lost {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-2);
+}
+.sode__tstate-lost .pb-icon {
+  color: var(--pb-status-error);
+}
+/* The editor: Add tie line above the table, or Edit in the row (tielineedit.js). Its match lists are in the flow, so
+   the table's scroll box never cuts them. */
+.sode__tadd {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  margin-bottom: var(--pb-space-3);
+  padding: var(--pb-space-3);
+}
+.sode__tedit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__tedit-fields {
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-3) var(--pb-space-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.sode__tfind > .sode__menu {
+  max-height: calc(var(--pb-control-h) * 6 + var(--pb-space-2) * 2);
+  position: static;
+}
+.sode__tedit-err:empty {
+  display: none;
+}
+.sode__tedit-err {
+  color: var(--pb-status-error);
+  margin: 0;
+}
+@media (max-width: 62rem) {
+  .sode__trow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .sode__trow--head {
+    display: none;
+  }
+  .sode__trow > .sode__tend,
+  .sode__trow > .sode__tstate {
+    grid-column: 1 / -1;
+  }
+  .sode__trow > .sode__prow-act {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .sode__tlist .sode__pgroup-head {
+    top: 0;
+  }
+  .sode__tedit-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 /* The Remove Confirm under a tie line row (confirmbox.js), drawn as #protects-confirm draws it. */
 .sode__tielines-confirm > .sode-ov__keyconfirm {
   border: var(--pb-border-w) solid var(--pb-edge);

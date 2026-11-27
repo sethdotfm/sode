@@ -18,7 +18,7 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	b.waitFor("Add router shown", `!!document.getElementById('router-add')?.offsetParent`)
+	b.waitFor("Add router shown, and one line in Tie lines", `!!document.getElementById('router-add')?.offsetParent && !!document.getElementById('tielines-one').offsetParent && document.getElementById('tielines-app').hidden && document.getElementById('tielines-weight').hidden`)
 	b.eval(`document.getElementById('router-add').click(); true`)
 	b.waitFor("a new router row with the free prefix", `document.getElementById('cfg-rt-new1-prefix')?.value === 'B'`)
 	b.eval(`(() => { const f = document.getElementById('cfg-rt-new1-address'); f.value = '` + simB + `'; f.dispatchEvent(new Event('input', {bubbles: true}));
@@ -58,7 +58,7 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 		t.Fatalf("router B %+v", rc)
 	}
 	b.waitFor("every prefix shows", `document.getElementById('cfg-rt-`+a.r().cfg.UID+`-prefix')?.value === 'A' && document.getElementById('cfg-rt-`+uid+`-prefix')?.value === 'B'
-		&& !!document.getElementById('cfg-rl-`+uid+`-levels')`)
+		&& !!document.getElementById('cfg-rl-`+uid+`-levels') && !document.getElementById('tielines-app').hidden && document.getElementById('tielines-one').hidden`)
 
 	a.cfgMu.Lock()
 	err := a.applyConfig(func(c *config.Config) error {
