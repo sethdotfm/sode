@@ -33,7 +33,9 @@ type routerUnit struct {
 	checks   map[*tallyCheck]struct{}
 	linkSeen string
 	linkErr  string
-	fire     *fireState
+	// protAt: when the link last went down from up, the time of the last known Protect rows. Guarded by App.mu.
+	protAt time.Time
+	fire   *fireState
 
 	// Take timers; only tests shorten them (shortTimers).
 	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration

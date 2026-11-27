@@ -488,6 +488,9 @@ func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	if (s == swp08.StateUp) != (u.status.Router == string(swp08.StateUp)) {
 		a.viaTouchRouter(u, a.r())
 	}
+	if s != swp08.StateUp && u.status.Router == string(swp08.StateUp) {
+		u.protAt = time.Now()
+	}
 	u.status.Router = string(s)
 	u.status.Addr = a.r().routerOf(u.uid()).Address
 	if s == swp08.StateUp {
@@ -775,6 +778,9 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 			Status: u.statusOut(),
 			Via:    a.pageViaRows(u, x), ProtectDevice: rc.ProtectDevice,
 		})
+		if u.status.Router != string(swp08.StateUp) {
+			out[len(out)-1].ProtectAt = u.protAt
+		}
 		if u != a.firstUnit() {
 			out[len(out)-1].Protected = protectRows(u.router.protect)
 			out[len(out)-1].ProtectBy = a.protectByListOf(r, rc.UID)

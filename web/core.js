@@ -129,6 +129,7 @@ function newRouter(r, first = false) {
     prot: new Map(),
     protBy: new Map(), // Sode's record of them.
     protectDevice: r.protectDevice || 0, // Sode's device number on the router.
+    protectAt: r.protectAt || null, // while the link is not up: when it went down, the age of the Protect rows.
     link: null,
     addr: '',
     err: '',
