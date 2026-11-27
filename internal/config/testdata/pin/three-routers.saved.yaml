@@ -1,0 +1,103 @@
+# Sode settings. Edited by the settings dialog; hand edits apply on restart.
+format: 2
+routers:
+    - uid: a1a1a1a1a1a1a1a1
+      prefix: A
+      title: Studio Ultrix
+      address: 10.0.0.50:8910
+      statusLabel: address
+      matrix: 0
+      levels: 4
+      levelOffset: -1
+      levelNumbering: "1"
+      numberOffset: 1
+      defaultLevels: 1-2
+      nameLength: 12
+      nameRequests: std
+      nameRereadSeconds: 60
+      routeRereadSeconds: 300
+      fireMode: sequential
+      salvoGroup: 127
+      protectDevice: 0
+    - uid: b2b2b2b2b2b2b2b2
+      prefix: B
+      title: Second
+      address: 10.0.0.9:8910
+      statusLabel: address
+      matrix: 0
+      levels: 2
+      levelOffset: -1
+      levelNumbering: "0"
+      numberOffset: 0
+      defaultLevels: 1-2
+      nameLength: 12
+      nameRequests: std
+      nameRereadSeconds: 60
+      routeRereadSeconds: 300
+      fireMode: sequential
+      salvoGroup: 127
+      protectDevice: 0
+      futureRouterKey: kept
+    - uid: c3c3c3c3c3c3c3c3
+      prefix: CC
+      title: ""
+      address: 10.0.0.10:8910
+      statusLabel: none
+      matrix: 1
+      levels: 17
+      levelOffset: -1
+      levelNumbering: "1"
+      numberOffset: 1
+      defaultLevels: 1-17
+      nameLength: 12
+      nameRequests: std
+      nameRereadSeconds: 60
+      routeRereadSeconds: 300
+      fireMode: native
+      salvoGroup: 3
+      protectDevice: 7
+installUid: c0ffee0000000003
+brandText: Desk
+confirmLockoutMs: 500
+resultDismissSeconds: 8
+confirmEnter: false
+trustedProxies: []
+hiddenDstsRouter: b2b2b2b2b2b2b2b2
+tieHopWeight: 1
+levelColors: []
+pinWaits: true
+browserDefaults:
+    theme: system
+    layout: auto
+    clock: "24"
+    flip: false
+    scrollTop: true
+    searchFilters: false
+    setStack: and
+    nextMode: number
+    stackGap: "30"
+    compact: false
+    paletteChar: '>'
+newUserDefaults:
+    persistent: false
+    noAutoLock: false
+locks:
+    main: false
+    log: false
+    panel: false
+autoLockMinutes: 0
+maxPinLen: 8
+api:
+    rateLimit: 600
+    takeCap: 4
+    guestEnabled: false
+    logReads: false
+guestRole: standard
+guestApiScopes:
+    - names
+    - tally
+    - protected
+    - status
+publicPanels: true
+newPanelActs: public
+requireHttps: false

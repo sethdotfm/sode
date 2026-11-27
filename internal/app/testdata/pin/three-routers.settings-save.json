@@ -1,0 +1,15 @@
+{
+  "nameLength": {
+    "err": "A Studio One: name length must be 4, 8, 12 or 16",
+    "reason": "invalid",
+    "status": "refused"
+  },
+  "router/b2b2b2b2b2b2b2b2/levels": {
+    "status": "saved",
+    "version": "*"
+  },
+  "routerName": {
+    "status": "saved",
+    "version": "*"
+  }
+}

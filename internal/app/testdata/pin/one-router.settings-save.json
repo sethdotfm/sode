@@ -1,0 +1,11 @@
+{
+  "nameLength": {
+    "err": "name length must be 4, 8, 12 or 16",
+    "reason": "invalid",
+    "status": "refused"
+  },
+  "routerName": {
+    "status": "saved",
+    "version": "*"
+  }
+}
