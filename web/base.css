@@ -1089,23 +1089,189 @@ html {
 .sode__swap-list {
   margin-top: var(--pb-space-4);
 }
-/* Settings > Routers > Protects (settingsprotects.js). */
-.sode__protects {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.sode__protects-row {
+/* Settings > Routers > Protects (settingsprotects.js): one list of fixed height with a big scroll bar. The column
+   heads and each router's heading stay in view while the rows scroll. */
+.sode__ptools,
+.sode__pbar {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pb-space-4);
+  gap: var(--pb-space-3) var(--pb-space-4);
 }
-.sode__protects-acts {
-  margin-top: var(--pb-space-4);
+.sode__pbar {
+  justify-content: space-between;
+  margin: var(--pb-space-3) 0;
+}
+.sode__pfind {
+  max-width: 20rem;
+}
+.sode__pseg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1);
+}
+.sode__pcount,
+.sode__pcount-line,
+.sode__prow-n,
+.sode__pgroup-prefix {
+  font-family: var(--pb-font-num);
+}
+.sode__pwrap {
+  border: var(--pb-border-w) solid var(--pb-edge);
+}
+.sode__plist {
+  --sode-phead-h: 2rem;
+  height: clamp(16rem, calc(100vh - 31rem), 44rem);
+  overflow-y: auto;
+}
+.sode__prow {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: grid;
+  gap: 0 var(--pb-space-4);
+  grid-template-columns: 5rem minmax(7rem, 1.2fr) 6rem minmax(10rem, 1.6fr) minmax(5rem, auto);
+  min-height: 2.5rem;
+  padding: var(--pb-space-1) var(--pb-space-3);
+}
+.sode__prow--head {
+  background: var(--pb-surface-raised);
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  height: var(--sode-phead-h);
+  min-height: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.sode__prow-n,
+.sode__prow-lv {
+  color: var(--pb-text-muted);
+}
+.sode__prow-name {
+  font-weight: var(--pb-weight-bold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode__prow-by,
+.sode__prow-result {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+/* Another device's Protect or Router lock: plain words, a magenta shield (Protected in docs/color-roles.md). */
+.sode__prow-shield {
+  color: var(--pb-protect);
+}
+.sode__prow-act {
+  display: flex;
+  gap: var(--pb-space-2);
+  justify-content: flex-end;
+}
+.sode__prow[data-stale] > :not(.sode__prow-act) {
+  color: var(--pb-text-disabled);
+}
+.sode__prow[data-confirm] {
+  background: var(--pb-surface-raised);
+  grid-template-columns: 5rem minmax(7rem, 1fr) minmax(0, 3fr);
+  min-height: 3.5rem;
+}
+.sode__prow-confirm {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  justify-content: flex-end;
+}
+.sode__prow[data-done] {
+  background: var(--pb-surface-raised);
+}
+.sode__prow[data-done="error"] .sode__prow-result,
+.sode__presult[data-state="error"],
+.sode__pgroup-result--error {
+  color: var(--pb-status-error);
+}
+.sode__pgroup-head {
+  align-items: center;
+  background: var(--pb-surface-high);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-4);
+  padding: var(--pb-space-2) var(--pb-space-3);
+  position: sticky;
+  top: var(--sode-phead-h);
+  z-index: 1;
+}
+.sode__pgroup-gap {
+  flex: 1;
+}
+.sode__pgroup-link {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-2);
+}
+.sode__pgroup-link .pb-icon {
+  color: var(--pb-status-error);
+}
+.sode__pgroup-notes {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  padding-left: 2.5rem;
+}
+.sode__pempty {
+  color: var(--pb-text-muted);
+  padding: var(--pb-space-4);
+}
+.sode__presult {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  margin: var(--pb-space-3) 0 0;
+  min-height: 1.75rem;
+}
+@media (max-width: 62rem) {
+  .sode__prow {
+    grid-template-columns: 4rem minmax(0, 1fr) auto;
+  }
+  .sode__prow--head,
+  .sode__prow-lv {
+    display: none;
+  }
+  .sode__prow-by,
+  .sode__prow-result {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .sode__prow-act {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+  .sode__pgroup-head {
+    top: 0;
+  }
+}
+/* Free Sode's Protects, by router (settingsprotectsfree.js). */
+.sode__pfree-list {
+  display: flex;
+  flex-direction: column;
+  margin: var(--pb-space-4) 0;
+}
+.sode__pfree-row {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-4);
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 2.5rem;
+}
+.sode__pfree-row > .sode__hint {
+  grid-column: 1 / -1;
+}
+.sode__pfree-count {
+  font-family: var(--pb-font-num);
 }
 /* Settings > Routers > Tie lines (settingstielines.js). */
 .sode__tielines {
@@ -1126,18 +1292,6 @@ html {
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3);
-}
-/* The churning-letter Confirm (confirmbox.js), as panels.css draws it for the panel editor. */
-#protects-confirm > .sode-ov__keyconfirm {
-  border: var(--pb-border-w) solid var(--pb-edge);
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-3);
-  margin-top: var(--pb-space-4);
-  padding: var(--pb-space-4);
-}
-#protects-confirm > .sode-ov__keyconfirm[hidden] {
-  display: none;
 }
 .sode__swap-owner {
   font-size: 1rem;
