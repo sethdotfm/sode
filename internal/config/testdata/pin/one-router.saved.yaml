@@ -1,0 +1,68 @@
+# Sode settings. Edited by the settings dialog; hand edits apply on restart.
+format: 2
+routers:
+    - uid: a1a1a1a1a1a1a1a1
+      prefix: A
+      title: Studio Ultrix
+      address: 10.0.0.50:8910
+      matrix: 2
+      levels: 5
+      levelOffset: 0
+      levelNumbering: va
+      numberOffset: 0
+      defaultLevels: 1-3
+      nameLength: 8
+      nameRequests: ext
+      nameRereadSeconds: 120
+      routeRereadSeconds: 600
+      fireMode: native
+      salvoGroup: 9
+      protectDevice: 42
+      futureRouterKey: kept
+installUid: c0ffee0000000001
+statusLabel: name
+brandText: Desk
+confirmLockoutMs: 500
+resultDismissSeconds: 8
+confirmEnter: false
+trustedProxies: []
+hiddenDsts: 1-4
+tieHopWeight: 1
+levelColors:
+    - '#ff0000'
+pinWaits: true
+browserDefaults:
+    theme: system
+    layout: auto
+    clock: "24"
+    flip: false
+    scrollTop: true
+    searchFilters: false
+    setStack: and
+    nextMode: number
+    stackGap: "30"
+    compact: false
+    paletteChar: '>'
+newUserDefaults:
+    persistent: false
+    noAutoLock: false
+locks:
+    main: false
+    log: false
+    panel: false
+autoLockMinutes: 0
+maxPinLen: 8
+api:
+    rateLimit: 600
+    takeCap: 4
+    guestEnabled: false
+    logReads: false
+guestRole: standard
+guestApiScopes:
+    - names
+    - tally
+    - protected
+    - status
+publicPanels: true
+newPanelActs: public
+requireHttps: false

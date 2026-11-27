@@ -18,7 +18,7 @@ import (
 func tieProtectApp(t *testing.T) (a *App, fa, fb *fakeRouter, key string) {
 	t.Helper()
 	return tieApp(t, func(c *config.Config) {
-		c.ProtectDevice = 126
+		c.Routers[0].ProtectDevice = 126
 		c.APIClients[0].Scopes = append(c.APIClients[0].Scopes, config.ScopeProtect)
 		on := true
 		c.APIClients[0].Rights.Protect = &on
@@ -78,7 +78,7 @@ func sendOrder(fa, fb *fakeRouter) func() []string {
 // the Group of the take.
 func TestAPITieTakeProtectsAfterHops(t *testing.T) {
 	a, fa, fb, key := tieProtectApp(t)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	order := sendOrder(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, protectBody(uidA, 4, 2), nil)
 	if rec.Code != http.StatusOK {
@@ -147,7 +147,7 @@ func TestAPITieTakeProtectsAfterHops(t *testing.T) {
 // A Protect that the router does not confirm leaves the take a success. Its entry is failed, with Still.
 func TestAPITieTakeProtectFails(t *testing.T) {
 	a, fa, _, key := tieProtectApp(t)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	fa.mu.Lock()
 	fa.prot.deafSet = map[int]bool{a.r().byUI[2].Wire: true}
 	fa.mu.Unlock()
@@ -168,7 +168,7 @@ func TestAPITieTakeProtectFails(t *testing.T) {
 // When a route fails, Sode does not send its Protect. The Protect entry says so, and the Group keeps its size.
 func TestAPITieTakeProtectNotSentOnFailure(t *testing.T) {
 	a, fa, fb, key := tieProtectApp(t)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	fb.mu.Lock()
 	fb.ignore[2] = true
 	fb.mu.Unlock()
@@ -207,11 +207,11 @@ func TestAPITieTakeProtectNeedsRight(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, fa, fb, key := tieApp(t, func(c *config.Config) {
-				c.ProtectDevice = 126
+				c.Routers[0].ProtectDevice = 126
 				tc.mut(c)
 			})
 			sa, sb := fa.sends(), fb.sends()
-			rec := apiPost(a, "/api/v1/takes", key, protectBody(a.r().cfg.UID, 4, 2), nil)
+			rec := apiPost(a, "/api/v1/takes", key, protectBody(a.r().cfg.Routers[0].UID, 4, 2), nil)
 			wantErr(t, rec, http.StatusForbidden, tc.code)
 			if fa.sends() != sa || fb.sends() != sb {
 				t.Fatal("a router got a message")

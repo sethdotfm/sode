@@ -12,7 +12,8 @@ globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), se
 const setup = async () => {
   const m = await import('./all.mjs');
   const it = (n, name) => ({ n, name, num: String(n + 1), label: `${n + 1} ${name}` });
-  m.S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [], presets: [] };
+  m.S.cfg = { filterSets: [], presets: [] };
+  Object.assign(m.routerData(''), { off: 1, numbering: '1', defaultLevels: '1,2' });
   m.routerData('').uid = '0123456789abcdef';
   m.routerData('').levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
   m.routerData('').levelBy = new Map(m.routerData('').levels.map((l) => [l.ui, l]));

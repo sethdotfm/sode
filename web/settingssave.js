@@ -11,7 +11,8 @@ import { requesting, cancelRequest } from './approvalcards.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { askInterruptions, initInterruptions } from './interruptions.js';
-import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, critical, sectionOfKey } from './savereviewrules.js';
+import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, reconnectTargets, reconnectQuestion, critical, sectionOfKey } from './savereviewrules.js';
+import { routerDisplay, listKey } from './routerlistrules.js';
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
 import { sectionView, approvalWho } from './settingsrolerules.js';
@@ -32,6 +33,8 @@ let applied = null; // {name, target}. The last Access preset applied, until not
 let seq = 0;
 let requested = null; // { id, sent, keys }: a save the server holds for Request approval.
 let pending = null; // { id, sent, retried, answer }; sent: key -> the value sent; answer: the Approval popup's
+
+const formOwns = (key) => key in SAVE_FIELDS;
 
 // A data-apart input with a data-key saves on its own, so it is never a change here.
 const saveFields = () => Object.fromEntries(Object.entries(readSettings()).filter(([k]) => k in SAVE_FIELDS));
@@ -69,14 +72,21 @@ const warned = () => !$('settings-unsaved').hidden;
 
 const SPECIAL = {
   levelColors: 'cfg-colors',
-  levelNumbering: 'cfg-lvlnum',
-  defaultLevels: 'cfg-default',
   browserDefaults: 'gcfg-theme',
   locks: 'cfg-lock-main',
   newUserDefaults: 'cfg-new-persistent',
 };
+// key is a form key.
 const keyNode = (key) => (SPECIAL[key] ? $(SPECIAL[key]) : form.querySelector(`[data-key="${key}"]`));
-const fieldset = (key) => form.querySelector(`:scope > fieldset[data-section="${sectionOfKey(key)}"]`);
+// The form's own section of a node: the top fieldset around it.
+const topFieldset = (node) => {
+  let fs = node?.closest('fieldset[data-section]');
+  while (fs && fs.parentElement !== form) fs = fs.parentElement.closest('fieldset[data-section]');
+  return fs || null;
+};
+// The section where a key's field is: its node's, else the section of the key.
+const fieldset = (key) =>
+  topFieldset(srcOf(key).node?.(key)) || topFieldset(keyNode(key)) || form.querySelector(`:scope > fieldset[data-section="${sectionOfKey(key)}"]`);
 const sections = () => [...form.querySelectorAll(':scope > fieldset[data-section]')];
 const sectionName = (fs) => fs.querySelector(':scope > legend').firstChild.textContent.trim();
 const checkText = (node) => node?.closest('.pb-check')?.querySelector('.pb-check__label')?.textContent;
@@ -94,8 +104,7 @@ function formLabel(r) {
   if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
   if (r.key === 'newUserDefaults') return `New user defaults: ${checkText($(r.sub === 'persistent' ? 'cfg-new-persistent' : 'cfg-new-no-auto-lock')) || r.sub}`;
   if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;
-  if (r.key === 'levelColors') return $(`cfg-color-${r.sub + 1}`)?.getAttribute('aria-label') || `Level ${r.sub + 1} color`;
-  if (r.key === 'levelNumbering') return $('cfg-lvlnum-label').textContent;
+  if (r.key === 'levelColors') return $(`cfg-color-${r.sub + 1}`)?.getAttribute('aria-label') || `Position ${r.sub + 1} color`;
   const node = keyNode(r.key);
   return (forText(node) || checkText(node) || r.key).trim();
 }
@@ -107,7 +116,6 @@ function formShow(r, v) {
       .map(([sub, x]) => `${label({ key: r.key, sub })}: ${show({ key: r.key, sub }, x)}`)
       .join(', ');
   }
-  if (r.key === 'levelNumbering') return form.querySelector(`label[for="cfg-lvlnum-${v}"]`)?.textContent || v;
   const sel = r.key === 'browserDefaults' ? form.querySelector(`select[data-gpref="${r.sub}"]`) : keyNode(r.key);
   if (sel?.tagName === 'SELECT') {
     const same = r.key === 'browserDefaults' ? (o) => toGlobal(r.sub, o.value) === v : (o) => o.value === String(v);
@@ -119,7 +127,7 @@ function formShow(r, v) {
 
 // The form as a save source (savesources.js). node(key) places its marks; a source without one marks its section.
 const formSource = {
-  owns: (key) => key in SAVE_FIELDS,
+  owns: formOwns,
   base: () => base,
   now: saveFields,
   version: (key) => versions[key],
@@ -176,7 +184,7 @@ function paintPresetMarks() {
 
 function unsavedText() {
   const { shown, unseen } = splitSeen(changes(), seen);
-  const slugs = new Set(shown.map((r) => sectionOfKey(r.key)));
+  const slugs = new Set(shown.map((r) => fieldset(r.key)?.dataset.section || sectionOfKey(r.key)));
   const names = sections()
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
@@ -350,6 +358,13 @@ function stillDiffers(gaps) {
   return el('div', null, el('p', null, `Still different from ${applied.name}:`), el('ul', null, ...items));
 }
 
+// addressAfter()(uid): the address a router has after the save, from the detail views of Settings > Routers
+// (settingsrouterdetail.js).
+function addressAfter() {
+  const list = Object.assign({}, ...sources().map((src) => src.now()));
+  return (uid) => list[listKey(uid, 'address')] ?? S.routers.find((r) => r.uid === uid)?.address ?? '';
+}
+
 async function review({ focusField }) {
   const now = readSettings();
   const bad = formProblem(now);
@@ -387,7 +402,16 @@ async function review({ focusField }) {
     criticalAction: (r) => critical(r.key),
     role,
     reconnects: (r) => reconnects(r.key),
-    address: now.router,
+    question: (saves) =>
+      reconnectQuestion(
+        reconnectTargets(
+          saves.map((r) => r.key),
+          S.routers,
+          routerDisplay,
+          addressAfter(),
+        ),
+        S.routers.length > 1,
+      ),
     recheckNeeded: S.users.length > 0,
   });
   if (!send || !isOpen()) return;
@@ -408,8 +432,10 @@ export function initSave(toc) {
       edited();
     });
   }
+  // A save in flight can reload the page: a new default router or prefix reloads every page (core.js). The save
+  // goes on at the server, so the page does not ask.
   window.addEventListener('beforeunload', (e) => {
-    if (dirty()) e.preventDefault();
+    if (dirty() && !pending) e.preventDefault();
   });
   form.addEventListener('submit', (e) => {
     e.preventDefault();

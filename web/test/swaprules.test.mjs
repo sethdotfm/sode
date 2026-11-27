@@ -47,6 +47,7 @@ test('numbers are typed as shown and sent as the router holds them', () => {
 test('the review row names the Swap and counts items per owner', () => {
   const v = { router: 'r1', side: 'destination', from: 22, to: 39, items: ['preset/everyone/p1', 'preset/u-1/a1', 'panel/p1'] };
   assert.equal(swapLabel(v, 1), 'Swap destination 23 for 40');
+  assert.equal(swapLabel(v, 0, 'B Stage 2'), 'Swap destination 22 for 39 on B Stage 2');
   assert.equal(swapShow(v, items), '3 items: Everyone 1, Ana 1, Bo 1');
   assert.equal(swapShow(undefined, items), 'No Swap');
   const rows = diffRows({}, { swap: v });

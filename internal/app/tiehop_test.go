@@ -25,9 +25,9 @@ func withRoute(body, route string) string {
 // goes, and each of its steps has a failed entry. The other routes of the take go.
 func TestAPITieTakeRefusesProtectedHop(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	a.mu.Lock()
-	a.first.router.protect[10] = map[int]protHold{2: {dev: 99, kind: swp08.KindProtect}}
+	a.firstUnit().router.protect[10] = map[int]protHold{2: {dev: 99, kind: swp08.KindProtect}}
 	a.mu.Unlock()
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, withRoute(tieRoutes(uidA, [2]int{4, 2}), plainB(6, 30)), nil)
@@ -63,7 +63,7 @@ func TestAPITieTakeRefusesProtectedHop(t *testing.T) {
 // that hop still sends it.
 func TestAPITieTakeRefusesRouterLockOnLastHop(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	levelsA := a.r().routerOf(uidA).Levels
 	ub, _ := a.unit("b2b2b2b2")
 	a.mu.Lock()
@@ -99,8 +99,8 @@ func TestAPITieTakeRefusesRouterLockOnLastHop(t *testing.T) {
 
 // In fireMode native, the steps of a tie take are ordinary connects: two routes on B in one wave stage nothing.
 func TestAPITieTakeNativeSendsConnects(t *testing.T) {
-	a, fa, fb, key := tieApp(t, func(c *config.Config) { c.FireMode = "native" })
-	uidA := a.r().cfg.UID
+	a, fa, fb, key := tieApp(t, func(c *config.Config) { c.Routers[0].FireMode = "native" })
+	uidA := a.r().cfg.Routers[0].UID
 	levelsA := a.r().routerOf(uidA).Levels
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}, [2]int{4, 21}), nil)
@@ -124,7 +124,7 @@ func TestAPITieTakeNativeSendsConnects(t *testing.T) {
 // success. When no hop changed, the route is Already.
 func TestAPITieTakeResultAcrossHops(t *testing.T) {
 	a, _, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	fb.seed(2, 5, a.r().byUI[1].Wire) // B.2 already takes FROM A
 	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}), nil)
 	b := tieTakeAnswer(t, rec.Body)

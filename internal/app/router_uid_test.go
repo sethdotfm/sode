@@ -11,19 +11,17 @@ import (
 
 func TestAddressChangeKeepsRouterUID(t *testing.T) {
 	a := futureApp(t, "routers: [{address: 127.0.0.1:1}]\n")
-	uid := a.r().cfg.UID
-	if len(uid) < 16 || a.r().cfg.Prefix != "A" {
-		t.Fatalf("router uid %q prefix %q", uid, a.r().cfg.Prefix)
+	uid := a.r().cfg.Routers[0].UID
+	if len(uid) < 16 || a.r().cfg.Routers[0].Prefix != "A" {
+		t.Fatalf("router uid %q prefix %q", uid, a.r().cfg.Routers[0].Prefix)
 	}
-	if err := decodeAndSave(a, adminClient(t, a), []byte(`{"router":"127.0.0.1:2"}`)); err != nil {
-		t.Fatal(err)
-	}
-	if got := a.r().cfg; got.Address != "127.0.0.1:2" || got.UID != uid || got.Prefix != "A" {
-		t.Fatalf("after the save: address %q uid %q prefix %q, want uid %q", got.Address, got.UID, got.Prefix, uid)
+	mustSave(t, a, adminClient(t, a), map[string]any{aKey(a, "address"): "127.0.0.1:2"})
+	if got := a.r().cfg; got.Routers[0].Address != "127.0.0.1:2" || got.Routers[0].UID != uid || got.Routers[0].Prefix != "A" {
+		t.Fatalf("after the save: address %q uid %q prefix %q, want uid %q", got.Routers[0].Address, got.Routers[0].UID, got.Routers[0].Prefix, uid)
 	}
 	file, _, err := config.Load(a.cfgPath)
-	if err != nil || file.UID != uid || file.Address != "127.0.0.1:2" {
-		t.Fatalf("file: uid %q address %q %v", file.UID, file.Address, err)
+	if err != nil || file.Routers[0].UID != uid || file.Routers[0].Address != "127.0.0.1:2" {
+		t.Fatalf("file: uid %q address %q %v", file.Routers[0].UID, file.Routers[0].Address, err)
 	}
 	b, _ := os.ReadFile(a.cfgPath)
 	if !strings.Contains(string(b), "routers:") {
@@ -46,16 +44,19 @@ func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 			t.Errorf("config JSON has %q", k)
 		}
 	}
-	if m["router"] != a.r().cfg.Address || m["routerName"] == nil || m["matrix"] == nil {
-		t.Errorf("flat router keys missing: %v", m)
+	// The settings of every router are in the hello's routers list, not flat keys.
+	for _, k := range []string{"router", "routerName", "matrix", "levels", "numberOffset", "protectDevice"} {
+		if _, ok := m[k]; ok {
+			t.Errorf("config JSON has the flat router key %q", k)
+		}
 	}
-	if strings.Contains(string(b), a.r().cfg.UID) {
+	if strings.Contains(string(b), a.r().cfg.Routers[0].UID) {
 		t.Errorf("config JSON with no references holds the UID")
 	}
 }
 
 // The hello's routers list carries the prefix for typing (A.23) and the UID, for the references This browser presets
-// store; no page shows the UID. The UID is nowhere else in the hello.
+// store; no page shows the UID. Outside the list it is only in the version keys of its one Save fields.
 func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
@@ -63,11 +64,12 @@ func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	a.mu.Unlock()
 	var m map[string]any
 	json.Unmarshal(b, &m)
-	if first := firstHelloRouter(t, m); first["prefix"] != "A" || first["uid"] != a.r().cfg.UID {
+	if first := firstHelloRouter(t, m); first["prefix"] != "A" || first["uid"] != a.r().cfg.Routers[0].UID {
 		t.Errorf("hello first router prefix %v, uid %v", first["prefix"], first["uid"])
 	}
 	delete(m, "routers")
-	if b, _ := json.Marshal(m); strings.Contains(string(b), a.r().cfg.UID) {
+	delete(m, "versions")
+	if b, _ := json.Marshal(m); strings.Contains(string(b), a.r().cfg.Routers[0].UID) {
 		t.Error("hello holds the router UID outside the routers list")
 	}
 }
@@ -104,12 +106,12 @@ func TestPrefixChangeReloadsEveryPage(t *testing.T) {
 		}
 	}
 	next := a.r().cfg.Clone()
-	next.Prefix = "C"
+	next.Routers[0].Prefix = "C"
 	if err := a.ApplyConfig(next); err != nil {
 		t.Fatal(err)
 	}
-	if a.r().cfg.Prefix != "C" {
-		t.Fatalf("prefix %q after the import", a.r().cfg.Prefix)
+	if a.r().cfg.Routers[0].Prefix != "C" {
+		t.Fatalf("prefix %q after the import", a.r().cfg.Routers[0].Prefix)
 	}
 	for _, c := range pages {
 		if n := reloads(c); n != 1 {

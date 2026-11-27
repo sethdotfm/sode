@@ -114,7 +114,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &saved); err != nil {
 		t.Fatal(err)
 	}
-	if lv := saved.Settings.Levels[a.r().cfg.UID]; len(lv) == 0 || lv[0] != 2 {
+	if lv := saved.Settings.Levels[a.r().cfg.Routers[0].UID]; len(lv) == 0 || lv[0] != 2 {
 		t.Errorf("the saved panel lacks the level subset without level 1 on its router: %s", body)
 	}
 	for _, want := range []string{`"caption":"Go live"`, `"fontSize":150`, `"titleBar":false`, `"guard":"hold"`, `"fullscreen":true`, `"askInstanceName":false`, `"hideText":true`, `"art":"icon:tv"`, `"artB":"2"`, `"rows":3`, `"cols":3`, `"acts":"api"`, `"client":"Panel ` + id + `"`} {

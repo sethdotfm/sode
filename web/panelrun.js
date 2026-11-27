@@ -265,10 +265,11 @@ function tallyFeed({ door, body, ui, rights, used, showOffline, onFail }) {
   const tallyOf = memo(mergeTally);
   const protOf = memo(mergeProtected);
   const namesOf = memo((first, list) => mergeNames(first, list, door.places));
-  // A router of the panel is up. Without the routers list (a Sode from before it), the first router's link counts.
+  // A router of the panel is up (GET /status routers). With one router, its link counts. No answer yet is up.
   const anyUp = (l) => {
-    if (!l?.routers?.length || !door.places.many) return l ? l.routerUp : true;
-    return used().some((p) => l.routers.find((r) => r.uid === door.places.uid(p))?.routerUp);
+    if (!l) return true;
+    if (!door.places.many) return !!l.routers?.[0]?.routerUp;
+    return used().some((p) => l.routers?.find((r) => r.uid === door.places.uid(p))?.routerUp);
   };
   const shownData = (nm) => ({ tally: tallyOf(feed.shown, parts('tally')), prot: protOf(prot, parts('prot')), nm });
   async function poll() {

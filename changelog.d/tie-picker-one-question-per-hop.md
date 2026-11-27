@@ -1,0 +1,2 @@
+- The Tie line picker asks one question for each hop that the routes of a take share. One source to many destinations on router B is one question, "A → B, for B.1 B.2 B.3", and one Enter sends all of them through one tie line. Destinations on B and C get one question for A → B and one for B → C. "Choose per destination" (D) gives each destination of a hop its own question.
+- `POST /takes` accepts `through` on a route across routers with no ties: the 409 body then lists only the paths whose first tie lines are these.

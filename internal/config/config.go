@@ -17,11 +17,13 @@ type Config struct {
 	Format int `yaml:"format" json:"-"`
 	// Never changes: Item links and import identify this install by it.
 	InstallUID string `yaml:"installUid" json:"-"`
-	// The first router: the file holds it as the first entry of routers (router.go). Its fields are the old
-	// single-router fields.
-	Router `yaml:"-"`
-	// MoreRouters: the routers after the first, in file order. Routers gives the whole list.
-	MoreRouters []Router `yaml:"-" json:"-"`
+	// Routers: every router, in file order (the file's routers list, router.go). The first one is the default router.
+	// Defaults, Normalize and Load leave at least one. The JSON of Config has the default router's fields as flat keys
+	// (MarshalJSON in router.go).
+	Routers []Router `yaml:"-" json:"-"`
+	// RouterShow: what the status bar shows next to the Routers icon (address, name or none), the same for every
+	// router. Releases before it kept it on each router (`statusLabel` of the first router, read by UnmarshalYAML).
+	RouterShow string `yaml:"statusLabel" json:"routerShow"`
 	// Brand fields are display only.
 	BrandText            string   `yaml:"brandText,omitempty" json:"brandText"`
 	BrandBorder          string   `yaml:"brandBorder,omitempty" json:"brandBorder"`
@@ -184,9 +186,8 @@ type FilterSet struct {
 func Defaults() Config {
 	return Config{
 		Format: Format,
-		Router: Router{
+		Routers: []Router{{
 			Prefix:             "A",
-			RouterShow:         "address",
 			Matrix:             0,
 			Levels:             17,
 			LevelWireOffset:    -1,
@@ -198,7 +199,8 @@ func Defaults() Config {
 			NameRefreshSeconds: 60,
 			TallyResyncSeconds: 300,
 			LevelNumbering:     "1",
-		},
+		}},
+		RouterShow:           "address",
 		ConfirmLockoutMs:     500,
 		ResultDismissSeconds: 8,
 		TieHopWeight:         DefaultTieHopWeight,
@@ -232,22 +234,24 @@ func FromEnv(c Config) (Config, error) {
 			*dst = n
 		}
 	}
-	str("SODE_ROUTER", &c.Address)
-	num("SODE_MATRIX", &c.Matrix)
-	num("SODE_LEVEL_COUNT", &c.Levels)
-	num("SODE_LEVEL_WIRE_OFFSET", &c.LevelWireOffset)
-	str("SODE_DEFAULT_LEVELS", &c.DefaultLevels)
-	num("SODE_NAME_LEN", &c.NameLength)
-	str("SODE_NAMES", &c.NameRequests)
-	str("SODE_FIRE_MODE", &c.FireMode)
-	num("SODE_SALVO_GROUP", &c.SalvoGroup)
-	num("SODE_NUM_OFFSET", &c.NumberOffset)
+	// The env seeds only the default router.
+	r := c.EditDefaultRouter()
+	str("SODE_ROUTER", &r.Address)
+	num("SODE_MATRIX", &r.Matrix)
+	num("SODE_LEVEL_COUNT", &r.Levels)
+	num("SODE_LEVEL_WIRE_OFFSET", &r.LevelWireOffset)
+	str("SODE_DEFAULT_LEVELS", &r.DefaultLevels)
+	num("SODE_NAME_LEN", &r.NameLength)
+	str("SODE_NAMES", &r.NameRequests)
+	str("SODE_FIRE_MODE", &r.FireMode)
+	num("SODE_SALVO_GROUP", &r.SalvoGroup)
+	num("SODE_NUM_OFFSET", &r.NumberOffset)
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
 	num("SODE_RESULT_DISMISS_S", &c.ResultDismissSeconds)
 	num("SODE_TIE_HOP_WEIGHT", &c.TieHopWeight)
-	num("SODE_NAME_REREAD_S", &c.NameRefreshSeconds)
-	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
-	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
+	num("SODE_NAME_REREAD_S", &r.NameRefreshSeconds)
+	num("SODE_TALLY_RESYNC_S", &r.TallyResyncSeconds)
+	str("SODE_LEVEL_NUMBERING", &r.LevelNumbering)
 	num("SODE_MAX_PIN_LEN", &c.MaxPinLen)
 	boolean := func(k string, dst *bool) {
 		if v := os.Getenv(k); v != "" {
@@ -287,7 +291,7 @@ func WizardEnv() map[string]string {
 
 // Clone shares no slices, so Normalize cannot touch a config others read.
 func (c Config) Clone() Config {
-	c.MoreRouters = slices.Clone(c.MoreRouters)
+	c.Routers = slices.Clone(c.Routers)
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
@@ -310,15 +314,20 @@ func (c Config) Clone() Config {
 }
 
 func (c *Config) Normalize() {
-	c.Router.normalize()
-	for i := range c.MoreRouters {
-		c.MoreRouters[i].normalize()
+	if len(c.Routers) == 0 {
+		c.Routers = []Router{{}}
+	}
+	for i := range c.Routers {
+		c.Routers[i].normalize()
 	}
 	c.InstallUID = strings.TrimSpace(c.InstallUID)
 	if c.InstallUID == "" {
 		c.InstallUID = newRouterUID()
 	}
 	c.BrandText = strings.TrimSpace(c.BrandText)
+	if c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow)); c.RouterShow == "" {
+		c.RouterShow = "address"
+	}
 	if c.NewPanelActs = strings.ToLower(strings.TrimSpace(c.NewPanelActs)); c.NewPanelActs == "" {
 		c.NewPanelActs = "public"
 	}
@@ -384,8 +393,8 @@ type Level struct {
 	Color  string `json:"color,omitempty"` // overrides Swatch
 }
 
-// LevelMap gives the first router's levels.
-func (c Config) LevelMap() []Level { return c.LevelMapOf(c.Router) }
+// LevelMap gives the default router's levels.
+func (c Config) LevelMap() []Level { return c.LevelMapOf(c.DefaultRouter()) }
 
 // LevelMapOf gives the levels of router rc: its count, wire offset and numbering, with the level colors of the config.
 // UI 1 gets the video swatch, the rest the 16 audio swatches.
@@ -419,4 +428,29 @@ func (r Router) LevelLabel(ui int) string {
 		return strconv.Itoa(ui - 1)
 	}
 	return strconv.Itoa(ui)
+}
+
+// LevelsText gives a list of UI levels ("1-3,5", as the file keeps it) in the router's Level numbering. For example,
+// "0-2, 4" for 0 numbering and "V, 1-2, 4" for V + A, where V never starts a range. Blank, or a list that does not
+// parse, stays as it is.
+func (r Router) LevelsText(s string) string {
+	ls, err := ParseLevels(s, r.Levels)
+	if s == "" || err != nil {
+		return s
+	}
+	slices.Sort(ls)
+	var parts []string
+	for i := 0; i < len(ls); {
+		j := i
+		for j+1 < len(ls) && ls[j+1] == ls[j]+1 && !(r.LevelNumbering == "va" && ls[i] == 1) {
+			j++
+		}
+		if i == j {
+			parts = append(parts, r.LevelLabel(ls[i]))
+		} else {
+			parts = append(parts, r.LevelLabel(ls[i])+"-"+r.LevelLabel(ls[j]))
+		}
+		i = j + 1
+	}
+	return strings.Join(parts, ", ")
 }

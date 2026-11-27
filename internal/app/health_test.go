@@ -25,8 +25,8 @@ func getHealth(t *testing.T, a *App, method string) (*httptest.ResponseRecorder,
 func TestHealthRouterUp(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
-	a.first.status.Router = "up"
-	a.first.status.Addr = "10.0.0.1:8910"
+	a.firstUnit().status.Router = "up"
+	a.firstUnit().status.Addr = "10.0.0.1:8910"
 	a.mu.Unlock()
 	rec, b := getHealth(t, a, http.MethodGet)
 	if rec.Code != 200 {
@@ -35,11 +35,18 @@ func TestHealthRouterUp(t *testing.T) {
 	if rec.Header().Get("Cache-Control") != "no-store" {
 		t.Errorf("cache-control %q", rec.Header().Get("Cache-Control"))
 	}
-	if b["server"] != "up" || b["router"] != "up" || b["targetAddress"] != "10.0.0.1:8910" || b["version"] != VersionLabel() || b["state"] != "healthy" {
+	r := firstStatusRouter(b)
+	if b["server"] != "up" || r["router"] != "up" || r["targetAddress"] != "10.0.0.1:8910" || b["version"] != VersionLabel() || b["state"] != "healthy" {
 		t.Errorf("body %v", b)
 	}
-	if _, ok := b["err"]; ok {
+	if _, ok := r["err"]; ok {
 		t.Errorf("err should be omitted: %v", b)
+	}
+	// Monitors read state and routers: the first router's flat fields are gone.
+	for _, k := range []string{"router", "targetAddress", "err"} {
+		if _, ok := b[k]; ok {
+			t.Errorf("flat %s in the body: %v", k, b)
+		}
 	}
 	for _, k := range []string{"uptimeSeconds", "browsers"} {
 		if _, ok := b[k]; !ok {
@@ -52,14 +59,14 @@ func TestHealthRouterNotUp(t *testing.T) {
 	for _, st := range []string{"connecting", "down"} {
 		a := newTestApp(t)
 		a.mu.Lock()
-		a.first.status.Router = st
-		a.first.status.Err = "connection refused"
+		a.firstUnit().status.Router = st
+		a.firstUnit().status.Err = "connection refused"
 		a.mu.Unlock()
 		rec, b := getHealth(t, a, http.MethodGet)
 		if rec.Code != http.StatusServiceUnavailable {
 			t.Errorf("%s: code %d", st, rec.Code)
 		}
-		if b["router"] != st || b["server"] != "up" || b["err"] != "connection refused" || b["state"] != "down" {
+		if r := firstStatusRouter(b); r["router"] != st || b["server"] != "up" || r["err"] != "connection refused" || b["state"] != "down" {
 			t.Errorf("%s: body %v", st, b)
 		}
 	}

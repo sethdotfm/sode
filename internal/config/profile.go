@@ -89,7 +89,7 @@ func (p Profile) Normalized() Profile {
 func (c *Config) normalizeProfiles() {
 	for i := range c.Users {
 		p := c.Users[i].Profile.Normalized()
-		p.Presets = normalizePresets(p.Presets, c.UID)
+		p.Presets = normalizePresets(p.Presets, c.DefaultRouter().UID)
 		// Normalized is what the browser gets; the file keeps prefs a newer release wrote.
 		p.Prefs = WithUnknownPrefs(p.Prefs, c.Users[i].Profile.Prefs)
 		if p.Empty() {

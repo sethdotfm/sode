@@ -79,7 +79,7 @@ func failWith(w http.ResponseWriter, err error) {
 // save never fails over Rights an Administrator widened. Anything else needs the key of a user
 // who can edit the panel (any Role, ADR 0006) and must be within the caller's own Rights.
 func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Rights) (config.Rights, bool, error) {
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.DefaultRouter().UID
 	if cur != nil && (want == nil || reflect.DeepEqual(clean(*want, uid), *cur)) {
 		return *cur, false, nil
 	}

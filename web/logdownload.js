@@ -51,7 +51,7 @@ const csvBlob = (text) => new Blob([text], { type: 'text/csv;charset=utf-8' });
 const routerWord = () => (S.routers.length > 1 ? (uid) => S.routers.find((r) => r.uid === uid)?.prefix || uid : null);
 
 // Numbers and level names as the page shows them. Each row's level name is that of its router.
-const words = () => ({ off: S.cfg ? S.cfg.numberOffset : 0, level: (ui, uid) => routerData(uid).levelBy.get(ui)?.label, router: routerWord() });
+const words = () => ({ off: routerData('').off, level: (ui, uid) => routerData(uid).levelBy.get(ui)?.label, router: routerWord() });
 
 async function fullLog() {
   const data = await read(['log', 'uptimeStates', 'uptimeMinutes'], 'full');

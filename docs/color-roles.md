@@ -31,8 +31,8 @@ The Communication Log (`/log`) and later monitoring pages show no identity fills
 | Role | Token or class | Where it can show | Non-color cue |
 |---|---|---|---|
 | Failure (red) | `--pb-status-error`, `pb-badge--error`, `pb-note--error`, `pb-alert--error`, `pb-toast--error` | A lost link (banner and page outline), a failed or refused Take, invalid input, an offline panel page, a Degraded or Down router's icon. Nothing else is red | The banner's words and the wire glyphs, the failure text, the `circle-x` state glyph, "Offline", the invalid field's note |
-| Caution (amber) | `--pb-status-warn`, `--pb-commit`, `pb-btn--commit`, `pb-badge--warn`, `pb-note--warn` | A warning, unsaved work, and every Take control (armed or not) on every page: the main page's Take and Confirm, the phone's Go, sheet and slider, the Grid popup's Take, the Buttons and Grid panels' Take, the staged label under a Grid panel destination. Also an Undo swipe and Save and reconnect | The word Take with its key ("Take (T)"), the armed pulse, "Unsaved changes", "staged", the warning text, the `loader-circle` state glyph |
-| Routed (green) | `--pb-status-ok`, `pb-alert--ok` | The current source on a destination (panel pages), and a Take that just succeeded (a Take resolved banner, a panel cell's connected ring). Nothing else is green | The source name in the cell, the banner's words ("Take resolved"), the History row's "ok" |
+| Caution (amber) | `--pb-status-warn`, `--pb-commit`, `pb-btn--commit`, `pb-badge--warn`, `pb-note--warn` | A warning, unsaved work, and every Take control (armed or not) on every page: the main page's Take and Confirm, the phone's Go, sheet and slider, the Grid popup's Take, the Buttons and Grid panels' Take, the staged label under a Grid panel destination. Also an Undo swipe and Save and reconnect. In the Tie line picker, the left bar and the count badge of a tie line whose take changes Affected destinations | The word Take with its key ("Take (T)"), the armed pulse, "Unsaved changes", "staged", the warning text, the `loader-circle` state glyph, the count badge ("3 change") |
+| Routed (green) | `--pb-status-ok`, `pb-alert--ok` | The current source on a destination (panel pages), and a Take that just succeeded (a Take resolved banner, a panel cell's connected ring). In the Tie line picker, the left bar of a tie line that carries the source already: the source is the current source on its upstream destination. Nothing else is green | The source name in the cell, the banner's words ("Take resolved"), the History row's "ok", the picker's "Has it" with its check |
 | Selection, focus and the main action (accent) | `--pb-accent`, `sode-btn--primary`, `pb-btn--selected` | The main action of a form or dialog, the selected item in a list (the panel on /panels and in the panel picker), focus rings, the Find result that was found | The button's words, `aria-current`, the focus ring's shape |
 | Protected (magenta) | `--pb-protect` | Protected destinations (a Protect or a Router lock), as today | The shield icon and the word Protected or Router lock |
 | Destination on a panel page (orange) | `--pb-view` | Panel pages only (see Panels) | The cell's name |
@@ -52,7 +52,14 @@ Info is neutral: info badges and notes are a plain `pb-badge` or text, with the 
 
 Write each status class (`pb-btn--commit`, `pb-alert--warn`, `pb-badge--error`) in full, never from a template such as `` `pb-alert--${kind}` ``. Map a kind to a class with a table, so `web/test/colorroles.test.mjs` sees every color.
 
-A Tie line picker shows a Protected or a Reserved tie line in grey (`--pb-text-disabled`). Its words say who set it and when, or which panel reserves it. A person cannot pick it.
+A Tie line picker shows a Protected or a Reserved tie line in grey (`--pb-text-disabled`). Its words say who set it and when, or which panel reserves it. A person cannot pick a Protected one, and a Reserved one asks one more time.
+
+Each choice of the Tie line picker shows its state at a glance (`choiceLook` in `web/tiepickrules.js`). The bar is on the left and has the width `--pb-accent-bar-w`, as the bars of the source and destination chips.
+
+- Has it: the tie line carries the source already. Routed bar and "Has it".
+- In use: the take changes Affected destinations. Caution bar and a `pb-badge--warn` with the count ("3 change").
+- Free: the take changes nothing else. No bar and no color.
+- Best: the first choice that the planner ranks usable. A neutral double outline (`--pb-text`) and a plain `pb-badge` "Best". It can have any other state.
 
 ## Accent
 

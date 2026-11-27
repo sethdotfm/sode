@@ -14,9 +14,9 @@ func undoTie(t *testing.T, dst int) (a *App, fa, fb *fakeRouter, key string, des
 	t.Helper()
 	a, fa, fb, key = tieApp(t, nil)
 	a.mu.Lock()
-	a.first.router.srcNames[3], a.first.router.srcNames[8] = "CAM 3", "CAM 9"
+	a.firstUnit().router.srcNames[3], a.firstUnit().router.srcNames[8] = "CAM 3", "CAM 9"
 	a.mu.Unlock()
-	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(a.r().cfg.UID, [2]int{4, dst}), nil)
+	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(a.r().cfg.Routers[0].UID, [2]int{4, dst}), nil)
 	b := tieTakeAnswer(t, rec.Body)
 	if rec.Code != http.StatusOK || !b.OK || b.Results[0].Entry == nil || b.Results[0].Hops[0].Entry == nil {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
@@ -85,7 +85,7 @@ func TestTieUndoOffersPutBack(t *testing.T) {
 // TIE 3 carries now.
 func TestTieUndoChangedSendsNothing(t *testing.T) {
 	a, fa, fb, key, dest, _ := undoTie(t, 20)
-	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+	for l := 1; l <= a.r().routerOf(a.r().cfg.Routers[0].UID).Levels; l++ {
 		fa.seed(10, 8, a.r().byUI[l].Wire)
 	}
 	c := tieVerdict(t, a, dest)
@@ -153,7 +153,7 @@ func TestPageTieUndoChecksAgainAtSend(t *testing.T) {
 	if c := tieVerdict(t, a, dest); c.Verdict != "putBack" {
 		t.Fatalf("verdict at the confirm %+v", c)
 	}
-	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+	for l := 1; l <= a.r().routerOf(a.r().cfg.Routers[0].UID).Levels; l++ {
 		fa.seed(10, 8, a.r().byUI[l].Wire)
 	}
 	log := connectLog(fa, fb)

@@ -13,7 +13,7 @@ import (
 func TestPanelLevelsNameTheirRouter(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	key := userKey(t, a, "Ana")
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	levelsOf := func(id string) (any, []any) {
 		t.Helper()
 		p := apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, key, nil))
@@ -68,7 +68,7 @@ func TestPanelClientLevelsWithinTheUsers(t *testing.T) {
 // GET /tally names the router of its levels, so a panel page finds its Rights levels and level subset.
 func TestTallyNamesItsRouter(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
-	if got := viewGet(t, a, botKey(t, a), "/api/v1/tally")["router"]; got != a.r().cfg.UID {
-		t.Errorf("router %v, want %s", got, a.r().cfg.UID)
+	if got := viewGet(t, a, botKey(t, a), "/api/v1/tally")["router"]; got != a.r().cfg.Routers[0].UID {
+		t.Errorf("router %v, want %s", got, a.r().cfg.Routers[0].UID)
 	}
 }

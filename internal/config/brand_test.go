@@ -7,7 +7,7 @@ import (
 
 func TestBrandNormalize(t *testing.T) {
 	c := Defaults()
-	c.Address = "10.0.0.5:8910"
+	c.Routers[0].Address = "10.0.0.5:8910"
 	c.BrandText = "  Studio B "
 	c.BrandBorder = " Teal "
 	c.Normalize()
@@ -26,7 +26,7 @@ func TestBrandNormalize(t *testing.T) {
 func TestBrandCustomHex(t *testing.T) {
 	for in, want := range map[string]string{"teal": "#5ccfc9", "#A1B2C3": "#a1b2c3"} {
 		c := Defaults()
-		c.Address = "10.0.0.5:8910"
+		c.Routers[0].Address = "10.0.0.5:8910"
 		c.BrandBorder = in
 		c.Normalize()
 		if err := c.Validate(); err != nil {
@@ -42,7 +42,7 @@ func TestBrandCustomHex(t *testing.T) {
 		}
 	}
 	c := Defaults()
-	c.Address = "10.0.0.5:8910"
+	c.Routers[0].Address = "10.0.0.5:8910"
 	c.BrandBorder = "#12345g"
 	if c.Validate() == nil {
 		t.Fatal("bad hex validated")

@@ -1,0 +1,5 @@
+- The Save review shows Default levels in the level numbering of the router, as the Settings saves record does: "V, 1-2" or "0-16", not "1-3". A blank Default levels shows "Every level".
+- Level lists never start a range at V. Sode writes "V, 1-2" and not "V-2", which can read as "V minus 2".
+- Level colors: each color is a position. With two or more routers, the tip of a color names the level of each router that takes it. For example: "Position 1. A: 1, B: 0, C: V." The level chips of a router in Settings > Routers name their color.
+- The main page names the router of the Levels box ("Router B") when Sode has two or more routers. The levels follow the destination. The words of a level bar in History also name the router.
+- The setup wizard asks for the Router title, with the same default title as Add router ("Router A"). Its Level numbering buttons show the real range of the router ("1–17", "0–16", "V, 1–16"), as the detail view in Settings > Routers does. Run setup again shows the Router title too.

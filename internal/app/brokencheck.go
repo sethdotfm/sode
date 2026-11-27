@@ -54,7 +54,7 @@ func (a *App) countPollMu(u *routerUnit, cur namePoll) (check func(), fault bool
 	}
 	if routerFault(*base, cur) {
 		if !rs.faultSeen {
-			log.Printf("names: more than half the names went blank; read ignored")
+			log.Printf("names: %s: more than half the names went blank; read ignored", a.routerName(u))
 		}
 		rs.faultSeen = true
 		return nil, true
@@ -108,6 +108,7 @@ const (
 
 type pollCheck struct {
 	uid       string
+	name      string   // the router in log lines (App.routerName)
 	routers   []string // every router UID of the settings: a mark of another router stays as it is
 	first     string   // the first router's UID: a filter set with no router is that router's
 	levels    int
@@ -384,12 +385,12 @@ func (k *pollCheck) filterSet(s *config.FilterSet, off int, who string) bool {
 var errNoCheckChange = errors.New("no change")
 
 // fits keeps a list whose new names would pass its byte cap as it was, so the next Load still reads the file.
-func fits(what string, v any, max int) bool {
+func (k *pollCheck) fits(what string, v any, max int) bool {
 	b, err := json.Marshal(v)
 	if err == nil && len(b) <= max {
 		return true
 	}
-	log.Printf("names: %s kept their old names and marks: with the new ones they pass %d KiB", what, max>>10)
+	log.Printf("names: %s: %s kept their old names and marks: with the new ones they pass %d KiB", k.name, what, max>>10)
 	return false
 }
 
@@ -404,10 +405,10 @@ func (k *pollCheck) config(c *config.Config) bool {
 		}
 		for i := range fs {
 			fs[i].Broken = slices.Clone(fs[i].Broken)
-			chF = k.filterSet(&fs[i], c.NumberOffset, who) || chF
+			chF = k.filterSet(&fs[i], c.DefaultRouter().NumberOffset, who) || chF
 		}
 		if s.Profile == nil {
-			if chP && fits("Everyone presets", ps, config.MaxPresetsBytes) {
+			if chP && k.fits("Everyone presets", ps, config.MaxPresetsBytes) {
 				c.Presets, changed = ps, true
 			}
 			if chF {
@@ -417,7 +418,7 @@ func (k *pollCheck) config(c *config.Config) bool {
 		}
 		pr := s.Profile.Clone()
 		pr.Presets, pr.FilterSets = ps, fs
-		if (chP || chF) && fits(s.Name+"'s Me items", pr, config.MaxProfileBytes) {
+		if (chP || chF) && k.fits(s.Name+"'s Me items", pr, config.MaxProfileBytes) {
 			*s.Profile, changed = pr, true
 		}
 	}
@@ -538,7 +539,7 @@ func itemScopes(c *config.Config, mine string) []itemScope {
 // No Settings saves row: the Router names row says what changed.
 func (a *App) recheckRefs(u *routerUnit, prev, cur namePoll, hints [2]map[string]string) {
 	rc := a.r().routerOf(u.uid())
-	k := &pollCheck{uid: rc.UID, routers: a.r().cfg.RouterUIDs(), first: a.r().cfg.UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
+	k := &pollCheck{uid: rc.UID, name: a.routerName(u), routers: a.r().cfg.RouterUIDs(), first: a.r().cfg.DefaultRouter().UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
 	a.cfgMu.Lock()
 	if !a.setupPending() {
 		err := a.applyConfigWith(func(c *config.Config) error {
@@ -549,15 +550,15 @@ func (a *App) recheckRefs(u *routerUnit, prev, cur namePoll, hints [2]map[string
 			return nil
 		}, true)
 		if err != nil && !errors.Is(err, errNoCheckChange) {
-			log.Printf("names: stored items not updated: %v", err)
+			log.Printf("names: %s: stored items not updated: %v", k.name, err)
 		}
 	}
 	a.cfgMu.Unlock()
 	if err := a.panels.rewrite(k.panel); err != nil {
-		log.Printf("names: panels not updated: %v", err)
+		log.Printf("names: %s: panels not updated: %v", k.name, err)
 	}
 	if err := a.artDefaults.rename(k); err != nil {
-		log.Printf("names: Default artwork not updated: %v", err)
+		log.Printf("names: %s: Default artwork not updated: %v", k.name, err)
 	}
 	k.logRow(a)
 }

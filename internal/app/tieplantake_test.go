@@ -12,7 +12,7 @@ import (
 // the upstream destination of a tie line takes that tie line too. The 409 body lists the routes with no ties only.
 func TestAPITakeAcrossRoutersPlanCountsTheTake(t *testing.T) {
 	a, _, _, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	tied := func(src int) string {
 		return fmt.Sprintf(`{"src":{"router":%q,"n":%d},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"ties":[{"id":"t1","expect":{"router":%q,"n":3}}]}`, uidA, src, uidA)
 	}

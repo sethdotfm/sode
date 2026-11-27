@@ -23,12 +23,15 @@ export function sectionSettings(sec) {
 }
 
 // Runs one time, after the table of contents and #open-log (about.js) exist. Returns reindex, for a control added later.
-export function initFind({ sections, toc }) {
+// routers: {list, select, selected} of the router list (settingsrouterdetail.js). With two or more routers each setting
+// of the detail view (#router-detail) is found once for each router, and a pick selects that router.
+export function initFind({ sections, toc, routers }) {
   const findBox = $('settings-find');
   const foundList = $('settings-found');
   const secIds = sections.map((sec) => sec.dataset.section);
-  // The band and router sub-heading text, read when the index is built (a router's title changes with its settings).
+  // The band text, read when the index is built.
   const headText = (sel) => (sel ? document.querySelector(sel)?.textContent.trim() : undefined);
+  const detail = document.getElementById('router-detail');
   const targets = new Map();
 
   function settingsOf(sec, secId) {
@@ -40,22 +43,29 @@ export function initFind({ sections, toc }) {
   const OUTSIDE = [{ secId: 'history', id: 'open-log', label: 'View Logs', node: $('open-log') }];
   const makeIndex = () =>
     buildIndex(
-      sections.map((sec, i) => {
-        const settings = settingsOf(sec, secIds[i]);
+      sections.flatMap((sec, i) => {
+        let settings = settingsOf(sec, secIds[i]);
         for (const x of OUTSIDE.filter((o) => o.secId === secIds[i])) {
           settings.push({ id: x.id, label: x.label });
           targets.set(`${x.secId}/${x.id}`, x.node);
         }
-        return {
+        const head = {
           id: secIds[i],
           title: sec.querySelector('legend').firstChild.textContent.trim(),
           topic: headText(`.sode__topic[data-topic="${sec.dataset.topic}"]`),
-          router: headText(sec.dataset.router && `.sode__router[data-router="${sec.dataset.router}"]`),
-          settings,
         };
+        if (!detail || !sec.contains(detail)) return [{ ...head, settings }];
+        // A setting that does not apply now (the Prefix with one router) is left out.
+        const node = (s) => targets.get(`${secIds[i]}/${s.id}`);
+        const own = settings.filter((s) => detail.contains(node(s)) && !node(s).closest('[hidden]:not(#router-detail)'));
+        const list = routers?.list() || [];
+        if (!list.length) return [{ ...head, settings: settings.filter((s) => !detail.contains(node(s)) || own.includes(s)) }];
+        settings = settings.filter((s) => !detail.contains(node(s)));
+        return [{ ...head, settings }, ...list.map((r) => ({ ...head, settingsOnly: true, router: r.name, uid: r.uid, settings: own }))];
       }),
     );
-  let settingsIndex = makeIndex();
+  let settingsIndex = [];
+  let stale = true;
 
   let hits = [];
   let cur = 0;
@@ -96,6 +106,10 @@ export function initFind({ sections, toc }) {
 
   function showHits() {
     const q = findBox.value.trim();
+    if (stale && q) {
+      settingsIndex = makeIndex();
+      stale = false;
+    }
     hits = q ? find(settingsIndex, q).filter(offered) : [];
     cur = 0;
     foundList.replaceChildren(
@@ -124,6 +138,7 @@ export function initFind({ sections, toc }) {
     const node = h.kind === 'section' ? sections[i] : targets.get(`${h.sectionId}/${h.id}`);
     if (!node) return;
     if (toc.phone()) toc.showPage(i);
+    if (h.uid) routers?.select(h.uid);
     findBox.value = '';
     showHits();
     toc.pick(i);
@@ -172,14 +187,22 @@ export function initFind({ sections, toc }) {
   });
 
   // The Palette's setting rows: Settings is open, and the pick works as a search pick.
+  // A router's setting picks the router in view.
   on('settingsFind', ({ section, id }) => {
+    if (stale) {
+      settingsIndex = makeIndex();
+      stale = false;
+    }
+    const sel = routers?.selected();
     const h =
+      settingsIndex.find((e) => e.sectionId === section && e.kind === 'setting' && e.id === id && (!e.uid || e.uid === sel)) ||
       settingsIndex.find((e) => e.sectionId === section && e.kind === 'setting' && e.id === id) ||
       settingsIndex.find((e) => e.sectionId === section && e.kind === 'section');
     if (h) pickHit(h);
   });
 
+  // The index is built again at the next search: router titles change as a person types.
   return () => {
-    settingsIndex = makeIndex();
+    stale = true;
   };
 }

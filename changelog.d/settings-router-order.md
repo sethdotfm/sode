@@ -1,0 +1,6 @@
+- You can change the order of the routers in Settings > Routers. Drag a row, use Move up and Move down, or press Alt+Up and Alt+Down on a row. The order goes through the one Save, and the review shows the old and the new order.
+- The first router of the list is the default router. A new browser's patch boxes start on it. To change the default router, move another router to the top. The review says when the default router changes.
+- Remove… works on every router, the first router too, while another router stays. When the first router goes, the next router becomes the default router, and the review says so. Sode refuses to remove the last router.
+- A new order reconnects no router. Each router keeps its link, names and routes.
+- When the default router changes, every open page reloads.
+- The uptime file stays with the router that it records. At the next start, the uptime of a router that Sode no longer has starts empty.

@@ -13,7 +13,7 @@ import (
 
 func TestGridPanelEdgesStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	a, f, bot := takerApp(t, nil)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"G","type":"grid",
 		"sources":{"members":"all","hide":[{"n":3}],"items":[{"n":1,"pinned":true,"art":"icon:mic"}]},
@@ -71,7 +71,7 @@ func TestGridPanelRefusesTwoReferencesToOneItem(t *testing.T) {
 	a := panelsApp(t)
 	ana := userKey(t, a, "Ana")
 	id := makeGridPanel(t, a, ana, "G")
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	for _, edge := range []string{
 		`{"members":[{"n":1},{"router":"` + uid + `","n":1}]}`,
 		`{"members":"all","items":[{"n":4},{"n":4,"pinned":true}]}`,
@@ -86,7 +86,7 @@ func TestGridPanelRefusesTwoReferencesToOneItem(t *testing.T) {
 
 func TestGridCheckpointsAndSetsStoreRouterReferences(t *testing.T) {
 	a, _, _ := takerApp(t, nil)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	ana := userKey(t, a, "Ana")
 	from := makePanel(t, a, ana, `{"name":"From","type":"grid","destinations":{"members":[{"n":2}]}}`)
 	to := makePanel(t, a, ana, `{"name":"To","type":"grid"}`)

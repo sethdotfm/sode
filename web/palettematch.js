@@ -15,7 +15,7 @@ export const SEARCH_WORDS = Object.freeze([
   // words itself and there is no Sign out row.
   { words: ['login', 'log in', 'sign in', 'switch user'], keys: ['action:signOut'] },
   { words: ['switch user'], keys: ['action:stepIn'] },
-  { words: ['ip', 'router address', 'router ip', 'host'], keys: ['setting:router-matrix/cfg-router'] },
+  { words: ['ip', 'router address', 'router ip', 'host'], keys: ['setting:routers/cfg-rt-address'] },
 ]);
 
 // One edit (Damerau: a swap of two letters next to each other counts as one).

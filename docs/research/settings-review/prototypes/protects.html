@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sode prototype: Protects at scale</title>
+<!-- Prototype for docs/research/settings-review/RECOMMENDATIONS.md. This was written by an LLM.
+     Fake data, no app code, no outside requests.
+     Tokens: web/vendor/patchbay/css/patchbay.tokens.css and web/base.css.
+     Icons: web/vendor/patchbay/icons/lucide.svg (Lucide, ISC license). -->
+<style>
+/* Tokens copied from web/vendor/patchbay/css/patchbay.tokens.css (v2.4.0) and web/base.css. */
+:root {
+  color-scheme: light dark;
+  --pb-surface-sunken: light-dark(#ffffff, #000000);
+  --pb-surface-base: light-dark(#e4e4e4, #080808);
+  --pb-surface-raised: light-dark(#f5f5f5, #0f0f0f);
+  --pb-surface-overlay: light-dark(#ffffff, #141414);
+  --pb-surface-high: light-dark(#ebebeb, #121212);
+  --pb-surface-control: light-dark(#dcdcdc, #1e1e1e);
+  --pb-surface-hover: light-dark(#cdcdcd, #2c2c2c);
+  --pb-edge: light-dark(#767676, #6e6e6e);
+  --pb-edge-soft: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.12));
+  --pb-edge-light: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.24));
+  --pb-overlay-hover: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
+  --pb-overlay-scrim: light-dark(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82));
+  --pb-shadow-rim: light-dark(#000000, #4a4a4a);
+  --pb-shadow-block: light-dark(#000000, #444444);
+  --pb-shadow-overlay: 0 0 0 1px var(--pb-shadow-rim), 6px 6px 0 0 var(--pb-shadow-block);
+  --pb-accent: light-dark(#3a44c4, #8b93ff);
+  --pb-accent-hover: light-dark(#2d36a8, #a3a9ff);
+  --pb-accent-wash: light-dark(rgba(58, 68, 196, 0.12), rgba(139, 147, 255, 0.14));
+  --pb-commit: light-dark(#8a4a00, #f2b84b);
+  --pb-commit-hover: light-dark(#733d00, #f6c96f);
+  --pb-protect: light-dark(#b02a78, #d0559b);
+  --pb-status-warn: light-dark(#8a4a00, #f2b84b);
+  --pb-status-warn-fill: light-dark(#c27a00, #f2b84b);
+  --pb-status-error: light-dark(#ad1f27, #f0605a);
+  --pb-status-idle: light-dark(#575757, #9b958c);
+  --pb-source: light-dark(#c4dbd1, #3f5d52);
+  --pb-dest: light-dark(#e2d7c0, #5c5340);
+  --pb-level: light-dark(#d8cfeb, #594f6d);
+  --pb-tieline: light-dark(#d4e8be, #586647);
+  --pb-text: light-dark(#141414, #e6e6e6);
+  --pb-text-strong: light-dark(#000000, #ffffff);
+  --pb-text-muted: light-dark(rgba(0, 0, 0, 0.66), rgba(230, 230, 230, 0.64));
+  --pb-text-disabled: light-dark(rgba(0, 0, 0, 0.38), rgba(230, 230, 230, 0.36));
+  --pb-text-on-accent: light-dark(#ffffff, #14131f);
+  --pb-font: "IBM Plex Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --pb-font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --pb-font-num: var(--pb-font);
+  --pb-text-2xs: 0.625rem;
+  --pb-text-xs: 0.6875rem;
+  --pb-text-sm: 0.8125rem;
+  --pb-text-md: 0.875rem;
+  --pb-text-lg: 1.0625rem;
+  --pb-text-xl: 1.375rem;
+  --pb-border-w: 2px;
+  --pb-accent-bar-w: 4px;
+  --sode-h-action: 2.5rem;
+  --sode-h-compact: 2rem;
+  --sode-bigscroll-w: 1.4rem;
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { font-size: 100%; }
+body {
+  background: var(--pb-surface-base);
+  color: var(--pb-text);
+  font-family: var(--pb-font);
+  font-size: var(--pb-text-sm);
+  line-height: 1.45;
+  margin: 0;
+}
+h1, h2, h3, p { margin: 0; }
+.num { font-family: var(--pb-font-num); font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--pb-font-mono); font-size: var(--pb-text-xs); }
+.muted { color: var(--pb-text-muted); }
+.caps { color: var(--pb-text-muted); font-size: var(--pb-text-xs); letter-spacing: 0.08em; text-transform: uppercase; }
+.pb-icon { fill: none; flex: none; height: 1rem; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 1rem; }
+.pb-icon--sm { height: 0.75rem; width: 0.75rem; }
+.pb-btn {
+  align-items: center;
+  background: var(--pb-surface-control);
+  border: 0;
+  color: var(--pb-text);
+  cursor: pointer;
+  display: inline-flex;
+  font: 600 var(--pb-text-xs) / 1 var(--pb-font);
+  gap: 0.375rem;
+  height: var(--sode-h-compact);
+  letter-spacing: 0.04em;
+  padding: 0 0.625rem;
+  white-space: nowrap;
+}
+.pb-btn:hover { background: var(--pb-surface-hover); }
+.pb-btn:focus-visible, .pb-input:focus-visible, [tabindex]:focus-visible, a:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 1px; }
+.pb-btn:disabled { color: var(--pb-text-disabled); cursor: not-allowed; }
+.pb-btn:disabled:hover { background: var(--pb-surface-control); }
+.pb-btn--ghost { background: transparent; }
+.pb-btn--icon { justify-content: center; padding: 0; width: var(--sode-h-compact); }
+.pb-btn--outline { background: transparent; box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-edge); }
+.pb-btn--selected { background: var(--pb-accent); color: var(--pb-text-on-accent); }
+.pb-btn--selected:hover { background: var(--pb-accent-hover); }
+.pb-btn.sode-btn--primary { background: var(--pb-accent); color: var(--pb-text-on-accent); }
+.pb-btn.sode-btn--primary:hover { background: var(--pb-accent-hover); }
+.pb-btn.sode-btn--primary:disabled { background: var(--pb-surface-control); color: var(--pb-text-disabled); }
+.pb-btn--commit { background: var(--pb-commit); color: var(--pb-surface-sunken); }
+.pb-btn--commit:hover { background: var(--pb-commit-hover); }
+.pb-btn--lg { font-size: var(--pb-text-md); height: var(--sode-h-action); padding: 0 1rem; }
+.pb-input {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text);
+  font: var(--pb-text-sm) var(--pb-font);
+  height: var(--sode-h-compact);
+  min-width: 0;
+  padding: 0 0.4rem;
+  width: 100%;
+}
+.pb-input[aria-invalid="true"] { border-color: var(--pb-status-error); }
+.pb-label { display: block; font-size: var(--pb-text-sm); font-weight: 600; margin-bottom: 0.25rem; }
+.pb-hint { color: var(--pb-text-muted); font-size: var(--pb-text-xs); margin-top: 0.25rem; }
+.pb-hint--error { color: var(--pb-status-error); }
+.pb-hint--warn { color: var(--pb-status-warn); }
+.pb-badge {
+  --c: var(--pb-status-idle);
+  align-items: center;
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  border: var(--pb-border-w) solid color-mix(in srgb, var(--c) 45%, transparent);
+  color: var(--c);
+  display: inline-flex;
+  font-size: var(--pb-text-xs);
+  font-weight: 500;
+  gap: 0.3rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  white-space: nowrap;
+}
+.pb-badge--warn { --c: var(--pb-status-warn); }
+.pb-badge--error { --c: var(--pb-status-error); }
+/* Link state: an icon with a corner glyph, and always words. A healthy state has no color (docs/color-roles.md). */
+.state { align-items: center; display: inline-flex; gap: 0.3rem; white-space: nowrap; }
+.state[data-state="error"] { color: var(--pb-status-error); }
+.state[data-state="warn"] { color: var(--pb-status-warn); }
+.pb-note--warn { color: var(--pb-status-warn); }
+a { color: var(--pb-accent); }
+.scroll { overflow-y: scroll; scrollbar-color: var(--pb-edge) var(--pb-surface-control); scrollbar-width: auto; }
+.scroll::-webkit-scrollbar { width: var(--sode-bigscroll-w); }
+.scroll::-webkit-scrollbar-track { background: var(--pb-surface-control); }
+.scroll::-webkit-scrollbar-thumb { background: var(--pb-edge); }
+/* The prototype's own bar. It is not part of the design. */
+.proto {
+  align-items: center;
+  background: var(--pb-surface-high);
+  border-bottom: var(--pb-border-w) dashed var(--pb-edge);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.4rem 1rem;
+}
+.proto strong { letter-spacing: 0.04em; }
+.proto__group { align-items: center; display: inline-flex; gap: 0.25rem; }
+.proto__spacer { flex: 1; }
+/* Settings shell, as web/index.html draws it. */
+.shell { display: grid; gap: 1.25rem; grid-template-columns: 12.5rem minmax(0, 1fr); margin: 0 auto; max-width: 78rem; padding: 2rem 1rem 5rem; }
+.toc { align-self: start; background: var(--pb-surface-overlay); padding: 0.25rem; position: sticky; top: 1rem; }
+.toc__topic { font-weight: 700; padding: 0.4rem 1rem; }
+.toc__item { color: var(--pb-text-muted); font-weight: 500; padding: 0.4rem 0.9rem; }
+.toc__item[aria-current] { background: var(--pb-surface-control); border-top: var(--pb-border-w) solid var(--pb-accent); color: var(--pb-accent); }
+.topic { background: var(--pb-surface-raised); border-top: 0.5rem solid var(--pb-accent); font-size: var(--pb-text-xl); font-weight: 600; padding: 0.5rem 0.75rem; }
+.section__head { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.5rem 0 0.75rem; }
+.section__head h2 { font-size: var(--pb-text-md); }
+.footer { align-items: center; background: var(--pb-surface-base); border-top: var(--pb-border-w) solid var(--pb-edge); bottom: 0; display: flex; gap: 0.75rem; margin-top: 1.5rem; padding: 0.75rem 0; position: sticky; }
+.modal-scrim { align-items: center; background: var(--pb-overlay-scrim); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 20; }
+.modal-scrim[hidden] { display: none; }
+.modal { background: var(--pb-surface-overlay); box-shadow: var(--pb-shadow-overlay); max-height: 85vh; max-width: calc(100vw - 2rem); overflow: auto; width: 38rem; }
+.modal__head { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); font-size: var(--pb-text-md); font-weight: 600; padding: 0.75rem; }
+.modal__body { padding: 0.75rem; }
+.modal__foot { display: flex; gap: 0.5rem; justify-content: space-between; padding: 0.75rem; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><symbol id="server-nas"><path d="M10 16V8" /><path d="M14 16V8" /><path d="M18 16V8" /><path d="M6 12h.01" /><path d="M6 16h.01" /><rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="server"><rect width="20" height="8" x="2" y="2" rx="2" ry="2" /><rect width="20" height="8" x="2" y="14" rx="2" ry="2" /><line x1="6" x2="6.01" y1="6" y2="6" /><line x1="6" x2="6.01" y1="18" y2="18" /></symbol><symbol id="circle-check"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></symbol><symbol id="circle-x"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></symbol><symbol id="loader-circle"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></symbol><symbol id="shield"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></symbol><symbol id="shield-off"><path d="m2 2 20 20" /><path d="M5 5a1 1 0 0 0-1 1v7c0 5 3.5 7.5 7.67 8.94a1 1 0 0 0 .67.01c2.35-.82 4.48-1.97 5.9-3.71" /><path d="M9.309 3.652A12.252 12.252 0 0 0 11.24 2.28a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1v7a9.784 9.784 0 0 1-.08 1.264" /></symbol><symbol id="chevron-right"><path d="m9 18 6-6-6-6" /></symbol><symbol id="chevron-down"><path d="m6 9 6 6 6-6" /></symbol><symbol id="grip-vertical"><circle cx="9" cy="12" r="1" /><circle cx="9" cy="5" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="19" r="1" /></symbol><symbol id="triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol><symbol id="x"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol><symbol id="settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="external-link"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></symbol><symbol id="arrow-up"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></symbol><symbol id="arrow-down"><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></symbol><symbol id="undo-2"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></symbol><symbol id="cable"><path d="M17 21v-2a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1" /><path d="M19 15V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V9" /><path d="M21 21v-2h-4" /><path d="M3 5h4V3" /><path d="M7 5a1 1 0 0 1 1 1v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1V3" /></symbol></defs></svg>
+<script>
+// Shared prototype helpers. Fake data only.
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const icon = (name, sm) => `<svg class="pb-icon${sm ? ' pb-icon--sm' : ''}" viewBox="0 0 24 24" aria-hidden="true"><use href="#${name}"/></svg>`;
+
+const TITLES = [
+  'MCR Production Ultrix', 'Studio 4 Gallery Audio', 'Transmission Backup Matrix', 'Edit Suites North Wing', 'OB Truck Unit 7',
+  'Stage 1 Small', 'Master Control Monitor Wall', 'Studio C', 'Truck Dock', 'Flypack', 'Audio Desk Bridge', 'Edit Suites South Wing',
+  'Ingest', 'Playout Chain A', 'Playout Chain B', 'QC Room', 'Newsroom', 'Studio 4 Gallery Video', 'Graphics', 'Radio 1', 'Radio 2',
+  'Archive', 'Playout Chain A Distribution', 'Lines Room',
+];
+const LEVELS = [17, 16, 17, 4, 8, 2, 17, 8, 2, 1, 16, 4, 17, 17, 17, 4, 8, 17, 4, 2, 2, 1, 17, 32];
+const prefixOf = (i) => String.fromCharCode(65 + i);
+
+// The routers that are not up, for each count. Every prototype uses this, so a link between two of them agrees.
+const LOST = { 1: {}, 2: { B: 'down' }, 3: { B: 'down', C: 'connecting' }, 4: { B: 'down' }, 12: { C: 'down', G: 'never', K: 'connecting' }, 24: { B: 'down', E: 'down', L: 'down', R: 'never', W: 'down' } };
+
+function makeRouters(n, lost = LOST[n] || {}) {
+  return Array.from({ length: n }, (_, i) => {
+    const p = prefixOf(i);
+    const link = lost[p] || 'up';
+    return {
+      uid: 'a' + (0x51c3 + i * 7919).toString(16) + 'e2',
+      prefix: p,
+      title: TITLES[i],
+      address: `10.20.${4 + (i >> 3)}.${11 + i}:8910`,
+      matrix: i === 2 ? 1 : 0,
+      levels: LEVELS[i],
+      levelOffset: i % 5 === 1 ? 0 : -1,
+      levelNumbering: i === 3 ? '0' : i === 5 ? 'va' : '1',
+      defaultLevels: i === 1 ? '1-4' : '',
+      numberOffset: 1,
+      nameLength: 12,
+      nameRequests: 'std',
+      nameRereadSeconds: 60,
+      routeRereadSeconds: 300,
+      fireMode: 'sequential',
+      salvoGroup: 127,
+      protectDevice: i === 3 ? 0 : 200 + i,
+      statusLabel: 'name',
+      link,
+      since: link === 'up' ? `${2 + (i % 5)} h ${7 + i} min` : `${4 + i} min`,
+      err: link === 'down' ? 'read tcp: connection reset by peer' : link === 'never' ? `dial tcp 10.20.${4 + (i >> 3)}.${11 + i}:8910: connect: connection refused` : '',
+      srcs: 120 + i * 16,
+      dsts: 80 + i * 8,
+    };
+  });
+}
+
+// The one display form of a router: prefix, then Router title. With one router Sode hides the prefix.
+const routerName = (r, alone) => (alone ? r.title || 'Router' : `${r.prefix} ${r.title || 'Router ' + r.prefix}`);
+const LINK = {
+  up: { state: 'ok', glyph: 'circle-check', word: 'Connected' },
+  connecting: { state: 'warn', glyph: 'loader-circle', word: 'Connecting' },
+  down: { state: 'error', glyph: 'circle-x', word: 'Down' },
+  never: { state: 'error', glyph: 'circle-x', word: 'Never connected' },
+};
+const linkState = (r, long) => {
+  const l = LINK[r.link];
+  const tail = !long ? '' : r.link === 'up' ? ` for ${r.since}` : r.link === 'down' ? ` for ${r.since}` : '';
+  return `<span class="state" data-state="${l.state}">${icon(l.glyph)}<span>${l.word}${tail}</span></span>`;
+};
+
+function hashParams() {
+  return Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+}
+
+// The prototype bar: a link back and the theme switch.
+function protoBar(title, extra = '') {
+  const bar = document.createElement('div');
+  bar.className = 'proto';
+  bar.innerHTML = `<a href="index.html">Prototypes</a><strong>${title}</strong><span class="muted">Fake data. Not app code.</span>${extra}
+    <span class="proto__spacer"></span>
+    <span class="proto__group" role="group" aria-label="Theme"><span class="caps">Theme</span>
+      <button class="pb-btn" data-theme-btn="">Auto</button><button class="pb-btn" data-theme-btn="light">Light</button><button class="pb-btn" data-theme-btn="dark">Dark</button></span>`;
+  document.body.prepend(bar);
+  const set = (t) => {
+    if (t) document.documentElement.dataset.theme = t;
+    else delete document.documentElement.dataset.theme;
+    for (const b of $$('[data-theme-btn]', bar)) b.classList.toggle('pb-btn--selected', b.dataset.themeBtn === t);
+    try { sessionStorage.setItem('proto-theme', t); } catch {}
+  };
+  bar.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-theme-btn]');
+    if (b) set(b.dataset.themeBtn);
+  });
+  let saved = '';
+  try { saved = sessionStorage.getItem('proto-theme') || ''; } catch {}
+  set(saved);
+  return bar;
+}
+</script>
+<style>
+.tools { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; margin-bottom: 0.5rem; }
+.tools .pb-input { width: 16rem; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+.seg .num { font-weight: 400; opacity: 0.8; }
+.result { align-items: center; display: flex; gap: 0.5rem; min-height: 1.75rem; }
+.result[data-kind="error"] { color: var(--pb-status-error); }
+.plist { background: var(--pb-surface-raised); border: var(--pb-border-w) solid var(--pb-edge); height: calc(100vh - 21rem); min-height: 16rem; }
+.pgroup__head { align-items: center; background: var(--pb-surface-high); border-bottom: var(--pb-border-w) solid var(--pb-edge); border-top: 1px solid var(--pb-edge-soft); display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; min-height: var(--sode-h-action); padding: 0.25rem 0.5rem 0.25rem 0.25rem; position: sticky; top: 0; z-index: 2; }
+.pgroup__name { font-weight: 700; }
+.pgroup__name .num { font-size: var(--pb-text-md); }
+.pgroup__note { flex-basis: 100%; padding: 0 0 0.25rem 2.25rem; }
+.prow { align-items: center; border-bottom: 1px solid var(--pb-edge-soft); display: grid; gap: 0 0.75rem; grid-template-columns: 4rem minmax(7rem, 1.2fr) 6.5rem minmax(11rem, 1.6fr) minmax(5rem, auto); min-height: 2.25rem; padding: 0 0.5rem 0 0.75rem; }
+.prow--head { background: var(--pb-surface-raised); border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); min-height: 1.6rem; }
+.prow[data-stale] > :not(.prow__act) { opacity: 0.55; }
+.prow[data-confirm] { background: var(--pb-accent-wash); grid-template-columns: 4rem minmax(7rem, 1fr) auto; min-height: 3.5rem; }
+.prow[data-done] { background: var(--pb-overlay-hover); }
+.prow__n { color: var(--pb-text-muted); }
+.prow__name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prow__by { align-items: center; display: flex; gap: 0.35rem; min-width: 0; }
+.prow__by .pb-icon { color: var(--pb-protect); }
+.prow__act { display: flex; gap: 0.4rem; justify-content: flex-end; }
+.confirm { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; }
+.key { background: var(--pb-text-strong); color: var(--pb-surface-sunken); display: inline-block; font: 700 1.25rem/2rem var(--pb-font); height: 2rem; text-align: center; width: 2rem; }
+.empty { color: var(--pb-text-muted); padding: 1.25rem; }
+.fa-row { align-items: center; border-bottom: 1px solid var(--pb-edge-soft); display: grid; gap: 0.75rem; grid-template-columns: 1.25rem minmax(0, 1fr) auto; min-height: 2.5rem; }
+@media (max-width: 62rem) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .toc { display: none; }
+  .prow { grid-template-columns: 3.5rem minmax(0, 1fr) auto; }
+  .prow > .prow__lv, .prow--head { display: none; }
+  .prow__by { grid-column: 2; grid-row: 2; }
+  .prow__act { grid-column: 3; grid-row: 1 / span 2; }
+}
+</style>
+
+<div class="shell">
+  <nav class="toc" aria-label="Settings">
+    <input class="pb-input" placeholder="Search settings" aria-label="Search settings" />
+    <div class="toc__topic">Preferences</div>
+    <div class="toc__topic">Look and feel</div>
+    <div class="toc__topic">Routers</div>
+    <div class="toc__item"><a href="routers.html" style="color: inherit; text-decoration: none">Routers</a></div>
+    <div class="toc__item">Tie lines</div>
+    <div class="toc__item" aria-current="true">Protects</div>
+    <div class="toc__topic">Access</div>
+    <div class="toc__topic">Server</div>
+  </nav>
+  <main>
+    <h1 class="topic">Routers</h1>
+    <div class="section__head">
+      <h2>Protects</h2>
+      <span class="pb-badge">Administrator</span>
+      <span class="muted">Protects and Router locks on every router. Sode's device number is a setting of each router.</span>
+    </div>
+    <div class="tools">
+      <input class="pb-input" id="find" placeholder="Find a destination by name or number" aria-label="Find a destination" />
+      <span class="seg" id="kinds" role="group" aria-label="Show"></span>
+      <span class="seg" id="routers" role="group" aria-label="Router"></span>
+    </div>
+    <div class="tools">
+      <span id="count" role="status"></span>
+      <span class="proto__spacer"></span>
+      <button class="pb-btn pb-btn--outline" id="free-all">Free Sode's Protects…</button>
+    </div>
+    <div class="plist scroll" id="plist"></div>
+    <div class="result" id="result" role="status" aria-live="polite"></div>
+    <p class="pb-hint">Sode can free only a Protect that it set. Free a Protect of another device, or a Router lock, at the panel or in DashBoard.</p>
+  </main>
+</div>
+
+<div class="modal-scrim" id="fa" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="fa-title">
+    <div class="modal__head" id="fa-title">Free Sode's Protects?</div>
+    <div class="modal__body" id="fa-body"></div>
+    <div class="modal__foot">
+      <button class="pb-btn pb-btn--lg" id="fa-back">Cancel</button>
+      <button class="pb-btn pb-btn--lg sode-btn--primary" id="fa-go"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+const NAMES = ['PGM', 'PVW', 'DSM1', 'DSM2', 'DSM3', 'DSM4', 'DSM5', 'Zoom Return', 'TX 1', 'TX 2', 'Rec A', 'Rec B', 'MV 1', 'MV 2', 'MV 3', 'MV 4', 'Aux 1', 'Aux 2', 'Wall L', 'Wall R', 'Prompt', 'Green Room', 'Stream 1', 'Stream 2', 'VTR 1', 'VTR 2', 'Lobby', 'Truck Feed', 'ISO 1', 'ISO 2'];
+const ME = 'Ada';
+// Four routers. D is down, so its rows are the last known ones. C has device number 0, so Protect is off there.
+const ROUTERS = [
+  { prefix: 'A', title: 'Main Ultrix', link: 'up', levels: 32, device: 200 },
+  { prefix: 'B', title: 'Studio B', link: 'up', levels: 17, device: 201 },
+  { prefix: 'C', title: 'Edit Suite', link: 'up', levels: 4, device: 0 },
+  { prefix: 'D', title: 'MCR', link: 'down', since: '6 min', read: '14:02:10', levels: 2, device: 202 },
+];
+let seq = 0;
+const row = (p, n, by, extra = {}) => ({ id: ++seq, p, n, name: NAMES[(n - 1) % NAMES.length] + (n > NAMES.length ? ' ' + Math.ceil(n / NAMES.length) : ''), ...by, ...extra });
+const sode = (user) => ({ kind: 'protect', sode: true, user });
+const other = (device, lock) => ({ kind: lock ? 'lock' : 'protect', sode: false, device });
+let ROWS = [];
+for (let n = 1; n <= 120; n++) {
+  if (n % 3 === 1) ROWS.push(row('A', n, other([300, 112, 9, 55, 12][n % 5], n % 12 === 4), n === 16 ? { levels: '1–4' } : {}));
+  else ROWS.push(row('A', n, sode(n % 4 === 3 ? 'Bo' : n % 11 === 0 ? 'Panel "Studio wall"' : ME)));
+}
+for (let n = 2; n <= 118; n += 5) ROWS.push(row('B', n, other([7, 9, 44][n % 3], n % 2 === 0)));
+for (const n of [3, 9, 14, 21, 33, 40, 58]) ROWS.push(row('B', n, sode(n === 9 ? 'Bo' : ME), n === 14 ? { levels: '1–2' } : {}));
+ROWS.push(row('B', 13, other(9, true)), row('C', 12, other(9, true)));
+for (const n of [2, 5, 7, 11]) ROWS.push(row('D', n, sode(ME)));
+ROWS.push(row('D', 13, other(9, true)));
+ROWS.sort((a, b) => a.p.localeCompare(b.p) || a.n - b.n);
+
+const F = { q: '', kind: 'all', router: 'all', closed: new Set(), confirm: 0, done: new Map(), freed: {} };
+const KINDS = [
+  ['all', 'All', () => true],
+  ['sode', "Sode's", (r) => r.sode],
+  ['mine', 'Mine', (r) => r.sode && r.user === ME],
+  ['other', 'Other devices', (r) => !r.sode && r.kind === 'protect'],
+  ['lock', 'Router locks', (r) => r.kind === 'lock'],
+];
+const kindTest = (k) => KINDS.find((x) => x[0] === k)[2];
+const matches = (r) => {
+  const q = F.q.trim().toLowerCase();
+  return (F.router === 'all' || F.router === r.p) && kindTest(F.kind)(r) && (!q || `${r.p}.${r.n} ${r.name}`.toLowerCase().includes(q) || String(r.n) === q);
+};
+const router = (p) => ROUTERS.find((r) => r.prefix === p);
+const canFree = (r) => r.sode && router(r.p).link === 'up';
+const who = (r) =>
+  r.kind === 'lock'
+    ? `Router lock, device <span class="num">${r.device}</span>`
+    : r.sode
+      ? r.user === ME ? 'Protect, you' : `Protect, ${esc(r.user)}`
+      : `Protect, device <span class="num">${r.device}</span>`;
+
+function render() {
+  const inRouter = (r) => F.router === 'all' || F.router === r.p;
+  $('#kinds').innerHTML = KINDS.map(([k, w, test]) => `<button class="pb-btn ${F.kind === k ? 'pb-btn--selected' : ''}" data-kind="${k}" aria-pressed="${F.kind === k}">${w} <span class="num">${ROWS.filter((r) => inRouter(r) && test(r)).length}</span></button>`).join('');
+  $('#routers').innerHTML = [['all', 'All routers'], ...ROUTERS.map((r) => [r.prefix, r.prefix])]
+    .map(([p, w]) => `<button class="pb-btn ${F.router === p ? 'pb-btn--selected' : ''}" data-router="${p}" aria-pressed="${F.router === p}">${w} <span class="num">${p === 'all' ? ROWS.length : ROWS.filter((r) => r.p === p).length}</span></button>`).join('');
+  const list = ROWS.filter(matches);
+  const filtered = F.q.trim() || F.kind !== 'all' || F.router !== 'all';
+  $('#count').innerHTML = `${filtered ? `Shows <span class="num">${list.length}</span> of <span class="num">${ROWS.length}</span>.` : `<span class="num">${ROWS.length}</span> on <span class="num">${ROUTERS.length}</span> routers.`} Sode set <span class="num">${ROWS.filter((r) => r.sode).length}</span>. ${filtered ? '<button class="pb-btn" id="clear">Show all</button>' : ''}`;
+  $('#free-all').disabled = !ROWS.some(canFree);
+  const html = ROUTERS.filter((rt) => F.router === 'all' || F.router === rt.prefix).map((rt) => {
+    const all = ROWS.filter((r) => r.p === rt.prefix);
+    const rows = list.filter((r) => r.p === rt.prefix);
+    if (filtered && !rows.length && !F.freed[rt.prefix]) return '';
+    const mine = all.filter((r) => r.sode).length;
+    const closed = F.closed.has(rt.prefix);
+    const stale = rt.link !== 'up';
+    const notes = [];
+    if (stale) notes.push(`<span class="pb-hint pb-hint--error">These are the last known rows, read at ${rt.read}. Sode cannot free a Protect while the Router link is down.</span>`);
+    if (!rt.device) notes.push(`<span class="pb-hint pb-hint--warn">Protect is off for this router: Sode's device number is 0. <a href="routers.html#n=12&router=${rt.prefix}">Router settings</a></span>`);
+    if (F.freed[rt.prefix]) notes.push(`<span class="pb-hint">${F.freed[rt.prefix]}</span>`);
+    return `<section class="pgroup" data-p="${rt.prefix}">
+      <div class="pgroup__head">
+        <button class="pb-btn pb-btn--ghost pb-btn--icon" data-toggle="${rt.prefix}" aria-expanded="${!closed}" aria-label="${closed ? 'Show' : 'Hide'} the rows of router ${rt.prefix}">${icon(closed ? 'chevron-right' : 'chevron-down')}</button>
+        <span class="pgroup__name"><span class="num">${rt.prefix}</span> ${esc(rt.title)}</span>
+        ${linkState({ link: rt.link, since: rt.since }, stale)}
+        <span class="muted"><span class="num">${all.length}</span> total. Sode set <span class="num">${mine}</span>. Other devices set <span class="num">${all.length - mine}</span>.</span>
+        <span class="proto__spacer"></span>
+        ${rt.device ? `<span class="muted">Device <span class="num">${rt.device}</span></span>` : ''}
+        <button class="pb-btn" data-free-router="${rt.prefix}" ${mine && !stale ? '' : 'disabled'}>Free Sode's on ${rt.prefix}…</button>
+        ${notes.length ? `<div class="pgroup__note">${notes.join('<br>')}</div>` : ''}
+      </div>
+      ${closed ? '' : rows.length ? rows.map((r) => rowHtml(r, rt, stale)).join('') : `<div class="empty">${all.length ? 'No row of this router matches.' : 'No Protects or Router locks.'}</div>`}
+    </section>`;
+  }).join('');
+  $('#plist').innerHTML = html
+    ? `<div class="prow prow--head caps"><span>Number</span><span>Destination</span><span class="prow__lv">Levels</span><span>Set by</span><span></span></div>${html}`
+    : '<div class="empty">No Protect or Router lock matches.</div>';
+}
+function rowHtml(r, rt, stale) {
+  const dest = `<span class="prow__n num">${r.p}.${r.n}</span><span class="prow__name">${esc(r.name)}</span>`;
+  if (F.done.has(r.id)) {
+    const d = F.done.get(r.id);
+    return `<div class="prow" data-done data-id="${r.id}">${dest}<span class="prow__lv"></span><span class="state" ${d.ok ? '' : 'data-state="error"'}>${icon(d.ok ? 'circle-check' : 'circle-x')}<span>${d.text}</span></span><span class="prow__act">${d.ok ? '' : `<button class="pb-btn" data-free="${r.id}">Try again</button>`}</span></div>`;
+  }
+  if (F.confirm === r.id) {
+    return `<div class="prow" data-confirm data-id="${r.id}">${dest}<span class="confirm">
+      <span>Free the Protect on <strong>${r.p}.${r.n} ${esc(r.name)}</strong>, ${r.levels ? 'levels ' + r.levels : 'every level'}? ${r.user === ME ? 'You set it.' : esc(r.user) + ' set it.'}</span>
+      <span>Press <span class="key" id="key">${F.key}</span> to confirm</span>
+      <button class="pb-btn pb-btn--lg sode-btn--primary" id="confirm-go" disabled>Free (${F.key})</button>
+      <button class="pb-btn pb-btn--lg" id="confirm-no">Cancel</button></span></div>`;
+  }
+  return `<div class="prow" data-id="${r.id}" ${stale ? 'data-stale' : ''}>${dest}
+    <span class="prow__lv muted num">${r.levels || ''}</span>
+    <span class="prow__by">${icon(r.kind === 'lock' ? 'shield-off' : 'shield')}<span>${who(r)}</span></span>
+    <span class="prow__act">${r.sode ? `<button class="pb-btn" data-free="${r.id}" ${stale ? 'disabled title="The Router link is down."' : ''}>Free</button>` : ''}</span></div>`;
+}
+
+// The Confirm is in the row, with the churning letter and the lockout. The list does not move.
+let churn = 0;
+function askFree(id) {
+  F.done.delete(id);
+  F.confirm = id;
+  F.key = 'ABCDEFGHJKLMNPRSTUVWXYZ'[Math.floor(Math.random() * 23)];
+  keepScroll(render);
+  clearInterval(churn);
+  let ticks = 0;
+  churn = setInterval(() => {
+    const go = $('#confirm-go');
+    if (!go) return clearInterval(churn);
+    if (++ticks >= 5) {
+      clearInterval(churn);
+      go.disabled = false;
+      go.focus({ preventScroll: true });
+    }
+  }, 100);
+}
+function keepScroll(fn) {
+  const top = $('#plist').scrollTop;
+  fn();
+  $('#plist').scrollTop = top;
+}
+function say(text, kind = '') {
+  const el = $('#result');
+  el.dataset.kind = kind;
+  el.innerHTML = text ? `${icon(kind === 'error' ? 'circle-x' : 'circle-check')}<span>${text}</span>` : '';
+}
+function doFree() {
+  const r = ROWS.find((x) => x.id === F.confirm);
+  F.confirm = 0;
+  if (!r) return;
+  // One row shows a refusal, so the prototype has the failure too.
+  if (r.p === 'B' && r.n === 9 && !r.tried) {
+    r.tried = true;
+    F.done.set(r.id, { ok: false, text: 'Not freed. The router did not confirm.' });
+    say(`Free Protect failed: ${r.p}.${r.n} ${esc(r.name)}. The router did not confirm.`, 'error');
+    return keepScroll(render);
+  }
+  F.done.set(r.id, { ok: true, text: 'Protect freed' });
+  say(`Protect freed: ${r.p}.${r.n} ${esc(r.name)}, ${r.levels ? 'levels ' + r.levels : 'every level'}.`);
+  keepScroll(render);
+  setTimeout(() => {
+    ROWS = ROWS.filter((x) => x.id !== r.id);
+    F.done.delete(r.id);
+    keepScroll(render);
+  }, 2200);
+}
+const cancelFree = () => {
+  F.confirm = 0;
+  keepScroll(render);
+};
+
+function openFreeAll(only) {
+  const body = ROUTERS.map((rt) => {
+    const n = ROWS.filter((r) => r.p === rt.prefix && r.sode).length;
+    const why = !rt.device ? 'Protect is off' : rt.link !== 'up' ? `Down for ${rt.since}. Sode cannot free here now.` : !n ? 'Sode has no Protect here' : '';
+    const on = !why && (!only || only === rt.prefix);
+    return `<label class="fa-row"><input type="checkbox" data-fa="${rt.prefix}" ${on ? 'checked' : ''} ${why ? 'disabled' : ''}/>
+      <span><strong><span class="num">${rt.prefix}</span> ${esc(rt.title)}</strong> ${why ? `<span class="muted">${why}</span>` : ''}</span>
+      <span class="num">${why && !n ? '' : n + (n === 1 ? ' Protect' : ' Protects')}</span></label>`;
+  }).join('');
+  $('#fa-body').innerHTML = `<p>Sode frees each Protect that it set, for every user and panel. Protects of other devices and Router locks stay.</p><div style="margin:0.75rem 0">${body}</div>
+    <p class="pb-hint">The PIN recheck comes after this step.</p>`;
+  $('#fa').hidden = false;
+  syncFreeAll();
+}
+function syncFreeAll() {
+  const picked = $$('[data-fa]:checked').map((c) => c.dataset.fa);
+  const n = ROWS.filter((r) => r.sode && picked.includes(r.p)).length;
+  const go = $('#fa-go');
+  go.disabled = !n;
+  go.textContent = n ? `Free ${n} Protect${n === 1 ? '' : 's'} on ${picked.length} router${picked.length === 1 ? '' : 's'}` : 'Free';
+}
+$('#fa-body').addEventListener('change', syncFreeAll);
+$('#fa-back').addEventListener('click', () => ($('#fa').hidden = true));
+$('#fa-go').addEventListener('click', () => {
+  const picked = $$('[data-fa]:checked').map((c) => c.dataset.fa);
+  const parts = [];
+  let total = 0;
+  for (const p of picked) {
+    const n = ROWS.filter((r) => r.p === p && r.sode).length;
+    total += n;
+    parts.push(`${n} on ${p}`);
+    F.freed[p] = `Sode freed ${n} Protect${n === 1 ? '' : 's'} on this router at ${new Date().toTimeString().slice(0, 8)}.`;
+  }
+  ROWS = ROWS.filter((r) => !(r.sode && picked.includes(r.p)));
+  $('#fa').hidden = true;
+  say(`Sode freed ${total} Protects: ${parts.join(', ')}.`);
+  keepScroll(render);
+});
+
+$('#find').addEventListener('input', (e) => {
+  F.q = e.target.value;
+  render();
+});
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button');
+  if (!t) return;
+  if (t.dataset.kind) F.kind = t.dataset.kind;
+  else if (t.dataset.router) F.router = t.dataset.router;
+  else if (t.id === 'clear') {
+    Object.assign(F, { q: '', kind: 'all', router: 'all' });
+    $('#find').value = '';
+  } else if (t.dataset.toggle) {
+    F.closed.has(t.dataset.toggle) ? F.closed.delete(t.dataset.toggle) : F.closed.add(t.dataset.toggle);
+    return keepScroll(render);
+  } else if (t.dataset.free) return askFree(Number(t.dataset.free));
+  else if (t.id === 'confirm-go') return doFree();
+  else if (t.id === 'confirm-no') return cancelFree();
+  else if (t.dataset.freeRouter) return openFreeAll(t.dataset.freeRouter);
+  else if (t.id === 'free-all') return openFreeAll('');
+  else return;
+  render();
+});
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    $('#fa').hidden = true;
+    if (F.confirm) cancelFree();
+  } else if (F.confirm && !$('#confirm-go')?.disabled && e.key.toUpperCase() === F.key && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    doFree();
+  }
+});
+protoBar('Protects at scale');
+render();
+</script>
+</body>
+</html>

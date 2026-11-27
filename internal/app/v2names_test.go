@@ -16,15 +16,17 @@ func TestNoV1WireNames(t *testing.T) {
 	a.mu.Lock()
 	h := asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
-	for _, old := range []string{"recent", "protect"} {
+	// protected and protectBy moved into each element of routers.
+	for _, old := range []string{"recent", "protect", "protected", "protectBy"} {
 		if _, ok := h[old]; ok {
 			t.Errorf("hello still has %q", old)
 		}
 	}
-	for _, now := range []string{"history", "protected"} {
-		if _, ok := h[now]; !ok {
-			t.Errorf("hello has no %q", now)
-		}
+	if _, ok := h["history"]; !ok {
+		t.Error("hello has no history")
+	}
+	if _, ok := firstHelloRouter(t, h)["protected"]; !ok {
+		t.Error("the hello's first router has no protected")
 	}
 }
 

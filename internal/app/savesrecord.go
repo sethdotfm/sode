@@ -23,10 +23,6 @@ var sectionNames = map[string]string{
 	"confirm":           "Confirm and results",
 	"routers":           "Routers",
 	"tie-lines":         "Tie lines",
-	"router-levels":     "Router levels",
-	"router-matrix":     "Router & matrix",
-	"router-names":      "Router names",
-	"takes":             "Takes",
 	"protects":          "Protects",
 	"locks":             "Locks",
 	"users":             "Users",
@@ -41,7 +37,7 @@ func topicOf(section string) string {
 	switch section {
 	case "this-browser", "my-user":
 		return "Preferences"
-	case "routers", "tie-lines", "router-levels", "router-matrix", "router-names", "takes", "protects":
+	case "routers", "tie-lines", "protects":
 		return "Routers"
 	case "locks", "users", "api", "panels":
 		return "Access"
@@ -59,12 +55,18 @@ var attrLabels = map[string]string{
 // routerAttrLabels: the labels of the router keys, as the first router's fields name them.
 var routerAttrLabels = map[string]string{
 	"levels": "Levels", "levelWireOffset": "Level offset", "levelNumbering": "Level numbering", "defaultLevels": "Default levels",
-	"prefix": "Prefix", "title": "Title", "address": "Address", "matrix": "Matrix", "remove": "Remove",
+	"prefix": "Prefix", "title": "Router title", "address": "Address", "matrix": "Matrix", "remove": "Remove",
+	"numberOffset": "Source and destination numbers", "nameRereadSeconds": "Re-read names every (s)",
+	"nameLength": "Name character limit", "nameRequests": "Name requests", "tallyResyncSeconds": "Re-read routes every (s)",
+	"fireMode": "Multi destination", "salvoGroup": "Router salvo group", "protectDevice": "Sode's device number",
 }
 
-// itemLabel: "User Ana: Role", "API client Bot: Scopes" or "Router B: Levels". The name is the one before the save,
-// else after it.
+// itemLabel: "User Ana: Role", "API client Bot: Scopes" or "B Studio B: Levels" (config.Config.RouterName). The name
+// is the one before the save, else after it.
 func itemLabel(key string, was, now config.Config) string {
+	if key == routersOrderKey {
+		return "Router order"
+	}
 	if rest, ok := strings.CutPrefix(key, "user/"); ok {
 		id, attr, _ := strings.Cut(rest, "/")
 		u, ok := was.FindUserByID(id)
@@ -75,11 +77,11 @@ func itemLabel(key string, was, now config.Config) string {
 	}
 	if rest, ok := strings.CutPrefix(key, "router/"); ok {
 		uid, attr, _ := strings.Cut(rest, "/")
-		r, ok := was.RouterByUID(uid)
-		if !ok {
-			r, _ = now.RouterByUID(uid)
+		if r, ok := was.RouterByUID(uid); ok {
+			return was.RouterName(r) + ": " + routerAttrLabels[attr]
 		}
-		return "Router " + r.Prefix + ": " + routerAttrLabels[attr]
+		r, _ := now.RouterByUID(uid)
+		return now.RouterName(r) + ": " + routerAttrLabels[attr]
 	}
 	rest := strings.TrimPrefix(key, "client/")
 	i := strings.LastIndex(rest, "/")
@@ -147,6 +149,27 @@ func diffList(f SavedField, was, now json.RawMessage, rights bool) []SavedField 
 	return []SavedField{f}
 }
 
+// recordJSON is the value of key in cfg as the Settings saves record shows it. Default levels show in the Level
+// numbering of their router ("V, 1-2"), as a person types them; the file keeps them as UI levels (LP-14).
+func recordJSON(cfg config.Config, key string) json.RawMessage {
+	// The order shows the routers by name; the first one is the default router.
+	if key == routersOrderKey {
+		var names []string
+		for _, r := range cfg.Routers {
+			names = append(names, cfg.RouterName(r))
+		}
+		b, _ := json.Marshal(names)
+		return b
+	}
+	if rest, ok := strings.CutPrefix(key, "router/"); ok && strings.HasSuffix(rest, "/defaultLevels") {
+		if r, ok := cfg.RouterByUID(strings.TrimSuffix(rest, "/defaultLevels")); ok {
+			b, _ := json.Marshal(r.LevelsText(r.DefaultLevels))
+			return b
+		}
+	}
+	return fieldJSON(cfg, key)
+}
+
 // savedFields: what each key in keys wrote between was and now. x names the ids that adds made.
 func (a *App) savedFields(was, now config.Config, keys []string, x *saveCtx) []SavedField {
 	var out []SavedField
@@ -167,7 +190,7 @@ func (a *App) savedFields(was, now config.Config, keys []string, x *saveCtx) []S
 		case spec.adds:
 			out = append(out, a.addedFields(base, key, now, x)...)
 		default:
-			fs := diffValue(base, fieldJSON(was, key), fieldJSON(now, key), rightsField(key))
+			fs := diffValue(base, recordJSON(was, key), recordJSON(now, key), rightsField(key))
 			if id, ok := strings.CutPrefix(key, "user/"); ok && strings.HasSuffix(id, "/rights") {
 				u, _ := now.FindUserByID(strings.TrimSuffix(id, "/rights"))
 				if pc := a.panelClientsOf(now, u); len(pc) > 0 && len(fs) > 0 {

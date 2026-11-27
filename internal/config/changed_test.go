@@ -11,12 +11,12 @@ func TestReconnectChanged(t *testing.T) {
 		t.Fatal("a clone differs")
 	}
 	for name, mut := range map[string]func(*Config){
-		"address":      func(c *Config) { c.Address = "10.9.9.9:8910" },
-		"matrix":       func(c *Config) { c.Matrix = 3 },
-		"levels":       func(c *Config) { c.Levels = 5 },
-		"level offset": func(c *Config) { c.LevelWireOffset = 1 },
-		"name length":  func(c *Config) { c.NameLength = 8 },
-		"name reads":   func(c *Config) { c.NameRequests = "none" },
+		"address":      func(c *Config) { c.Routers[0].Address = "10.9.9.9:8910" },
+		"matrix":       func(c *Config) { c.Routers[0].Matrix = 3 },
+		"levels":       func(c *Config) { c.Routers[0].Levels = 5 },
+		"level offset": func(c *Config) { c.Routers[0].LevelWireOffset = 1 },
+		"name length":  func(c *Config) { c.Routers[0].NameLength = 8 },
+		"name reads":   func(c *Config) { c.Routers[0].NameRequests = "none" },
 	} {
 		b := a.Clone()
 		mut(&b)
@@ -25,9 +25,9 @@ func TestReconnectChanged(t *testing.T) {
 		}
 	}
 	for name, mut := range map[string]func(*Config){
-		"fire mode":     func(c *Config) { c.FireMode = "native" },
+		"fire mode":     func(c *Config) { c.Routers[0].FireMode = "native" },
 		"level colors":  func(c *Config) { c.LevelColors = []string{"#abc"} },
-		"router name":   func(c *Config) { c.Title = "Studio" },
+		"router name":   func(c *Config) { c.Routers[0].Title = "Studio" },
 		"locks":         func(c *Config) { c.Locks.Main = true },
 		"require HTTPS": func(c *Config) { c.RequireHTTPS = true },
 	} {

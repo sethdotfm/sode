@@ -256,27 +256,51 @@ func TestSaveFieldsMatchPage(t *testing.T) {
 	if len(page) == 0 || !reflect.DeepEqual(page, saveFields) {
 		t.Fatalf("page %v\nserver %v", page, saveFields)
 	}
-	if !strings.Contains(src, "ITEM_SECTIONS = Object.freeze({ user: '"+usersSection+"', client: '"+usersSection+"', "+swapKey+": '"+swapSpec().section+"', router: '"+routerLevelsSection+"' })") {
+	if !strings.Contains(src, "ITEM_SECTIONS = Object.freeze({ user: '"+usersSection+"', client: '"+usersSection+"', "+swapKey+": '"+swapSpec().section+"', router: '"+routersSection+"' })") {
 		t.Fatal("ITEM_SECTIONS in savereviewrules.js does not match the user/, client/, swap and router/ keys of onesavefields.go")
 	}
-	m := regexp.MustCompile(`RECONNECT = new Set\(\[([^\]]*)\]\)`).FindStringSubmatch(src)
+	attrs := jsObject(t, src, "ROUTER_ATTRS")
+	want := map[string]string{}
+	for _, a := range routerAttrs {
+		want[a.name] = a.section
+	}
+	if !reflect.DeepEqual(attrs, want) {
+		t.Fatalf("page ROUTER_ATTRS %v\nserver routerAttrs %v", attrs, want)
+	}
+	m := regexp.MustCompile(`ROUTER_RECONNECT = /\^router\\/\[\^/\]\+\\/\(([^)]*)\)\$/`).FindStringSubmatch(src)
 	if m == nil {
-		t.Fatal("no RECONNECT list in savereviewrules.js")
+		t.Fatal("no ROUTER_RECONNECT in savereviewrules.js")
 	}
-	var reconnect []string
-	for _, k := range strings.Split(m[1], ",") {
-		reconnect = append(reconnect, strings.Trim(strings.TrimSpace(k), "'"))
-	}
-	var want []string
-	for _, f := range config.Fields() {
-		if f.Tag.Get("reconnect") == "true" {
-			name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
-			want = append(want, name)
+	reconnect := strings.Split(m[1], "|")
+	var tagged []string
+	for _, a := range routerAttrNames() {
+		var r config.Router
+		p := routerField(&r, a)
+		v := reflect.ValueOf(&r).Elem()
+		for i := range v.NumField() {
+			if v.Field(i).Addr().Interface() == p && v.Type().Field(i).Tag.Get("reconnect") == "true" {
+				tagged = append(tagged, a)
+			}
 		}
 	}
 	slices.Sort(reconnect)
-	slices.Sort(want)
-	if !slices.Equal(reconnect, want) {
-		t.Fatalf("page reconnects %v, reconnect fields are %v", reconnect, want)
+	slices.Sort(tagged)
+	if !slices.Equal(reconnect, tagged) {
+		t.Fatalf("page reconnects %v, reconnect fields are %v", reconnect, tagged)
 	}
+}
+
+// jsObject reads `name = Object.freeze({ key: 'value', ... })` of a page module: each key with its string value.
+func jsObject(t *testing.T, src, name string) map[string]string {
+	t.Helper()
+	start := strings.Index(src, name+" = Object.freeze({")
+	if start < 0 {
+		t.Fatalf("no %s in the page", name)
+	}
+	end := strings.Index(src[start:], "});")
+	out := map[string]string{}
+	for _, m := range regexp.MustCompile(`(\w+): '([\w-]+)',`).FindAllStringSubmatch(src[start:start+end], -1) {
+		out[m[1]] = m[2]
+	}
+	return out
 }

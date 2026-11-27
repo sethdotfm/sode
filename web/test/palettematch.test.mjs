@@ -15,8 +15,8 @@ const guest = (more = {}) => who({ role: '', user: '', ...more });
 const SETTINGS = [
   { section: 'this-browser', sectionTitle: 'This browser', topic: 'Preferences', id: 'cfg-theme', label: 'Theme' },
   { section: 'confirm', sectionTitle: 'Confirm', topic: 'Look and feel', id: 'cfg-dismiss', label: 'Success banner closes after (s)' },
-  { section: 'router-matrix', sectionTitle: 'Router & matrix', topic: 'Routers', id: 'cfg-router', label: 'Address' },
-  { section: 'router-matrix', sectionTitle: 'Router & matrix', topic: 'Routers', id: 'cfg-routername', label: 'Name' },
+  { section: 'routers', sectionTitle: 'Routers', topic: 'Routers', id: 'cfg-rt-address', label: 'Address' },
+  { section: 'routers', sectionTitle: 'Routers', topic: 'Routers', id: 'cfg-rt-title', label: 'Router title' },
   { section: 'users', sectionTitle: 'Users', topic: 'Access', id: 'users-manage', label: 'Manage users', button: 'users-manage' },
   { section: 'history', sectionTitle: 'History', topic: 'Look and feel', id: 'clear-history', label: 'Clear History', button: 'clear-history' },
 ];
@@ -57,12 +57,12 @@ test('typo: one edit for a word of 4 letters or more, after exact and prefix mat
 
 test('across name and path: each query word in the name, the path or the words, one in the name', () => {
   const rows = catalogue(src());
-  const addr = rowByKey(rows, 'setting:router-matrix/cfg-router');
+  const addr = rowByKey(rows, 'setting:routers/cfg-rt-address');
   assert.deepEqual(wordsMatch(addr, 'router address'), { typo: false });
-  assert.deepEqual(wordsMatch(addr, 'matrix addr'), { typo: false });
-  assert.equal(wordsMatch(addr, 'router matrix'), null, 'the path alone does not list a whole section');
-  assert.equal(top(rows, 'router address'), 'setting:router-matrix/cfg-router');
-  assert.equal(top(rows, 'routers adress'), 'setting:router-matrix/cfg-router', 'a typo works across the path too');
+  assert.deepEqual(wordsMatch(addr, 'routers addr'), { typo: false });
+  assert.equal(wordsMatch(addr, 'routers routers'), null, 'the path alone does not list a whole section');
+  assert.equal(top(rows, 'router address'), 'setting:routers/cfg-rt-address');
+  assert.equal(top(rows, 'routers adress'), 'setting:routers/cfg-rt-address', 'a typo works across the path too');
 });
 
 test('search words: one table, a whole word or the start of one (3 letters or more)', () => {
@@ -74,7 +74,7 @@ test('search words: one table, a whole word or the start of one (3 letters or mo
   assert.equal(top(rows, 'manage users'), 'setting:users/users-manage');
   assert.equal(top(rows, '?'), 'action:shortcuts');
   assert.equal(top(rows, 'undo'), 'action:undo');
-  assert.equal(top(rows, 'ip'), 'setting:router-matrix/cfg-router');
+  assert.equal(top(rows, 'ip'), 'setting:routers/cfg-rt-address');
   assert.ok(searchWordHit(rowByKey(rows, 'setting:confirm/cfg-dismiss'), 'dism'));
   assert.ok(!searchWordHit(rowByKey(rows, 'setting:confirm/cfg-dismiss'), 'di'), 'two letters must be the whole word');
   // Signed in, "login" is Sign out or Step in; signed out it is Sign in, and "unlock" too.
@@ -122,7 +122,7 @@ test('hidden matches: a signed-in user is told the Rights or Role, with Step in 
   assert.deepEqual(c, { settings: 1 });
   assert.deepEqual(hiddenLine(c, { signedIn: true }), { act: '', label: '1 setting is outside your Rights or Role.' });
   assert.equal(hiddenLine(c, { signedIn: true, canStepIn: true }).act, 'stepIn');
-  const pins = [rowByKey(rows, 'setting:router-matrix/cfg-router')];
+  const pins = [rowByKey(rows, 'setting:routers/cfg-rt-address')];
   assert.deepEqual(hiddenCounts(rows, 'router address', { pins }), {}, 'a Palette pin shows, so it is not hidden');
 });
 

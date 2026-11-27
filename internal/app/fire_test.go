@@ -121,18 +121,18 @@ func fireLeftovers(t *testing.T, a *App) {
 	t.Helper()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.first.waiters) != 0 {
-		t.Fatalf("left behind: %d waiters", len(a.first.waiters))
+	if len(a.firstUnit().waiters) != 0 {
+		t.Fatalf("left behind: %d waiters", len(a.firstUnit().waiters))
 	}
 	later := time.Now().Add(salvoAnnounceFor + 50*time.Millisecond)
-	for k, until := range a.first.ext.own {
+	for k, until := range a.firstUnit().ext.own {
 		if until.After(later) {
 			t.Fatalf("own key %v lasts until %v, past the Go's Connecteds", k, until)
 		}
 	}
-	a.first.ext.ownership.expire(later)
-	if len(a.first.ext.own) != 0 {
-		t.Fatalf("own keys left after expiry: %v", a.first.ext.own)
+	a.firstUnit().ext.ownership.expire(later)
+	if len(a.firstUnit().ext.own) != 0 {
+		t.Fatalf("own keys left after expiry: %v", a.firstUnit().ext.own)
 	}
 }
 
@@ -140,8 +140,8 @@ func nativeApp(t *testing.T, n int) (*App, *fakeRouter) {
 	t.Helper()
 	h, _ := OpenHistory("")
 	cfg := config.Defaults()
-	cfg.Levels = n
-	cfg.FireMode = "native"
+	cfg.Routers[0].Levels = n
+	cfg.Routers[0].FireMode = "native"
 	cfg.Normalize()
 	a, err := New(cfg, "", h, nil, false)
 	if err != nil {
@@ -240,7 +240,7 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 	}
 	fireLeftovers(t, a)
 	a.mu.Lock()
-	for _, c := range a.first.ext.causes {
+	for _, c := range a.firstUnit().ext.causes {
 		if c.first.IsZero() || c.sent.IsZero() {
 			t.Errorf("cause not marked at the Go: %+v", c)
 		}
@@ -456,7 +456,7 @@ func TestNativeProtected(t *testing.T) {
 		f.seed(d, 1, 0, 1)
 	}
 	a.mu.Lock()
-	a.first.router.protect[6] = map[int]protHold{2: {9, 1}}
+	a.firstUnit().router.protect[6] = map[int]protHold{2: {9, 1}}
 	a.mu.Unlock()
 	es := takeOf(t, a, 9, []int{5, 6, 7}, 1, 2)
 	for _, e := range es {
@@ -492,7 +492,7 @@ func TestNativeSingleTake(t *testing.T) {
 	}
 	f.seed(6, 1, 0)
 	a.mu.Lock()
-	a.first.router.protect[6] = map[int]protHold{1: {9, 1}}
+	a.firstUnit().router.protect[6] = map[int]protHold{1: {9, 1}}
 	a.mu.Unlock()
 	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	if n := f.cmds(swp08.CmdGoSalvo) + f.cmds(swp08.CmdConnectOnGo); n != 0 {
@@ -562,7 +562,7 @@ func TestNativeFireLockRows(t *testing.T) {
 	for d := 5; d < 8; d++ {
 		f.seed(d, 1, 0, 1, 2)
 	}
-	a.lockFire(a.first, "a fire by Test")
+	a.lockFire(a.firstUnit(), "a fire by Test")
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -570,7 +570,7 @@ func TestNativeFireLockRows(t *testing.T) {
 	}()
 	const hold = 150 * time.Millisecond
 	time.Sleep(hold)
-	a.unlockFire(a.first)
+	a.unlockFire(a.firstUnit())
 	<-done
 	rows := salvoRows(a)
 	if len(rows) < 4 || !strings.HasPrefix(rows[0], "lock: fire lock: waited ") || !strings.HasSuffix(rows[0], " ms for a fire by Test") ||
@@ -598,14 +598,14 @@ func TestNativeFireLockRows(t *testing.T) {
 func TestNativeFireRowsWithSimulator(t *testing.T) {
 	slowTest(t)
 	sim, _ := simServer(t)
-	a := simApp(t, sim, func(c *config.Config) { c.FireMode = "native" })
+	a := simApp(t, sim, func(c *config.Config) { c.Routers[0].FireMode = "native" })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	for end := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
 		a.mu.Lock()
-		n := len(a.first.router.tally)
+		n := len(a.firstUnit().router.tally)
 		a.mu.Unlock()
 		if n >= 120 {
 			break

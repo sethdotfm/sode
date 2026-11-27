@@ -13,11 +13,11 @@ import (
 func secondRouter(t *testing.T) (a *App, first, second *fakeRouter, u *routerUnit) {
 	t.Helper()
 	a = newTestApp(t, func(c *config.Config) {
-		c.MoreRouters = []config.Router{moreRouter("B", "Second", "10.0.0.9:8910", 3)}
+		c.Routers = append(c.Routers[:1:1], []config.Router{moreRouter("B", "Second", "10.0.0.9:8910", 3)}...)
 	})
 	first = newFakeRouter(t, a)
-	a.first.checkTimeout, a.first.routeTimeout, a.first.routeGrace = defaultCheckTimeout, defaultRouteTimeout, defaultRouteGrace
-	second, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	a.firstUnit().checkTimeout, a.firstUnit().routeTimeout, a.firstUnit().routeGrace = defaultCheckTimeout, defaultRouteTimeout, defaultRouteGrace
+	second, u = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	return a, first, second, u
 }
 
@@ -41,8 +41,8 @@ func TestTakeUsesItsRouter(t *testing.T) {
 	}
 	a.mu.Lock()
 	// The Connected used up the own key in the second router's tracker, so it is the take's, not an External.
-	tally, own, causes, firstTally := u.router.tally[2][1], len(u.ext.own), len(u.ext.causes), len(a.first.router.tally)
-	waiting := len(u.waiters) + len(a.first.waiters)
+	tally, own, causes, firstTally := u.router.tally[2][1], len(u.ext.own), len(u.ext.causes), len(a.firstUnit().router.tally)
+	waiting := len(u.waiters) + len(a.firstUnit().waiters)
 	a.mu.Unlock()
 	if tally != 4 || own != 0 || causes != 1 || firstTally != 0 || waiting != 0 {
 		t.Errorf("second tally %d, own keys %d, causes %d, first tally %d, waiters %d", tally, own, causes, firstTally, waiting)
@@ -82,7 +82,7 @@ func TestLogRowUsesItsRouter(t *testing.T) {
 	a, _, _, u := secondRouter(t)
 	a.mu.Lock()
 	u.router.dstNames[2] = "B MON 2"
-	a.first.router.dstNames[2] = "A MON 2"
+	a.firstUnit().router.dstNames[2] = "A MON 2"
 	a.mu.Unlock()
 	e := a.describe(swp08.TxEvent{Msg: swp08.ExtConnect(0, 0, 2, 4), Why: swp08.Why{Reason: swp08.ReasonTake, Router: u.uid()}})
 	if e.Router != u.uid() || e.DstName != "B MON 2" {

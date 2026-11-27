@@ -22,7 +22,7 @@ func swapApp(t *testing.T) (*App, string) {
 	}
 	readNames(a, srcs, dsts)
 	readNames(a, srcs, dsts)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	ref := func(n int, name string) config.Ref { return config.Ref{Router: uid, N: n, Name: name} }
 	preset := func(id, name string, dsts ...config.Ref) config.Preset {
 		return config.Preset{ID: id, Name: name, Items: []config.PresetItem{{Src: ref(0, "CAM 1"), Dsts: dsts}}}
@@ -249,7 +249,7 @@ func TestSwapMineTouchesOnlyOwnItems(t *testing.T) {
 }
 
 func TestSwapSourceFilterNumberTermsUseShownNumbers(t *testing.T) {
-	sw := swapper{uid: "r", from: 2, to: 11, off: 1, toName: `CAM "12"`, fromNames: []string{"CAM 3"}}
+	sw := swapper{uid: "r", first: true, from: 2, to: 11, off: 1, toName: `CAM "12"`, fromNames: []string{"CAM 3"}}
 	s := config.FilterSet{Src: `3,  "cam 3" , 'CAM 3', /CAM 3/, 2-4, !3`}
 	if !sw.filterSet(&s) {
 		t.Fatal("not changed")
@@ -407,5 +407,61 @@ func TestSwapTieLines(t *testing.T) {
 	}
 	if c.TieLines[0].From.N != 22 || len(c.TieLines[0].Moved) != 2 {
 		t.Errorf("the Swap changed the list it was given: %+v", c.TieLines[0])
+	}
+}
+
+// A Swap on router B changes only router B's references, in router B's own numbering, and its Settings saves row
+// names the router. Router A's preset and a filter set with no router (router A's) keep their numbers.
+func TestSwapOnSecondRouter(t *testing.T) {
+	a := futureApp(t, "routers:\n  - {address: 127.0.0.1:1}\n  - {address: 127.0.0.1:2, prefix: B, title: Stage 2, numberOffset: 0}\n")
+	defer startLog(t, a)()
+	uids := routerUIDs(a)
+	ua, ub := uids[0], uids[1]
+	var dsts []string
+	for i := 1; i <= 50; i++ {
+		dsts = append(dsts, fmt.Sprintf("B MON %d", i))
+	}
+	u, _ := a.unit(ub)
+	readUnitNames(a, u, []string{"B CAM 1"}, dsts)
+	ref := func(router string, n int) config.Ref { return config.Ref{Router: router, N: n, Name: "x"} }
+	a.cfgMu.Lock()
+	err := a.commit(func(c *config.Config) error {
+		c.Presets = []config.Preset{
+			{ID: "pa", Name: "On A", Items: []config.PresetItem{{Src: ref(ua, 0), Dsts: []config.Ref{ref(ua, 22)}}}},
+			{ID: "pb", Name: "On B", Items: []config.PresetItem{{Src: ref(ub, 0), Dsts: []config.Ref{ref(ub, 22)}}}},
+		}
+		c.FilterSets = []config.FilterSet{{Name: "A desk", Dst: "23", Sode: true}, {Name: "B desk", Router: ub, Dst: "22", Sode: true}}
+		return nil
+	}, nil)
+	a.cfgMu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := dialPeer(t, a)
+	p.signIn("Ada", "2468")
+	list := swapItems(t, p.ask("swapList", 1, map[string]any{"swap": map[string]any{"router": ub, "side": "destination", "from": 22}}))
+	if len(list) != 2 || list["On B"] == nil || list["B desk"] == nil {
+		t.Fatalf("router B's list: %v", list)
+	}
+	r := p.ask("settingsSave", 2, map[string]any{"fields": map[string]any{
+		"swap": map[string]any{"value": map[string]any{"router": ub, "side": "destination", "from": 22, "to": 39,
+			"items": []any{list["On B"]["id"], list["B desk"]["id"]}}},
+	}})
+	wantSaved(t, r, "swap")
+	cfg := a.r().cfg
+	if d := cfg.Presets[1].Items[0].Dsts[0]; d.N != 39 || d.Name != "B MON 40" || d.Router != ub {
+		t.Errorf("router B's preset: %+v", d)
+	}
+	if d := cfg.Presets[0].Items[0].Dsts[0]; d.N != 22 {
+		t.Errorf("router A's preset changed: %+v", d)
+	}
+	if fa, fb := cfg.FilterSets[0].Dst, cfg.FilterSets[1].Dst; fa != "23" || fb != "39" {
+		t.Errorf("filter sets: A %q, B %q", fa, fb)
+	}
+	if f := fieldsByKey(waitSaves(t, a, 1)[0])["swap"]; f.Label != "Swap destination 22 for 39 on B Stage 2" {
+		t.Errorf("label = %q", f.Label)
+	}
+	if r := p.ask("swapList", 3, map[string]any{"swap": map[string]any{"router": "nope", "side": "destination", "from": 22}}); r["ok"] == true {
+		t.Errorf("an unknown router listed: %v", r)
 	}
 }

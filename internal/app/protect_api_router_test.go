@@ -36,7 +36,7 @@ func TestAPIProtectUsesItsRouter(t *testing.T) {
 	if n, hs := first.sends(), second.holdsOn(5); n != 0 || len(hs) != 0 {
 		t.Fatalf("free on B: the first router got %d messages, holds on B %+v", n, hs)
 	}
-	if rec := apiSend(a, "POST", "/api/v1/protected/5?router="+a.r().cfg.UID, holder, ""); rec.Code != 200 || len(first.holdsOn(5)) != 3 {
+	if rec := apiSend(a, "POST", "/api/v1/protected/5?router="+a.r().cfg.Routers[0].UID, holder, ""); rec.Code != 200 || len(first.holdsOn(5)) != 3 {
 		t.Fatalf("set on A: %d %s", rec.Code, rec.Body.String())
 	}
 }

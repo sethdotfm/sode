@@ -392,7 +392,7 @@ func TestChromeGridPanelProtected(t *testing.T) {
 	b.waitFor("two routes staged", gridXp(3, 5)+`.dataset.s === 'staged' && `+gridXp(4, 6)+`.dataset.s === 'staged'`)
 	b.waitFor("a press elsewhere clears the status, and the grid did not move", gridMessage+` === '' && window.__top() === window.__was`)
 	a.mu.Lock()
-	a.first.router.protect[5] = map[int]protHold{1: {9, 1}}
+	a.firstUnit().router.protect[5] = map[int]protHold{1: {9, 1}}
 	a.mu.Unlock()
 	b.waitFor("the staged route that became protected is marked", gridXp(3, 5)+`.dataset.s === 'left-out' && `+protShown(5))
 	gridKey(b, "Enter")

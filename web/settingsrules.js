@@ -20,3 +20,13 @@ export function namesTimeText({ at, savedAt }, fmt) {
   if (realTime(savedAt)) return `Names from ${fmt(savedAt)}`;
   return 'Not read yet';
 }
+
+// Level colors are one palette by position for every router (owner decision 7). The tip of a slot says which level of
+// each router takes it, the router prefix first: "Position 1. A: 1, B: 0, C: V." routers: the hello's routers list. With
+// one router the slot needs no tip.
+export function positionTip(pos, routers) {
+  if (routers.length < 2) return '';
+  const uses = routers.map((r) => [r.prefix, (r.levels || []).find((l) => l.ui === pos)?.label]).filter(([, label]) => label !== undefined);
+  if (!uses.length) return `Position ${pos}. No router has this many levels.`;
+  return `Position ${pos}. ${uses.map(([p, label]) => `${p}: ${label}`).join(', ')}.`;
+}

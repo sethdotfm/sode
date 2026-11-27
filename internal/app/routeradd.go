@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"maps"
 	"slices"
@@ -13,63 +14,14 @@ import (
 )
 
 // Add router and Remove router (Settings > Routers, docs/agents/settings-saves.md). The one Save keys are
-// `router/new:<tmp>/add` and `router/<uid>/remove`, and `router/<uid>/{prefix,title,address,matrix}` edit a router
-// after the first. The first router stays: its own block edits it, and only its prefix has a key here.
+// `router/new:<tmp>/add` and `router/<uid>/remove`. The other router keys are in onesavefields.go (routerAttrs). The
+// first router stays.
 
 // routersSection: Settings > Routers, the list of routers.
 const routersSection = "routers"
 
-// routerListAttrs: the `router/<uid>/<attribute>` keys of the Routers list, by the JSON key of the config.Router field.
-var routerListAttrs = []string{"prefix", "title", "address", "matrix"}
-
-// routerListField gives the field of r that a routerListAttrs key names.
-func routerListField(r *config.Router, attr string) any {
-	switch attr {
-	case "prefix":
-		return &r.Prefix
-	case "title":
-		return &r.Title
-	case "address":
-		return &r.Address
-	case "matrix":
-		return &r.Matrix
-	}
-	return nil
-}
-
-// routerListSpec: the prefix, title, address or matrix of a router after the first, or the prefix of the first router.
-func routerListSpec(uid, attr string) (fieldSpec, bool) {
-	s := fieldSpec{section: routersSection, item: "router/" + uid}
-	at := func(c *config.Config) *config.Router {
-		if c.UID == uid {
-			if attr != "prefix" {
-				return nil // the first router's block has its own keys
-			}
-			return &c.Router
-		}
-		if i := moreRouterIndex(c, uid); i >= 0 {
-			return &c.MoreRouters[i]
-		}
-		return nil
-	}
-	s.get = func(c config.Config) any {
-		if r := at(&c); r != nil {
-			return routerListField(r, attr)
-		}
-		return nil
-	}
-	s.set = func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
-		c.MoreRouters = slices.Clone(c.MoreRouters)
-		r := at(c)
-		if r == nil {
-			return errors.New("this router was removed meanwhile: reload the page")
-		}
-		return json.Unmarshal(v, routerListField(r, attr))
-	}
-	return s, true
-}
-
-// newRouter is the value of `router/new:<tmp>/add`. Levels 0 is the default level count.
+// newRouter is the value of `router/new:<tmp>/add`: prefix, title, address, matrix and levels, and any other setting
+// of routerAttrs by its JSON name. Levels 0 is the default level count.
 type newRouter struct {
 	Prefix  string `json:"prefix"`
 	Title   string `json:"title"`
@@ -79,7 +31,7 @@ type newRouter struct {
 }
 
 // addRouterSpec adds a router with the default settings and the values the page sent. Its UID is made one time, so
-// the check and the commit agree.
+// the check and the commit agree. The detail view of a new router sends every setting; an older page sends five.
 func addRouterSpec(key string) fieldSpec {
 	return fieldSpec{section: routersSection, adds: true, item: key,
 		get: func(config.Config) any { return nil },
@@ -88,30 +40,84 @@ func addRouterSpec(key string) fieldSpec {
 			if err != nil {
 				return err
 			}
+			var more map[string]json.RawMessage
+			if err := json.Unmarshal(v, &more); err != nil {
+				return err
+			}
 			uid, _ := x.once(key, func() (string, error) { return config.NewRouterUID(), nil })
-			r := config.Defaults().Router
+			r := config.Defaults().DefaultRouter()
+			for _, at := range routerAttrNames() {
+				raw, ok := more[at]
+				switch at {
+				case "prefix", "title", "address", "matrix", "levels":
+					continue
+				}
+				if !ok || string(raw) == "null" {
+					continue
+				}
+				if err := json.Unmarshal(raw, routerField(&r, at)); err != nil {
+					return fmt.Errorf("%s: %w", at, err)
+				}
+			}
 			r.UID, r.Address, r.Matrix = uid, strings.TrimSpace(n.Address), n.Matrix
 			r.Prefix = cmp.Or(strings.ToUpper(strings.TrimSpace(n.Prefix)), c.FreePrefix())
 			r.Title = cmp.Or(strings.TrimSpace(n.Title), "Router "+r.Prefix)
 			if n.Levels > 0 {
 				r.Levels = n.Levels
 			}
-			c.MoreRouters = append(slices.Clone(c.MoreRouters), r)
+			c.Routers = append(slices.Clone(c.Routers), r)
 			return nil
 		}}
 }
 
-// removeRouterSpec removes a router after the first. What names it changes as dropRouter says.
+// removeRouterSpec removes a router, the first one too, while another router stays. What names it changes as
+// dropRouter says. With the first router gone, the next one is the default router.
 func removeRouterSpec(uid string) fieldSpec {
 	return fieldSpec{section: routersSection, item: "router/" + uid,
 		get: func(c config.Config) any { _, ok := c.RouterByUID(uid); return !ok },
 		set: func(c *config.Config, _ json.RawMessage, _ *saveCtx) error {
-			if uid == c.UID {
-				return errors.New("the first router stays: change its address in its own block")
+			if _, ok := c.RouterByUID(uid); ok && len(c.Routers) < 2 {
+				return errors.New("the last router stays: Sode needs one router")
 			}
 			dropRouter(c, uid)
 			return nil
 		}}
+}
+
+// routersOrderKey: the one Save key of the order of the routers, a list of router UIDs. The first router of the list
+// is the default router. A router that the list does not name (one that the same save adds) comes after the named
+// ones. Sode skips a UID that it does not have. A reorder reconnects no router.
+const routersOrderKey = "routers/order"
+
+func routersOrderSpec() fieldSpec {
+	return fieldSpec{section: routersSection,
+		get: func(c config.Config) any { return c.RouterUIDs() },
+		set: func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
+			var uids []string
+			if err := json.Unmarshal(v, &uids); err != nil {
+				return err
+			}
+			c.Routers = reorderRouters(c.Routers, uids)
+			return nil
+		}}
+}
+
+// reorderRouters gives the routers in the order of uids, then the routers that uids does not name, in their order.
+func reorderRouters(rs []config.Router, uids []string) []config.Router {
+	out := make([]config.Router, 0, len(rs))
+	used := map[string]bool{}
+	for _, uid := range uids {
+		if i := slices.IndexFunc(rs, func(r config.Router) bool { return r.UID == uid }); i >= 0 && !used[uid] {
+			out = append(out, rs[i])
+			used[uid] = true
+		}
+	}
+	for _, r := range rs {
+		if !used[r.UID] {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 func removeKeyRouter(key string) (string, bool) {
@@ -126,11 +132,11 @@ func removeKeyRouter(key string) (string, bool) {
 // owners see what to fix. Rights lose the references and levels of that router, and each tie line with an end on it
 // goes. Validate refuses a router that Sode does not have, and Sode never uses a router UID again.
 func dropRouter(c *config.Config, uid string) {
-	i := moreRouterIndex(c, uid)
+	i := routerIndex(c, uid)
 	if i < 0 {
 		return
 	}
-	c.MoreRouters = slices.Delete(slices.Clone(c.MoreRouters), i, i+1)
+	c.Routers = slices.Delete(slices.Clone(c.Routers), i, i+1)
 	c.APIClients = slices.Clone(c.APIClients)
 	for _, s := range itemScopes(c, "") {
 		ps, fs := config.ClonePresets(*s.Presets), slices.Clone(*s.FilterSets)

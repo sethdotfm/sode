@@ -32,11 +32,8 @@ export function initRoles({ form, sections, toc, isOpen }) {
       const approval = approvals.get(s);
       if (approval) approval.hidden = view !== 'read';
     });
-    // A band or router sub-heading goes with its last shown section.
-    for (const h of form.querySelectorAll(':scope > .sode__topic, :scope > .sode__router')) {
-      const mine = h.matches('.sode__topic') ? (s) => s.dataset.topic === h.dataset.topic : (s) => s.dataset.router === h.dataset.router;
-      h.hidden = !sections.some((s) => mine(s) && !s.hidden);
-    }
+    // A band goes with its last shown section.
+    for (const h of form.querySelectorAll(':scope > .sode__topic')) h.hidden = !sections.some((s) => s.dataset.topic === h.dataset.topic && !s.hidden);
     phoneNote.hidden = !phone;
     toc.setOff(off);
   }

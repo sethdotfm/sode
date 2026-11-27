@@ -97,8 +97,8 @@ func TestUptimeOverWebSocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.first.up.Note(Sent{Result: "nak", Tries: 3})
-	a.first.up.State(true)
+	a.firstUnit().up.Note(Sent{Result: "nak", Tries: 3})
+	a.firstUnit().up.State(true)
 	srv := httptest.NewServer(a.Handler(fstest.MapFS{}))
 	defer srv.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

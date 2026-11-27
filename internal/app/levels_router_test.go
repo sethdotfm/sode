@@ -14,11 +14,11 @@ func levelRouters(t *testing.T) (a *App, first, second *fakeRouter, u *routerUni
 	a = newTestApp(t, func(c *config.Config) {
 		b := moreRouter("B", "One level", "10.0.0.9:8910", 1)
 		b.LevelWireOffset, b.LevelNumbering = 4, "va"
-		c.Levels, c.DefaultLevels = 17, "1-17"
-		c.MoreRouters = []config.Router{b}
+		c.Routers[0].Levels, c.Routers[0].DefaultLevels = 17, "1-17"
+		c.Routers = append(c.Routers[:1:1], []config.Router{b}...)
 	})
 	first = newFakeRouter(t, a)
-	second, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	second, u = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	return a, first, second, u
 }
 
@@ -114,7 +114,7 @@ func TestHelloRoutersCarryTheirLevels(t *testing.T) {
 		t.Fatalf("routers %+v", m.Routers)
 	}
 	one, many := m.Routers[1], m.Routers[0]
-	if one.UID != u.uid() || len(one.Levels) != 1 || one.Levels[0].Wire != 5 || one.LevelNumbering != "va" || one.DefaultLevels != "1-1" {
+	if one.UID != u.uid() || len(one.Levels) != 1 || one.Levels[0].Wire != 5 || one.LevelNumbering != "va" || one.DefaultLevels != "" {
 		t.Errorf("router B %+v", one)
 	}
 	if len(many.Levels) != 17 || many.LevelNumbering != "1" || many.DefaultLevels != "1-17" {

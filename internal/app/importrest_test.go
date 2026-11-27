@@ -48,7 +48,7 @@ func seedPanelExtras(t *testing.T, a *App) (Panel, Template, PanelSet, LibIcon) 
 		t.Fatal(err)
 	}
 	n := 2
-	if _, err := a.artDefaults.set(ArtDefault{Kind: artKindSource, Router: a.r().cfg.UID, N: &n, Name: "CAM 2", Art: "lib:" + ic.ID}, nil); err != nil {
+	if _, err := a.artDefaults.set(ArtDefault{Kind: artKindSource, Router: a.r().cfg.Routers[0].UID, N: &n, Name: "CAM 2", Art: "lib:" + ic.ID}, nil); err != nil {
 		t.Fatal(err)
 	}
 	return p, tpl, set, ic

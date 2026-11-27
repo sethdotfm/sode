@@ -29,7 +29,7 @@ const level = (ui) => ({ ui, wire: ui - 1, label: String(ui) });
 const hello = {
   t: 'hello',
   version: '',
-  cfg: { numberOffset: 1, routerName: 'Main', filterSets: [], presets: [], bookmarks: [] },
+  cfg: { filterSets: [], presets: [], bookmarks: [] },
   routers: [
     {
       uid: 'aaa',

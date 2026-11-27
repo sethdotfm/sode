@@ -1,0 +1,402 @@
+{
+  "brandColors": [
+    {
+      "hex": "#5fb2e8",
+      "label": "Blue",
+      "name": "blue"
+    },
+    {
+      "hex": "#5ccfc9",
+      "label": "Teal",
+      "name": "teal"
+    },
+    {
+      "hex": "#4dc3dd",
+      "label": "Sky",
+      "name": "sky"
+    },
+    {
+      "hex": "#a3b4d4",
+      "label": "Slate",
+      "name": "slate"
+    },
+    {
+      "hex": "#a67ef0",
+      "label": "Violet",
+      "name": "violet"
+    },
+    {
+      "hex": "#5fd09a",
+      "label": "Green",
+      "name": "green",
+      "retired": true
+    },
+    {
+      "hex": "#e8a35e",
+      "label": "Amber",
+      "name": "amber",
+      "retired": true
+    },
+    {
+      "hex": "#e87bb3",
+      "label": "Pink",
+      "name": "pink",
+      "retired": true
+    }
+  ],
+  "cfg": {
+    "api": {
+      "guestEnabled": false,
+      "logReads": false,
+      "rateLimit": 600,
+      "takeCap": 4
+    },
+    "autoLockMinutes": 0,
+    "bookmarks": [],
+    "brandBorder": "",
+    "brandText": "Desk",
+    "browserDefaults": {
+      "clock": "24",
+      "compact": false,
+      "flip": false,
+      "layout": "auto",
+      "nextMode": "number",
+      "paletteChar": "\u003e",
+      "scrollTop": true,
+      "searchFilters": false,
+      "setStack": "and",
+      "stackGap": "30",
+      "theme": "system"
+    },
+    "confirmEnter": false,
+    "confirmLockoutMs": 500,
+    "filterSets": [],
+    "guestRole": "standard",
+    "hiddenDsts": "",
+    "levelColors": [],
+    "locks": {
+      "log": false,
+      "main": false,
+      "panel": false
+    },
+    "maxPinLen": 8,
+    "newPanelActs": "public",
+    "newUserDefaults": {
+      "noAutoLock": false,
+      "persistent": false
+    },
+    "pinWaits": true,
+    "presets": [],
+    "publicPanels": true,
+    "requireHttps": false,
+    "resultDismissSeconds": 8,
+    "routerShow": "name",
+    "tieHopWeight": 1,
+    "tieLines": [],
+    "trustedProxies": [],
+    "users": null
+  },
+  "configPath": "",
+  "history": [],
+  "installUid": "c0ffee0000000001",
+  "levelDefaults": [
+    "#7ae85a",
+    "#4c69fd",
+    "#e5483b",
+    "#f5e663",
+    "#3f8a8c",
+    "#d946ef",
+    "#4a8639",
+    "#67e8f9",
+    "#a061a5",
+    "#f0963e",
+    "#b5efcb",
+    "#e287e8",
+    "#5b86f0",
+    "#8a8a35",
+    "#a5e3f7",
+    "#4fa03a",
+    "#f29bb0"
+  ],
+  "more": false,
+  "notSaved": true,
+  "routers": [
+    {
+      "address": "10.0.0.50:8910",
+      "at": "*",
+      "defaultLevels": "",
+      "dsts": [],
+      "fireMode": "sequential",
+      "levelNumbering": "1",
+      "levelWireOffset": -1,
+      "levels": [
+        {
+          "color": "#7ae85a",
+          "label": "1",
+          "swatch": "video",
+          "ui": 1,
+          "wire": 0
+        },
+        {
+          "color": "#4c69fd",
+          "label": "2",
+          "swatch": "01",
+          "ui": 2,
+          "wire": 1
+        },
+        {
+          "color": "#e5483b",
+          "label": "3",
+          "swatch": "02",
+          "ui": 3,
+          "wire": 2
+        }
+      ],
+      "matrix": 0,
+      "nameLength": 12,
+      "nameRequests": "std",
+      "nameRereadSeconds": 60,
+      "numberOffset": 1,
+      "prefix": "A",
+      "protectBy": [],
+      "protectDevice": 9,
+      "protected": [
+        [
+          3,
+          1,
+          5,
+          1
+        ]
+      ],
+      "salvoGroup": 127,
+      "srcs": [],
+      "status": {
+        "addr": "10.0.0.50:8910",
+        "router": "up",
+        "routerUid": "a1a1a1a1a1a1a1a1",
+        "t": "status"
+      },
+      "tally": [],
+      "tallyResyncSeconds": 300,
+      "title": "Studio Two",
+      "uid": "a1a1a1a1a1a1a1a1",
+      "via": []
+    },
+    {
+      "address": "10.0.0.9:8910",
+      "at": "*",
+      "defaultLevels": "",
+      "dsts": [],
+      "fireMode": "sequential",
+      "levelNumbering": "1",
+      "levelWireOffset": -1,
+      "levels": [
+        {
+          "color": "#7ae85a",
+          "label": "1",
+          "swatch": "video",
+          "ui": 1,
+          "wire": 0
+        },
+        {
+          "color": "#4c69fd",
+          "label": "2",
+          "swatch": "01",
+          "ui": 2,
+          "wire": 1
+        },
+        {
+          "color": "#e5483b",
+          "label": "3",
+          "swatch": "02",
+          "ui": 3,
+          "wire": 2
+        },
+        {
+          "color": "#f5e663",
+          "label": "4",
+          "swatch": "03",
+          "ui": 4,
+          "wire": 3
+        },
+        {
+          "color": "#3f8a8c",
+          "label": "5",
+          "swatch": "04",
+          "ui": 5,
+          "wire": 4
+        }
+      ],
+      "matrix": 0,
+      "nameLength": 12,
+      "nameRequests": "std",
+      "nameRereadSeconds": 60,
+      "numberOffset": 0,
+      "prefix": "B",
+      "protectBy": [],
+      "protectDevice": 11,
+      "protected": [],
+      "salvoGroup": 127,
+      "srcs": [],
+      "status": {
+        "addr": "10.0.0.9:8910",
+        "never": true,
+        "router": "connecting",
+        "routerUid": "b2b2b2b2b2b2b2b2",
+        "t": "status"
+      },
+      "tally": [],
+      "tallyResyncSeconds": 300,
+      "title": "Second",
+      "uid": "b2b2b2b2b2b2b2b2",
+      "via": []
+    },
+    {
+      "address": "10.0.0.10:8910",
+      "at": "*",
+      "defaultLevels": "",
+      "dsts": [],
+      "fireMode": "sequential",
+      "levelNumbering": "va",
+      "levelWireOffset": -1,
+      "levels": [
+        {
+          "color": "#7ae85a",
+          "label": "V",
+          "swatch": "video",
+          "ui": 1,
+          "wire": 0
+        },
+        {
+          "color": "#4c69fd",
+          "label": "1",
+          "swatch": "01",
+          "ui": 2,
+          "wire": 1
+        },
+        {
+          "color": "#e5483b",
+          "label": "2",
+          "swatch": "02",
+          "ui": 3,
+          "wire": 2
+        },
+        {
+          "color": "#f5e663",
+          "label": "3",
+          "swatch": "03",
+          "ui": 4,
+          "wire": 3
+        }
+      ],
+      "matrix": 0,
+      "nameLength": 12,
+      "nameRequests": "std",
+      "nameRereadSeconds": 60,
+      "numberOffset": 1,
+      "prefix": "C",
+      "protectBy": [],
+      "protectDevice": 0,
+      "protected": [
+        [
+          5,
+          1,
+          7,
+          1
+        ]
+      ],
+      "salvoGroup": 3,
+      "srcs": [],
+      "status": {
+        "addr": "10.0.0.10:8910",
+        "router": "up",
+        "routerUid": "c3c3c3c3c3c3c3c3",
+        "t": "status"
+      },
+      "tally": [],
+      "tallyResyncSeconds": 300,
+      "title": "",
+      "uid": "c3c3c3c3c3c3c3c3",
+      "via": []
+    }
+  ],
+  "t": "hello",
+  "users": [],
+  "version": "*",
+  "versions": {
+    "api": "fc5cc2998fed3c75",
+    "autoLockMinutes": "af63ad4c86019caf",
+    "brandBorder": "07cc7607b4949e25",
+    "brandText": "4094e3f476b2b8ae",
+    "browserDefaults": "e74f5a8bf8627acb",
+    "confirmEnter": "b5fae2c14238b978",
+    "confirmLockoutMs": "22c30b18047d0590",
+    "guestRole": "ed21bedaab14d05e",
+    "hiddenDsts": "07cc7607b4949e25",
+    "hiddenDstsRouter": "07cc7607b4949e25",
+    "levelColors": "09612b07b5ecb5a5",
+    "locks": "598a876a9194c4c3",
+    "maxPinLen": "af63b54c8601aa47",
+    "newPanelActs": "15ffc83607774f66",
+    "newUserDefaults": "dcd3910b1a90162f",
+    "pinWaits": "5b5c98ef514dbfa5",
+    "publicPanels": "5b5c98ef514dbfa5",
+    "requireHttps": "b5fae2c14238b978",
+    "resultDismissSeconds": "af63b54c8601aa47",
+    "router/a1a1a1a1a1a1a1a1/address": "d8f6e06ee5d6a1b1",
+    "router/a1a1a1a1a1a1a1a1/defaultLevels": "07cc7607b4949e25",
+    "router/a1a1a1a1a1a1a1a1/fireMode": "504b88a54c117944",
+    "router/a1a1a1a1a1a1a1a1/levelNumbering": "d536c417d8ae0efa",
+    "router/a1a1a1a1a1a1a1a1/levelWireOffset": "07d00b07b497d12b",
+    "router/a1a1a1a1a1a1a1a1/levels": "af63ae4c86019e62",
+    "router/a1a1a1a1a1a1a1a1/matrix": "af63ad4c86019caf",
+    "router/a1a1a1a1a1a1a1a1/nameLength": "07f89407b4ba0c0a",
+    "router/a1a1a1a1a1a1a1a1/nameRequests": "76594c4a655ec9b0",
+    "router/a1a1a1a1a1a1a1a1/nameRereadSeconds": "07f58c07b4b7c89b",
+    "router/a1a1a1a1a1a1a1a1/numberOffset": "af63ac4c86019afc",
+    "router/a1a1a1a1a1a1a1a1/prefix": "d493a417d823774a",
+    "router/a1a1a1a1a1a1a1a1/protectDevice": "af63b44c8601a894",
+    "router/a1a1a1a1a1a1a1a1/remove": "b5fae2c14238b978",
+    "router/a1a1a1a1a1a1a1a1/salvoGroup": "456fc6181822cba7",
+    "router/a1a1a1a1a1a1a1a1/tallyResyncSeconds": "57288d1822492c52",
+    "router/a1a1a1a1a1a1a1a1/title": "ec26eb3bf478a12d",
+    "router/b2b2b2b2b2b2b2b2/address": "d7aead57f7b55a4b",
+    "router/b2b2b2b2b2b2b2b2/defaultLevels": "07cc7607b4949e25",
+    "router/b2b2b2b2b2b2b2b2/fireMode": "504b88a54c117944",
+    "router/b2b2b2b2b2b2b2b2/levelNumbering": "d536c417d8ae0efa",
+    "router/b2b2b2b2b2b2b2b2/levelWireOffset": "07d00b07b497d12b",
+    "router/b2b2b2b2b2b2b2b2/levels": "af63a84c86019430",
+    "router/b2b2b2b2b2b2b2b2/matrix": "af63ad4c86019caf",
+    "router/b2b2b2b2b2b2b2b2/nameLength": "07f89407b4ba0c0a",
+    "router/b2b2b2b2b2b2b2b2/nameRequests": "76594c4a655ec9b0",
+    "router/b2b2b2b2b2b2b2b2/nameRereadSeconds": "07f58c07b4b7c89b",
+    "router/b2b2b2b2b2b2b2b2/numberOffset": "af63ad4c86019caf",
+    "router/b2b2b2b2b2b2b2b2/prefix": "d49e1617d82c8d85",
+    "router/b2b2b2b2b2b2b2b2/protectDevice": "07f89307b4ba0a57",
+    "router/b2b2b2b2b2b2b2b2/remove": "b5fae2c14238b978",
+    "router/b2b2b2b2b2b2b2b2/salvoGroup": "456fc6181822cba7",
+    "router/b2b2b2b2b2b2b2b2/tallyResyncSeconds": "57288d1822492c52",
+    "router/b2b2b2b2b2b2b2b2/title": "af619ab3d003b8cd",
+    "router/c3c3c3c3c3c3c3c3/address": "779e6aeeca17e025",
+    "router/c3c3c3c3c3c3c3c3/defaultLevels": "07cc7607b4949e25",
+    "router/c3c3c3c3c3c3c3c3/fireMode": "504b88a54c117944",
+    "router/c3c3c3c3c3c3c3c3/levelNumbering": "c70ba383f0d2ecee",
+    "router/c3c3c3c3c3c3c3c3/levelWireOffset": "07d00b07b497d12b",
+    "router/c3c3c3c3c3c3c3c3/levels": "af63a94c860195e3",
+    "router/c3c3c3c3c3c3c3c3/matrix": "af63ad4c86019caf",
+    "router/c3c3c3c3c3c3c3c3/nameLength": "07f89407b4ba0c0a",
+    "router/c3c3c3c3c3c3c3c3/nameRequests": "76594c4a655ec9b0",
+    "router/c3c3c3c3c3c3c3c3/nameRereadSeconds": "07f58c07b4b7c89b",
+    "router/c3c3c3c3c3c3c3c3/numberOffset": "af63ac4c86019afc",
+    "router/c3c3c3c3c3c3c3c3/prefix": "d49aac17d829a390",
+    "router/c3c3c3c3c3c3c3c3/protectDevice": "af63ad4c86019caf",
+    "router/c3c3c3c3c3c3c3c3/remove": "b5fae2c14238b978",
+    "router/c3c3c3c3c3c3c3c3/salvoGroup": "af63ae4c86019e62",
+    "router/c3c3c3c3c3c3c3c3/tallyResyncSeconds": "57288d1822492c52",
+    "router/c3c3c3c3c3c3c3c3/title": "07cc7607b4949e25",
+    "routerShow": "18b3b613123c71ec",
+    "routers/order": "9d93037f9abb5441",
+    "tieHopWeight": "af63ac4c86019afc",
+    "trustedProxies": "09612b07b5ecb5a5"
+  }
+}

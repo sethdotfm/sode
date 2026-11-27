@@ -9,8 +9,10 @@ import (
 	"log"
 	"maps"
 	"net/netip"
+	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -58,7 +60,7 @@ func (r *runtime) levelsOf(uid string) *routerLevels {
 	if l, ok := r.lv[uid]; ok {
 		return l
 	}
-	return r.lv[r.cfg.UID]
+	return r.lv[r.cfg.DefaultRouter().UID]
 }
 
 // label is the level's label in the router's Level numbering.
@@ -91,12 +93,12 @@ func newRuntime(c config.Config) (*runtime, error) {
 		return nil, err
 	}
 	r := &runtime{cfg: c, lv: map[string]*routerLevels{}, proxies: proxies}
-	for _, rc := range c.Routers() {
+	for _, rc := range c.Routers {
 		if r.lv[rc.UID], err = newRouterLevels(c, rc); err != nil {
 			return nil, err
 		}
 	}
-	first := r.levelsOf(c.UID)
+	first := r.levelsOf(c.DefaultRouter().UID)
 	r.levels, r.byWire, r.byUI = first.levels, first.byWire, first.byUI
 	return r, nil
 }
@@ -111,9 +113,11 @@ func probe(rc config.Router) []byte {
 // stays; clients get a new hello.
 // Fields from mu down to sessionsAt are guarded by mu, as are the fields of each router unit.
 type App struct {
-	// first: the first router's unit (routerunit.go), fixed after New; it takes a new first router UID (renameFirstMu). routers: every router unit by router UID. A
-	// save that adds or removes a router swaps in a new map (syncUnitsMu), so a reader needs no lock.
-	first   *routerUnit
+	// first: the unit of the first router of the settings, the default router (routerunit.go firstUnit). A reorder, or a
+	// removal of the first router, points it at the unit of the new first router (syncUnitsMu). A restore can give the
+	// first router a new UID; then that unit takes the UID (renameFirstMu). routers: every router unit
+	// by router UID. A save that adds or removes a router swaps in a new map (syncUnitsMu), so a reader needs no lock.
+	first   atomic.Pointer[routerUnit]
 	routers atomic.Pointer[map[string]*routerUnit]
 	// linkCtx: the context of the router links while Run runs, so a router added later starts its link on it.
 	// Guarded by mu. unitRuns counts the uptime loops of the units, which Run waits for at the end.
@@ -257,6 +261,9 @@ type statusMsg struct {
 	Router string `json:"router"` // the link state
 	Addr   string `json:"addr"`
 	Err    string `json:"err,omitempty"`
+	// Never: the link was not up one time since the start or since the last change of the address. The page then
+	// says "Never connected" in place of "Down", since the cause is most likely a wrong address.
+	Never bool `json:"never,omitempty"`
 	// RouterUID: as on deltaMsg; statusOut sets it.
 	RouterUID string      `json:"routerUid,omitempty"`
 	from      *routerUnit // as on deltaMsg; statusOut sets it
@@ -275,9 +282,8 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	if sent == nil {
 		sent, _ = OpenSentLog("", 0)
 	}
-	first := newRouterUnit(cfg.Router)
+	first := newRouterUnit(cfg.DefaultRouter())
 	a := &App{
-		first:      first,
 		hist:       hist,
 		sent:       sent,
 		txq:        make(chan swp08.TxEvent, 1024),
@@ -302,8 +308,9 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.protects = loadProtects(cfgPath)
+	a.first.Store(first)
 	units := map[string]*routerUnit{first.uid(): first}
-	for _, rc := range cfg.MoreRouters {
+	for _, rc := range cfg.Routers[1:] {
 		u := newRouterUnit(rc)
 		units[u.uid()] = u
 	}
@@ -462,12 +469,29 @@ func (a *App) requestDumps(u *routerUnit) {
 // send is for the background reads: a refusal is only logged.
 func (u *routerUnit) send(m []byte, reason swp08.Reason) {
 	if err := u.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
-		log.Printf("send cmd 0x%02X: %v", m[0], err)
+		log.Printf("send: %s: cmd 0x%02X: %v", u.name(), m[0], err)
 	}
 }
 
-// SetUptime gives the first router its uptime file.
-func (a *App) SetUptime(up *Uptime) { a.firstUnit().up = up }
+// SetUptime gives the uptime file (SODE_UPTIME) to the router it was written for: the UID in <path>.router. A file
+// with no UID (an older release) is the first router's. A file of a router that Sode no longer has starts empty. It
+// goes to the first router, so no router shows the history of another. A reorder does not move the file while Sode
+// runs: it stays with its router. The uptime of a new first router is in memory until the next start. Call it before Run.
+func (a *App) SetUptime(up *Uptime) {
+	u := a.firstUnit()
+	if up.path != "" {
+		b, _ := os.ReadFile(uptimeRouterPath(up.path))
+		if uid := strings.TrimSpace(string(b)); uid != "" {
+			if v, ok := a.units()[uid]; ok {
+				u = v
+			} else {
+				up.clear()
+			}
+		}
+		writeUptimeRouter(up.path, u.uid())
+	}
+	u.up = up
+}
 
 func (a *App) SetSettingsSaves(l *SaveLog) {
 	l.Reanchor(a.sent.Next(), a.sent.Oldest())
@@ -485,8 +509,14 @@ func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	if (s == swp08.StateUp) != (u.status.Router == string(swp08.StateUp)) {
 		a.viaTouchRouter(u, a.r())
 	}
+	if s != swp08.StateUp && u.status.Router == string(swp08.StateUp) {
+		u.protAt = time.Now()
+	}
 	u.status.Router = string(s)
 	u.status.Addr = a.r().routerOf(u.uid()).Address
+	if s == swp08.StateUp {
+		u.status.Never = false
+	}
 	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
 	if s != swp08.StateConnecting {
 		u.status.Err = ""
@@ -519,7 +549,7 @@ func (a *App) logLink(u *routerUnit, s swp08.State, err error) {
 func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 	ev, err := swp08.Parse(msg)
 	if err != nil {
-		log.Printf("parse: %v (% X)", err, msg)
+		log.Printf("parse: %s: %v (% X)", a.routerName(u), err, msg)
 	}
 	r := a.r()
 	a.mu.Lock()
@@ -726,11 +756,10 @@ func (a *App) readHello() helloPage {
 	return helloPage{recent, morePages(recent)}
 }
 
-// The hello's routers list carries the names, tally, levels and link of every router. Protects are the first
-// router's. Caller holds mu.
+// The hello's routers list carries the settings, names, tally, levels, link and Protects of every router. Caller
+// holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
-	first := a.firstUnit()
 	// A hello reaches pages under a lock: no users in it (AGENTS.md).
 	cfg := r.cfg
 	users := make([]helloUser, 0, len(cfg.Users))
@@ -739,7 +768,7 @@ func (a *App) hello(p helloPage) []byte {
 	}
 	cfg.Users = nil
 	m := helloMsg{
-		T: "hello", Protect: protectRows(first.router.protect), ProtectBy: a.protectByList(r),
+		T:      "hello",
 		Recent: p.recent, More: p.more,
 		LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
 		ConfigPath: a.cfgPath, Version: BuildLabel(), BrandColors: config.BrandColors,
@@ -763,16 +792,19 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 		n := u.namesMsg()
 		out = append(out, helloRouter{
 			UID: u.uid(), Prefix: rc.Prefix, Title: rc.Title, Address: rc.Address, Matrix: rc.Matrix,
-			NumberOffset: rc.NumberOffset, Levels: lv.levels,
+			NumberOffset: rc.NumberOffset, Levels: lv.levels, LevelWireOffset: rc.LevelWireOffset,
 			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
+			NameRereadSeconds: rc.NameRefreshSeconds, NameLength: rc.NameLength, NameRequests: rc.NameRequests,
+			TallyResyncSeconds: rc.TallyResyncSeconds, FireMode: rc.FireMode, SalvoGroup: rc.SalvoGroup,
 			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: u.router.savedAt, Tally: routeTriples(u.router.tally),
 			Status: u.statusOut(),
 			Via:    a.pageViaRows(u, x), ProtectDevice: rc.ProtectDevice,
 		})
-		if u != a.firstUnit() {
-			out[len(out)-1].Protected = protectRows(u.router.protect)
-			out[len(out)-1].ProtectBy = a.protectByListOf(r, rc.UID)
+		if u.status.Router != string(swp08.StateUp) {
+			out[len(out)-1].ProtectAt = u.protAt
 		}
+		out[len(out)-1].Protected = protectRows(u.router.protect)
+		out[len(out)-1].ProtectBy = a.protectByListOf(r, rc.UID)
 	}
 	return out
 }
@@ -820,12 +852,13 @@ func (a *App) reply(c *client, v any) {
 
 // record writes e. A take's entry names its router in Router; any other entry gets the first router.
 func (a *App) record(e *Entry) {
-	rc := a.r().routerOf(e.Router)
+	r := a.r()
+	rc := r.routerOf(e.Router)
 	e.Router, e.RouterTitle = rc.UID, rc.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	log.Print(e.logLine(rc.NumberOffset))
+	log.Printf("%s: %s", r.cfg.RouterName(rc), e.logLine(rc.NumberOffset))
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "entry", E: e})
 	a.mu.Unlock()

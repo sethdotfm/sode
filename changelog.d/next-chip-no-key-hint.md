@@ -1,0 +1,1 @@
+- The Last and Next chips on the main page show no key hint, so the Next chip stays narrow. The tooltip and the keys list still give each key.

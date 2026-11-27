@@ -42,10 +42,13 @@ type swapItem struct {
 
 const swapEveryone = "Everyone"
 
-// swapper rewrites one reference. fromNames: names that From went by (router, stored refs, marks), so an exact
-// filter term for it matches.
+// swapper rewrites one reference on the router uid. first: uid is the first router, so a blank router (a filter set
+// with no router) is ours too. name: the router's shown name with two or more routers, else "". fromNames: names that
+// From went by (router, stored refs, marks), so an exact filter term for it matches.
 type swapper struct {
 	uid       string
+	first     bool
+	name      string
 	dst       bool
 	from, to  int
 	off       int
@@ -53,7 +56,7 @@ type swapper struct {
 	fromNames []string
 }
 
-func (sw *swapper) ours(router string) bool { return router == "" || router == sw.uid }
+func (sw *swapper) ours(router string) bool { return router == sw.uid || router == "" && sw.first }
 
 func (sw *swapper) kind() string { return refKind(sw.dst) }
 
@@ -244,16 +247,20 @@ func (a *App) newSwapper(cfg config.Config, req swapReq) (*swapper, error) {
 	if req.Side != config.MissingSource && req.Side != config.MissingDestination {
 		return nil, errSwapSide
 	}
-	if req.Router != "" && req.Router != cfg.UID {
+	rc, ok := cfg.RouterByUID(req.Router)
+	u, live := a.unitOfRouter(cfg, rc.UID)
+	if !ok || !live {
 		return nil, fmt.Errorf("swap: no router %s", req.Router)
 	}
 	if req.From < 0 || req.To < 0 || req.From > dstNumberMax || req.To > dstNumberMax {
-		return nil, fmt.Errorf("swap: numbers run from %d to %d", cfg.NumberOffset, dstNumberMax+cfg.NumberOffset)
+		return nil, fmt.Errorf("swap: numbers run from %d to %d", rc.NumberOffset, dstNumberMax+rc.NumberOffset)
 	}
-	sw := &swapper{uid: cfg.UID, dst: req.Side == config.MissingDestination, from: req.From, to: req.To, off: cfg.NumberOffset}
-	first := a.firstUnit()
+	sw := &swapper{uid: rc.UID, first: rc.UID == cfg.DefaultRouter().UID, dst: req.Side == config.MissingDestination, from: req.From, to: req.To, off: rc.NumberOffset}
+	if len(cfg.Routers) > 1 {
+		sw.name = rc.Display()
+	}
 	a.mu.Lock()
-	names := sideNames(req.Side, first.router.srcNames, first.router.dstNames)
+	names := sideNames(req.Side, u.router.srcNames, u.router.dstNames)
 	sw.toName = strings.TrimSpace(names[req.To])
 	sw.fromNames = []string{names[req.From]}
 	a.mu.Unlock()
@@ -295,9 +302,14 @@ func pickOf(ids []string) func(string) bool {
 
 func everyItem(string) bool { return true }
 
-// "Swap destination 23 for 40", numbers as shown.
+// "Swap destination 23 for 40", numbers as shown, with " on B Stage 2" when there are two or more routers. Keep in
+// step with swapLabel in web/swaprules.js.
 func (sw *swapper) label() string {
-	return fmt.Sprintf("Swap %s %d for %d", sw.kind(), sw.from+sw.off, sw.to+sw.off)
+	s := fmt.Sprintf("Swap %s %d for %d", sw.kind(), sw.from+sw.off, sw.to+sw.off)
+	if sw.name != "" {
+		s += " on " + sw.name
+	}
+	return s
 }
 
 // swapCounts: items changed per owner, Everyone for shared items.

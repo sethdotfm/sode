@@ -48,7 +48,7 @@ func TestAccessPresetValues(t *testing.T) {
 		c.GuestAPIScopes = []string{ScopeLog}
 		c.NewPanelActs = "x"
 		c.NewUserDefaults = NewUserDefaults{Persistent: !w.NewUser, NoAutoLock: !w.NewUser}
-		c.FireMode = "native"
+		c.Routers[0].FireMode = "native"
 		guest := Rights{Sources: &[]Ref{}}
 		c.GuestRights = guest.Clone()
 		c.GuestRights.TieLines = &[]bool{!w.GuestTieLines}[0]
@@ -65,7 +65,7 @@ func TestAccessPresetValues(t *testing.T) {
 		// Of Guest Rights, a preset writes only the "Use tie lines" right.
 		lists := c.GuestRights.Clone()
 		lists.TieLines = nil
-		if c.FireMode != "native" || !lists.Within(guest) || !guest.Within(lists) {
+		if c.Routers[0].FireMode != "native" || !lists.Within(guest) || !guest.Within(lists) {
 			t.Errorf("%s wrote Fire mode or Guest Rights other than Use tie lines", p.Name)
 		}
 		for _, s := range []string{ScopeHistory, ScopeLayouts, ScopeLog, ScopePanels, ScopePanelsManage} {

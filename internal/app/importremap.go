@@ -241,7 +241,7 @@ func (p *importPlanner) planRemap() {
 	if len(p.b.Manifest.Routers) == 0 {
 		return
 	}
-	liveRouters := p.live.Routers()
+	liveRouters := p.live.Routers
 	info := &remapInfo{}
 	tables := map[string]namesTable{}
 	liveNorm := map[string]map[string]map[string]bool{}
@@ -264,7 +264,7 @@ func (p *importPlanner) planRemap() {
 		}
 		p.routers[r.UID] = target
 		rr := &remapRouter{UID: r.UID, Title: cmp.Or(r.Title, r.Prefix), Target: target, Default: defaults[r.UID], Refs: []remapRef{},
-			Offset: p.live.NumberOffset, Sets: p.remapSets(r.UID)}
+			Offset: p.live.DefaultRouter().NumberOffset, Sets: p.remapSets(r.UID)}
 		if i := slices.IndexFunc(p.b.Routers, func(x config.Router) bool { return x.UID == r.UID }); i >= 0 {
 			rr.Offset = p.b.Routers[i].NumberOffset
 		}

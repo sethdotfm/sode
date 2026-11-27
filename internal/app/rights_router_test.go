@@ -28,10 +28,10 @@ func refsOn(uid string, ns ...int) *[]config.Ref {
 func rightsTwoRouters(t *testing.T, vis string) (a *App, fa, fb *fakeRouter, b *routerUnit, key string) {
 	t.Helper()
 	a, fa, key = takerApp(t, func(c *config.Config) {
-		c.UID = rightsUIDA
+		c.Routers[0].UID = rightsUIDA
 		rb := moreRouter("B", "Second", "10.0.0.9:8910", 3)
 		rb.UID = rightsUIDB
-		c.MoreRouters = []config.Router{rb}
+		c.Routers = append(c.Routers[:1:1], []config.Router{rb}...)
 		onA := config.PresetItem{Src: config.Ref{Router: rightsUIDA, N: 5}, Dsts: []config.Ref{{Router: rightsUIDA, N: 5}}}
 		onB := config.PresetItem{Src: config.Ref{Router: rightsUIDB, N: 5}, Dsts: []config.Ref{{Router: rightsUIDB, N: 5}}}
 		c.Presets = append(c.Presets, config.Preset{ID: "on-a", Name: "On A", Items: []config.PresetItem{onA}},
@@ -39,9 +39,9 @@ func rightsTwoRouters(t *testing.T, vis string) (a *App, fa, fb *fakeRouter, b *
 		c.APIClients[0].Rights = config.Rights{Sources: refsOn(rightsUIDA, 5), Dsts: refsOn(rightsUIDA, 5),
 			Presets: &[]string{"on-a", "on-b"}, Visibility: vis}
 	})
-	fb, b = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	fb, b = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	a.mu.Lock()
-	for _, u := range []*routerUnit{a.first, b} {
+	for _, u := range []*routerUnit{a.firstUnit(), b} {
 		u.router.srcNames[5], u.router.dstNames[5] = "CAM 5", "MON 5"
 		u.router.srcNames[6], u.router.dstNames[6] = "CAM 6", "MON 6"
 		u.router.tally[5] = map[int]int{1: 5}
@@ -145,13 +145,13 @@ func TestHiddenRightsMatchRouterAndNumber(t *testing.T) {
 // A Rights level limit on router A does not limit router B. B has 3 levels; the limit on A allows level 1 only.
 func TestRightsLevelsMatchTheirRouter(t *testing.T) {
 	a, fa, key := takerApp(t, func(c *config.Config) {
-		c.UID = rightsUIDA
+		c.Routers[0].UID = rightsUIDA
 		rb := moreRouter("B", "Second", "10.0.0.9:8910", 3)
 		rb.UID = rightsUIDB
-		c.MoreRouters = []config.Router{rb}
+		c.Routers = append(c.Routers[:1:1], []config.Router{rb}...)
 		c.APIClients[0].Rights = config.Rights{Levels: config.RouterLevels{rightsUIDA: {1}}}
 	})
-	fb, _ := addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	fb, _ := addFakeUnit(t, a, a.r().cfg.Routers[1])
 	fa.seed(5, 1, 0, 1, 2)
 	fb.seed(5, 1, 0, 1, 2)
 	take := func(uid string, levels string) *httptest.ResponseRecorder {

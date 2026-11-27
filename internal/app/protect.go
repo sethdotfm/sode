@@ -519,23 +519,51 @@ func (a *App) clearOne(r *runtime, u *routerUnit, c *client, dst int, rec *prote
 	return e
 }
 
-// clearSodeProtects acts on every router that is up. It frees every Protect that the router reports with its Sode
-// device number, and every one in Sode's record, with or without the other. One History entry for
-// each destination, all in one Group. It refuses only when no router is up.
-func (a *App) clearSodeProtects(c *client) (cleared int, still []int, err error) {
+// protectClearRouter: what Free Sode's Protects did on one router. Err says why it did not act there (the router is
+// down, or the page named no such router), or what is still Protected.
+type protectClearRouter struct {
+	Router  string `json:"router"`
+	Cleared int    `json:"cleared"`
+	Still   int    `json:"still,omitempty"`
+	Err     string `json:"err,omitempty"`
+}
+
+// clearSodeProtects acts on every router that is up, or only on the routers that only names (router UIDs; none is
+// every router). It frees every Protect that the router reports with its Sode device number, and every one in Sode's
+// record, with or without the other. One History entry for each destination, all in one Group. It refuses only when
+// no router that it can act on is up. per has one row for each router it was to act on, in router order.
+func (a *App) clearSodeProtects(c *client, only []string) (cleared int, still []int, per []protectClearRouter, err error) {
 	r := a.r()
+	want := map[string]bool{}
+	for _, uid := range only {
+		want[uid] = true
+	}
 	var ups []*routerUnit
 	for _, u := range a.unitsInOrder(r) {
+		if len(only) > 0 && !want[u.uid()] {
+			continue
+		}
+		delete(want, u.uid())
+		row := protectClearRouter{Router: u.uid()}
 		if err = a.protectReady(r, u, 0); err != nil {
 			var pe protectErr
 			if errors.As(err, &pe) && pe.code == "router_down" {
+				row.Err = "the router is down"
+				per = append(per, row)
 				continue
 			}
 		}
+		per = append(per, row)
 		ups = append(ups, u)
 	}
+	for _, uid := range slices.Sorted(maps.Keys(want)) {
+		per = append(per, protectClearRouter{Router: uid, Err: "no such router"})
+	}
 	if len(ups) == 0 {
-		return 0, nil, err
+		if err == nil {
+			err = errors.New("no such router")
+		}
+		return 0, nil, per, err
 	}
 	a.protMu.Lock()
 	defer a.protMu.Unlock()
@@ -563,24 +591,40 @@ func (a *App) clearSodeProtects(c *client) (cleared int, still []int, err error)
 			order = append(order, routerDst{u, d})
 		}
 	}
+	rows := map[*routerUnit]*protectClearRouter{}
+	for _, u := range ups {
+		for i := range per {
+			if per[i].Router == u.uid() {
+				rows[u] = &per[i]
+			}
+		}
+	}
 	g := newProtGroup(len(order))
 	for _, o := range order {
 		rec, own, _ := a.sodeHoldsProtLocked(r, o.u, o.dst)
 		e := a.clearOne(r, o.u, c, o.dst, rec, own, nil, nil, g)
 		if e.OK {
 			cleared++
+			rows[o.u].Cleared++
 		} else {
 			still = append(still, o.dst)
+			rows[o.u].Still++
 		}
 	}
-	return cleared, still, nil
+	for i := range per {
+		if per[i].Still > 0 {
+			per[i].Err = fmt.Sprintf("%d %s still Protected", per[i].Still, plural(per[i].Still, "destination is", "destinations are"))
+		}
+	}
+	return cleared, still, per, nil
 }
 
 // protectDone writes Sode's record, tells the pages, then writes the History entry. The pages get the new state
 // first, so the entry's row draws with its Undo right.
 func (a *App) protectDone(rec protectRec, e *Entry) {
 	if err := a.protects.put(rec); err != nil {
-		log.Printf("protects: %v", err)
+		r := a.r()
+		log.Printf("protects: %s: %v", r.cfg.RouterName(r.routerOf(rec.Router)), err)
 	}
 	a.mu.Lock()
 	a.broadcastProtectsMu(rec.Router)

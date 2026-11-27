@@ -115,15 +115,9 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes := map[string]func(*config.Config){
-		"router":          func(x *config.Config) { x.Address = "10.9.9.9:8910" },
-		"pinWaits":        func(x *config.Config) { x.PinWaits = false },
-		"trustedProxies":  func(x *config.Config) { x.TrustedProxies = []string{"0.0.0.0/0"} },
-		"matrix":          func(x *config.Config) { x.Matrix = 5 },
-		"levels":          func(x *config.Config) { x.Levels = 4 },
-		"levelWireOffset": func(x *config.Config) { x.LevelWireOffset = 3 },
-		"nameRequests":    func(x *config.Config) { x.NameRequests = "ext" },
-		"fireMode":        func(x *config.Config) { x.FireMode = "native" },
-		"salvoGroup":      func(x *config.Config) { x.SalvoGroup = 5 },
+		"pinWaits":       func(x *config.Config) { x.PinWaits = false },
+		"trustedProxies": func(x *config.Config) { x.TrustedProxies = []string{"0.0.0.0/0"} },
+		"routerShow":     func(x *config.Config) { x.RouterShow = "none" },
 	}
 	before := a.r().cfg
 	for name, ch := range changes {
@@ -134,13 +128,15 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 			t.Errorf("trusted changed %s: %v", name, err)
 		}
 	}
-	if a.r().cfg.Address != before.Address || a.r().cfg.PinWaits != before.PinWaits || len(a.r().cfg.TrustedProxies) != 0 {
-		t.Fatal("a refused save changed the config")
+	// The router settings save only as router/<uid>/<attribute>, in sections only an Administrator edits.
+	for attr, v := range map[string]any{"address": "10.9.9.9:8910", "matrix": 5, "levels": 4, "levelWireOffset": 3,
+		"nameRequests": "ext", "fireMode": "native", "salvoGroup": 5, "protectDevice": 7} {
+		if r := mustRefuse(t, a, c, map[string]any{aKey(a, attr): v}); r.Reason != reasonRole && r.Reason != reasonApproval {
+			t.Errorf("trusted changed %s: %+v", attr, r)
+		}
 	}
-	pad := a.r().cfg.Clone()
-	pad.Address = " " + pad.Address + " "
-	if err := a.SaveSettings(c, pad); err != nil {
-		t.Fatalf("padded but unchanged router refused: %v", err)
+	if a.r().cfg.Routers[0].Address != before.Routers[0].Address || a.r().cfg.PinWaits != before.PinWaits || len(a.r().cfg.TrustedProxies) != 0 {
+		t.Fatal("a refused save changed the config")
 	}
 	cfg := a.r().cfg.Clone()
 	cfg.BrandText = "Studio B"
@@ -153,12 +149,13 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	cfg = a.r().cfg.Clone()
 	cfg.PinWaits = false
 	cfg.TrustedProxies = []string{"10.0.0.2"}
-	cfg.Address = "127.0.0.1:9999"
 	if err := a.SaveSettings(c, cfg); err != nil {
 		t.Fatalf("admin save: %v", err)
 	}
-	if got := a.r().cfg; got.PinWaits || got.Address != "127.0.0.1:9999" || len(got.TrustedProxies) != 1 {
-		t.Fatalf("admin changes lost: %+v", got.Address)
+	grantRecheck(a, c)
+	mustSave(t, a, c, map[string]any{aKey(a, "address"): "127.0.0.1:9999"})
+	if got := a.r().cfg; got.PinWaits || got.Routers[0].Address != "127.0.0.1:9999" || len(got.TrustedProxies) != 1 {
+		t.Fatalf("admin changes lost: %+v", got.Routers[0].Address)
 	}
 }
 

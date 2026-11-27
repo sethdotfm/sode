@@ -8,7 +8,8 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 
 test('the main page search accepts A.23 for the router with prefix A, and refuses a prefix no router has', async () => {
   const { S, search, item, routerData } = await import('./all.mjs');
-  S.cfg = { numberOffset: 1 };
+  S.cfg = {};
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').prefix = 'A';
   const list = [item(21, 'CAM 22'), item(22, 'VTR'), item(229, 'GFX')];
   assert.deepEqual(

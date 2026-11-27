@@ -15,17 +15,17 @@ import (
 // New makes a unit and a Router link for each router in the settings, each with its own address.
 func TestNewLinksEveryRouter(t *testing.T) {
 	a := newTestApp(t, func(c *config.Config) {
-		c.MoreRouters = []config.Router{moreRouter("B", "Second", "10.0.0.9:8910", 3)}
+		c.Routers = append(c.Routers[:1:1], []config.Router{moreRouter("B", "Second", "10.0.0.9:8910", 3)}...)
 	})
-	b := a.r().cfg.MoreRouters[0]
+	b := a.r().cfg.Routers[1]
 	u, ok := a.unit(b.UID)
-	if len(a.units()) != 2 || !ok || u == a.first {
+	if len(a.units()) != 2 || !ok || u == a.firstUnit() {
 		t.Fatalf("units %v", a.units())
 	}
-	if u.sw == nil || a.first.sw == nil || u.status.Addr != "10.0.0.9:8910" || a.first.status.Addr == u.status.Addr {
-		t.Errorf("second link %v at %q, first at %q", u.sw, u.status.Addr, a.first.status.Addr)
+	if u.sw == nil || a.firstUnit().sw == nil || u.status.Addr != "10.0.0.9:8910" || a.firstUnit().status.Addr == u.status.Addr {
+		t.Errorf("second link %v at %q, first at %q", u.sw, u.status.Addr, a.firstUnit().status.Addr)
 	}
-	if got := a.unitsInOrder(a.r()); len(got) != 2 || got[0] != a.first || got[1] != u {
+	if got := a.unitsInOrder(a.r()); len(got) != 2 || got[0] != a.firstUnit() || got[1] != u {
 		t.Errorf("units in order %v", got)
 	}
 }
@@ -34,9 +34,9 @@ func TestNewLinksEveryRouter(t *testing.T) {
 func apiTwoRouters(t *testing.T) (a *App, fa, fb *fakeRouter, b *routerUnit, key string) {
 	t.Helper()
 	a, fa, key = takerApp(t, func(c *config.Config) {
-		c.MoreRouters = []config.Router{moreRouter("B", "Second", "10.0.0.9:8910", 3)}
+		c.Routers = append(c.Routers[:1:1], []config.Router{moreRouter("B", "Second", "10.0.0.9:8910", 3)}...)
 	})
-	fb, b = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	fb, b = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	fb.seed(2, 7, a.r().byUI[1].Wire)
 	a.mu.Lock()
 	b.router.srcNames[1], b.router.dstNames[2] = "B CAM 1", "B MON 2"
@@ -51,7 +51,7 @@ func ends(src, dst string, s, d int) string {
 // POST /takes with router references at both ends patches that router only.
 func TestAPITakeOnEachRouter(t *testing.T) {
 	a, fa, fb, b, key := apiTwoRouters(t)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	wire := a.r().byUI[1].Wire
 
 	rec := apiPost(a, "/api/v1/takes", key, ends(b.uid(), b.uid(), 4, 2), nil)
@@ -108,7 +108,7 @@ func TestAPITakeOnEachRouter(t *testing.T) {
 // number does not say which router it means.
 func TestAPITakeEndsRefused(t *testing.T) {
 	a, fa, fb, b, key := apiTwoRouters(t)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	for _, c := range []struct {
 		name, body string
 		status     int
@@ -136,7 +136,7 @@ func TestAPITakeEndsRefused(t *testing.T) {
 // With one router, a router reference and a bare number both still work.
 func TestAPITakeOneRouterTakesEither(t *testing.T) {
 	a, f, key := takerApp(t, nil)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	for _, body := range []string{ends(uid, uid, 4, 2), `{"routes":[{"src":5,"dst":2,"levels":[1]}]}`} {
 		if rec := apiPost(a, "/api/v1/takes", key, body, nil); rec.Code != http.StatusOK || apiBody(t, rec)["ok"] != true {
 			t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
@@ -162,7 +162,7 @@ func TestAPIReadsNeedARouter(t *testing.T) {
 	if len(srcs) != 1 || srcs[0].(map[string]any)["name"] != "B CAM 1" {
 		t.Errorf("names of B %s", rec.Body)
 	}
-	if rec := apiDo(a, "GET", "/api/v1/tally?router="+a.r().cfg.UID, key, nil); rec.Code != http.StatusOK {
+	if rec := apiDo(a, "GET", "/api/v1/tally?router="+a.r().cfg.Routers[0].UID, key, nil); rec.Code != http.StatusOK {
 		t.Errorf("tally of A: %d %s", rec.Code, rec.Body)
 	}
 	rec = apiDo(a, "GET", "/api/v1/routers", key, nil)
@@ -176,12 +176,12 @@ func TestAPIReadsNeedARouter(t *testing.T) {
 func TestAPIProtectedOfEachRouter(t *testing.T) {
 	a, _, _, b, key := apiTwoRouters(t)
 	a.mu.Lock()
-	a.first.router.protect[5] = map[int]protHold{1: {dev: 9, kind: swp08.KindProtect}}
+	a.firstUnit().router.protect[5] = map[int]protHold{1: {dev: 9, kind: swp08.KindProtect}}
 	b.router.protect[2] = map[int]protHold{1: {dev: 7, kind: swp08.KindProtect}}
 	a.mu.Unlock()
 	wantErr(t, apiDo(a, "GET", "/api/v1/protected", key, nil), http.StatusBadRequest, "router_needed")
 	rowB, rowA := `{"dst":2,"level":1,"kind":"protect","device":7}`, `{"dst":5,"level":1,"kind":"protect","device":9}`
-	for _, c := range []struct{ uid, want, not string }{{b.uid(), `"protected":[` + rowB + `]`, rowA}, {a.r().cfg.UID, rowA, rowB}} {
+	for _, c := range []struct{ uid, want, not string }{{b.uid(), `"protected":[` + rowB + `]`, rowA}, {a.r().cfg.Routers[0].UID, rowA, rowB}} {
 		rec := apiDo(a, "GET", "/api/v1/protected?router="+c.uid, key, nil)
 		if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.Contains(body, c.want) || strings.Contains(body, c.not) {
 			t.Errorf("protected of %s: %d %s", c.uid, rec.Code, rec.Body)
@@ -192,7 +192,7 @@ func TestAPIProtectedOfEachRouter(t *testing.T) {
 // A settings change to router B cuts the takes in flight on B only; a take held on A goes on.
 func TestRouterChangeCutsOnlyItsTakes(t *testing.T) {
 	a, fa, fb, b, key := apiTwoRouters(t)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	fa.hold, fb.hold = 300*time.Millisecond, 300*time.Millisecond
 	var wg sync.WaitGroup
 	recs := make([]map[string]any, 2)
@@ -208,7 +208,7 @@ func TestRouterChangeCutsOnlyItsTakes(t *testing.T) {
 	}
 	time.Sleep(150 * time.Millisecond) // both connects sent, both held
 	cfg := a.r().cfg.Clone()
-	cfg.MoreRouters[0].Address = "10.0.0.10:8910"
+	cfg.Routers[1].Address = "10.0.0.10:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestRouterChangeCutsOnlyItsTakes(t *testing.T) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if b.status.Addr != "10.0.0.10:8910" || a.first.status.Addr == b.status.Addr {
-		t.Errorf("status of B %q, of A %q", b.status.Addr, a.first.status.Addr)
+	if b.status.Addr != "10.0.0.10:8910" || a.firstUnit().status.Addr == b.status.Addr {
+		t.Errorf("status of B %q, of A %q", b.status.Addr, a.firstUnit().status.Addr)
 	}
 }

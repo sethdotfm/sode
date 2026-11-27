@@ -17,7 +17,7 @@ import {
 } from './core.js';
 import { keyLabel } from './keys.js';
 import { prefixOf } from './routerprefix.js';
-import { boxRouter, wireBoxRouter } from './boxrouter.js';
+import { boxRouter, paintLevelsRouter, wireBoxRouter } from './boxrouter.js';
 import { parseList, namedAs, listMatches, missingNote, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
 import { renderDegraded } from './degradedview.js';
@@ -116,6 +116,7 @@ let lvlAt = '';
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), () => levelSource(lvlRouter()), { onChange: () => renderTally() });
 function followLevels() {
+  paintLevelsRouter($('lvl-router'), lvlRouter());
   if (lvlRouter() === lvlAt) return;
   lvlAt = lvlRouter();
   lvl.repick();
@@ -263,13 +264,7 @@ function renderLast() {
     const what = { src: 'source', dst: 'destination', lvl: 'levels' }[k];
     const chips = [];
     if (last[k]) {
-      const b = el(
-        'button',
-        'pb-chip sode__last',
-        el('span', 'sode__tag', 'Last'),
-        el('span', 'sode__last-text', ...last[k]),
-        el('kbd', 'sode__key-note', keyLabel(`ctrl+${key}`)),
-      );
+      const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', 'Last'), el('span', 'sode__last-text', ...last[k]));
       b.dataset.pbTip = `Last ${what} (${keyLabel(`ctrl+${key}`)})`;
       b.addEventListener('click', () => useLast(k));
       chips.push(b);
@@ -279,19 +274,12 @@ function renderLast() {
         'button',
         'pb-chip sode__last sode__next',
         el('span', 'sode__tag', 'Next'),
-        el('kbd', 'sode__key-note sode__tag-key', keyLabel(`ctrl+shift+${key}`)),
-        el(
-          'span',
-          'sode__next-open',
-          el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', keyLabel(`ctrl+shift+${key}`))),
-        ),
+        el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]))),
       );
       b.dataset.pbTip = `Next ${what} (${keyLabel(`ctrl+shift+${key}`)})`;
       b.addEventListener('click', () => useLast(k, true));
       // The closed chip's room stays in the slot so nothing in the row moves.
-      chips.push(
-        el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', keyLabel(`ctrl+shift+${key}`))), b),
-      );
+      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next'), b));
     }
     for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';
@@ -670,6 +658,7 @@ on('presetAdd', paintTakes);
 on('hello', () => {
   pager.reset();
   lvlAt = lvlRouter();
+  paintLevelsRouter($('lvl-router'), lvlAt);
   lvl.reset();
   // A Settings save sends a new hello, so an open page follows a change of levels.
   const box = lvlInput.closest('.sode__box');

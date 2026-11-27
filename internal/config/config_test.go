@@ -12,25 +12,25 @@ import (
 
 func TestValidate(t *testing.T) {
 	ok := Defaults()
-	ok.Address = "10.0.0.5:8910"
+	ok.Routers[0].Address = "10.0.0.5:8910"
 	ok.Normalize()
 	if err := ok.Validate(); err != nil {
 		t.Fatalf("defaults: %v", err)
 	}
 	for name, mut := range map[string]func(*Config){
-		"zero levels":       func(c *Config) { c.Levels = 0 },
-		"negative levels":   func(c *Config) { c.Levels = -1 },
-		"std matrix 16":     func(c *Config) { c.Matrix = 16 },
-		"offset below wire": func(c *Config) { c.LevelWireOffset = -2 },
-		"bad router":        func(c *Config) { c.Address = "10.0.0.5" },
-		"bad default":       func(c *Config) { c.DefaultLevels = "1-99" },
-		"bad name len":      func(c *Config) { c.NameLength = 10 },
+		"zero levels":       func(c *Config) { c.Routers[0].Levels = 0 },
+		"negative levels":   func(c *Config) { c.Routers[0].Levels = -1 },
+		"std matrix 16":     func(c *Config) { c.Routers[0].Matrix = 16 },
+		"offset below wire": func(c *Config) { c.Routers[0].LevelWireOffset = -2 },
+		"bad router":        func(c *Config) { c.Routers[0].Address = "10.0.0.5" },
+		"bad default":       func(c *Config) { c.Routers[0].DefaultLevels = "1-99" },
+		"bad name len":      func(c *Config) { c.Routers[0].NameLength = 10 },
 		"bad proxy":         func(c *Config) { c.TrustedProxies = []string{"caddy"} },
-		"refresh too fast":  func(c *Config) { c.NameRefreshSeconds = 1 },
+		"refresh too fast":  func(c *Config) { c.Routers[0].NameRefreshSeconds = 1 },
 		"bad color":         func(c *Config) { c.LevelColors = []string{"#12345g"} },
-		"bad numbering":     func(c *Config) { c.LevelNumbering = "2" },
+		"bad numbering":     func(c *Config) { c.Routers[0].LevelNumbering = "2" },
 		"bad router show":   func(c *Config) { c.RouterShow = "ip" },
-		"long router name":  func(c *Config) { c.Title = strings.Repeat("x", 33) },
+		"long router name":  func(c *Config) { c.Routers[0].Title = strings.Repeat("x", 33) },
 		"long brand text":   func(c *Config) { c.BrandText = strings.Repeat("x", 25) },
 		"bad brand border":  func(c *Config) { c.BrandBorder = "red" },
 		"long hidden dsts":  func(c *Config) { c.HiddenDsts = strings.Repeat("x", 501) },
@@ -44,38 +44,40 @@ func TestValidate(t *testing.T) {
 		"plus palette":      func(c *Config) { c.DeviceDefaults.PaletteChar = "+" },
 		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
 		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
-		"bad fire mode":     func(c *Config) { c.FireMode = "parallel" },
-		"salvo group < 0":   func(c *Config) { c.SalvoGroup = -1 },
-		"salvo group > 127": func(c *Config) { c.SalvoGroup = 128 },
-		"native matrix 16":  func(c *Config) { c.FireMode, c.NameRequests, c.Matrix = "native", "ext", 16 },
+		"bad fire mode":     func(c *Config) { c.Routers[0].FireMode = "parallel" },
+		"salvo group < 0":   func(c *Config) { c.Routers[0].SalvoGroup = -1 },
+		"salvo group > 127": func(c *Config) { c.Routers[0].SalvoGroup = 128 },
+		"native matrix 16": func(c *Config) {
+			c.Routers[0].FireMode, c.Routers[0].NameRequests, c.Routers[0].Matrix = "native", "ext", 16
+		},
 	} {
-		c := ok
+		c := ok.Clone()
 		mut(&c)
 		if c.Validate() == nil {
 			t.Errorf("%s: want error", name)
 		}
 	}
-	native := ok
-	native.FireMode, native.SalvoGroup = "native", 0
+	native := ok.Clone()
+	native.Routers[0].FireMode, native.Routers[0].SalvoGroup = "native", 0
 	if err := native.Validate(); err != nil {
 		t.Errorf("native, group 0: %v", err)
 	}
-	if ok.FireMode != "sequential" || ok.SalvoGroup != 127 {
-		t.Errorf("fire defaults %q %d", ok.FireMode, ok.SalvoGroup)
+	if ok.Routers[0].FireMode != "sequential" || ok.Routers[0].SalvoGroup != 127 {
+		t.Errorf("fire defaults %q %d", ok.Routers[0].FireMode, ok.Routers[0].SalvoGroup)
 	}
-	blank := ok
-	blank.FireMode = " Native "
+	blank := ok.Clone()
+	blank.Routers[0].FireMode = " Native "
 	blank.Normalize()
-	if blank.FireMode != "native" {
-		t.Errorf("normalized fire mode %q", blank.FireMode)
+	if blank.Routers[0].FireMode != "native" {
+		t.Errorf("normalized fire mode %q", blank.Routers[0].FireMode)
 	}
-	blank.FireMode = ""
+	blank.Routers[0].FireMode = ""
 	blank.Normalize()
-	if blank.FireMode != "sequential" {
-		t.Errorf("empty fire mode %q", blank.FireMode)
+	if blank.Routers[0].FireMode != "sequential" {
+		t.Errorf("empty fire mode %q", blank.Routers[0].FireMode)
 	}
-	ext := ok
-	ext.NameRequests, ext.Matrix = "ext", 200
+	ext := ok.Clone()
+	ext.Routers[0].NameRequests, ext.Routers[0].Matrix = "ext", 200
 	if err := ext.Validate(); err != nil {
 		t.Errorf("ext matrix 200: %v", err)
 	}
@@ -87,9 +89,9 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatalf("missing file: exists=%v err=%v", exists, err)
 	}
 	c := Defaults()
-	c.Address = "10.0.0.5:8910"
+	c.Routers[0].Address = "10.0.0.5:8910"
 	c.TrustedProxies = []string{"10.0.0.2", "172.18.0.0/16"}
-	c.LevelNumbering, c.PinWaits = "va", false
+	c.Routers[0].LevelNumbering, c.PinWaits = "va", false
 	c.HiddenDsts = "MV, !1-5"
 	c.FilterSets = []FilterSet{{Name: "All except shader", Dst: "!MON", Sode: true, Ext: true}, {Name: "Panels", Ext: true, Hidden: true}}
 	c.Normalize()
@@ -133,7 +135,7 @@ func TestDeviceDefaults(t *testing.T) {
 
 func TestLevelColors(t *testing.T) {
 	c := Defaults()
-	c.Levels = 3
+	c.Routers[0].Levels = 3
 	c.LevelColors = []string{" #ABC", "", "3A7BD5", "", ""}
 	c.Normalize()
 	if err := c.Validate(); err != nil {
@@ -165,9 +167,9 @@ func TestParseLevels(t *testing.T) {
 
 func TestLevelLabels(t *testing.T) {
 	c := Defaults()
-	c.Levels = 3
+	c.Routers[0].Levels = 3
 	for mode, want := range map[string][]string{"1": {"1", "2", "3"}, "0": {"0", "1", "2"}, "va": {"V", "1", "2"}} {
-		c.LevelNumbering = mode
+		c.Routers[0].LevelNumbering = mode
 		got := []string{}
 		for _, l := range c.LevelMap() {
 			got = append(got, l.Label)
@@ -201,19 +203,16 @@ func TestFireModeFromEnv(t *testing.T) {
 	t.Setenv("SODE_FIRE_MODE", "native")
 	t.Setenv("SODE_SALVO_GROUP", "12")
 	c, err := FromEnv(Defaults())
-	if err != nil || c.FireMode != "native" || c.SalvoGroup != 12 {
-		t.Fatalf("%q %d %v", c.FireMode, c.SalvoGroup, err)
+	if err != nil || c.Routers[0].FireMode != "native" || c.Routers[0].SalvoGroup != 12 {
+		t.Fatalf("%q %d %v", c.Routers[0].FireMode, c.Routers[0].SalvoGroup, err)
 	}
 }
 
 func TestNameRereadFromEnv(t *testing.T) {
 	t.Setenv("SODE_NAME_REREAD_S", "90")
 	c, err := FromEnv(Defaults())
-	if err != nil || c.NameRefreshSeconds != 90 {
-		t.Fatalf("%d %v", c.NameRefreshSeconds, err)
-	}
-	if b, _ := json.Marshal(c); !strings.Contains(string(b), `"nameRereadSeconds":90`) {
-		t.Fatalf("json: %s", b)
+	if err != nil || c.Routers[0].NameRefreshSeconds != 90 {
+		t.Fatalf("%d %v", c.Routers[0].NameRefreshSeconds, err)
 	}
 }
 
@@ -221,7 +220,7 @@ func TestNameRereadFromEnv(t *testing.T) {
 func TestRetiredBrandColorsStillLoad(t *testing.T) {
 	for _, name := range []string{"green", "amber", "pink"} {
 		c := Defaults()
-		c.Address = "10.0.0.5:8910"
+		c.Routers[0].Address = "10.0.0.5:8910"
 		c.BrandBorder = name
 		c.Normalize()
 		if err := c.Validate(); err != nil {

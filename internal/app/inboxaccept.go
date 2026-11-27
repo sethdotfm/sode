@@ -83,7 +83,7 @@ func (p *cardPlanner) profile(cfg *config.Config) *config.Profile {
 // outside: the route is on a router of Sode and the recipient's Rights do not reach it on that router. A level is
 // matched on its router too.
 func (p *cardPlanner) outside(kind string, r config.Ref) bool {
-	r.Router = cmp.Or(r.Router, p.live.UID)
+	r.Router = cmp.Or(r.Router, p.live.DefaultRouter().UID)
 	if _, ok := p.live.RouterByUID(r.Router); !ok {
 		return false
 	}

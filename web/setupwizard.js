@@ -1,6 +1,6 @@
 // The setup wizard (docs/agents/server.md, setup.go): a config file with no users opens it in
 // place of the patch page. Nothing is sent but the Router step's address until Finish.
-import { $, S, el, on, emit, onMsg, wsSend, icon, LINK_DOWN, routerData } from './core.js';
+import { $, S, el, on, emit, onMsg, wsSend, icon, LINK_DOWN, routerData, routerSetting } from './core.js';
 import { showBrand } from './brand.js';
 import { brandCaution, pickerColors, CAUTION_NOTE } from './accent.js';
 import { statusText } from './statustext.js';
@@ -88,7 +88,7 @@ const strong = (text) => el('span', { class: 'pb-text-strong' }, text);
 function statusLine() {
   // Run setup again moves no link before the save, so only the live address has a state.
   const line =
-    d.again && d.router.trim() !== (S.cfg.router || '')
+    d.again && d.router.trim() !== (S.routers[0]?.address || '')
       ? { ok: false, text: 'Connects on Save' }
       : routerLine(d.router, routerData('').link, routerData('').srcs.length, routerData('').dsts.length);
   if (!line) return [];
@@ -205,6 +205,7 @@ const VIEW = {
   ],
   router: () => [
     'Router setup',
+    section('Router', '', row(field('setup-routerTitle', 'Router title', d.routerTitle, { maxlength: '32' }), el('div'))),
     section(
       'Connection',
       '',
@@ -302,6 +303,7 @@ const KEYS = {
   'setup-name': 'name',
   'setup-pin': 'pin',
   'setup-pin2': 'pin2',
+  'setup-routerTitle': 'routerTitle',
   'setup-router': 'router',
   'setup-levels': 'levels',
   'setup-group': 'group',
@@ -466,7 +468,17 @@ function claim(take = false) {
 
 function startWizard() {
   if (d) return;
-  d = startAnswers(S.cfg, S.setup);
+  // The wizard sets up the first router: its settings come from the hello's routers list.
+  const r0 = S.routers[0] || {};
+  const router = {
+    routerTitle: r0.title,
+    routerPrefix: r0.prefix,
+    router: r0.address,
+    levels: routerSetting(r0, 'levels'),
+    levelNumbering: r0.levelNumbering,
+    numberOffset: r0.numberOffset,
+  };
+  d = startAnswers({ ...S.cfg, ...router, fireMode: r0.fireMode, salvoGroup: r0.salvoGroup }, S.setup);
   filled = S.setup;
   sentRouter = d.router.trim();
   at = reached = 0;
@@ -522,7 +534,7 @@ onMsg('setupClaimResult', (m) => {
   mode = 'run';
   taken = free = false;
   // A reconnect lost the hold, and the server put back the address this page had moved.
-  if (d && sentRouter && S.cfg.router !== sentRouter) {
+  if (d && sentRouter && (S.routers[0]?.address || '') !== sentRouter) {
     sentRouter = '';
     tryRouter();
   }

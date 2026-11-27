@@ -51,26 +51,47 @@ export const DICT = {
     'export',
   ],
   'everyone-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'shared settings', 'appearance', 'preferences'],
-  'router-names': [
-    'names',
-    'source names',
-    'destination names',
-    'labels',
-    'refresh',
-    'poll',
-    'reread',
-    'router names',
-    'name length',
-    'characters',
-    'truncate',
-  ],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
-  takes: ['take', 'patch', 'route', 'default levels', 'resync', 'reread', 'multi destination', 'fire mode', 'salvo group'],
-  protects: ['protect', 'protects', 'protected', 'router lock', 'device number', 'device', 'panel id', 'clear', 'hold'],
+  protects: ['protect', 'protects', 'protected', 'router lock', 'free', 'clear', 'hold'],
   confirm: ['confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'delay', 'safety', 'result', 'success', 'banner', 'dismiss'],
-  routers: ['router', 'routers', 'router list', 'ultrix', 'matrix', 'block', 'add router', 'remove router', 'delete router', 'prefix', 'router title'],
+  routers: [
+    'router',
+    'routers',
+    'router list',
+    'ultrix',
+    'add router',
+    'remove router',
+    'delete router',
+    'prefix',
+    'router title',
+    'ip',
+    'address',
+    'host',
+    'hostname',
+    'port',
+    'connection',
+    'connect',
+    'tcp',
+    'swp08',
+    'sw-p-08',
+    'status',
+    'level',
+    'levels',
+    'offset',
+    'numbering',
+    'matrix',
+    'names',
+    'router names',
+    'reread',
+    'poll',
+    'refresh',
+    'take',
+    'takes',
+    'multi destination',
+    'salvo group',
+    'device number',
+  ],
   'tie-lines': ['tie line', 'tie lines', 'tie', 'ties', 'cable', 'link', 'between routers', 'stage', 'hop weight', 'cost', 'path'],
-  'router-levels': ['levels', 'level count', 'level offset', 'level numbering', 'default levels', 'router levels', 'other routers'],
   panels: [
     'panel',
     'panels',
@@ -87,37 +108,6 @@ export const DICT = {
   ],
   'run-setup-again': ['setup', 'set up', 'wizard', 'first run', 'start again', 'fresh install'],
   branding: ['brand', 'logo', 'name', 'title', 'border', 'colour', 'color', 'icon', 'identify', 'favicon', 'tab'],
-  'router-matrix': [
-    'router',
-    'ip',
-    'address',
-    'host',
-    'hostname',
-    'port',
-    'connection',
-    'connect',
-    'tcp',
-    'ultrix',
-    'swp08',
-    'sw-p-08',
-    'status',
-    'server',
-    'level',
-    'levels',
-    'offset',
-    'number',
-    'numbering',
-    'wire',
-    'matrix',
-    'zero',
-    'start at 0',
-    'start at 1',
-    'count',
-    'router levels',
-    'video',
-    'audio',
-    'va',
-  ],
   locks: [
     'password',
     'pin',
@@ -305,21 +295,21 @@ export const DICT = {
   'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave', 'ctrl+shift+l'],
 
   // ---- Names
-  'names-refresh': ['refresh', 'reload', 'update', 're-read', 're read', 'reread', 'poll', 'names', 'now', 'fetch'],
-  'cfg-namerefresh': ['poll', 'interval', 'seconds', 'refresh', 're-read', 're read', 'how often', 'timer', 'off', 'names'],
-  'cfg-namelen': ['length', 'characters', 'chars', 'width', 'short', 'long', '4', '8', '12', '16', 'truncate'],
-  'cfg-salvogroup': ['salvo', 'router salvo', 'native', 'group', 'group number', 'crosspoint list', 'fire mode', 'ultrix', '127'],
-  'cfg-firemode': ['fire mode', 'native', 'router salvo', 'preset', 'sequential', 'multi destination', 'multiple destinations', 'crosspoint list'],
-  'cfg-namereq': ['standard', 'extended', 'request', 'protocol', 'names', 'sw-p-08', 'swp08', '12 char'],
+  'router-names-reread': ['refresh', 'reload', 'update', 're-read', 're read', 'reread', 'poll', 'names', 'now', 'fetch'],
+  'cfg-rt-nameRereadSeconds': ['poll', 'interval', 'seconds', 'refresh', 're-read', 're read', 'how often', 'timer', 'off', 'names'],
+  'cfg-rt-nameLength': ['length', 'characters', 'chars', 'width', 'short', 'long', '4', '8', '12', '16', 'truncate'],
+  'cfg-rt-salvoGroup': ['salvo', 'router salvo', 'native', 'group', 'group number', 'crosspoint list', 'fire mode', 'ultrix', '127'],
+  'cfg-rt-fireMode': ['fire mode', 'native', 'router salvo', 'preset', 'sequential', 'multi destination', 'multiple destinations', 'crosspoint list'],
+  'cfg-rt-nameRequests': ['standard', 'extended', 'request', 'protocol', 'names', 'sw-p-08', 'swp08', '12 char'],
 
   // ---- Level colors
   'cfg-colors-reset': ['reset', 'default colours', 'default colors', 'restore'],
 
-  // ---- Takes and Confirm and results
-  'cfg-default': ['default levels', 'levels', 'all levels', 'which levels', 'preselect', 'v a', 'video audio'],
+  // ---- Takes, Confirm and results
+  'cfg-rt-defaultLevels': ['default levels', 'levels', 'all levels', 'which levels', 'preselect', 'v a', 'video audio'],
   'cfg-dismiss': ['banner', 'result', 'success', 'dismiss', 'close', 'auto', 'seconds', 'timeout', 'progress', 'notification'],
   'cfg-lockout': ['confirm', 'lockout', 'letter', 'delay', 'ms', 'milliseconds', 'confirm dialog', 'wait', 'safety', 'accidental'],
-  'cfg-resync': ['resync', 'reread', 'poll', 'routes', 'tally', 'interval', 'seconds', 'refresh', 'dump'],
+  'cfg-rt-tallyResyncSeconds': ['resync', 'reread', 'poll', 'routes', 'tally', 'interval', 'seconds', 'refresh', 'dump'],
   'cfg-enter': ['enter', 'return', 'confirm', 'keyboard', 'key', 'submit', 'confirm dialog'],
 
   // ---- Branding
@@ -327,16 +317,20 @@ export const DICT = {
   'cfg-brandborder': ['border', 'colour', 'color', 'frame', 'outline', 'identify', 'brand', 'multiple servers', 'edge'],
 
   // ---- Router
-  'cfg-router': ['router', 'ip', 'address', 'host', 'hostname', 'port', 'tcp', 'connect', 'ultrix', 'host:port'],
-  'cfg-routername': ['router name', 'name', 'label', 'title', 'call it'],
-  'cfg-routershow': ['status', 'show', 'header', 'display', 'address', 'name', 'connected'],
+  'cfg-rt-address': ['router', 'ip', 'address', 'host', 'hostname', 'port', 'tcp', 'connect', 'ultrix', 'host:port'],
+  'cfg-rt-title': ['router title', 'router name', 'name', 'label', 'title', 'call it'],
+  'cfg-routershow': ['status', 'status bar', 'status label', 'show', 'header', 'display', 'address', 'name', 'connected'],
+  'cfg-rt-prefix': ['prefix', 'letter', 'router letter', 'b.69'],
+  'cfg-rt-protectDevice': ['protect', 'device number', 'device', 'panel id', 'protect off'],
+  'router-add': ['add router', 'new router', 'second router', 'another router'],
+  'routers-problems': ['problem', 'down', 'lost', 'error', 'not connected'],
 
   // ---- Matrix
-  'cfg-matrix': ['matrix', 'number', 'id', 'router matrix', 'index', 'zero'],
-  'cfg-levels': ['levels', 'count', 'number of levels', 'how many', 'level count', '17'],
-  'cfg-offset': ['offset', 'wire', 'router level', 'level offset', 'shift', 'level', 'zero based', 'one based'],
-  'cfg-lvlnum': ['level numbering', 'level', 'numbering', 'number', 'v', 'va', 'video', 'zero', '0', '1', 'start'],
-  'cfg-numoff': ['number', 'numbers', 'offset', 'start at 0', 'start at 1', 'zero', 'one', 'sources', 'destinations', 'numbering', 'index'],
+  'cfg-rt-matrix': ['matrix', 'number', 'id', 'router matrix', 'index', 'zero'],
+  'cfg-rt-levels': ['levels', 'count', 'number of levels', 'how many', 'level count', '17'],
+  'cfg-rt-levelWireOffset': ['offset', 'wire', 'router level', 'level offset', 'shift', 'level', 'zero based', 'one based'],
+  'cfg-rt-lvlnum': ['level numbering', 'level', 'numbering', 'number', 'v', 'va', 'video', 'zero', '0', '1', 'start'],
+  'cfg-rt-numberOffset': ['number', 'numbers', 'offset', 'start at 0', 'start at 1', 'zero', 'one', 'sources', 'destinations', 'numbering', 'index'],
 
   // ---- Locks
   'cfg-pin-waits': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'delay', 'wait', 'backoff'],
@@ -404,14 +398,16 @@ function wordScore(t, w) {
 
 const top = (t, ws) => ws.reduce((m, w) => Math.max(m, wordScore(t, w)), 0);
 
-// Where a hit is, for its line in the results: the topic, the router for a per-router section, then the section.
+// Where a hit is, for its line in the results: the topic, the router of a router's setting, then the section.
 export function hitWhere(h) {
   const at = [h.topic, h.router].filter(Boolean);
   if (h.kind !== 'section') at.push(h.section);
   return at.join(' › ');
 }
 
-// sections: { id, title, topic?, router?, settings }. A topic's name finds its sections, weaker than a section's.
+// sections: { id, title, topic?, router?, uid?, settingsOnly?, settings }. A topic's name finds its sections, weaker
+// than a section's. A router's settings (router: its name, uid: its UID) come as a part of a section with settingsOnly,
+// so the section itself is listed once.
 export function buildIndex(sections, dict = DICT) {
   const out = [];
   for (const sec of sections) {
@@ -424,13 +420,14 @@ export function buildIndex(sections, dict = DICT) {
       section: sec.title,
       topic: sec.topic,
       router: sec.router,
+      uid: sec.uid,
       label,
       lw: words(label),
       tw: (dict[id] || []).flatMap(words),
       sw,
       pw,
     });
-    out.push(mk('section', sec.id, sec.title));
+    if (!sec.settingsOnly) out.push(mk('section', sec.id, sec.title));
     for (const s of sec.settings || []) out.push(mk('setting', s.id, s.label));
   }
   return out;

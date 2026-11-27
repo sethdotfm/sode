@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -163,12 +164,12 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 
 // prefixMoved: a router that both settings have has a new prefix.
 func prefixMoved(old, next config.Config) bool {
-	for _, r := range old.Routers() {
+	for _, r := range old.Routers {
 		if n, ok := next.RouterByUID(r.UID); ok && n.Prefix != r.Prefix {
 			return true
 		}
 	}
-	return old.Prefix != next.Prefix
+	return old.DefaultRouter().Prefix != next.DefaultRouter().Prefix
 }
 
 // syncAccessAllMu: every connection gets its lock state again. Caller holds mu.
@@ -203,6 +204,7 @@ func (a *App) reconnectMu(u *routerUnit, addr string) {
 	u.status.Addr = addr
 	a.viaTouchRouter(u, a.r())
 	u.status.Err = ""
+	u.status.Never = true
 	u.up.State(false)
 	u.linkSeen, u.linkErr = "", ""
 	ch := event(kindLink, "", "", "changed")
@@ -249,10 +251,16 @@ func (a *App) applyConfigWith(mutate func(*config.Config) error, save bool) erro
 	for _, u := range gone {
 		endUnit(u)
 	}
+	var again []string
 	for _, m := range moved {
 		m.u.sw.SetTarget(m.rc.Address, probe(m.rc))
+		again = append(again, a.routerName(m.u))
 	}
-	log.Printf("config: applied (reconnect=%v)", len(moved) > 0)
+	if len(again) == 0 {
+		log.Printf("config: applied")
+	} else {
+		log.Printf("config: applied; connecting again to %s", strings.Join(again, ", "))
+	}
 	return nil
 }
 

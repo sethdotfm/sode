@@ -8,7 +8,8 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 const setup = async () => {
   const m = await import('./all.mjs');
   const { S, routerData } = m;
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').srcBy = new Map([1, 2, 3].map((n) => [n, { n, num: n + 1, name: `SRC ${n + 1}`, label: `SRC ${n + 1}` }]));
   routerData('').dstBy = new Map([10, 11].map((n) => [n, { n, num: n + 1, name: `DST ${n + 1}`, label: `DST ${n + 1}` }]));
   return m;

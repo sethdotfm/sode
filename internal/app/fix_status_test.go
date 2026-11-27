@@ -17,9 +17,19 @@ func fixStatusApp(t *testing.T) *App {
 		c.APIClients = append(c.APIClients, config.APIClient{Name: "StatLog", Scopes: []string{config.ScopeStatus, config.ScopeLog}})
 	})
 	a.mu.Lock()
-	a.first.status = statusMsg{T: "status", Router: "down", Addr: fixRouterAddr, Err: "dial tcp " + fixRouterAddr + ": connection refused"}
+	a.firstUnit().status = statusMsg{T: "status", Router: "down", Addr: fixRouterAddr, Err: "dial tcp " + fixRouterAddr + ": connection refused"}
 	a.mu.Unlock()
 	return a
+}
+
+// firstStatusRouter is the first element of routers in a status body.
+func firstStatusRouter(st map[string]any) map[string]any {
+	rs, _ := st["routers"].([]any)
+	if len(rs) == 0 {
+		return nil
+	}
+	r, _ := rs[0].(map[string]any)
+	return r
 }
 
 func TestStatusHidesRouterAddressWithoutLogScope(t *testing.T) {
@@ -34,15 +44,21 @@ func TestStatusHidesRouterAddressWithoutLogScope(t *testing.T) {
 			t.Errorf("%s sees the router address: %s", name, rec.Body.String())
 		}
 		st := apiBody(t, rec)
-		if st["routerUp"] != false || st["router"] != "down" || st["error"] != true || st["server"] != "up" {
+		r := firstStatusRouter(st)
+		if r["routerUp"] != false || r["router"] != "down" || r["error"] != true || st["server"] != "up" {
 			t.Errorf("%s: status %v", name, st)
 		}
-		if _, ok := st["address"]; ok {
+		if _, ok := r["address"]; ok {
 			t.Errorf("%s: address key present", name)
+		}
+		for _, k := range []string{"router", "routerUp", "error", "address", "err"} {
+			if _, ok := st[k]; ok {
+				t.Errorf("%s: flat %s left in the status: %v", name, k, st)
+			}
 		}
 	}
 	st := apiBody(t, apiDo(a, "GET", "/api/v1/status", statLog, nil))
-	if st["address"] != fixRouterAddr || st["err"] == nil || st["error"] != true {
+	if r := firstStatusRouter(st); r["address"] != fixRouterAddr || r["err"] == nil || r["error"] != true {
 		t.Errorf("log scope: %v", st)
 	}
 }
@@ -56,7 +72,7 @@ func TestStreamStatusHidesRouterAddressWithoutLogScope(t *testing.T) {
 		c.next() // hello
 	}
 	a.mu.Lock()
-	a.broadcast(a.first.status)
+	a.broadcast(a.firstUnit().status)
 	a.mu.Unlock()
 	for i := 0; i < 2; i++ {
 		for name, c := range map[string]*strmConn{"plain": plain, "log": logger} {

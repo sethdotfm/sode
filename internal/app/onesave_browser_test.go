@@ -31,29 +31,28 @@ func TestChromeOneSaveReview(t *testing.T) {
 		b.eval(`(() => { const f = document.getElementById('` + id + `'); ` + js + `; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`)
 	}
 	set("cfg-brandtext", `f.value = 'Truck 4'`)
-	set("cfg-router", `f.value = '127.0.0.1:1'`)
+	set("cfg-rt-address", `f.value = '127.0.0.1:1'`)
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("review lists both changes by section", `(() => {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const t = d.textContent;
-		return t.includes('Look and feel') && t.includes('Branding') && t.includes('Truck 4') && t.includes('Router & matrix')
+		return t.includes('Look and feel') && t.includes('Branding') && t.includes('Truck 4') && t.includes('Routers')
 			&& t.includes('127.0.0.1:1') && t.includes('Reconnects the router')
 			&& document.getElementById('review-save').textContent === 'Save 2 changes';
 	})()`)
 	b.eval(`document.getElementById('review-save').click(); true`)
-	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
-	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
-	b.waitFor("Save and reconnect asked", `document.getElementById('review')?.offsetParent && document.getElementById('review-save').textContent === 'Save and reconnect' && document.getElementById('review').textContent.includes('127.0.0.1:1')`)
+	// The confirm comes before the PIN recheck, so nothing asks again after the PIN.
+	b.waitFor("Save and reconnect asked", `document.getElementById('review')?.offsetParent && document.getElementById('review-save').textContent === 'Save and reconnect' && document.getElementById('review').textContent.includes('127.0.0.1:1') && !document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('review-back').click(); true`)
 	b.waitFor("back on the review", `document.getElementById('review-back').textContent === 'Keep editing'`)
 	b.eval(`document.getElementById('review-back').click(); true`)
 	b.waitFor("review closed", `!document.getElementById('review').offsetParent`)
-	if cfg := a.r().cfg; cfg.BrandText == "Truck 4" || cfg.Address == "127.0.0.1:1" {
-		t.Fatalf("Back sent the save: brand %q, router %q", cfg.BrandText, cfg.Address)
+	if cfg := a.r().cfg; cfg.BrandText == "Truck 4" || cfg.Routers[0].Address == "127.0.0.1:1" {
+		t.Fatalf("Back sent the save: brand %q, router %q", cfg.BrandText, cfg.Routers[0].Address)
 	}
 
-	set("cfg-router", `f.value = '`+sim+`'`)
+	set("cfg-rt-address", `f.value = '`+sim+`'`)
 	a.cfgMu.Lock()
 	err := a.applyConfig(func(c *config.Config) error { c.ConfirmLockoutMs = 700; return nil })
 	a.cfgMu.Unlock()

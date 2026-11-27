@@ -23,14 +23,6 @@ func asMap(t *testing.T, b []byte) map[string]any {
 func legacyHello(a *App, p helloPage) []byte {
 	r := a.r()
 	m := map[string]any{"t": "hello"}
-	prot := [][4]int{}
-	for d, t := range a.first.router.protect {
-		for l, h := range t {
-			prot = append(prot, [4]int{d, l, h.dev, h.kind})
-		}
-	}
-	m["protected"] = prot
-	m["protectBy"] = []any{}
 	m["history"] = p.recent
 	m["more"] = p.more
 	m["levelDefaults"] = config.DefaultLevelColors
@@ -93,15 +85,15 @@ func TestRouteChangeWire(t *testing.T) {
 	a.mu.Lock()
 	h := asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
-	if tally := firstHelloRouter(t, h)["tally"]; !reflect.DeepEqual(tally, []any{[]any{5.0, 1.0, 7.0}}) || !reflect.DeepEqual(h["protected"], []any{[]any{5.0, 1.0, 9.0, 1.0}}) {
-		t.Fatalf("hello tally/protected: %v %v", tally, h["protected"])
+	if r := firstHelloRouter(t, h); !reflect.DeepEqual(r["tally"], []any{[]any{5.0, 1.0, 7.0}}) || !reflect.DeepEqual(r["protected"], []any{[]any{5.0, 1.0, 9.0, 1.0}}) {
+		t.Fatalf("hello tally/protected: %v %v", r["tally"], r["protected"])
 	}
 	a.mu.Lock()
-	a.first.router.tally, a.first.router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
+	a.firstUnit().router.tally, a.firstUnit().router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
 	h = asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
-	if tally := firstHelloRouter(t, h)["tally"]; !reflect.DeepEqual(tally, []any{}) || !reflect.DeepEqual(h["protected"], []any{}) {
-		t.Fatalf("empty tally/protected must be [], got %v %v", tally, h["protected"])
+	if r := firstHelloRouter(t, h); !reflect.DeepEqual(r["tally"], []any{}) || !reflect.DeepEqual(r["protected"], []any{}) {
+		t.Fatalf("empty tally/protected must be [], got %v %v", r["tally"], r["protected"])
 	}
 }
 

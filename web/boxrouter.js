@@ -30,6 +30,16 @@ export function paintBoxRouter(k, b) {
   b.dataset.pbTip = `A ${what} number with no prefix is on router ${rt.prefix}${rt.title ? ` (${rt.title})` : ''}. Select to change the router.`;
 }
 
+// paintLevelsRouter names the router of the Levels box on node n: its levels are those of router uid (a routerData
+// UID), which follows the destination. Levels of two routers can have the same labels and colors, so with two or more
+// routers the box says whose they are.
+export function paintLevelsRouter(n, uid) {
+  const rt = routerData(uid);
+  n.hidden = S.routers.length < 2;
+  n.textContent = `Router ${rt.prefix}`;
+  n.dataset.pbTip = `The levels of router ${rt.prefix}${rt.title ? ` (${rt.title})` : ''}. They follow the destination.`;
+}
+
 // wireBoxRouter keeps button b of box k in step with the routers; a press moves to the next router, then calls changed.
 export function wireBoxRouter(k, b, changed) {
   const paint = () => paintBoxRouter(k, b);

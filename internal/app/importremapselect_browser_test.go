@@ -56,8 +56,8 @@ func TestChromeImportRemapSelect(t *testing.T) {
 		}
 	}
 	_, dst := a.liveNames()
-	uid := a.r().cfg.UID
-	off := a.r().cfg.NumberOffset
+	uid := a.r().cfg.Routers[0].UID
+	off := a.r().cfg.Routers[0].NumberOffset
 	lifeCommit(t, a, func(cfg *config.Config) {
 		d := []config.Ref{cfg.DestinationRef(simDst, dst[simDst])}
 		for i, n := range []int{2, 4, 5} {

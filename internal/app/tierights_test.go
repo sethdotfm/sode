@@ -12,7 +12,7 @@ import (
 func TestAPITieLinesOffRefusesRouteAcrossRouters(t *testing.T) {
 	off := false
 	a, fa, fb, key := tieApp(t, func(c *config.Config) { c.APIClients[0].Rights = config.Rights{TieLines: &off} })
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	for _, body := range []string{tieRoutes(uidA, [2]int{4, 2}), ends(uidA, "b2b2b2b2", 4, 2)} {
 		wantErr(t, apiPost(a, "/api/v1/takes", key, body, nil), http.StatusForbidden, "tie_lines_off")
@@ -32,7 +32,7 @@ func TestAPITieLinesOffRefusesRouteAcrossRouters(t *testing.T) {
 func TestAPITieLinesOffAfterOutsideRights(t *testing.T) {
 	off := false
 	a, _, _, key := tieApp(t, func(c *config.Config) { c.APIClients[0].Rights = config.Rights{Dsts: nums(3), TieLines: &off} })
-	wantErr(t, apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.UID, "b2b2b2b2", 4, 2), nil), http.StatusForbidden, "outside_rights")
+	wantErr(t, apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.Routers[0].UID, "b2b2b2b2", 4, 2), nil), http.StatusForbidden, "outside_rights")
 }
 
 // The Access preset writes the Guest's right. A keyless Guest can send a route across routers under Open access.
@@ -51,7 +51,7 @@ func TestAPIGuestTieLinesFollowAccessPreset(t *testing.T) {
 				c.API.GuestEnabled = true
 				c.GuestAPIScopes = append(c.GuestAPIScopes, config.ScopeTake)
 			})
-			rec := apiPost(a, "/api/v1/takes", "", tieRoutes(a.r().cfg.UID, [2]int{4, 2}), nil)
+			rec := apiPost(a, "/api/v1/takes", "", tieRoutes(a.r().cfg.Routers[0].UID, [2]int{4, 2}), nil)
 			if rec.Code != want {
 				t.Fatalf("%d %s, want %d", rec.Code, rec.Body, want)
 			}
@@ -70,6 +70,6 @@ func TestAPIUserKeyTieLinesOff(t *testing.T) {
 			c.Users[i].Rights.TieLines = &off
 		}
 	})
-	rec := apiPost(a, "/api/v1/takes", userKey(t, a, "Ada"), tieRoutes(a.r().cfg.UID, [2]int{4, 2}), nil)
+	rec := apiPost(a, "/api/v1/takes", userKey(t, a, "Ada"), tieRoutes(a.r().cfg.Routers[0].UID, [2]int{4, 2}), nil)
 	wantErr(t, rec, http.StatusForbidden, "tie_lines_off")
 }

@@ -1,6 +1,7 @@
 // The setup wizard's rules (pure): its steps, what each step needs before Next, and the Finish
 // message. setupwizard.js draws them; internal/app/setup.go checks the answers again.
 import { levelLabelOf } from './levels.js';
+import { numberingRange } from './routerdetailrules.js';
 
 export const STEPS = [
   ['welcome', 'Style & User'],
@@ -21,6 +22,7 @@ export const PRESET_ROWS = [
 ];
 
 const NAME_MAX = 24;
+const TITLE_MAX = 32; // a Router title, as config.Router.problems checks it
 const PIN_MIN = 4;
 const GROUP = 127; // the router's last group, which other control systems seldom use
 
@@ -33,6 +35,8 @@ export function startAnswers(cfg = {}, setup = {}) {
     name: '',
     pin: '',
     pin2: '',
+    // The same default title as Add router in Settings > Routers: "Router A".
+    routerTitle: cfg.routerTitle || `Router ${cfg.routerPrefix || 'A'}`,
     router: cfg.router || '',
     levels: String(cfg.levels || ''),
     levelNumbering: cfg.levelNumbering || '1',
@@ -63,6 +67,7 @@ export function stepProblem(d, i, max = 8) {
       return restorePinProblem(d.pin, d.pin2, max);
     }
     case 'router':
+      if ([...(d.routerTitle || '').trim()].length > TITLE_MAX) return `A Router title has at most ${TITLE_MAX} characters.`;
       if (!d.router.trim()) return 'Enter the router address.';
       if (!wholeIn(d.levels, 1, 256)) return 'Levels is a number from 1 to 256.';
       if (d.fireMode === 'native' && !wholeIn(d.group, 0, 127)) return 'Router salvo group is a number from 0 to 127.';
@@ -87,14 +92,11 @@ export function stopAt(d, want, max) {
 // A chip moves to a visited step until Finish; after it every step is locked.
 export const chipGoes = (i, at, reached, finished) => !finished && i !== at && i <= reached;
 
+// The three Level numbering buttons show the real range of the router, as its detail view in Settings > Routers does:
+// "1–17", "0–16" and "V, 1–16".
 export function numberingChoices(n) {
-  const top = wholeIn(n, 1, 256) ? +n : 0;
-  const to = (a, b) => (top ? `${a} to ${b}` : a);
-  return [
-    ['1', to(1, top)],
-    ['0', to(0, top - 1)],
-    ['va', top ? `V + 1 to ${top - 1}` : 'V + 1'],
-  ];
+  const top = wholeIn(n, 1, 256) ? +n : NaN;
+  return ['1', '0', 'va'].map((mode) => [mode, numberingRange(top, mode)]);
 }
 
 // Repeat your PIN stays on the page.
@@ -107,6 +109,7 @@ export function finishMessage(d, id) {
       brandBorder: d.brandBorder,
       name: d.name.trim(),
       pin: d.pin,
+      title: (d.routerTitle || '').trim(),
       router: d.router.trim(),
       levels: +d.levels,
       levelNumbering: d.levelNumbering,

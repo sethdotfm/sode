@@ -1,0 +1,292 @@
+/* Settings > Routers > Routers (settingsrouterlist.js, settingsrouterdetail.js): the router list and the detail view
+   of the selected router. Two panes side by side where the section is wide, else the list above the detail view. */
+.sode__rbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-4);
+  justify-content: space-between;
+}
+.sode__rbar-tools {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-4);
+  margin-left: auto;
+}
+.sode__rbar-tools .pb-input {
+  width: 12rem;
+}
+.sode__rbar-tools > [hidden] {
+  display: none;
+}
+fieldset[data-section="routers"] {
+  container-type: inline-size;
+}
+.sode__rt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+}
+.sode__rt > [hidden] {
+  display: none;
+}
+.sode__rwrap {
+  border: var(--pb-border-w) solid var(--pb-edge);
+}
+.sode__rlist {
+  max-height: clamp(9rem, calc(100vh - 24rem), 26rem);
+  overflow-y: auto;
+}
+.sode__rrow {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  border-left: var(--pb-accent-bar-w) solid transparent;
+  cursor: pointer;
+  display: grid;
+  gap: 0 var(--pb-space-3);
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  height: 3.25rem;
+  padding: 0 var(--pb-space-3) 0 var(--pb-space-2);
+}
+.sode__rrow:hover {
+  background: var(--pb-overlay-hover);
+}
+.sode__rrow[aria-selected="true"] {
+  background: var(--pb-accent-wash);
+  border-left-color: var(--pb-accent);
+}
+.sode__rrow:focus-visible {
+  outline: 2px solid var(--pb-accent);
+  outline-offset: -2px;
+}
+.sode__rrow[data-removed] .sode__rrow-title {
+  text-decoration: line-through;
+}
+.sode__rrow-prefix {
+  color: var(--pb-text-strong);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+  text-align: center;
+}
+.sode__rrow-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  min-width: 0;
+}
+.sode__rrow-line {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+.sode__rrow-title {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-medium);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sode__rrow-mark {
+  flex: none;
+}
+.sode__rrow-sub {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+}
+.sode__rrow-addr {
+  font-family: var(--pb-font-num);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sode__rrow-sub .sode__rstate {
+  flex: none;
+  margin-left: auto;
+}
+.sode__rlist-empty {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4);
+}
+/* The link state: an icon and words. Connected has no color (docs/color-roles.md). */
+.sode__rstate {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-2);
+}
+.sode__rstate[data-state="warn"] {
+  color: var(--pb-status-warn);
+}
+.sode__rstate[data-state="error"] {
+  color: var(--pb-status-error);
+}
+.sode__rdetail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  min-width: 0;
+}
+.sode__rdetail[hidden] {
+  display: none;
+}
+.sode__rhead {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+}
+.sode__rhead-name {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode__rname {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+  overflow-wrap: anywhere;
+}
+.sode__rlink {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-4);
+}
+.sode__racts {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode__racts > [hidden] {
+  display: none;
+}
+.sode__rnote:empty {
+  display: none;
+}
+.sode__rgroup {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+  padding-top: var(--pb-space-4);
+}
+.sode__rgroup[hidden],
+.sode__rgroup .sode__field[hidden],
+.sode__rfacts > [hidden] {
+  display: none;
+}
+.sode__rgroup-head {
+  color: var(--pb-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+  gap: var(--pb-space-3);
+  letter-spacing: var(--pb-tracking-label);
+  margin: 0;
+  text-transform: uppercase;
+}
+.sode__rgroup-head > .sode__hint {
+  font-weight: var(--pb-weight-normal);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.sode__rdetail--removed .sode__rgroup {
+  opacity: 0.6;
+}
+.sode__rprefix {
+  max-width: 6rem;
+  text-transform: uppercase;
+}
+.sode__rgroup .pb-btn-group .pb-btn {
+  font-family: var(--pb-font-num);
+}
+.sode__rchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1);
+}
+.sode__rchips > .sode__slot {
+  height: 1.5rem;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0 var(--pb-space-1);
+}
+.sode__rfacts {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-4);
+}
+.sode__rfacts > span:first-child {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-2);
+}
+.sode__field-err {
+  align-items: center;
+  color: var(--pb-status-error);
+  display: flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-2);
+  margin: 0;
+}
+/* Side by side where the section is wide. */
+@container (min-width: 36rem) {
+  .sode__rt:not(.sode__rt--one) {
+    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+  }
+  .sode__rt:not(.sode__rt--one) .sode__rwrap {
+    position: sticky;
+    top: calc(var(--pb-space-10) + var(--sode-down-h, 0px));
+  }
+  .sode__rt:not(.sode__rt--one) .sode__rlist {
+    max-height: clamp(9rem, calc(100vh - 12rem), 40rem);
+  }
+}
+/* The fields of a group line up by row: label, control, hint and error. A label of two lines does not push its control
+   below the control beside it. */
+.sode__rgroup .sode__fields {
+  column-gap: var(--pb-space-5);
+  grid-template-columns: repeat(auto-fill, minmax(11.25rem, 1fr));
+  grid-auto-rows: auto;
+  row-gap: 0;
+}
+.sode__rgroup .sode__fields > .sode__field {
+  display: grid;
+  gap: 0;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  margin-bottom: var(--pb-space-4);
+}
+.sode__rgroup .sode__fields > .sode__field > label {
+  align-self: end;
+  margin-bottom: var(--pb-space-2);
+}
+.sode__rgroup .sode__fields > .sode__field > :is(.sode__hint, .sode__field-err) {
+  margin-top: var(--pb-space-1);
+}
+.sode__rlink .sode__code {
+  overflow-wrap: anywhere;
+}
+.sode__rrow[draggable="true"] {
+  cursor: grab;
+}
+.sode__rrow[data-drop="before"] {
+  box-shadow: inset 0 3px 0 var(--pb-accent);
+}
+.sode__rrow[data-drop="after"] {
+  box-shadow: inset 0 -3px 0 var(--pb-accent);
+}

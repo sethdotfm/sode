@@ -148,7 +148,23 @@
   padding-inline-start: calc((var(--pb-icon-btn-w) - var(--pb-icon-size)) / 2);
   position: relative;
 }
-/* The status details (statusinfo.js): under the status, at its right edge, since a status mostly sits at a right end.
+/* The Routers icon is a button that opens the router list (connview.js paintRouters). It looks like the other status
+   items; its hover, pointer and focus ring show that it is a button. */
+.sode__conn-open {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  margin: calc(var(--pb-space-1) * -1);
+  padding: var(--pb-space-1);
+}
+.sode__conn-open:hover {
+  background: var(--pb-overlay-hover);
+}
+/* The router list (statusinfo.js): under the status, at its right edge, since a status mostly sits at a right end.
    The status is positioned on every page, so this places against it. */
 .sode-statusinfo {
   background: var(--pb-surface-overlay);
@@ -164,21 +180,40 @@
   right: 0;
   text-align: start;
   top: calc(100% + var(--pb-space-2));
-  width: 22rem;
+  width: 26rem;
   z-index: var(--pb-z-tooltip);
 }
 .sode-statusinfo--start {
   left: 0;
   right: auto;
 }
-.sode-statusinfo[hidden] {
+.sode-statusinfo[hidden],
+.sode-statusinfo [hidden] {
   display: none;
 }
-/* The status and a positioned header make stacking contexts, so both lift while open to put the details over banners
+/* The status and a positioned header make stacking contexts, so both lift while open to put the list over banners
    (the Not saved banner has the header's z-index and comes later). */
 .sode__conn:has(> .sode-statusinfo:not([hidden])),
 :has(> .sode__conn > .sode-statusinfo:not([hidden])) {
   z-index: var(--pb-z-tooltip);
+}
+/* The phone header places the router list. */
+.sode-m__head {
+  position: relative;
+}
+/* The phone header: the list is as wide as the screen, under the header. The Lost link banner can make the phone view
+   wider than the screen, so the width also has a limit. */
+.sode-m__head > .sode-statusinfo {
+  left: var(--pb-space-3);
+  max-width: calc(100vw - 2 * var(--pb-space-3));
+  right: var(--pb-space-3);
+  top: 100%;
+  width: auto;
+}
+/* The phone's Lost link banner is a flex item under the header with its own z-index (base.css), so the open list goes
+   over it. */
+.sode-m__head:has(> .sode-statusinfo:not([hidden])) {
+  z-index: calc(var(--pb-z-toast) + 3);
 }
 .sode-statusinfo__rows {
   display: grid;
@@ -199,13 +234,75 @@
   font-family: var(--pb-font-num);
 }
 .sode-statusinfo__strip {
-  border-top: var(--pb-border-w) solid var(--pb-border);
   display: grid;
   gap: var(--pb-space-2);
-  padding-top: var(--pb-space-4);
 }
 .sode-statusinfo__sum {
   color: var(--pb-text-muted);
+}
+/* A fixed height with its own big scroll bar (bigscroll.js SCROLLERS), so 24 routers never make the list taller. */
+.sode-routerlist {
+  border-top: var(--pb-border-w) solid var(--pb-border);
+  list-style: none;
+  margin: 0;
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
+  padding: 0;
+}
+.sode-routerlist__item {
+  border-bottom: var(--pb-border-w) solid var(--pb-border);
+}
+.sode-routerlist__head {
+  align-items: baseline;
+  background: none;
+  border: 0;
+  color: var(--pb-text-strong);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: var(--pb-space-4);
+  min-height: var(--sode-h-compact);
+  padding: var(--pb-space-2);
+  text-align: start;
+  width: 100%;
+}
+.sode-routerlist__head:hover {
+  background: var(--pb-overlay-hover);
+}
+.sode-routerlist__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* Connected is plain text (dark cockpit); red is a lost link only, amber a link that connects. */
+.sode-routerlist__state {
+  flex: none;
+}
+.sode-routerlist__state[data-state="error"] {
+  color: var(--pb-status-error);
+}
+.sode-routerlist__state[data-state="warn"] {
+  color: var(--pb-status-warn);
+}
+.sode-routerlist__state[data-state="idle"] {
+  color: var(--pb-status-idle);
+}
+.sode-routerlist__body {
+  display: grid;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-2) var(--pb-space-2) var(--pb-space-4);
+}
+.sode-routerlist__note {
+  margin: 0;
+}
+.sode-routerlist__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-routerlist__none {
+  color: var(--pb-text-muted);
+  margin: 0;
 }
 /* The header's left edge is the page content's (.sode-panels and .sode-log: 100rem at most, padded by space-8).
    Keep in step with them; Home sets its own width (desktop.css). A Grid panel's Live Editor runs edge to edge, and its

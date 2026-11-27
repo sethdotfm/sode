@@ -33,7 +33,7 @@ func (t *PanelTies) reserving() bool { return t != nil && t.Mode == panelTiesRes
 func linkKey(cfg config.Config, t config.TieLine) [2]string {
 	uid := func(r string) string {
 		if r == "" {
-			return cfg.UID
+			return cfg.DefaultRouter().UID
 		}
 		return r
 	}
@@ -202,11 +202,7 @@ func (a *App) panelTieRule(rt *runtime, cl *apiCtx, routes []tieRoute) (*panelTi
 // 10). reasons are the reasons of the first route with no usable path.
 func panelNoPath(rt *runtime, panel string, reasons []tieplan.Reason) string {
 	router := func(uid string) string {
-		rc := rt.routerOf(uid)
-		if rc.Title != "" {
-			return rc.Title
-		}
-		return "router " + rc.Prefix
+		return rt.cfg.RouterName(rt.routerOf(uid))
 	}
 	for _, why := range reasons {
 		switch why.Why {

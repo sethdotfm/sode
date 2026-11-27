@@ -41,7 +41,8 @@ func TestExportFormat1Fixture(t *testing.T) {
 		t.Errorf("manifest: %+v", m)
 	}
 	slices.Sort(b.Unknown)
-	if want := []string{"settings.confirm.confirmSound", "settings.weather", "users[0].shoeSize"}; !slices.Equal(b.Unknown, want) {
+	// A router of format 1 had its own statusLabel. An import no longer reads it: the status label is one setting.
+	if want := []string{"routers[0].statusLabel", "settings.confirm.confirmSound", "settings.weather", "users[0].shoeSize"}; !slices.Equal(b.Unknown, want) {
 		t.Errorf("unknown keys %v, want %v", b.Unknown, want)
 	}
 	if len(b.Users) != 2 || b.Users[0].Extra != nil || b.Users[0].Pin == "" || b.Users[0].Role != config.RoleAdministrator {

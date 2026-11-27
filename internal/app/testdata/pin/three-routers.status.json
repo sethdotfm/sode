@@ -1,0 +1,38 @@
+{
+  "routers": [
+    {
+      "address": "10.0.0.50:8910",
+      "err": "",
+      "error": false,
+      "prefix": "A",
+      "router": "up",
+      "routerUp": true,
+      "title": "Studio",
+      "uid": "a1a1a1a1a1a1a1a1"
+    },
+    {
+      "address": "10.0.0.9:8910",
+      "err": "",
+      "error": false,
+      "prefix": "B",
+      "router": "up",
+      "routerUp": true,
+      "title": "Second",
+      "uid": "b2b2b2b2b2b2b2b2"
+    },
+    {
+      "address": "10.0.0.10:8910",
+      "err": "",
+      "error": false,
+      "prefix": "C",
+      "router": "up",
+      "routerUp": true,
+      "title": "",
+      "uid": "c3c3c3c3c3c3c3c3"
+    }
+  ],
+  "server": "up",
+  "state": "healthy",
+  "uptimeSeconds": "*",
+  "version": "*"
+}

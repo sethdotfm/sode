@@ -20,26 +20,26 @@ func tieApp(t *testing.T, mut func(*config.Config)) (a *App, fa, fb *fakeRouter,
 	a, fa, key = takerApp(t, func(c *config.Config) {
 		r := moreRouter("B", "Second", "10.0.0.9:8910", 1)
 		r.UID = "b2b2b2b2"
-		c.MoreRouters = []config.Router{r}
-		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.UID, N: 10}, To: config.Ref{Router: r.UID, N: 5}}}
+		c.Routers = append(c.Routers[:1:1], []config.Router{r}...)
+		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.Routers[0].UID, N: 10}, To: config.Ref{Router: r.UID, N: 5}}}
 		if mut != nil {
 			mut(c)
 		}
 	})
 	var b *routerUnit
-	fb, b = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
-	a.onUnitState(a.first, swp08.StateUp, nil)
+	fb, b = addFakeUnit(t, a, a.r().cfg.Routers[1])
+	a.onUnitState(a.firstUnit(), swp08.StateUp, nil)
 	a.onUnitState(b, swp08.StateUp, nil)
 	wire := a.r().byUI[1].Wire
 	// TIE 3 carries A.3 on every level of A, so it is not mixed.
-	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+	for l := 1; l <= a.r().routerOf(a.r().cfg.Routers[0].UID).Levels; l++ {
 		fa.seed(10, 3, a.r().byUI[l].Wire)
 	}
 	fb.seed(20, 5, wire)
 	fb.seed(21, 5, wire)
 	fb.seed(2, 7, wire)
 	a.mu.Lock()
-	a.first.router.srcNames[4], a.first.router.dstNames[10] = "CAM 4", "TO B"
+	a.firstUnit().router.srcNames[4], a.firstUnit().router.dstNames[10] = "CAM 4", "TO B"
 	b.router.srcNames[5], b.router.dstNames[2], b.router.dstNames[20], b.router.dstNames[21] = "FROM A", "B MON 2", "B MON 20", "B MON 21"
 	a.mu.Unlock()
 	return a, fa, fb, key
@@ -63,7 +63,7 @@ func tieBody(t *testing.T, rec interface{ Bytes() []byte }) tieBodyIn {
 func TestAPITakeAcrossRoutersNeedsTieLine(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	sentA, sentB := fa.sends(), fb.sends()
-	rec := apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.UID, "b2b2b2b2", 4, 2), nil)
+	rec := apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.Routers[0].UID, "b2b2b2b2", 4, 2), nil)
 	wantErr(t, rec, http.StatusConflict, "tie_line_needed")
 	b := tieBody(t, rec.Body)
 	if len(b.Routes) != 1 || len(b.Routes[0].Paths) != 1 {
@@ -96,7 +96,7 @@ func TestAPITakeAcrossRoutersNeedsTieLine(t *testing.T) {
 // The hop weight is a setting.
 func TestAPITakeAcrossRoutersHopWeight(t *testing.T) {
 	a, _, _, key := tieApp(t, func(c *config.Config) { c.TieHopWeight = 10 })
-	rec := apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.UID, "b2b2b2b2", 4, 2), nil)
+	rec := apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.Routers[0].UID, "b2b2b2b2", 4, 2), nil)
 	if b := tieBody(t, rec.Body); len(b.Routes) != 1 || b.Routes[0].Paths[0].Cost != 12 {
 		t.Errorf("%d %s", rec.Code, rec.Body)
 	}
@@ -105,7 +105,7 @@ func TestAPITakeAcrossRoutersHopWeight(t *testing.T) {
 // A router down on the only path, or no tie line at all, gives 409 no_path with each reason.
 func TestAPITakeAcrossRoutersNoPath(t *testing.T) {
 	a, _, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	fb.drop(errors.New("link lost"))
 	rec := apiPost(a, "/api/v1/takes", key, ends(uidA, "b2b2b2b2", 4, 2), nil)
 	wantErr(t, rec, http.StatusConflict, "no_path")
@@ -127,17 +127,17 @@ func TestAPITakeAcrossRoutersHidden(t *testing.T) {
 	a, _, _, key := tieApp(t, func(c *config.Config) {
 		// Rights name routers (a blank router becomes the first one), so the Dsts are on router B.
 		c.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden,
-			Sources: &[]config.Ref{{Router: c.UID, N: 4}},
+			Sources: &[]config.Ref{{Router: c.Routers[0].UID, N: 4}},
 			Dsts:    &[]config.Ref{{Router: "b2b2b2b2", N: 2}, {Router: "b2b2b2b2", N: 20}}}
 	})
 	a.tieChanges.set("t1", time.Now().Add(-time.Hour), false)
 	for _, code := range []string{"tie_line_needed", "no_path"} {
 		if code == "no_path" {
 			a.mu.Lock()
-			a.first.router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
+			a.firstUnit().router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
 			a.mu.Unlock()
 		}
-		rec := apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.UID, "b2b2b2b2", 4, 2), nil)
+		rec := apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.Routers[0].UID, "b2b2b2b2", 4, 2), nil)
 		wantErr(t, rec, http.StatusConflict, code)
 		b := tieBody(t, rec.Body)
 		p := b.Routes[0].Paths[0]
@@ -162,12 +162,12 @@ func TestAPITakeAcrossRoutersHidden(t *testing.T) {
 		}
 	}
 	a.mu.Lock()
-	delete(a.first.router.protect, 10)
+	delete(a.firstUnit().router.protect, 10)
 	a.mu.Unlock()
 	// tie_line_changed hides the same ends. The origin that the 409 body gives still goes back as expect.
 	take := func(src int) string {
 		return fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"ties":[{"id":"t1","expect":{"router":%q,"n":%d}}]}]}`,
-			a.r().cfg.UID, a.r().cfg.UID, src)
+			a.r().cfg.Routers[0].UID, a.r().cfg.Routers[0].UID, src)
 	}
 	rec := apiPost(a, "/api/v1/takes", key, take(9), nil)
 	wantErr(t, rec, http.StatusConflict, "tie_line_changed")
@@ -190,16 +190,16 @@ func TestAPITakeAcrossRoutersTypedLevels(t *testing.T) {
 		c.APIClients[0].Rights = config.Rights{Levels: config.RouterLevels{"b2b2b2b2": {1}}}
 	})
 	all := `[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]`
-	body := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":%s}]}`, a.r().cfg.UID, all)
+	body := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":%s}]}`, a.r().cfg.Routers[0].UID, all)
 	if rec := apiPost(a, "/api/v1/takes", key, body, nil); rec.Code != http.StatusConflict || apiErrCode(t, rec) != "tie_line_needed" {
 		t.Fatalf("levels 1-17 to B: %d %s", rec.Code, rec.Body.String())
 	}
 	// A Rights limit on B names B's level, in B's numbering.
 	a, _, _, key = tieApp(t, func(c *config.Config) {
-		c.MoreRouters[0].Levels, c.MoreRouters[0].LevelNumbering = 3, "0"
+		c.Routers[1].Levels, c.Routers[1].LevelNumbering = 3, "0"
 		c.APIClients[0].Rights = config.Rights{Levels: config.RouterLevels{"b2b2b2b2": {1}}}
 	})
-	body = fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1,2]}]}`, a.r().cfg.UID)
+	body = fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1,2]}]}`, a.r().cfg.Routers[0].UID)
 	rec := apiPost(a, "/api/v1/takes", key, body, nil)
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "level 1 is outside") {
 		t.Fatalf("level 2 of B: %d %s", rec.Code, rec.Body.String())
@@ -210,5 +210,36 @@ func TestAPITakeAcrossRoutersOutsideRights(t *testing.T) {
 	a, _, _, key := tieApp(t, func(c *config.Config) {
 		c.APIClients[0].Rights = config.Rights{Dsts: nums(3)}
 	})
-	wantErr(t, apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.UID, "b2b2b2b2", 4, 2), nil), http.StatusForbidden, "outside_rights")
+	wantErr(t, apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.Routers[0].UID, "b2b2b2b2", 4, 2), nil), http.StatusForbidden, "outside_rights")
+}
+
+// through keeps the paths whose first tie lines it names. Thus a plan of a later hop holds the paths through the
+// hops that the caller chose before. A route with ties, or on one router, refuses it.
+func TestAPITakeAcrossRoutersThrough(t *testing.T) {
+	a, _, _, key := tieApp(t, func(c *config.Config) {
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: c.Routers[0].UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}})
+	})
+	uidA := a.r().cfg.Routers[0].UID
+	route := func(extra string) string {
+		return fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1]%s}]}`, uidA, extra)
+	}
+	ids := func(b tieBodyIn) []string {
+		var out []string
+		for _, p := range b.Routes[0].Paths {
+			out = append(out, p.Hops[0].Tie.ID)
+		}
+		return out
+	}
+	if got := ids(tieBody(t, apiPost(a, "/api/v1/takes", key, route(""), nil).Body)); len(got) != 2 {
+		t.Fatalf("paths with no through: %v", got)
+	}
+	rec := apiPost(a, "/api/v1/takes", key, route(`,"through":["t2"]`), nil)
+	wantErr(t, rec, http.StatusConflict, "tie_line_needed")
+	if got := ids(tieBody(t, rec.Body)); len(got) != 1 || got[0] != "t2" {
+		t.Errorf("paths through t2: %v", got)
+	}
+	wantErr(t, apiPost(a, "/api/v1/takes", key, route(`,"through":["nope"]`), nil), http.StatusConflict, "no_path")
+	wantErr(t, apiPost(a, "/api/v1/takes", key, route(`,"through":["t1"],"ties":[{"id":"t1","expect":null}]`), nil), http.StatusBadRequest, "bad_request")
+	same := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":%q,"n":2},"levels":[1],"through":["t1"]}]}`, uidA, uidA)
+	wantErr(t, apiPost(a, "/api/v1/takes", key, same, nil), http.StatusBadRequest, "bad_request")
 }

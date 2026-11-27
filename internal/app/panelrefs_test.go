@@ -21,7 +21,7 @@ func cellsOf(t *testing.T, body map[string]any) []map[string]any {
 
 func TestPanelCellsStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 	a, f, bot := takerApp(t, nil)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	pid := a.r().cfg.Presets[0].ID
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Refs","cells":`+refCells+`}`)
@@ -80,7 +80,7 @@ func TestPanelCellsStoreRouterReferencesAndFireSameRoutes(t *testing.T) {
 
 func TestTemplateCellsStoreRouterReferences(t *testing.T) {
 	a := panelsApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	pid := a.r().cfg.Presets[0].ID
 	ana := userKey(t, a, "Ana")
 

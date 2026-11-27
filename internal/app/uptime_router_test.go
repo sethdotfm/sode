@@ -12,10 +12,10 @@ import (
 func uptimeRouters(t *testing.T) (*App, *routerUnit) {
 	t.Helper()
 	a := newTestApp(t, func(c *config.Config) {
-		c.MoreRouters = []config.Router{moreRouter("B", "Truck", "10.0.0.9:8910", 3)}
+		c.Routers = append(c.Routers[:1:1], []config.Router{moreRouter("B", "Truck", "10.0.0.9:8910", 3)}...)
 	})
-	_, b := addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
-	a.first.up.State(true)
+	_, b := addFakeUnit(t, a, a.r().cfg.Routers[1])
+	a.firstUnit().up.State(true)
 	b.up.State(true)
 	b.up.State(false)
 	b.up.Note(Sent{Result: "nak", Tries: 3})
@@ -31,7 +31,7 @@ func TestUptimeReplyPerRouter(t *testing.T) {
 		}
 		return m.Trans[len(m.Trans)-1].S
 	}
-	if m := a.uptimeReply(1, "", 0, 0, 60_000); m.Router != a.first.uid() || last(m) != "up" {
+	if m := a.uptimeReply(1, "", 0, 0, 60_000); m.Router != a.firstUnit().uid() || last(m) != "up" {
 		t.Fatalf("first router: %+v", m)
 	}
 	if m := a.uptimeReply(2, b.uid(), 0, 0, 60_000); m.Router != b.uid() || m.ID != 2 || last(m) != "down" || len(m.Counts) != 1 {
@@ -71,7 +71,7 @@ func TestLogDownloadUptimePerRouter(t *testing.T) {
 		}
 		order = append(order, s.Router+":"+s.S)
 	}
-	if want := a.first.uid() + ":up " + b.uid() + ":down"; strings.Join(order, " ") != want {
+	if want := a.firstUnit().uid() + ":up " + b.uid() + ":down"; strings.Join(order, " ") != want {
 		t.Fatalf("states %v, want %s", order, want)
 	}
 	if len(got.Minutes) != 1 || got.Minutes[0].Router != b.uid() || got.Minutes[0].Bad != 1 {

@@ -70,7 +70,7 @@ func wait[T any](t *testing.T, what string, ch <-chan T) T {
 
 // seedAll routes src to dst on every level of the first router.
 func seedAll(a *App, f *fakeRouter, dst, src int) {
-	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+	for l := 1; l <= a.r().routerOf(a.r().cfg.Routers[0].UID).Levels; l++ {
 		f.seed(dst, src, a.r().byUI[l].Wire)
 	}
 }
@@ -78,8 +78,8 @@ func seedAll(a *App, f *fakeRouter, dst, src int) {
 // The stale check compares every level of a tie line. A has two levels. A move on level 2 only is a change, and
 // a mixed tie line never matches one source. A caller that saw the mixed state sends one source for each level.
 func TestAPITieTakeComparesEveryLevel(t *testing.T) {
-	a, fa, fb, key := tieApp(t, func(c *config.Config) { c.Levels, c.DefaultLevels = 2, "1-2" })
-	uidA := a.r().cfg.UID
+	a, fa, fb, key := tieApp(t, func(c *config.Config) { c.Routers[0].Levels, c.Routers[0].DefaultLevels = 2, "1-2" })
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	fa.seed(10, 6, a.r().byUI[2].Wire) // level 2 moves to A.6; level 1 stays on A.3
 	b := tieChangedBody(t, apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}), nil))
@@ -109,7 +109,7 @@ func TestAPITieTakeComparesEveryLevel(t *testing.T) {
 // sent. The answer gives the tie line as it is now.
 func TestAPITieTakeRefusesMovedTieLine(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	for _, expect := range []string{`{"router":"` + uidA + `","n":6}`, `null`} {
 		body := strings.Replace(tieRoutes(uidA, [2]int{4, 2}), `{"router":"`+uidA+`","n":3}}`, expect+"}", 1)
@@ -140,7 +140,7 @@ func TestAPITieTakeRefusesMovedTieLine(t *testing.T) {
 // With affected, the path must have no Affected destination that the caller did not see. B.20 and B.21 show TIE 3.
 func TestAPITieTakeComparesAffected(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	withAffected := func(ns ...int) string {
 		var es []string
@@ -170,7 +170,7 @@ func TestAPITieTakeComparesAffected(t *testing.T) {
 func TestAPITieTakeWaitsForTieLock(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	fa.u.routeTimeout = 5 * time.Second
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	arrived, open := gateConnects(fa)
 	t.Cleanup(open)
@@ -195,7 +195,7 @@ func TestAPITieTakeWaitsForTieLock(t *testing.T) {
 func TestPlainTakeWaitsForTieLock(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	fa.u.routeTimeout = 5 * time.Second
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	arrived, open := gateConnects(fa)
 	t.Cleanup(open)
@@ -221,10 +221,10 @@ func TestPlainTakeWaitsForTieLock(t *testing.T) {
 // Two takes that name the same two tie lines in opposite orders never wait on each other: each locks in id order.
 func TestAPITieTakesDoNotDeadlock(t *testing.T) {
 	a, fa, _, key := tieApp(t, func(c *config.Config) {
-		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 9", From: config.Ref{Router: c.UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}})
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 9", From: config.Ref{Router: c.Routers[0].UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}})
 	})
 	fa.u.routeTimeout = 5 * time.Second
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	seedAll(a, fa, 11, 3)
 	route := func(tie string, dst int) string {
 		return fmt.Sprintf(`{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":%d},"levels":[1],"ties":[{"id":%q,"expect":{"router":%q,"n":3}}]}`, uidA, dst, tie, uidA)
@@ -250,11 +250,11 @@ func TestAPITieTakesDoNotDeadlock(t *testing.T) {
 // Many takes at one time on the tie lines and their upstream destinations all end. Run it with -race.
 func TestTieLocksUnderLoad(t *testing.T) {
 	a, fa, _, key := tieApp(t, func(c *config.Config) {
-		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 9", From: config.Ref{Router: c.UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}})
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 9", From: config.Ref{Router: c.Routers[0].UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}})
 	})
 	fa.hold = 2 * time.Millisecond
 	fa.u.routeTimeout = 2 * time.Second
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	var wg sync.WaitGroup
 	for i := range 6 {
 		wg.Add(2)

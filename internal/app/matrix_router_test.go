@@ -17,11 +17,11 @@ func matrixTwoRouters(t *testing.T) (a *App, first, second *fakeRouter, u *route
 	cfg := a.r().cfg.Clone()
 	b := moreRouter("B", "Second", "10.0.0.9:8910", 3)
 	b.Matrix, b.NameLength, b.NameRequests, b.FireMode, b.SalvoGroup, b.ProtectDevice = 1, 16, "ext", "native", 9, 127
-	cfg.MoreRouters = []config.Router{b}
+	cfg.Routers = append(cfg.Routers[:1:1], []config.Router{b}...)
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	second, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	second, u = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	var mu sync.Mutex
 	var got []swp08.Request
 	inner := u.sendMsg

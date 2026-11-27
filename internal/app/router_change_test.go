@@ -10,8 +10,8 @@ import (
 
 func changeRouter(t *testing.T, a *App) {
 	t.Helper()
-	cfg := a.r().cfg
-	cfg.Address = "127.0.0.1:1"
+	cfg := a.r().cfg.Clone()
+	cfg.Routers[0].Address = "127.0.0.1:1"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -58,13 +58,13 @@ func TestRouterChangeCutsTake(t *testing.T) {
 	done := runTake(a, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2}})
 	waitFor(t, "the take to register", func() bool {
 		a.mu.Lock()
-		registered := len(a.first.waiters) == 1
+		registered := len(a.firstUnit().waiters) == 1
 		a.mu.Unlock()
 		return registered && f.cmds(swp08.CmdExtConnect) >= 2 // both connects are out, not only the reads
 	})
 	sent := f.sends()
 	changeRouter(t, a)
-	waitDone(t, done, a.first.routeTimeout/2)
+	waitDone(t, done, a.firstUnit().routeTimeout/2)
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].OK || !strings.Contains(es[0].Err, "level 1 no answer before the router changed") ||
 		!strings.Contains(es[0].Err, "level 2 no answer before the router changed") || !equalInts(es[0].Failed, []int{1, 2}) {
@@ -74,11 +74,11 @@ func TestRouterChangeCutsTake(t *testing.T) {
 		t.Fatalf("%d messages sent after the router changed", n-sent)
 	}
 	a.mu.Lock()
-	if len(a.first.waiters) != 0 || len(a.first.ext.own) != 0 || len(a.first.ext.late) != 0 || len(a.first.ext.lateRoute) != 0 || len(a.first.ext.causes) != 0 {
-		t.Fatalf("take left state in the new tracker: %d waiters, %+v", len(a.first.waiters), a.first.ext)
+	if len(a.firstUnit().waiters) != 0 || len(a.firstUnit().ext.own) != 0 || len(a.firstUnit().ext.late) != 0 || len(a.firstUnit().ext.lateRoute) != 0 || len(a.firstUnit().ext.causes) != 0 {
+		t.Fatalf("take left state in the new tracker: %d waiters, %+v", len(a.firstUnit().waiters), a.firstUnit().ext)
 	}
 	a.mu.Unlock()
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
 	es, _ = a.hist.Page(-1, 2)
 	if len(es) != 2 || !es[0].Ext || es[0].Src != 7 {
@@ -95,10 +95,10 @@ func TestRouterChangeDuringCheck(t *testing.T) {
 	waitFor(t, "the check to start", func() bool {
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		return len(a.first.checks) == 1
+		return len(a.firstUnit().checks) == 1
 	})
 	changeRouter(t, a)
-	waitDone(t, done, a.first.checkTimeout/2)
+	waitDone(t, done, a.firstUnit().checkTimeout/2)
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].OK || !strings.HasPrefix(es[0].Err, "levels 1, 2, 3 not sent: the router changed") || !equalInts(es[0].Failed, []int{1, 2, 3}) {
 		t.Fatalf("take %+v", es)
@@ -108,8 +108,8 @@ func TestRouterChangeDuringCheck(t *testing.T) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.first.waiters) != 0 || len(a.first.checks) != 0 || len(a.first.ext.own) != 0 || len(a.first.ext.causes) != 0 {
-		t.Fatalf("take left state in the new tracker: %+v", a.first.ext)
+	if len(a.firstUnit().waiters) != 0 || len(a.firstUnit().checks) != 0 || len(a.firstUnit().ext.own) != 0 || len(a.firstUnit().ext.causes) != 0 {
+		t.Fatalf("take left state in the new tracker: %+v", a.firstUnit().ext)
 	}
 }
 
@@ -122,18 +122,18 @@ func TestRouterChangeClearsLate(t *testing.T) {
 	f.ignore[5] = true
 	routeOne(t, a, 7, 5, 1)
 	a.mu.Lock()
-	if len(a.first.ext.late) != 1 {
-		t.Fatalf("late %v", a.first.ext.late)
+	if len(a.firstUnit().ext.late) != 1 {
+		t.Fatalf("late %v", a.firstUnit().ext.late)
 	}
 	a.mu.Unlock()
 	changeRouter(t, a)
 	a.mu.Lock()
-	if len(a.first.ext.late) != 0 || len(a.first.ext.lateRoute) != 0 {
-		t.Fatalf("late kept: %v %v", a.first.ext.late, a.first.ext.lateRoute)
+	if len(a.firstUnit().ext.late) != 0 || len(a.firstUnit().ext.lateRoute) != 0 {
+		t.Fatalf("late kept: %v %v", a.firstUnit().ext.late, a.firstUnit().ext.lateRoute)
 	}
 	a.mu.Unlock()
-	a.onUnitMsg(a.first, swp08.ExtTally(0, 0, 5, 3)) // the new router's cache learns dst 5
-	a.onUnitMsg(a.first, swp08.ExtTally(0, 0, 5, 7)) // then it reports the old take's route unannounced
+	a.onUnitMsg(a.firstUnit(), swp08.ExtTally(0, 0, 5, 3)) // the new router's cache learns dst 5
+	a.onUnitMsg(a.firstUnit(), swp08.ExtTally(0, 0, 5, 7)) // then it reports the old take's route unannounced
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 2)
 	if len(es) != 2 || !es[0].Ext || es[0].Src != 7 || es[1].Ext || es[1].OK {

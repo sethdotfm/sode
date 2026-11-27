@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -15,16 +16,16 @@ func protectTwoRouters(t *testing.T) (a *App, first, second *fakeRouter, u *rout
 	cfg := a.r().cfg.Clone()
 	b := moreRouter("B", "Second", "10.0.0.9:8910", 3)
 	b.ProtectDevice = 127
-	cfg.MoreRouters = []config.Router{b}
+	cfg.Routers = append(cfg.Routers[:1:1], []config.Router{b}...)
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	second, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	second, u = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	a.mu.Lock()
-	a.first.status.Router = string(swp08.StateUp)
+	a.firstUnit().status.Router = string(swp08.StateUp)
 	u.status.Router = string(swp08.StateUp)
 	for d := 0; d < 8; d++ {
-		a.first.router.dstNames[d] = "A MON " + string(rune('0'+d))
+		a.firstUnit().router.dstNames[d] = "A MON " + string(rune('0'+d))
 		u.router.dstNames[d] = "B MON " + string(rune('0'+d))
 	}
 	a.mu.Unlock()
@@ -48,7 +49,7 @@ func TestProtectUsesItsRouter(t *testing.T) {
 		t.Fatalf("holds on B %+v", hs)
 	}
 	onA := protEntry(t, a.protectSet(ana, 4, nil))
-	if !onA.OK || onA.Router != a.r().cfg.UID || onA.DstName != "A MON 4" {
+	if !onA.OK || onA.Router != a.r().cfg.Routers[0].UID || onA.DstName != "A MON 4" {
 		t.Fatalf("entry on A %+v", onA)
 	}
 	if hs := first.holdsOn(4); len(hs) != 3 || hs[0].dev != 126 {
@@ -63,7 +64,7 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	if rec := byRouter[u.uid()]; rec.Dst != 4 || rec.Device != 127 || len(rec.Levels) != 3 || rec.By != "Ana" {
 		t.Fatalf("record of B %+v", rec)
 	}
-	if rec := byRouter[a.r().cfg.UID]; rec.Dst != 4 || rec.Device != 126 {
+	if rec := byRouter[a.r().cfg.Routers[0].UID]; rec.Dst != 4 || rec.Device != 126 {
 		t.Fatalf("record of A %+v", rec)
 	}
 	loaded := loadProtects(a.cfgPath)
@@ -72,7 +73,7 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	}
 
 	// Sode's own Protects are not Externals on either router.
-	for _, x := range []*routerUnit{a.first, u} {
+	for _, x := range []*routerUnit{a.firstUnit(), u} {
 		a.mu.Lock()
 		x.router.protAt = [2]time.Time{time.Now().Add(-time.Minute), time.Now().Add(-time.Second)}
 		a.mu.Unlock()
@@ -92,7 +93,7 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	if _, ok := a.protects.get(u.uid(), 4); ok {
 		t.Error("the record of B stays")
 	}
-	if _, ok := a.protects.get(a.r().cfg.UID, 4); !ok {
+	if _, ok := a.protects.get(a.r().cfg.Routers[0].UID, 4); !ok {
 		t.Error("the record of A went")
 	}
 
@@ -121,7 +122,7 @@ func TestClearSodeProtectsOnEveryRouter(t *testing.T) {
 	ana := signedClient(t, a, "Ana", "1234")
 	protEntry(t, a.protectSet(ana, 1, nil))
 	protEntry(t, a.protectMany(ana, []protectDst{{Dst: 2, Router: u.uid()}}, true, nil)[0])
-	if n, still, err := a.clearSodeProtects(adminClient(t, a)); n != 2 || still != nil || err != nil {
+	if n, still, _, err := a.clearSodeProtects(adminClient(t, a), nil); n != 2 || still != nil || err != nil {
 		t.Fatalf("cleared %d, still %v, err %v", n, still, err)
 	}
 	if len(first.holdsOn(1)) != 0 || len(second.holdsOn(2)) != 0 {
@@ -138,11 +139,55 @@ func TestClearSodeProtectsOnEveryRouter(t *testing.T) {
 	a.mu.Lock()
 	u.status.Router = string(swp08.StateDown)
 	a.mu.Unlock()
-	if n, _, err := a.clearSodeProtects(adminClient(t, a)); n != 1 || err != nil {
+	n, _, per, err := a.clearSodeProtects(adminClient(t, a), nil)
+	if n != 1 || err != nil {
 		t.Fatalf("cleared %d, err %v", n, err)
 	}
 	if len(second.holdsOn(2)) != 3 {
 		t.Fatalf("B holds %v", second.holdsOn(2))
+	}
+	want := []protectClearRouter{{Router: a.firstUnit().uid(), Cleared: 1}, {Router: u.uid(), Err: "the router is down"}}
+	if !slices.Equal(per, want) {
+		t.Fatalf("per router %+v, want %+v", per, want)
+	}
+}
+
+// The hello gives a router that is not up the time its link went down, the age of its Protect rows. An up router has
+// none.
+func TestHelloGivesProtectAtOfALostRouter(t *testing.T) {
+	a, _, _, u := protectTwoRouters(t)
+	before := time.Now()
+	a.onUnitState(u, swp08.StateDown, nil)
+	a.mu.Lock()
+	rs := a.helloRouters(a.r())
+	a.mu.Unlock()
+	if !rs[0].ProtectAt.IsZero() {
+		t.Fatalf("the up router has protectAt %v", rs[0].ProtectAt)
+	}
+	if rs[1].ProtectAt.Before(before) {
+		t.Fatalf("the lost router has protectAt %v, want after %v", rs[1].ProtectAt, before)
+	}
+}
+
+// Free Sode's Protects with routers acts only on those routers, and names one it does not know.
+func TestClearSodeProtectsOnPickedRouters(t *testing.T) {
+	a, first, second, u := protectTwoRouters(t)
+	ana := signedClient(t, a, "Ana", "1234")
+	protEntry(t, a.protectSet(ana, 1, nil))
+	protEntry(t, a.protectMany(ana, []protectDst{{Dst: 2, Router: u.uid()}}, true, nil)[0])
+	n, _, per, err := a.clearSodeProtects(adminClient(t, a), []string{u.uid(), "nope"})
+	if n != 1 || err != nil {
+		t.Fatalf("cleared %d, err %v", n, err)
+	}
+	if len(first.holdsOn(1)) != 3 || len(second.holdsOn(2)) != 0 {
+		t.Fatalf("A holds %v, B holds %v", first.holdsOn(1), second.holdsOn(2))
+	}
+	want := []protectClearRouter{{Router: u.uid(), Cleared: 1}, {Router: "nope", Err: "no such router"}}
+	if !slices.Equal(per, want) {
+		t.Fatalf("per router %+v, want %+v", per, want)
+	}
+	if _, _, _, err := a.clearSodeProtects(adminClient(t, a), []string{"nope"}); err == nil {
+		t.Fatal("no router to act on, and no error")
 	}
 }
 
@@ -151,7 +196,7 @@ func TestProtExtUsesItsRouter(t *testing.T) {
 	a, _, _, u := protectTwoRouters(t)
 	wire := a.r().byUI[1].Wire
 	a.onUnitMsg(u, swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, wire, 1, 3, 112))
-	for _, x := range []*routerUnit{a.first, u} {
+	for _, x := range []*routerUnit{a.firstUnit(), u} {
 		a.mu.Lock()
 		x.router.protAt = [2]time.Time{time.Now().Add(-time.Minute), time.Now().Add(-time.Second)}
 		a.mu.Unlock()
@@ -168,17 +213,17 @@ func TestProtExtUsesItsRouter(t *testing.T) {
 func TestExtUsesItsRouter(t *testing.T) {
 	a, _, _, u := secondRouter(t)
 	for _, d := range []int{5, 9} {
-		a.onUnitMsg(a.first, swp08.ExtTally(0, 0, d, 1))
+		a.onUnitMsg(a.firstUnit(), swp08.ExtTally(0, 0, d, 1))
 		a.onUnitMsg(u, swp08.ExtTally(0, 0, d, 1))
 	}
 	a.mu.Lock()
 	u.router.dstNames[9] = "B MON 9"
 	now := time.Now()
-	a.first.ext.causes = append(a.first.ext.causes, &cause{src: 7, dst: 5, first: now, last: now, id: 42, done: true})
+	a.firstUnit().ext.causes = append(a.firstUnit().ext.causes, &cause{src: 7, dst: 5, first: now, last: now, id: 42, done: true})
 	a.mu.Unlock()
 	a.onUnitMsg(u, swp08.ExtConnected(0, 0, 9, 7))
 	a.mu.Lock()
-	pendA := len(a.first.ext.pending)
+	pendA := len(a.firstUnit().ext.pending)
 	u.ext.last = time.Now().Add(-time.Second)
 	a.mu.Unlock()
 	if pendA != 0 {
@@ -191,10 +236,10 @@ func TestExtUsesItsRouter(t *testing.T) {
 	}
 
 	// The same change on the first router follows the take.
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 9, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 9, 7))
 	endBurst(a)
 	es, _ = a.hist.Page(-1, 1)
-	if len(es) != 1 || es[0].Router != a.r().cfg.UID || es[0].Follow == nil || *es[0].Follow != 42 {
+	if len(es) != 1 || es[0].Router != a.r().cfg.Routers[0].UID || es[0].Follow == nil || *es[0].Follow != 42 {
 		t.Fatalf("entry on A %+v", es)
 	}
 }

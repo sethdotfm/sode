@@ -72,6 +72,7 @@ type setupReq struct {
 	BrandBorder    string `json:"brandBorder"`
 	Name           string `json:"name"`
 	Pin            string `json:"pin"`
+	Title          string `json:"title"` // the Router title
 	Router         string `json:"router"`
 	Levels         int    `json:"levels"`
 	LevelNumbering string `json:"levelNumbering"`
@@ -81,10 +82,12 @@ type setupReq struct {
 	Preset         string `json:"preset"`
 }
 
-// setupKeys: the one Save keys Finish writes, for the Settings saves row.
-var setupKeys = []string{"brandText", "brandBorder", "router", "levels", "levelNumbering", "numberOffset",
-	"fireMode", "salvoGroup", "locks", "autoLockMinutes", "guestRole", "pinWaits", "publicPanels",
+// setupKeys: the one Save keys Finish writes, for the Settings saves row. setupRouterAttrs are the default router's
+// (router/<uid>/<attribute>).
+var setupKeys = []string{"brandText", "brandBorder", "locks", "autoLockMinutes", "guestRole", "pinWaits", "publicPanels",
 	"api", "guestApiScopes", "newPanelActs", "newUserDefaults"}
+
+var setupRouterAttrs = []string{"title", "address", "levels", "levelNumbering", "numberOffset", "fireMode", "salvoGroup"}
 
 // setupHold: the one browser that runs setup. addr is the address before its Router step moved
 // the link. Sode puts it back when that browser closes or loses control, since its answers go.
@@ -113,7 +116,7 @@ func (a *App) setupDropLocked() {
 	addr := a.setup.addr
 	a.setup.moved = false
 	if err := a.applyConfigWith(func(cfg *config.Config) error {
-		cfg.Address = addr
+		cfg.EditDefaultRouter().Address = addr
 		return nil
 	}, false); err != nil {
 		log.Printf("setup: put back the router address: %v", err)
@@ -178,9 +181,9 @@ func (a *App) setupRouter(c *client, addr string) error {
 	if addr == "" {
 		return errors.New("enter the router's address")
 	}
-	was := a.r().cfg.Address
+	was := a.r().cfg.DefaultRouter().Address
 	err := a.applyConfigWith(func(c *config.Config) error {
-		c.Address = addr
+		c.EditDefaultRouter().Address = addr
 		return nil
 	}, false)
 	if err == nil && !a.setup.moved {
@@ -223,12 +226,14 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	u := config.User{ID: config.NewUserID(), Name: name, Role: config.RoleAdministrator, Pin: hash, Len: len(s.Pin)}
 	err = a.applyConfig(func(cfg *config.Config) error {
 		cfg.BrandText, cfg.BrandBorder = s.BrandText, s.BrandBorder
-		cfg.Address = strings.TrimSpace(s.Router)
-		if cfg.Levels != s.Levels {
-			cfg.DefaultLevels = "" // Normalize fills it for the new count
+		// The wizard sets up the default router, the only one while setup is pending.
+		r := cfg.EditDefaultRouter()
+		r.Title, r.Address = strings.TrimSpace(s.Title), strings.TrimSpace(s.Router)
+		if r.Levels != s.Levels {
+			r.DefaultLevels = "" // blank: every level of the new count
 		}
-		cfg.Levels, cfg.LevelNumbering, cfg.NumberOffset = s.Levels, s.LevelNumbering, s.NumberOffset
-		cfg.FireMode, cfg.SalvoGroup = s.FireMode, s.SalvoGroup
+		r.Levels, r.LevelNumbering, r.NumberOffset = s.Levels, s.LevelNumbering, s.NumberOffset
+		r.FireMode, r.SalvoGroup = s.FireMode, s.SalvoGroup
 		preset.Apply(cfg)
 		u.Persistent, u.NoAutoLock = cfg.NewUserDefaults.Persistent, cfg.NewUserDefaults.NoAutoLock
 		cfg.Users = []config.User{u}
@@ -251,7 +256,7 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	a.mu.Unlock()
 	// flush writes no names table while setup is pending.
 	if len(src)+len(dst) > 0 {
-		a.names.save(after.UID, a.now(), src, dst)
+		a.names.save(after.DefaultRouter().UID, a.now(), src, dst)
 	}
 	log.Printf("setup: finished, %s is the first Administrator", name)
 	return signed, nil
@@ -259,9 +264,17 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 
 func (a *App) recordSetup(c *client, was, now config.Config, id string) {
 	var fields []SavedField
-	for _, key := range setupKeys {
+	keys := slices.Clone(setupKeys)
+	for _, at := range setupRouterAttrs {
+		keys = append(keys, "router/"+now.DefaultRouter().UID+"/"+at)
+	}
+	for _, key := range keys {
 		spec, _ := lookupField(key)
-		f := newSavedField(key, spec.section, fieldLabels[key])
+		label := fieldLabels[key]
+		if spec.item != "" {
+			label = itemLabel(key, was, now)
+		}
+		f := newSavedField(key, spec.section, label)
 		if spec.secret {
 			f.Changed = true
 		} else {

@@ -102,7 +102,7 @@ func TestAPIValidation(t *testing.T) {
 		"bad scope":          func(c *Config) { c.GuestAPIScopes = []string{"root"} },
 		"client no name":     func(c *Config) { c.APIClients = []APIClient{{}} },
 		"duplicate client":   func(c *Config) { c.APIClients = []APIClient{{Name: "A"}, {Name: "a"}} },
-		"level out of range": func(c *Config) { c.GuestRights.Levels = RouterLevels{c.UID: {99}} },
+		"level out of range": func(c *Config) { c.GuestRights.Levels = RouterLevels{c.Routers[0].UID: {99}} },
 		"negative source":    func(c *Config) { c.GuestRights.Sources = nums(-1) },
 		"rate limit":         func(c *Config) { c.API.RateLimit = -1 },
 		"take cap":           func(c *Config) { c.API.TakeCap = 0 },
@@ -110,7 +110,7 @@ func TestAPIValidation(t *testing.T) {
 	}
 	for name, mut := range cases {
 		c := Defaults()
-		c.Levels = 3
+		c.Routers[0].Levels = 3
 		mut(&c)
 		c.Normalize()
 		if err := c.Validate(); err == nil {

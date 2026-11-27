@@ -167,7 +167,7 @@ func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 	}
 
 	a.mu.Lock()
-	a.first.applyNames(&swp08.NameBlock{Dest: true, First: 4, Names: []string{"MON NEW"}})
+	a.firstUnit().applyNames(&swp08.NameBlock{Dest: true, First: 4, Names: []string{"MON NEW"}})
 	a.mu.Unlock()
 	code, named := ifNone(a, path, bot, tag)
 	if code != 200 || named == tag {
@@ -177,8 +177,8 @@ func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 		t.Fatal("the new name is not in the body")
 	}
 
-	cfg := a.r().cfg
-	cfg.NumberOffset = 1 - cfg.NumberOffset
+	cfg := a.r().cfg.Clone()
+	cfg.Routers[0].NumberOffset = 1 - cfg.Routers[0].NumberOffset
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -196,9 +196,9 @@ func TestNamesETagMovesWithNamesOffsetAndRouter(t *testing.T) {
 		t.Fatalf("a hidden caller got a destination outside its Rights: %s", body)
 	}
 
-	cfg = a.r().cfg
+	cfg = a.r().cfg.Clone()
 	cfg.APIClients[0].Rights = config.Rights{}
-	cfg.Address = "192.0.2.1:8910"
+	cfg.Routers[0].Address = "192.0.2.1:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestTallyETagMovesWithRouteLevelsAndRouter(t *testing.T) {
 
 	r := a.r()
 	a.mu.Lock()
-	a.applyUnitTally(a.first, r, swp08.Crosspoint{Matrix: r.cfg.Matrix, Level: r.levels[0].Wire, Dst: 4, Src: 9, Cmd: swp08.CmdExtConnected})
+	a.applyUnitTally(a.firstUnit(), r, swp08.Crosspoint{Matrix: r.cfg.Routers[0].Matrix, Level: r.levels[0].Wire, Dst: 4, Src: 9, Cmd: swp08.CmdExtConnected})
 	a.mu.Unlock()
 	code, routed := ifNone(a, path, bot, tag)
 	if code != 200 || routed == tag {
@@ -228,8 +228,8 @@ func TestTallyETagMovesWithRouteLevelsAndRouter(t *testing.T) {
 		t.Fatal("the new route is not in the body")
 	}
 
-	cfg := a.r().cfg
-	cfg.LevelNumbering = "0"
+	cfg := a.r().cfg.Clone()
+	cfg.Routers[0].LevelNumbering = "0"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -247,9 +247,9 @@ func TestTallyETagMovesWithRouteLevelsAndRouter(t *testing.T) {
 		t.Fatalf("a hidden caller got a destination outside its Rights: %s", body)
 	}
 
-	cfg = a.r().cfg
+	cfg = a.r().cfg.Clone()
 	cfg.APIClients[0].Rights = config.Rights{}
-	cfg.Address = "192.0.2.1:8910"
+	cfg.Routers[0].Address = "192.0.2.1:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -123,7 +123,7 @@ func runSim(t *testing.T, bin string, env []string) (addr string, stop func(), o
 func simApp(t *testing.T, router string, edit ...func(*config.Config)) *App {
 	t.Helper()
 	cfg := config.Defaults()
-	cfg.Address = router
+	cfg.Routers[0].Address = router
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234")}
 	for _, fn := range edit {
 		fn(&cfg)

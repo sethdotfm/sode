@@ -16,7 +16,7 @@ func TestV2ConfigLoadsUnchanged(t *testing.T) {
 	if err != nil || !exists {
 		t.Fatalf("load: exists=%v err=%v", exists, err)
 	}
-	if c.Format != Format || c.Address != "10.0.0.5:8910" || c.Levels != 4 || c.BrandText != "Studio" {
+	if c.Format != Format || c.Routers[0].Address != "10.0.0.5:8910" || c.Routers[0].Levels != 4 || c.BrandText != "Studio" {
 		t.Fatalf("got %+v", c)
 	}
 	if k := c.UnknownKeys(); len(k) != 0 {
@@ -85,7 +85,7 @@ func TestNewerFormatRefused(t *testing.T) {
 func TestSaveWritesFormat(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
 	c := Defaults()
-	c.Address = "10.0.0.5:8910"
+	c.Routers[0].Address = "10.0.0.5:8910"
 	c.Format = 0
 	if err := Save(p, c); err != nil {
 		t.Fatal(err)

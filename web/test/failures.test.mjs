@@ -5,7 +5,8 @@ import './domstub.mjs';
 
 test('failed takes: reasons, undo and changedSince', async () => {
   const { S, undoPlan, failureGroups, changedSince, routerData } = await import('./all.mjs');
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
@@ -75,7 +76,8 @@ test('failed takes: reasons, undo and changedSince', async () => {
 
 test('late confirms: note, putEntry, undo and changedSince', async () => {
   const { S, entryNote, putEntry, undoPlan, changedSince, routerData } = await import('./all.mjs');
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
@@ -163,7 +165,8 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
 
 test('histRows: followers of a confirm go in its folder', async () => {
   const { S, histRows, setFilter, entryNote, routerData } = await import('./all.mjs');
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([[1, {}]]);
   const t = (id, dst) => ({
     id,
@@ -223,7 +226,8 @@ test('histRows: followers of a confirm go in its folder', async () => {
 
 test('failure banner: grouped lines, shrinks as takes resolve', async () => {
   const { S, failureBanner, routerData } = await import('./all.mjs');
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([
     [1, { label: '1' }],
     [2, { label: '2' }],

@@ -42,7 +42,7 @@ Sode stores presets as numbers, so a rename on the router changes nothing. A num
 
 The Bookmarks strip above History holds your bookmarks: presets, pages, filter sets, settings or web addresses. Alt+1 to 9 open the first nine. Ctrl+g (⌘g on a Mac, **Show all** on the strip) opens a popup that lists all presets with a search box. Arrows or Ctrl+j/k move, Enter fires through the usual confirm, and Esc closes. In keyboard mode, `p` jumps to the bookmarks.
 
-Because a preset is one confirm of several routes, Sode sends it the way the **Multi destination** setting says, under Settings > Routers > Takes. See `SODE_FIRE_MODE` in the settings table below.
+A preset is one confirm of several routes. So Sode sends it the way the **Multi destination** setting of the router says (Settings > Routers, the Takes group). See `SODE_FIRE_MODE` in the settings table below.
 
 ### Last take and next
 
@@ -96,9 +96,9 @@ routers:
     prefix: A
     title: Studio Ultrix
     address: 10.0.0.50:8910
-    statusLabel: address
     matrix: 0
     levels: 17
+statusLabel: address
 ```
 
 
@@ -108,13 +108,13 @@ routers:
 | `SODE_MATRIX` | `matrix` (router) | `0` | SW-P-08 matrix (0-15 with standard name requests) |
 | `SODE_LEVEL_COUNT` | `levels` (router) | `17` | Number of levels. Level 1 gets the video swatch, the rest audio |
 | `SODE_LEVEL_WIRE_OFFSET` | `levelOffset` (router) | `-1` | The router's level number = level + offset. `-1` puts level 1 on the router's level 0 |
-| `SODE_DEFAULT_LEVELS` | `defaultLevels` (router) | `1-<levels>` | Used when the levels box is blank. Always 1-based in the file |
+| `SODE_DEFAULT_LEVELS` | `defaultLevels` (router) | blank (every level) | Used when the levels box is blank. Always 1-based in the file. Blank stays blank, so it stays every level when the level count changes |
 | `SODE_LEVEL_NUMBERING` | `levelNumbering` (router) | `1` | How levels are shown and typed: `1` (1-17), `0` (0-16) or `va` (V, 1-16) |
 | `SODE_NAME_LEN` | `nameLength` (router) | `12` | Name length to request: 4, 8, 12 or 16 |
 | `SODE_NAMES` | `nameRequests` (router) | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
 | `SODE_FIRE_MODE` | `fireMode` (router) | `sequential` | How Sode sends a confirm of several takes: `sequential` (one connect after another, about 16 ms per crosspoint on the Ultrix) or `native` (the router's own salvos: a SW-P-08 group send, cmd 120/248 and 121, which needs a router that supports them; verified on the Ross Ultrix). Measured on the Ultrix on 2026-11-02, a group Go announces its crosspoints about 4 ms apart (51 in about 210 ms), against about 16 ms each for ordinary connects (51 in about 840 ms). Whether the switch itself is simultaneous is unproven. Level 17 and numbers past 1023 are staged with the extended stage command (248) in the same group send. If the router does not acknowledge it, Sode clears the router's own salvo group and sends the takes one after another as before |
 | `SODE_SALVO_GROUP` | `salvoGroup` (router) | `127` | The router's salvo group (0-127) that native salvos use. Every controller shares the router's staged list, so pick a group nothing else uses |
-| (none) | `protectDevice` (router) | `0` | Sode's device number for Protects (0 turns them off, at most 4095). Settings > Routers > Protects. Panel IDs and device numbers are one number space, and the router does not check who sends a number. So pick a number no panel uses (ADR 0012) |
+| (none) | `protectDevice` (router) | `0` | Sode's device number for Protects (0 turns them off, at most 4095). The Protects group of each router in Settings > Routers. Panel IDs and device numbers are one number space, and the router does not check who sends a number. So pick a number no panel uses (ADR 0012) |
 | `SODE_NUM_OFFSET` | `numberOffset` (router) | `1` | Added to router numbers for display (Ultrix shows 1-based) |
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | How long the confirm key is ignored after the dialog opens |
 | `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 keeps it open). Failures always stay until closed |
@@ -131,7 +131,8 @@ Settings-only keys (no seed var):
 - `brandText`: replaces "Sode" in the header and page title, up to 24 characters.
 - `brandBorder` (`blue`, `teal`, `sky`, `slate`, `violet`, or a custom `#rrggbb`): a border round the window, off by default. Sode makes the accent from it (docs/color-roles.md). `green`, `amber` and `pink` are retired: Settings does not offer them, but a config that has one still loads, with a caution note in Settings.
 - `title` (router): the router title, up to 32 characters.
-- `statusLabel` (router: `address`, `name` or `none`): what the Router status shows.
+- `statusLabel` (`address`, `name` or `none`): the text next to the Routers icon in the status bar, one setting for every router. It is Status label at the top of Settings > Routers > Routers. It exports in the `routers` group of settings.yaml. Older releases kept it on each router. A file with no top-level `statusLabel` takes the first router's, and Sode does not write the router's key again.
+- `routers`: every router, in the order of the list in Settings > Routers. The first router is the default router (GLOSSARY.md). The one Save key `routers/order` (a list of router UIDs) changes the order.
 - `levelColors`
 - `filterSets`
 - `tieLines`: the tie lines of Settings > Routers > Tie lines (Administrator). Each has a hidden `id` and a `name`, the Tie line name (unique, up to 32 characters). `from` is a destination, `{router, n}`, and `to` is a source on another router. Each end also keeps its router `name` from the save. Sode fills a blank `name` from the source name. The section saves each change at once, apart from the Save button, and needs two or more routers.
@@ -211,10 +212,10 @@ Sode checks each file as it checks an upload. It must be PNG or SVG, at most 2 M
 `GET /api/health` reports the server, the state of Sode as a whole and each router. It needs no PIN and shows no settings:
 
 ```json
-{"server":"up","state":"degraded","routers":[{"uid":"3f9c...","prefix":"A","title":"Main","router":"up","targetAddress":"10.0.0.1:8910"},{"uid":"7d21...","prefix":"B","title":"Stage 2","router":"down","targetAddress":"10.0.0.2:8910","err":"connection refused"}],"router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
+{"server":"up","state":"degraded","routers":[{"uid":"3f9c...","prefix":"A","title":"Main","router":"up","targetAddress":"10.0.0.1:8910"},{"uid":"7d21...","prefix":"B","title":"Stage 2","router":"down","targetAddress":"10.0.0.2:8910","err":"connection refused"}],"version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
 ```
 
-`state` is `healthy` when every router is up and `down` when every router is down. It is `degraded` when one or more routers are down and one or more are up. A router that is connecting counts as down. `routers` has one element for each router, in the order of Settings. Its `router` is `up`, `connecting` or `down`, and `err` appears when that router link has a problem. The flat `router`, `targetAddress` and `err` are those of the first router. The status code is 200 only while Sode is Healthy and 503 otherwise, so a plain HTTP(s) monitor alerts when any router is lost. A dead server shows as no answer. Uptime Kuma counts a 503 as down even for a JSON Query monitor. To watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `state` as the key and `healthy` as the expected value. `/healthz` is unchanged.
+`state` is `healthy` when every router is up and `down` when every router is down. It is `degraded` when one or more routers are down and one or more are up. A router that is connecting counts as down. `routers` has one element for each router, in the order of Settings. Its `router` is `up`, `connecting` or `down`, and `err` appears when that router link has a problem. There are no flat router fields: read `state` and `routers`. The status code is 200 only while Sode is Healthy and 503 otherwise, so a plain HTTP(s) monitor alerts when any router is lost. A dead server shows as no answer. Uptime Kuma counts a 503 as down even for a JSON Query monitor. To watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `state` as the key and `healthy` as the expected value. `/healthz` only says that Sode answers: `{"server":"up"}`.
 
 ## Communication log
 

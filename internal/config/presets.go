@@ -70,7 +70,7 @@ func (it PresetItem) DstNs() []int {
 
 // Edits in place: callers pass a Clone.
 func (c *Config) normalizePresets() {
-	c.Presets = normalizePresets(c.Presets, c.UID)
+	c.Presets = normalizePresets(c.Presets, c.DefaultRouter().UID)
 }
 
 // Blank or repeated ids get a new one, so a list never names two presets by one id.

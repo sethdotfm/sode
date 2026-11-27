@@ -13,7 +13,7 @@
 // Each row's ⋯ menu (palettemenu.js), or Alt+P and Alt+B, pins or unpins the row and adds or removes its bookmark. They
 // change only the person's own list, never Everyone's. A bookmark list holds at most 24 too. openPalette({ pick }) hands the picked row to pick
 // instead (the Bookmarks editor's Add).
-import { $, el, S, on, emit, icon, request, sentence, LINK_DOWN } from './core.js';
+import { $, el, S, on, emit, icon, request, sentence, LINK_DOWN, protectsOf } from './core.js';
 import { chord, listStep } from './keys.js';
 import { modal, fadeOut, stopFade } from './modal.js';
 import { bigScroll } from './bigscroll.js';
@@ -133,7 +133,7 @@ function who() {
     users: S.users,
     phone: layout() === 'phone',
     stepped: steppedIn(),
-    protectDevice: S.cfg?.protectDevice || 0,
+    protectDevice: protectsOf('').device,
   };
 }
 

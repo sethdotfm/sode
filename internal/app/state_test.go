@@ -13,32 +13,32 @@ func fillRouterDerived(a *App) {
 	until := time.Now().Add(time.Minute)
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.first.router.srcNames[7] = "CAM 7"
-	a.first.router.dstNames[5] = "MON 5"
-	a.first.router.tally[5] = map[int]int{1: 7}
-	a.first.router.tallyGen = 1
-	a.first.router.namesGen = 1
-	a.first.router.protect[5] = map[int]protHold{1: {9, 1}}
-	a.first.router.protSeen[[2]int{5, 1}] = true
-	a.first.router.protExt[protExtKey{dst: 5, dev: 9, kind: 1, set: true}] = &protExtLevels{levels: map[int]bool{1: true}, first: time.Now()}
-	a.first.router.protAt = [2]time.Time{time.Now(), time.Now()}
-	a.first.router.seenAt[[2]int{5, 1}] = time.Now()
-	a.first.router.pend = []routeChange{{5, 1, 7}}
-	a.first.router.pendProt = []protChange{{5, 1, 9, 1}}
-	a.first.router.newSrc, a.first.router.newDst = map[int]string{1: "x"}, map[int]string{2: "y"}
-	a.first.router.namesAt = time.Now()
-	a.first.router.savedAt = time.Now()
-	a.first.router.lastPoll = &namePoll{map[int]string{7: "CAM 7"}, map[int]string{5: "MON 5"}}
-	a.first.router.faultSeen = true
-	a.first.router.renamedTo = [2]map[string]string{{"cam 7": "CAM C"}, {"mon 5": "MON E"}}
-	a.first.ext.add(extChange{xp: swp08.Crosspoint{Dst: 5, Level: 0, Src: 7}, ui: 1, old: 3, known: true, at: time.Now()})
-	a.first.ext.own[ownKey{5, 0, 7}] = until
-	a.first.ext.late[ownKey{5, 0, 9}] = until
+	a.firstUnit().router.srcNames[7] = "CAM 7"
+	a.firstUnit().router.dstNames[5] = "MON 5"
+	a.firstUnit().router.tally[5] = map[int]int{1: 7}
+	a.firstUnit().router.tallyGen = 1
+	a.firstUnit().router.namesGen = 1
+	a.firstUnit().router.protect[5] = map[int]protHold{1: {9, 1}}
+	a.firstUnit().router.protSeen[[2]int{5, 1}] = true
+	a.firstUnit().router.protExt[protExtKey{dst: 5, dev: 9, kind: 1, set: true}] = &protExtLevels{levels: map[int]bool{1: true}, first: time.Now()}
+	a.firstUnit().router.protAt = [2]time.Time{time.Now(), time.Now()}
+	a.firstUnit().router.seenAt[[2]int{5, 1}] = time.Now()
+	a.firstUnit().router.pend = []routeChange{{5, 1, 7}}
+	a.firstUnit().router.pendProt = []protChange{{5, 1, 9, 1}}
+	a.firstUnit().router.newSrc, a.firstUnit().router.newDst = map[int]string{1: "x"}, map[int]string{2: "y"}
+	a.firstUnit().router.namesAt = time.Now()
+	a.firstUnit().router.savedAt = time.Now()
+	a.firstUnit().router.lastPoll = &namePoll{map[int]string{7: "CAM 7"}, map[int]string{5: "MON 5"}}
+	a.firstUnit().router.faultSeen = true
+	a.firstUnit().router.renamedTo = [2]map[string]string{{"cam 7": "CAM C"}, {"mon 5": "MON E"}}
+	a.firstUnit().ext.add(extChange{xp: swp08.Crosspoint{Dst: 5, Level: 0, Src: 7}, ui: 1, old: 3, known: true, at: time.Now()})
+	a.firstUnit().ext.own[ownKey{5, 0, 7}] = until
+	a.firstUnit().ext.late[ownKey{5, 0, 9}] = until
 	c := &cause{src: 7, dst: 5, id: 1, done: true}
-	a.first.ext.causes = append(a.first.ext.causes, c)
-	a.first.ext.leaders[6] = 5
-	a.first.ext.lateRoute[ownKey{5, 0, 8}] = []lateRoute{{id: 1, until: until, cause: c}}
-	a.first.ext.lateHits = append(a.first.ext.lateHits, lateHit{1, 1})
+	a.firstUnit().ext.causes = append(a.firstUnit().ext.causes, c)
+	a.firstUnit().ext.leaders[6] = 5
+	a.firstUnit().ext.lateRoute[ownKey{5, 0, 8}] = []lateRoute{{id: 1, until: until, cause: c}}
+	a.firstUnit().ext.lateHits = append(a.firstUnit().ext.lateHits, lateHit{1, 1})
 }
 
 // noZeroFields fails for any field of the struct v points to that is still its
@@ -70,52 +70,52 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	a.record(&Entry{Src: 1, Dst: 5, OK: true})
 	nameReq, nameRx, dump := time.Now().Add(-time.Hour), time.Now().Add(-2*time.Hour), time.Now().Add(-3*time.Hour)
 	a.mu.Lock()
-	a.first.nameReqAt, a.first.nameRxAt, a.first.dumpAt, a.first.namesDirt = nameReq, nameRx, dump, true
+	a.firstUnit().nameReqAt, a.firstUnit().nameRxAt, a.firstUnit().dumpAt, a.firstUnit().namesDirt = nameReq, nameRx, dump, true
 	a.mu.Unlock()
 	fillRouterDerived(a)
 	a.mu.Lock()
-	noZeroFields(t, a.first.router)
-	noZeroFields(t, a.first.ext)
+	noZeroFields(t, a.firstUnit().router)
+	noZeroFields(t, a.firstUnit().ext)
 	w, ck := &waiter{done: make(chan struct{})}, &tallyCheck{done: make(chan struct{})}
-	a.first.waiters[w], a.first.checks[ck] = struct{}{}, struct{}{}
+	a.firstUnit().waiters[w], a.firstUnit().checks[ck] = struct{}{}, struct{}{}
 	a.pendSent = []Sent{{}}
 	a.mu.Unlock()
 
-	cur := a.r().cfg
+	cur := a.r().cfg.Clone()
 	cur.DeviceDefaults.Theme = "dark"
-	cur.NameRefreshSeconds++
-	rs, ext := a.first.router, a.first.ext
+	cur.Routers[0].NameRefreshSeconds++
+	rs, ext := a.firstUnit().router, a.firstUnit().ext
 	if err := a.ApplyConfig(cur); err != nil {
 		t.Fatal(err)
 	}
-	if a.first.router != rs || a.first.ext != ext {
+	if a.firstUnit().router != rs || a.firstUnit().ext != ext {
 		t.Fatal("a settings change that is not router-side replaced router state")
 	}
 	a.mu.Lock()
-	if len(a.first.router.tally) != 1 || len(a.first.router.srcNames) != 1 || len(a.first.ext.pending) != 1 || len(a.first.ext.own) != 1 ||
-		len(a.first.ext.lateRoute) != 1 || len(a.first.ext.late) != 1 || len(a.first.waiters) != 1 || len(a.first.checks) != 1 || a.first.router.newSrc == nil || a.first.status.Addr != cur.Address {
+	if len(a.firstUnit().router.tally) != 1 || len(a.firstUnit().router.srcNames) != 1 || len(a.firstUnit().ext.pending) != 1 || len(a.firstUnit().ext.own) != 1 ||
+		len(a.firstUnit().ext.lateRoute) != 1 || len(a.firstUnit().ext.late) != 1 || len(a.firstUnit().waiters) != 1 || len(a.firstUnit().checks) != 1 || a.firstUnit().router.newSrc == nil || a.firstUnit().status.Addr != cur.Routers[0].Address {
 		a.mu.Unlock()
 		t.Fatal("a settings change that is not router-side cleared state")
 	}
 	a.mu.Unlock()
 
-	cur.Address = "127.0.0.1:1"
+	cur.Routers[0].Address = "127.0.0.1:1"
 	if err := a.ApplyConfig(cur); err != nil {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !reflect.DeepEqual(a.first.router, newRouterState()) {
-		t.Fatalf("router state not cleared: %+v", a.first.router)
+	if !reflect.DeepEqual(a.firstUnit().router, newRouterState()) {
+		t.Fatalf("router state not cleared: %+v", a.firstUnit().router)
 	}
-	if !reflect.DeepEqual(a.first.ext, newExtTracker()) {
-		t.Fatalf("ext state not cleared: %+v", a.first.ext)
+	if !reflect.DeepEqual(a.firstUnit().ext, newExtTracker()) {
+		t.Fatalf("ext state not cleared: %+v", a.firstUnit().ext)
 	}
-	if a.first.status.Router != string(swp08.StateConnecting) || a.first.status.Addr != "127.0.0.1:1" || a.first.status.Err != "" {
-		t.Fatalf("status %+v", a.first.status)
+	if a.firstUnit().status.Router != string(swp08.StateConnecting) || a.firstUnit().status.Addr != "127.0.0.1:1" || a.firstUnit().status.Err != "" {
+		t.Fatalf("status %+v", a.firstUnit().status)
 	}
-	if len(a.first.waiters) != 0 || len(a.first.checks) != 0 || !w.cut || !w.closed || !ck.shut {
-		t.Fatalf("takes not cut: %d waiters, %d checks, cut=%v", len(a.first.waiters), len(a.first.checks), w.cut)
+	if len(a.firstUnit().waiters) != 0 || len(a.firstUnit().checks) != 0 || !w.cut || !w.closed || !ck.shut {
+		t.Fatalf("takes not cut: %d waiters, %d checks, cut=%v", len(a.firstUnit().waiters), len(a.firstUnit().checks), w.cut)
 	}
 	select {
 	case <-w.done:
@@ -136,7 +136,7 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	if len(a.pendSent) != 1 {
 		t.Fatal("pendSent cleared")
 	}
-	if !a.first.nameReqAt.Equal(nameReq) || !a.first.nameRxAt.Equal(nameRx) || !a.first.dumpAt.Equal(dump) || !a.first.namesDirt {
+	if !a.firstUnit().nameReqAt.Equal(nameReq) || !a.firstUnit().nameRxAt.Equal(nameRx) || !a.firstUnit().dumpAt.Equal(dump) || !a.firstUnit().namesDirt {
 		t.Fatal("name/dump clock changed")
 	}
 	got := a.r().cfg

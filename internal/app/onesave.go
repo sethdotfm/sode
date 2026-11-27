@@ -7,7 +7,6 @@ import (
 	"hash/fnv"
 	"log"
 	"maps"
-	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -36,10 +35,6 @@ var sectionRoles = map[string]sectionTag{
 	"confirm":           {config.RoleAdministrator, true},
 	"routers":           {config.RoleAdministrator, true},
 	"tie-lines":         {config.RoleAdministrator, false},
-	"router-matrix":     {config.RoleAdministrator, true},
-	"router-names":      {config.RoleAdministrator, true},
-	"takes":             {config.RoleAdministrator, true},
-	"router-levels":     {config.RoleAdministrator, true},
 	"protects":          {config.RoleAdministrator, false},
 	"locks":             {config.RoleAdministrator, false},
 	"users":             {config.RoleAdministrator, false},
@@ -92,10 +87,6 @@ var jsonFields = sync.OnceValue(func() map[string][]int {
 	}
 	return out
 })
-
-func fieldOf(cfg *config.Config, key string) reflect.Value {
-	return reflect.ValueOf(cfg).Elem().FieldByIndex(jsonFields()[key])
-}
 
 func fieldJSON(cfg config.Config, key string) json.RawMessage {
 	f, ok := lookupField(key)

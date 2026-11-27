@@ -22,12 +22,12 @@ func TestAddRouterInSettings(t *testing.T) {
 	wantSaved(t, r, key)
 
 	cfg := a.r().cfg
-	if len(cfg.MoreRouters) != 1 {
-		t.Fatalf("routers %+v", cfg.MoreRouters)
+	if len(cfg.Routers) != 2 {
+		t.Fatalf("routers %+v", cfg.Routers)
 	}
-	b := cfg.MoreRouters[0]
-	if b.UID == "" || b.UID == cfg.UID || b.Prefix != "B" || b.Title != "Router B" || b.Address != "10.0.0.7:8910" ||
-		b.Matrix != 2 || b.Levels != config.Defaults().Levels {
+	b := cfg.Routers[1]
+	if b.UID == "" || b.UID == cfg.Routers[0].UID || b.Prefix != "B" || b.Title != "Router B" || b.Address != "10.0.0.7:8910" ||
+		b.Matrix != 2 || b.Levels != config.Defaults().Routers[0].Levels {
 		t.Fatalf("new router %+v", b)
 	}
 	res, _ := r["results"].(map[string]any)
@@ -43,7 +43,7 @@ func TestAddRouterInSettings(t *testing.T) {
 	p = dialPeer(t, a)
 	routers, _ := p.hello["routers"].([]any)
 	hv, _ := p.hello["versions"].(map[string]any)
-	if len(routers) != 2 || routers[1].(map[string]any)["prefix"] != "B" || hv["router/"+cfg.UID+"/prefix"] == nil {
+	if len(routers) != 2 || routers[1].(map[string]any)["prefix"] != "B" || hv["router/"+cfg.Routers[0].UID+"/prefix"] == nil {
 		t.Fatalf("hello routers %v", routers)
 	}
 
@@ -52,7 +52,7 @@ func TestAddRouterInSettings(t *testing.T) {
 	passed(t, "recheck", p.recheck("2468"))
 	wantRefused(t, p.saveFields(3, map[string]any{"router/new:2/add": map[string]any{"prefix": "a"}}), "router/new:2/add", "invalid")
 	wantSaved(t, p.saveFields(4, map[string]any{"router/new:3/add": map[string]any{"title": "Stage 2"}}), "router/new:3/add")
-	if c := a.r().cfg.MoreRouters[1]; c.Prefix != "C" || c.Title != "Stage 2" {
+	if c := a.r().cfg.Routers[2]; c.Prefix != "C" || c.Title != "Stage 2" {
 		t.Errorf("third router %+v", c)
 	}
 }
@@ -66,24 +66,24 @@ func TestRouterListFields(t *testing.T) {
 	passed(t, "recheck", p.recheck("2468"))
 	k := func(attr string) string { return "router/" + uid + "/" + attr }
 	r := p.saveFields(1, map[string]any{k("prefix"): "BA", k("title"): "Stage 2", k("address"): "10.0.0.8:8910", k("matrix"): 1})
-	for _, at := range routerListAttrs {
+	for _, at := range []string{"prefix", "title", "address", "matrix"} {
 		wantSaved(t, r, k(at))
 	}
-	b := a.r().cfg.MoreRouters[0]
+	b := a.r().cfg.Routers[1]
 	if b.Prefix != "BA" || b.Title != "Stage 2" || b.Address != "10.0.0.8:8910" || b.Matrix != 1 {
 		t.Fatalf("router %+v", b)
 	}
-	if u, _ := a.unit(uid); u.status.Addr != "10.0.0.8:8910" || a.first.status.Addr == "10.0.0.8:8910" {
-		t.Errorf("router B's unit at %q, the first router's at %q", u.status.Addr, a.first.status.Addr)
+	if u, _ := a.unit(uid); u.status.Addr != "10.0.0.8:8910" || a.firstUnit().status.Addr == "10.0.0.8:8910" {
+		t.Errorf("router B's unit at %q, the first router's at %q", u.status.Addr, a.firstUnit().status.Addr)
 	}
-	// The first router's prefix has a key; its other fields are its own block's.
-	first := a.r().cfg.UID
+	// The first router's fields have the same keys.
+	first := a.r().cfg.Routers[0].UID
 	wantSaved(t, p.saveFields(2, map[string]any{"router/" + first + "/prefix": "S"}), "router/"+first+"/prefix")
-	if a.r().cfg.Prefix != "S" {
-		t.Errorf("first prefix %q", a.r().cfg.Prefix)
+	if a.r().cfg.Routers[0].Prefix != "S" {
+		t.Errorf("first prefix %q", a.r().cfg.Routers[0].Prefix)
 	}
-	if spec, _ := lookupField("router/" + first + "/address"); spec.get(a.r().cfg) != nil {
-		t.Error("the first router's address is a router list key")
+	if spec, _ := lookupField("router/" + first + "/address"); spec.get(a.r().cfg) == nil {
+		t.Error("the first router's address has no key")
 	}
 }
 
@@ -92,7 +92,7 @@ func TestRouterListFields(t *testing.T) {
 // Its Default artwork goes and its unit stops. The first router cannot go.
 func TestRemoveRouterInSettings(t *testing.T) {
 	a, uid := routerLevelsApp(t)
-	first := a.r().cfg.UID
+	first := a.r().cfg.Routers[0].UID
 	ana := idOf(a, "Ana")
 	onB := config.Ref{Router: uid, N: 4, Name: "B CAM"}
 	onA := config.Ref{Router: first, N: 1, Name: "CAM 2"}
@@ -148,8 +148,8 @@ func TestRemoveRouterInSettings(t *testing.T) {
 	wantSaved(t, p.saveFields(3, map[string]any{key: true}), key)
 
 	cfg := a.r().cfg
-	if len(cfg.MoreRouters) != 0 {
-		t.Fatalf("routers left %+v", cfg.MoreRouters)
+	if len(cfg.Routers) != 1 {
+		t.Fatalf("routers left %+v", cfg.Routers)
 	}
 	if len(cfg.TieLines) != 0 {
 		t.Errorf("tie lines left %+v", cfg.TieLines)
@@ -184,7 +184,7 @@ func TestRemoveRouterInSettings(t *testing.T) {
 		t.Errorf("Default artwork %+v", l)
 	}
 
-	// The first router stays.
+	// The last router stays.
 	k := "router/" + first + "/remove"
 	wantRefused(t, p.saveFields(4, map[string]any{k: true}), k, "invalid")
 }
@@ -192,9 +192,9 @@ func TestRemoveRouterInSettings(t *testing.T) {
 // A router delete removes only the tie lines with an end on that router.
 func TestDropRouterRemovesItsTieLines(t *testing.T) {
 	c := config.Defaults()
-	c.MoreRouters = []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1), moreRouter("C", "C", "10.0.0.9:8910", 1)}
+	c.Routers = append(c.Routers[:1:1], []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1), moreRouter("C", "C", "10.0.0.9:8910", 1)}...)
 	c.Normalize()
-	a, b, cc := c.UID, c.MoreRouters[0].UID, c.MoreRouters[1].UID
+	a, b, cc := c.Routers[0].UID, c.Routers[1].UID, c.Routers[2].UID
 	c.TieLines = []config.TieLine{
 		{ID: "ab", Name: "AB", From: config.Ref{Router: a, N: 1}, To: config.Ref{Router: b, N: 1}},
 		{ID: "ca", Name: "CA", From: config.Ref{Router: cc, N: 1}, To: config.Ref{Router: a, N: 2}},
@@ -227,9 +227,9 @@ func TestDropRouterNarrowsHiddenDestinations(t *testing.T) {
 		{"'unclosed", ""},
 	} {
 		cfg := config.Defaults()
-		cfg.MoreRouters = []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1)}
+		cfg.Routers = append(cfg.Routers[:1:1], []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1)}...)
 		cfg.Normalize()
-		b := cfg.MoreRouters[0].UID
+		b := cfg.Routers[1].UID
 		cfg.HiddenDsts, cfg.HiddenDstsRouter = c.in, b
 		dropRouter(&cfg, b)
 		if cfg.HiddenDsts != c.want || cfg.HiddenDstsRouter != "" {
@@ -238,11 +238,11 @@ func TestDropRouterNarrowsHiddenDestinations(t *testing.T) {
 	}
 	// The hidden destinations of another router stay as they are.
 	cfg := config.Defaults()
-	cfg.MoreRouters = []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1)}
+	cfg.Routers = append(cfg.Routers[:1:1], []config.Router{moreRouter("B", "B", "10.0.0.8:8910", 1)}...)
 	cfg.Normalize()
-	cfg.HiddenDsts, cfg.HiddenDstsRouter = "9, !3", cfg.UID
-	dropRouter(&cfg, cfg.MoreRouters[0].UID)
-	if cfg.HiddenDsts != "9, !3" || cfg.HiddenDstsRouter != cfg.UID {
+	cfg.HiddenDsts, cfg.HiddenDstsRouter = "9, !3", cfg.Routers[0].UID
+	dropRouter(&cfg, cfg.Routers[1].UID)
+	if cfg.HiddenDsts != "9, !3" || cfg.HiddenDstsRouter != cfg.Routers[0].UID {
 		t.Errorf("first router's: %q on %q", cfg.HiddenDsts, cfg.HiddenDstsRouter)
 	}
 }
@@ -258,4 +258,24 @@ func TestBrokenCheckKeepsOtherRouterMarks(t *testing.T) {
 	if len(p.Broken) != 2 || !missingEqual(p.Broken[:1], []config.Missing{mark}) || p.Broken[1].Kind != config.MissingRouter || p.Broken[1].Ref.Router != "cc" {
 		t.Fatalf("broken %+v", p.Broken)
 	}
+}
+
+// The detail view of a new router sends every setting with Add router. Each one is in the new router; a value that
+// does not fit refuses the add.
+func TestAddRouterTakesEverySetting(t *testing.T) {
+	a := userApp(t, false)
+	p := dialPeer(t, a)
+	p.signIn("Ada", "2468")
+	passed(t, "recheck", p.recheck("2468"))
+	key := "router/new:1/add"
+	add := map[string]any{"prefix": "B", "title": "Stage 2", "address": "10.0.0.7:8910", "matrix": 20, "nameRequests": "ext", "levels": 4,
+		"levelWireOffset": 0, "levelNumbering": "va", "defaultLevels": "1-2", "numberOffset": 0, "nameRereadSeconds": 120, "nameLength": 16,
+		"tallyResyncSeconds": 60, "fireMode": "sequential", "salvoGroup": 9, "protectDevice": 201}
+	wantSaved(t, p.saveFields(1, map[string]any{key: add}), key)
+	b := a.r().cfg.Routers[1]
+	if b.Matrix != 20 || b.NameRequests != "ext" || b.Levels != 4 || b.LevelWireOffset != 0 || b.LevelNumbering != "va" || b.DefaultLevels != "1-2" ||
+		b.NumberOffset != 0 || b.NameRefreshSeconds != 120 || b.NameLength != 16 || b.TallyResyncSeconds != 60 || b.SalvoGroup != 9 || b.ProtectDevice != 201 {
+		t.Fatalf("new router %+v", b)
+	}
+	wantRefused(t, p.saveFields(2, map[string]any{"router/new:2/add": map[string]any{"protectDevice": 9000}}), "router/new:2/add", "invalid")
 }

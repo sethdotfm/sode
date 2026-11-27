@@ -80,14 +80,14 @@ func TestEnvOnlyFirstUserMustBeAdministratorWithPin(t *testing.T) {
 func TestSetupWizardHelloNamesEnvFilledFields(t *testing.T) {
 	t.Setenv("SODE_ROUTER", "10.0.0.5:8910")
 	t.Setenv("SODE_ACCESS_PRESET", "secured")
-	a := setupApp(t, func(c *config.Config) { c.Address = "10.0.0.5:8910" })
+	a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = "10.0.0.5:8910" })
 	setup, _ := helloMap(t, a)["setup"].(map[string]any)
 	env, _ := setup["env"].(map[string]any)
 	if env["router"] != "SODE_ROUTER" || env["preset"] != "SODE_ACCESS_PRESET" || setup["preset"] != "secured" {
 		t.Fatalf("first start: %v", setup)
 	}
-	if cfg, _ := helloMap(t, a)["cfg"].(map[string]any); cfg["router"] != "10.0.0.5:8910" {
-		t.Fatalf("the router address is not in the hello: %v", cfg["router"])
+	if rs, _ := helloMap(t, a)["routers"].([]any); len(rs) == 0 || rs[0].(map[string]any)["address"] != "10.0.0.5:8910" {
+		t.Fatalf("the router address is not in the hello: %v", rs)
 	}
 
 	if err := os.WriteFile(a.cfgPath, []byte("brandText: x\n"), 0o600); err != nil {

@@ -32,7 +32,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 2. The dot is optional when a person types. `A11` and `A.11` mean the same thing. Sode always shows the dot.
 3. Letters that are a router prefix, followed by digits, always mean that router first. Name matches come after the prefix match. Thus `B42` stays B.42 when someone names a source "B42 MON".
 4. With two or more routers, each match in every name search shows its router prefix.
-5. Each patch box has a default router, set for each browser and shown in the box. A bare number means that router. A new browser gets the first router.
+5. Each patch box has a router, set for each browser and shown in the box. A bare number means that router. A new browser gets the default router (the first router of the list in Settings > Routers).
 6. With two or more routers, History and presets always show the prefix.
 7. docs/api.md says that a prefix is one letter, A to Z. Change it to one or two letters.
 
@@ -150,6 +150,7 @@ Rights checks compare the router and the number of each reference. A right for s
    - a timer that counts up from the last change
    - each Affected destination, with "now shows X, will show Y"
    - "Reserved by panel X" or the Protect, if there is one
+   - its state at a glance. "Has it" with a routed left bar: it carries the source already. A caution left bar and a count badge ("3 change"): the take changes Affected destinations. "Free" with no color: it changes nothing else. A Protected or Reserved tie line is grey. The best choice has an outline and "Best".
 4. Keys: J and K or the up and down arrows choose a tie line. H and L or Tab and Shift+Tab move between hops. P protects. Enter sends the take. Esc cancels.
 5. The mouse and touch do everything that the keys do. A tap on a wire chooses it. A shield button protects.
 6. A change on one hop makes Sode calculate the later hops again.
@@ -160,11 +161,18 @@ Rights checks compare the router and the number of each reference. A right for s
 
 ### Takes with plain routes and tie routes
 
-1. The picker shows the tie routes first. Each tie route has a "Clear this route" button.
-2. Then the churning-letter confirm lists every route of the take. It marks the tie routes "via TIE n".
-3. In one take, Sode does not offer a tie line that an earlier route of the same take uses for a different source.
-4. Two destinations that want the same source share one tie line by default.
-5. Hops do not count against the limit of 8 routes in one wire `take`. The send queue of each router counts them.
+1. The picker shows the tie routes first. It asks one question for each hop that the tie routes share. A hop is shared when the routes have the same source, levels and choices before it. The hop must also go from and to the same routers.
+2. One source to many destinations on router B is one question: "A → B, for B.1 B.2 B.3". Each destination uses that choice. Enter on the best choice sends.
+3. Destinations on B and C get one question for the hop A → B, and one for the hop B → C. A route that needs a hop that the others do not have gets its own question.
+4. The picker asks each question every time, also when a tie line carries the source already. The best choice is chosen first, so the question needs one Enter.
+5. "Choose per destination" (D) gives each destination of a hop its own question. It is off by default.
+6. Each question has a "Clear this route" button, which drops the routes of that question.
+7. Then the churning-letter confirm lists every route of the take. It marks the tie routes "via TIE n".
+8. In one take, Sode does not offer a tie line that an earlier route of the same take uses for a different source.
+9. Two destinations that want the same source share one tie line by default.
+10. Hops do not count against the limit of 8 routes in one wire `take`. The send queue of each router counts them.
+11. The page still never calculates paths. A question that comes after a hop asks the plan with `through`. The server then gives only the paths through the tie lines that the person chose before.
+12. A change that the live update finds on the path of any destination of a question marks that destination and starts the lockout again.
 
 ## Sending a tie take
 
@@ -269,7 +277,7 @@ Rights checks compare the router and the number of each reference. A right for s
 ## API
 
 1. Each route of `POST /takes` accepts an optional `ties` list: one tie line for each hop before the last, upstream first. Each has the source that the caller expects on it (`{id, expect}`). A One-off tie line is `{from, to}`.
-2. Without `ties`, Sode refuses a route across routers with 409 `tie_line_needed`. The reply lists the ranked paths, cheapest first.
+2. Without `ties`, Sode refuses a route across routers with 409 `tie_line_needed`. The reply lists the ranked paths, cheapest first. A route with `through` (tie line ids, upstream first) gets only the paths whose first tie lines are these.
 3. A preset fire with tie lines answers 409 `tie_confirm_needed` with the state of each tie line. A request that names each tie line and its expected source goes through.
 4. If a tie line moved, Sode answers 409 `tie_line_changed` with the state of each tie line now.
 5. A panel at Off, or a caller without the "Use tie lines" right, gets 403 `tie_lines_off`.
@@ -284,7 +292,7 @@ Rights checks compare the router and the number of each reference. A right for s
 1. Swap does not move a tie line end by itself, since a tie line is a cable. The Swap review row lists each tie line that uses a swapped number, and the Administrator chooses. Each tie line starts not ticked. A ticked tie line moves its end to the new number. A user's own Swap never lists a tie line (agent decision).
 2. Tie lines are their own export category. On import, Sode drops a tie line with a note when one of its two routers is not mapped.
 3. Before the Critical confirm, a router delete lists every tie line, panel and preset that it will break. The delete also deletes each tie line with an end on that router. Validate refuses a tie line with a router that Sode does not have.
-4. A router delete marks each preset, filter set, panel cell and Grid member that names the router Broken. Rights and a panel's level subset lose that router, since a Rights entry cannot name a router that Sode does not have. The first router cannot be deleted. An Administrator changes its address in its own block.
+4. A router delete marks each preset, filter set, panel cell and Grid member that names the router Broken. Rights and a panel's level subset lose that router, since a Rights entry cannot name a router that Sode does not have. The last router cannot be deleted. When the first router goes, the next router is the default router.
 
 ## Open items
 

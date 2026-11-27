@@ -100,7 +100,7 @@ func newTestApp(t *testing.T, opts ...func(*config.Config)) *App {
 	t.Helper()
 	h, _ := OpenHistory("")
 	cfg := config.Defaults()
-	cfg.Levels = 3
+	cfg.Routers[0].Levels = 3
 	for _, o := range opts {
 		o(&cfg)
 	}
@@ -124,7 +124,7 @@ func withAdministrator(cfg *config.Config) {
 
 // moreRouter is a router to add to the settings: the defaults with this prefix, title, address and level count.
 func moreRouter(prefix, title, addr string, levels int) config.Router {
-	r := config.Defaults().Router
+	r := config.Defaults().DefaultRouter()
 	r.UID, r.Prefix, r.Title, r.Address, r.Levels, r.DefaultLevels = "", prefix, title, addr, levels, ""
 	return r
 }
@@ -390,3 +390,6 @@ func setUsers(t *testing.T, a *App, fn func(*config.Config)) {
 		t.Fatal(err)
 	}
 }
+
+// aKey is the one Save key of attribute attr of the first router: router/<uid>/<attr>.
+func aKey(a *App, attr string) string { return "router/" + a.r().cfg.DefaultRouter().UID + "/" + attr }

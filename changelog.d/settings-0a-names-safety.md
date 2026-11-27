@@ -1,0 +1,6 @@
+- Settings: with two or more routers, Save and reconnect names each router that reconnects, with its new address. Before, it always gave the first router's address. It now comes before the PIN recheck, so nothing asks again after the PIN.
+- Settings: with two or more routers, every Save review row and every error names its router by prefix and Router title ("A Studio A: Address"). This includes the first router. The address error now says "address must be host:port".
+- Settings: Swap… is on the row of each router, and the Swap dialog has a Router select. Before, Swap worked only on the first router.
+- Settings: the title field of every router is labelled "Router title". The first router's field said "Name", and the others said "Title". With two or more routers the first router's heading shows its prefix too ("A Studio A").
+- Settings > Tie lines: Remove asks a Confirm with the churning letter and lockout, under the row. It names the tie line, its ends and Everyone's presets that store it. The result shows where the row was. Tie line changes still save at once.
+- Settings > Routers: each router's row shows its link state in words, live: Connected, Connecting, Down or Never connected. Connected has no color. Down and Never connected are red, with the last error as a tip.

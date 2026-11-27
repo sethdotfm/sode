@@ -16,10 +16,12 @@ import (
 // its controls. The picks are the old small squares in two rows, and only an odd number of levels makes the first
 // pick two rows high. 17 levels fit with no scroll from 850 to 1600 px. More columns than fit scroll inside the picks,
 // and Select All stays in its place. A click from All selects only that level. No router with more than one level
-// gives no Levels box.
+// gives no Levels box. The arrow, +, Levels, Take and Clear line up with the Source and Destination boxes. They also
+// line up with a second router, whose router buttons make the heads an action high.
 func TestChromeMainBoxesLayout(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
+	simB := startSim(t)
 	a := simApp(t, sim)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -37,6 +39,22 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	b.open(srv.URL + "/")
 	b.waitFor("17 level picks", `document.querySelectorAll('#lvl-pick > button').length === 17`)
 	b.waitFor("fonts loaded", `document.fonts.status === 'loaded'`)
+
+	// lined checks that the arrow, +, Levels, Take and Clear have the top and the bottom of the Source and Destination
+	// boxes, as on main.
+	lined := func(when string) {
+		t.Helper()
+		if got := b.eval(`(() => {
+			const y = (s) => { const r = document.querySelector(s).getBoundingClientRect(); return [r.top, r.bottom]; };
+			const [top, bottom] = y('#dst');
+			const off = ['#src', '#flip', '#dst-add', '#lvl', '#patch', '#clear-all'].filter((s) => document.querySelector(s).offsetParent)
+				.map((s) => [s, y(s)]).filter(([, [t, b]]) => Math.abs(t - top) > 0.5 || Math.abs(b - bottom) > 0.5);
+			return off.length === 0 || off.map(([s, [t, b]]) => s + ' ' + t + '-' + b).join(', ') + ' against #dst ' + top + '-' + bottom;
+		})()`); got != true {
+			t.Fatalf("%s: the patch row does not line up: %v", when, got)
+		}
+	}
+	lined("one router, 17 levels")
 
 	// Show all sources hangs off the Source box as Show all destinations does off the Destination box.
 	place := func(k string) []any {
@@ -172,7 +190,7 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 
 	// One level on every router: no Levels box, Tab skips it, f in keyboard mode does nothing, and a take is level 1.
 	setLevels := func(n int, def string) {
-		if err := a.applyConfig(func(c *config.Config) error { c.Levels, c.DefaultLevels = n, def; return nil }); err != nil {
+		if err := a.applyConfig(func(c *config.Config) error { c.Routers[0].Levels, c.Routers[0].DefaultLevels = n, def; return nil }); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -185,6 +203,7 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 			width(w)
 			fits(w, n)
 		}
+		lined(strconv.Itoa(n) + " levels")
 	}
 	// 24 levels: the picks scroll sideways in two rows with a big bar, and Select All stays where it is with 17.
 	setLevels(24, "1-24")
@@ -233,6 +252,20 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 
 	setLevels(17, "1-17")
 	b.waitFor("the Levels box shows again", `!document.querySelector('.sode__box--levels').hidden && document.querySelectorAll('#lvl-pick > button').length === 17`)
+	b.waitFor("Last shows", `!!document.querySelector('[data-last="dst"] .sode__last')`)
+	lined("one router, Last showing")
+
+	// A second router shows the router button in the Source and Destination heads, which is an action high.
+	if err := a.applyConfig(func(c *config.Config) error {
+		rc := c.DefaultRouter()
+		rc.UID, rc.Prefix, rc.Title, rc.Address = "", "B", "Router B", simB
+		c.Routers = append(c.Routers, rc)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	b.waitFor("the router buttons show", `!document.getElementById('dst-router').hidden && !!document.getElementById('dst-router').offsetParent`)
+	lined("two routers, Last showing")
 	b.check()
 }
 

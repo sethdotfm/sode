@@ -6,8 +6,8 @@ import (
 )
 
 // Link state with two routers (docs/tielines-design.md, Link state on the page). Router B's simulator stops: Sode is
-// Degraded. Only router B's icon is red, the note names its destinations, and the Lost link banner does not show.
-// Compact view shows only that icon. Take stays on for router A. /log has an uptime line and link rows for each
+// Degraded. The one Routers icon is amber and says "1 of 2 down", the note names router B's destinations, and the Lost
+// link banner does not show. Compact view shows only the Routers icon. Take stays on for router A. /log has an uptime line and link rows for each
 // router. Then router A's simulator stops too: Sode is Down, and the banner shows a node for each router.
 func TestChromeDegradedRouter(t *testing.T) {
 	b := startBrowser(t)
@@ -26,10 +26,10 @@ func TestChromeDegradedRouter(t *testing.T) {
 	b.open(srv.URL + "/")
 	b.waitFor("Compact view", `document.documentElement.hasAttribute('data-compact')`)
 	const states = `[...document.querySelectorAll('#conn-routers .sode__state')].map((d) => d.dataset.state).join(',')`
-	b.waitFor("two router icons, both up", states+` === 'ok,ok' && document.getElementById('conn-degraded').hidden`)
+	b.waitFor("one Routers icon, with no color", states+` === 'ok' && document.getElementById('conn-degraded').hidden`)
 
 	stopB()
-	b.waitFor("Degraded: only router B is red", states+` === 'ok,error'`)
+	b.waitFor("Degraded: the Routers icon is amber and counts router B", states+` === 'warn' && document.querySelector('#conn-routers .sode__conn-open').textContent === '1 of 2 down'`)
 	b.waitFor("the note names router B and its destinations", `(() => {
 		const n = document.getElementById('conn-degraded');
 		return !n.hidden && n.classList.contains('pb-note--warn') && /Router B .*is down\. You cannot patch its \d+ destinations now: B\.1 /.test(n.textContent);
@@ -37,10 +37,11 @@ func TestChromeDegradedRouter(t *testing.T) {
 	if b.eval(`!document.getElementById('conn-down').hidden || document.documentElement.dataset.conn !== 'up'`).(bool) {
 		t.Fatal("the Lost link banner shows while Sode is Degraded")
 	}
-	b.waitFor("Compact view shows only router B's icon", `(() => {
+	b.waitFor("Compact view shows only the Routers icon", `(() => {
 		const o = (n) => getComputedStyle(n).opacity;
-		const [srv, ra, rb] = [document.getElementById('conn-srv-dot').parentElement, ...document.querySelectorAll('#conn-routers > .pb-status')];
-		return o(srv) === '0' && o(ra) === '0' && o(rb) === '1' && !document.getElementById('conn').classList.contains('sode__conn--ok');
+		const srv = document.getElementById('conn-srv-dot').parentElement;
+		const rt = document.querySelector('#conn-routers > .sode__conn-open');
+		return o(srv) === '0' && o(rt) === '1' && !document.getElementById('conn').classList.contains('sode__conn--ok');
 	})()`)
 	if b.eval(`document.getElementById('patch').getAttribute('aria-disabled')`) != "false" {
 		t.Fatal("Take is off while router A is up")

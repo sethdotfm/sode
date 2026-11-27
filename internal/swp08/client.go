@@ -89,6 +89,9 @@ type Client struct {
 	OnState func(s State, err error)
 	// OnTx runs on the writer goroutine, which waits for ACKs: it must not block.
 	OnTx func(TxEvent)
+	// Name gives the router's name for log lines (config.Router.DisplayName). It is read at each line, so a new title
+	// or router count shows at once. Nil logs no name.
+	Name func() string
 
 	ackTimeout, probeIdle time.Duration
 	dial                  func(ctx context.Context, addr string) (net.Conn, error)
@@ -113,6 +116,16 @@ func NewClient(addr string, probe []byte) *Client {
 	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1),
 		ackTimeout: ackTimeout, probeIdle: probeIdle,
 		dial: func(ctx context.Context, addr string) (net.Conn, error) { return d.DialContext(ctx, "tcp", addr) }}
+}
+
+// logf writes a log line that names the router: "swp08: B Studio B: ...".
+func (c *Client) logf(format string, args ...any) {
+	if c.Name != nil {
+		format = "swp08: " + c.Name() + ": " + format
+	} else {
+		format = "swp08: " + format
+	}
+	log.Printf(format, args...)
 }
 
 func (c *Client) SetTarget(addr string, probe []byte) {
@@ -176,7 +189,7 @@ func (c *Client) Run(ctx context.Context) {
 		}
 		if errors.Is(err, errRetarget) {
 			// New settings, not a failure: straight back to connecting.
-			log.Printf("swp08: %s: %v", addr, err)
+			c.logf("%s: %v", addr, err)
 			backoff = time.Second
 			continue
 		}
@@ -184,7 +197,7 @@ func (c *Client) Run(ctx context.Context) {
 		if time.Since(start) > stableAfter {
 			backoff = time.Second
 		}
-		log.Printf("swp08: %s: %v (retry in %s)", addr, err, backoff)
+		c.logf("%s: %v (retry in %s)", addr, err, backoff)
 		select {
 		case <-ctx.Done():
 			return
@@ -243,7 +256,7 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 	if err != nil {
 		return err
 	}
-	log.Printf("swp08: connected to %s", addr)
+	c.logf("connected to %s", addr)
 	go func() {
 		<-sctx.Done()
 		conn.Close()
@@ -301,7 +314,7 @@ func (c *Client) write(conn net.Conn, b []byte) error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	if c.Debug {
-		log.Printf("swp08: tx % X", b)
+		c.logf("tx % X", b)
 	}
 	conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
 	_, err := conn.Write(b)
@@ -341,7 +354,7 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *lastRx) error {
 		}
 		rx.mark()
 		if c.Debug {
-			log.Printf("swp08: rx % X", buf[:n])
+			c.logf("rx % X", buf[:n])
 		}
 		var werr error
 		dec.Feed(buf[:n], func(f Frame) {
@@ -352,11 +365,11 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *lastRx) error {
 				default:
 				}
 			case KindBad:
-				log.Printf("swp08: %v, sending NAK", f.Err)
+				c.logf("%v, sending NAK", f.Err)
 				werr = c.write(conn, NakFrame)
 			case KindMsg:
 				if f.Err != nil && c.Debug {
-					log.Printf("swp08: %v (accepted)", f.Err)
+					c.logf("%v (accepted)", f.Err)
 				}
 				werr = c.write(conn, AckFrame)
 				if c.OnMsg != nil {
@@ -443,15 +456,15 @@ func (c *Client) transmit(ctx context.Context, conn net.Conn, o out, acks chan b
 				return true, nil
 			}
 			e.Result = TxNak
-			log.Printf("swp08: NAK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
+			c.logf("NAK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
 		case <-time.After(c.ackTimeout):
 			e.Result = TxNoAck
-			log.Printf("swp08: no ACK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
+			c.logf("no ACK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
 		case <-ctx.Done():
 			e.Result = TxNoAck
 			return false, ctx.Err()
 		}
 	}
-	log.Printf("swp08: gave up on cmd 0x%02X after %d tries", m[0], sendTries)
+	c.logf("gave up on cmd 0x%02X after %d tries", m[0], sendTries)
 	return rx.since(sent), nil
 }

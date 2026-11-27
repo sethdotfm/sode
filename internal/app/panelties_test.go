@@ -17,8 +17,8 @@ func panelTieApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter, *fa
 	t.Helper()
 	return tieApp(t, func(c *config.Config) {
 		c.TieLines = append(c.TieLines,
-			config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: c.UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}},
-			config.TieLine{ID: "t9", Name: "TIE 9", From: config.Ref{Router: "b2b2b2b2", N: 30}, To: config.Ref{Router: c.UID, N: 12}})
+			config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: c.Routers[0].UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}},
+			config.TieLine{ID: "t9", Name: "TIE 9", From: config.Ref{Router: "b2b2b2b2", N: 30}, To: config.Ref{Router: c.Routers[0].UID, N: 12}})
 		if mut != nil {
 			mut(c)
 		}
@@ -117,7 +117,7 @@ func TestPanelTiesOffRefuses(t *testing.T) {
 	ada := userKey(t, a, "Ada")
 	off := makePanel(t, a, ada, tiePanel("Lobby", ""))
 	log := connectLog(fa, fb)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	for _, body := range []string{tieRoutes(uidA, [2]int{4, 2}), ends(uidA, "b2b2b2b2", 4, 2)} {
 		rec := apiPost(a, "/api/v1/takes", ada, body, panelHdr(off))
 		wantErr(t, rec, http.StatusForbidden, "tie_lines_off")
@@ -138,14 +138,14 @@ func TestPanelTiesOffRefuses(t *testing.T) {
 	if _, err := b.panels.createAs(Panel{ID: "p-0000aaaa", Name: "Wall", Owner: ownerOf(b, "Ada").User, Rows: 1, Cols: 1}); err != nil {
 		t.Fatal(err)
 	}
-	wantErr(t, apiPost(b, "/api/v1/takes", key, tieRoutes(b.r().cfg.UID, [2]int{4, 2}), nil), http.StatusForbidden, "tie_lines_off")
+	wantErr(t, apiPost(b, "/api/v1/takes", key, tieRoutes(b.r().cfg.Routers[0].UID, [2]int{4, 2}), nil), http.StatusForbidden, "tie_lines_off")
 }
 
 // A Reserved panel plans and sends through its own tie line only, even when another path costs less.
 func TestPanelTiesReservedPath(t *testing.T) {
 	a, fa, fb, _ := panelTieApp(t, nil)
 	ada := userKey(t, a, "Ada")
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	id := makePanel(t, a, ada, tiePanel("Lobby", `{"mode":"reserved","reserved":["t2"]}`))
 
 	// Another caller sees TIE 4 Reserved by panel Lobby, sorted after TIE 3.
@@ -190,7 +190,7 @@ func TestPanelTiesReservedPath(t *testing.T) {
 func TestPanelTiesReservedRefusals(t *testing.T) {
 	a, _, _, _ := panelTieApp(t, nil)
 	ada := userKey(t, a, "Ada")
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	id := makePanel(t, a, ada, tiePanel("Lobby", `{"mode":"reserved","reserved":["t1"]}`))
 	try := func(body, want string) {
 		t.Helper()
@@ -207,7 +207,7 @@ func TestPanelTiesReservedRefusals(t *testing.T) {
 	try(two, "this press needs two sources through TIE 3")
 	// Someone else holds a Protect on TIE 3.
 	a.mu.Lock()
-	a.first.router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
+	a.firstUnit().router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
 	a.mu.Unlock()
 	try(ends(uidA, "b2b2b2b2", 4, 2), "TIE 3 is protected by device 99")
 }

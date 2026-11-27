@@ -94,7 +94,7 @@ func (a *App) nameFixed(settings map[string]any) error {
 	if len(l) == 0 {
 		return nil
 	}
-	uid, first := a.r().cfg.UID, a.firstUnit()
+	uid, first := a.r().cfg.DefaultRouter().UID, a.firstUnit()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for i := range l {

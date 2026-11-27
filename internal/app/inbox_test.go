@@ -14,8 +14,8 @@ func inboxApp(t *testing.T) (a *App, ana, bo *client) {
 	a = userApp(t, false)
 	a.mu.Lock()
 	for n := 1; n <= 8; n++ {
-		a.first.router.srcNames[n] = "CAM " + string(rune('0'+n))
-		a.first.router.dstNames[n] = "MON " + string(rune('0'+n))
+		a.firstUnit().router.srcNames[n] = "CAM " + string(rune('0'+n))
+		a.firstUnit().router.dstNames[n] = "MON " + string(rune('0'+n))
 	}
 	a.mu.Unlock()
 	ana = watched(t, a, "10.0.0.1", "1234")

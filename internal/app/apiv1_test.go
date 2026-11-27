@@ -34,10 +34,10 @@ func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	a.first.router.srcNames[1] = "CAM 1"
-	a.first.router.dstNames[2] = "MON 2"
-	a.first.router.tally[2] = map[int]int{1: 1}
-	a.first.router.protect[3] = map[int]protHold{1: {0, 1}}
+	a.firstUnit().router.srcNames[1] = "CAM 1"
+	a.firstUnit().router.dstNames[2] = "MON 2"
+	a.firstUnit().router.tally[2] = map[int]int{1: 1}
+	a.firstUnit().router.protect[3] = map[int]protHold{1: {0, 1}}
 	a.mu.Unlock()
 	return a, f
 }

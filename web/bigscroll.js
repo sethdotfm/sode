@@ -14,6 +14,9 @@ export const SCROLLERS = [
   ['.sode__menu', 'y'],
   ['.sode__found', 'y'],
   ['.sode__scroll', 'y'],
+  ['.sode__plist', 'y'],
+  ['.sode__rlist', 'y'],
+  ['.sode__tlist', 'y'],
   ['#settings-toc', 'y'],
   ['.sode-inbox__list', 'y'],
   ['.sode-palette__list', 'y'],
@@ -37,6 +40,7 @@ export const SCROLLERS = [
   ['.sode-ov__people', 'y'],
   ['.sode-ov__keys', 'y'],
   ['.sode-lock', 'y'],
+  ['.sode-routerlist', 'y'],
 ];
 
 const PAGE = 0.9; // a track press pages by this much of the view, so a line stays in sight

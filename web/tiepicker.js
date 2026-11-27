@@ -1,5 +1,6 @@
-// The Tie line picker (docs/tielines-design.md, The Tie line picker; GLOSSARY.md). It opens for each route across
-// routers of a take, one after the other (tieflow.js). The server gives the ranked paths (tiepage.go, the message
+// The Tie line picker (docs/tielines-design.md, The Tie line picker; GLOSSARY.md). It opens for each question of a
+// take, one after the other (tieflow.js). A question is one hop that one or more routes share. The picker shows the
+// plan of the first route, and the destinations of every route of the question. The server gives the ranked paths (tiepage.go, the message
 // tiePlan): the page never computes paths. The keys and the selection are in tiepickrules.js. The picker only
 // chooses: tieflow.js sends the take.
 //
@@ -37,7 +38,8 @@ import {
   keyStep,
   ready,
   changedText,
-  stepsOf,
+  shownSteps,
+  memberChanges,
   countUp,
   refresh,
   tieMarked,
@@ -53,14 +55,16 @@ import {
   protectOn,
   toggleProtect,
   usedLast,
+  choiceLook,
 } from './tiepickrules.js';
 import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText, chainWords, feedingHop } from './tiepickrules.js';
 import { mayProtect } from './protects.js';
 import { reasonText } from './tietakerules.js';
 
-let ui = null; // { root, dialog, head, body, plan, one, clear, take, trap, pKey }
-// { st, o, oneOffs, lock, unlocked, timer, wait, asking, again }. o: the options of pickRoute. oneOffs: the One-off
-// tie lines that the person stated ({from, to}). wait: the timer of the next plan; asking: a plan is on its way;
+let ui = null; // { root, dialog, head, body, plan, one, clear, split, take, trap, pKey, dKey }
+// { st, o, oneOffs, plans, hits, lock, unlocked, timer, wait, asking, again }. o: the options of pickRoute. oneOffs:
+// the One-off tie lines that the person stated ({from, to}). plans: the routes of the last 409 body. hits: the
+// members whose path the live update found changed. wait: the timer of the next plan; asking: a plan is on its way;
 // again: a change came while it was.
 let cur = null;
 
@@ -90,7 +94,13 @@ function build() {
   cancel.type = 'button';
   cancel.id = 'tiepick-cancel';
   cancel.textContent = 'Cancel';
+  const split = el('button', 'pb-btn pb-btn--outline');
+  split.type = 'button';
+  split.id = 'tiepick-split';
+  split.textContent = 'Choose per destination';
+  split.dataset.pbTip = `Give each destination of this hop its own choice (${keyLabel('d')})`;
   const pKey = el('span', null, ', ', el('kbd', null, keyLabel('p')), ' protect');
+  const dKey = el('span', null, ', ', el('kbd', null, keyLabel('d')), ' per destination');
   const take = el('button', 'pb-btn pb-btn--commit sode-tiepick__take');
   take.type = 'button';
   take.id = 'tiepick-take';
@@ -99,7 +109,7 @@ function build() {
     'pb-modal sode-tiepick',
     el('div', 'pb-modal__header', title, head),
     body,
-    el('div', 'pb-modal__footer', keyHints(pKey), clear, cancel, take),
+    el('div', 'pb-modal__footer', keyHints(pKey, dKey), split, clear, cancel, take),
   );
   Object.assign(dialog, { id: 'tiepick-dialog', tabIndex: -1 });
   dialog.setAttribute('role', 'dialog');
@@ -115,7 +125,8 @@ function build() {
   cancel.addEventListener('click', () => close());
   take.addEventListener('click', () => send());
   clear.addEventListener('click', () => clearRoute());
-  ui = { root, dialog, head, body, plan, one, clear, take, trap, pKey };
+  split.addEventListener('click', () => splitHop());
+  ui = { root, dialog, head, body, plan, one, clear, split, take, trap, pKey, dKey };
 }
 
 // oneOffForm: the One-off tie line button and its form. The labels name the routers when the picker opens.
@@ -190,7 +201,7 @@ async function useOneOff() {
   }
   one.why.textContent = 'Asking the server…';
   const list = addOneOff(c.oneOffs, r.ends);
-  const { route, m } = await askPlan(withOneOffs(c.o.routes(), list));
+  const { route, m } = await askPlan(withOneOffs(c.o.routes(), list), c.o.at);
   if (cur !== c) return;
   if (!route) {
     one.why.textContent = m.body?.error?.message || m.err || 'The server refused the One-off tie line.';
@@ -204,10 +215,11 @@ async function useOneOff() {
   showOneOff(false);
 }
 
-// pKey: the hint of P, which shows only with the Protect right.
-function keyHints(pKey) {
+// pKey: the hint of P, which shows only with the Protect right. dKey: the hint of D, which shows only on a question
+// with more than one destination.
+function keyHints(pKey, dKey) {
   const k = (spec) => el('kbd', null, keyLabel(spec));
-  return el('span', 'sode-tiepick__keys', k('j'), ' ', k('k'), ' choose, ', k('h'), ' ', k('l'), ' step', pKey, ', ', k('escape'), ' cancel');
+  return el('span', 'sode-tiepick__keys', k('j'), ' ', k('k'), ' choose, ', k('h'), ' ', k('l'), ' step', pKey, dKey, ', ', k('escape'), ' cancel');
 }
 
 // mayShield: the person has the Protect right, and the picker can send a Protect (not the preset editor's).
@@ -226,9 +238,10 @@ function onKey(e) {
   }
   const c = chord(e);
   const { st, act } = keyStep(cur.st, c, mayShield());
-  if (st === cur.st && !act) return;
+  if ((st === cur.st && !act) || (act === 'split' && !cur.o.split)) return;
   e.preventDefault();
   e.stopPropagation();
+  if (act === 'split') return splitHop();
   if (act === 'cancel') return close();
   if (act === 'send') return send();
   cur.st = st;
@@ -236,27 +249,36 @@ function onKey(e) {
 }
 
 // pickRoute asks the server for the plan of one route and opens the picker on it. o:
-//   routes(): the routes of the plan request (tietakerules.js, planRequest); one of them has no ties.
+//   routes(): the routes of the plan request (tietakerules.js, planRequest). at: the place in it of the route that
+//   the picker shows; none for a request of one route.
+//   first: { route, all }, a plan that the caller has already, so the picker does not ask again.
+//   members: the routes of the question ({ at, dst }), the route at first. Their destinations show, and a change on
+//   any of them marks the hop. None: the destination of the route.
 //   state(route): the picker's state from the route of the 409 body (pickState or reopenState).
-//   head: the place of the route in the take ("Route 1 of 2"), or ''.
+//   head: the hop of the question and its destinations ("A → B, for B.1 B.2"), or a function of the state that gives
+//   it, or ''.
 //   final: Take sends the take; else it goes on to the next step of the take ("Next").
-//   onPick(st): the person chose a path. clear(): Clear this route, or null for none. onClose(): a cancel.
+//   onPick(st, oneOffs): the person chose a path. clear(): Clear this route, or null for none; clearText its word.
+//   split(): give each destination its own question, or null. onClose(): a cancel.
 //   oneOffs: the One-off tie lines that the person stated before ({from, to}), or none.
 //   use: the word of the button that chooses the path, in place of Take or Next. The preset editor uses it: the picker
 //   then only chooses saved tie lines, so it has no One-off tie line form and no Protect.
 export async function pickRoute(o) {
-  const { route, m } = await askPlan(withOneOffs(o.routes(), o.oneOffs));
-  if (route) return open(o, o.state(route));
+  const { route, all, m } = o.first?.route ? o.first : await askPlan(withOneOffs(o.routes(), o.oneOffs), o.at);
+  if (route) return open(o, o.state(route), all);
   showResult('error', 'Not sent', m.body?.error?.message || m.err || 'The server refused the route.');
   o.onClose?.();
 }
 
-// askPlan asks the server for the plan of routes, with no take. It gives { route } with the one route of the 409
-// body. When the server gave no plan, it gives { m } with the answer.
-async function askPlan(routes) {
+// askPlan asks the server for the plan of routes, with no take. It gives { route, all }. route is the route of the
+// 409 body at place at of the request, and all are every route of the body. With no at, the body must have one
+// route. When the server gave no plan, it gives { m } with the answer.
+async function askPlan(routes, at) {
   const m = await request('tiePlanResult', { t: 'tiePlan', routes });
   const code = m.body?.error?.code;
-  if (m.status === 409 && (code === 'tie_line_needed' || code === 'no_path') && m.body.routes?.length === 1) return { route: m.body.routes[0] };
+  const all = m.body?.routes || [];
+  const route = at == null ? (all.length === 1 ? all[0] : null) : all.find((r) => r.route === at);
+  if (m.status === 409 && (code === 'tie_line_needed' || code === 'no_path') && route) return { route, all };
   return { m };
 }
 
@@ -272,13 +294,20 @@ function replan() {
       return;
     }
     c.asking = true;
-    const { route } = await askPlan(withOneOffs(c.o.routes(), c.oneOffs));
+    const { route, all } = await askPlan(withOneOffs(c.o.routes(), c.oneOffs), c.o.at);
     c.asking = false;
     if (cur !== c) return;
     if (route) {
       const { st, changed } = refresh(c.st, route);
+      // A change on the path of another route of the question marks its destination.
+      const p = chosen(st);
+      const prefix = (p?.hops || []).slice(0, shownSteps(st).to + 1).map((h) => h.tie?.id || '');
+      const others = (c.o.members || []).slice(1).map((x) => x.at);
+      const hit = p ? memberChanges(c.plans, all, others, prefix) : [];
+      c.plans = all;
+      c.hits = [...new Set([...c.hits, ...hit])];
       c.st = st;
-      if (changed) startLock();
+      if (changed || hit.length) startLock();
       paint();
     }
     if (c.again) {
@@ -302,13 +331,15 @@ function startLock() {
   });
 }
 
-function open(o, st) {
+function open(o, st, plans) {
   if (!ui) build();
   stop();
-  cur = { st, o, oneOffs: o.oneOffs || [], unlocked: false, timer: countUp(tick) };
+  cur = { st, o, oneOffs: o.oneOffs || [], plans, hits: [], unlocked: false, timer: countUp(tick) };
   resetOneOff(st.route);
-  ui.head.textContent = o.head || '';
   ui.clear.hidden = !o.clear;
+  ui.clear.textContent = o.clearText || 'Clear this route';
+  ui.split.hidden = !o.split;
+  ui.dKey.hidden = !o.split;
   ui.take.textContent = `${o.use || (o.final ? 'Take' : 'Next')} (${keyLabel('enter')})`;
   ui.one.node.hidden = !!o.use;
   startLock();
@@ -351,23 +382,21 @@ function tick() {
 }
 
 function paint() {
-  const { st } = cur;
+  const { st, o } = cur;
   const { route } = st;
   const p = chosen(st);
   const src = srcOf(route.src);
   const dst = dstOf(route.dst);
   const steps = [];
-  for (let s = 0; s < stepsOf(p); s++) steps.push(stepNode(s, src));
+  const shown = shownSteps(st);
+  for (let s = shown.from; s <= shown.to; s++) steps.push(stepNode(s, src));
+  ui.head.textContent = typeof o.head === 'function' ? o.head(st) : o.head || '';
+  const dsts = o.members?.length ? o.members.map((x) => x.dst) : [dst];
+  const to = dsts.flatMap((d, i) => (i ? [', ', labelNode(d)] : [labelNode(d)]));
   ui.plan.replaceChildren(
-    el('div', 'sode-tiepick__route', 'Take ', labelNode(src), ' to ', labelNode(dst), `, ${levelsPhrase(route.levels, dst.router || '')}`),
+    el('div', 'sode-tiepick__route', 'Take ', labelNode(src), ' to ', ...to, `, ${levelsPhrase(route.levels, dst.router || '')}`),
     ...reasonsNode(route),
-    el(
-      'div',
-      'sode-tiepick__map',
-      endNode('Source', src, 'sode-tiepick__end--src'),
-      ...steps,
-      endNode('Destination', dst, 'sode-tiepick__end--dst', st.marks?.end),
-    ),
+    el('div', 'sode-tiepick__map', endNode('Source', src, 'sode-tiepick__end--src'), ...steps, dstsNode(st)),
     ...(p ? [affectedNode(p, src)] : []),
     ...reserveNode(st),
     ...storedNode(st),
@@ -422,6 +451,20 @@ function endNode(word, it, cls, marked = false) {
   return el('div', `sode-tiepick__end ${cls}`, word2, labelNode(it), ...(marked ? [changedMark()] : []));
 }
 
+// dstsNode shows the destinations of the question. The destination of the route that the picker shows is marked from
+// its own path (st.marks.end), the others from memberChanges.
+function dstsNode(st) {
+  const { o } = cur;
+  if (!o.members?.length) return endNode('Destination', dstOf(st.route.dst), 'sode-tiepick__end--dst', st.marks?.end);
+  const routers = [...new Set(o.members.map((x) => prefix(x.dst.router || '')))];
+  const word = el('span', 'sode-tiepick__word', `${o.members.length > 1 ? 'Destinations' : 'Destination'}, router ${routers.join(', ')}`);
+  const rows = o.members.map((x, i) => {
+    const marked = i === 0 ? st.marks?.end : cur.hits.includes(x.at);
+    return el('div', 'sode-tiepick__dst', labelNode(x.dst), ...(marked ? [changedMark()] : []));
+  });
+  return el('div', 'sode-tiepick__end sode-tiepick__end--dst', word, ...rows);
+}
+
 // changedMark marks a row that the live update or a refused take found changed. Caution color, with text.
 const changedMark = (text = 'Changed') => el('span', 'pb-badge pb-badge--warn sode-tiepick__mark', text);
 
@@ -433,7 +476,8 @@ function stepNode(s, src) {
   const list = el('div', 'sode-tiepick__choices');
   list.setAttribute('role', 'listbox');
   list.setAttribute('aria-label', `Tie lines from router ${prefix(hop.router)} to router ${prefix(next.router)}`);
-  for (const c of choices(st, s)) list.append(choiceNode(s, c, c.tie === hop.tie.id, src));
+  const cs = choices(st, s);
+  for (const c of cs) list.append(choiceNode(s, c, c.tie === hop.tie.id, src, cs));
   const node = el(
     'div',
     'sode-tiepick__step',
@@ -478,8 +522,29 @@ function shieldNode(s, hop) {
   return b;
 }
 
-function choiceNode(s, c, on, src) {
+// LOOKS gives the class of each state of choiceLook. Each class is a literal, so the color checks see it
+// (web/test/colorroles.test.mjs).
+const LOOKS = {
+  held: 'sode-tiepick__choice--grey',
+  has: 'sode-tiepick__choice--has',
+  change: 'sode-tiepick__choice--change',
+  free: 'sode-tiepick__choice--free',
+};
+
+// lookNodes are the words of the state of a choice. "Has it" has a check, and "3 change" is a caution badge.
+// "Free" is text, and "Best" is a neutral badge.
+function lookNodes(look) {
+  const out = [];
+  if (look.state === 'has') out.push(el('span', 'sode-tiepick__has', icon('check'), look.text));
+  if (look.state === 'change') out.push(el('span', 'pb-badge pb-badge--warn sode-tiepick__changes', look.text));
+  if (look.state === 'free') out.push(el('span', 'sode-tiepick__free', look.text));
+  if (look.best) out.push(el('span', 'pb-badge sode-tiepick__best', 'Best'));
+  return out;
+}
+
+function choiceNode(s, c, on, src, cs) {
   const h = c.hop;
+  const look = choiceLook(cur.st, s, c, cs);
   const will = h.sends ? `Will carry ${src.label}` : 'Carries the source now';
   const held = heldText(h, fmtClock);
   const changed = el('span', 'sode-tiepick__ago', changedText(h, Date.now(), fmtClock));
@@ -491,7 +556,7 @@ function choiceNode(s, c, on, src) {
     'button',
     'sode-tiepick__choice',
     el('span', 'sode-tiepick__wire'),
-    el('span', 'sode-tiepick__tie', c.name),
+    el('span', 'sode-tiepick__tierow', el('span', 'sode-tiepick__tie', c.name), ...lookNodes(look)),
     el('span', 'sode-tiepick__now', `Now ${chainText(h.now)}`),
     el('span', 'sode-tiepick__will', will),
     changed,
@@ -507,6 +572,8 @@ function choiceNode(s, c, on, src) {
   b.setAttribute('aria-selected', on ? 'true' : 'false');
   b.classList.toggle('sode-tiepick__choice--on', on);
   b.classList.toggle('sode-tiepick__choice--held', c.held);
+  b.classList.add(LOOKS[look.state]);
+  b.classList.toggle('sode-tiepick__choice--best', look.best);
   // The selection is the focus of the list: a press keeps the focus on the dialog, so the keys stay with the picker.
   b.tabIndex = -1;
   b.addEventListener('pointerdown', (e) => e.preventDefault());
@@ -561,9 +628,17 @@ function send() {
     startLock();
     return paint();
   }
-  const { st, o } = cur;
+  const { st, o, oneOffs } = cur;
   close(true);
-  o.onPick(st);
+  o.onPick(st, oneOffs);
+}
+
+// splitHop gives each destination of the question its own question.
+function splitHop() {
+  const o = cur?.o;
+  if (!o?.split) return;
+  close(true);
+  o.split();
 }
 
 function clearRoute() {

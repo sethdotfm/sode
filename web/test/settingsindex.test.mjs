@@ -63,12 +63,12 @@ test('common words reach their section', () => {
   const cases = {
     dark: 'this-browser',
     clock: 'this-browser',
-    ip: 'router-matrix',
-    host: 'router-matrix',
-    poll: 'router-names',
+    ip: 'routers',
+    host: 'routers',
+    poll: 'routers',
     lockout: 'confirm',
     'success banner': 'confirm',
-    offset: 'router-matrix',
+    offset: 'routers',
     undo: 'history',
     audit: 'proxy',
     proxy: 'proxy',
@@ -107,29 +107,29 @@ test('the router salvo group is found by its words', () => {
     {
       id: 'router',
       title: 'Router',
-      settings: [{ id: 'cfg-salvogroup', label: 'Router salvo group' }],
+      settings: [{ id: 'cfg-rt-salvoGroup', label: 'Router salvo group' }],
     },
   ]);
   for (const q of ['salvo group', 'native', 'group number', 'crosspoint list']) {
     assert.ok(
-      find(index, q).some((h) => h.id === 'cfg-salvogroup'),
+      find(index, q).some((h) => h.id === 'cfg-rt-salvoGroup'),
       q,
     );
   }
 });
 
 test('the fire mode setting is found by its words', () => {
-  assert.ok(DICT['cfg-firemode']?.length, "add DICT['cfg-firemode'] in settingsindex.js");
+  assert.ok(DICT['cfg-rt-fireMode']?.length, "add DICT['cfg-rt-fireMode'] in settingsindex.js");
   const index = buildIndex([
     {
       id: 'router',
       title: 'Router',
-      settings: [{ id: 'cfg-firemode', label: 'Multi destination' }],
+      settings: [{ id: 'cfg-rt-fireMode', label: 'Multi destination' }],
     },
   ]);
   for (const q of ['native', 'fire mode', 'router salvo', 'preset']) {
     assert.ok(
-      find(index, q).some((h) => h.id === 'cfg-firemode'),
+      find(index, q).some((h) => h.id === 'cfg-rt-fireMode'),
       q,
     );
   }
@@ -217,9 +217,26 @@ test("a topic name finds that topic's sections", () => {
   assert.ok(hits.every((h) => h.topic === 'Look and feel'));
 });
 
-test('hitWhere names the topic, and the router for a per-router section', () => {
+test('hitWhere names the topic, and the router of a router setting', () => {
   assert.equal(hitWhere({ kind: 'section', topic: 'Server', section: 'Proxy' }), 'Server');
   assert.equal(hitWhere({ kind: 'setting', topic: 'Server', section: 'Proxy' }), 'Server › Proxy');
-  assert.equal(hitWhere({ kind: 'section', topic: 'Routers', router: 'Ultrix', section: 'Takes' }), 'Routers › Ultrix');
-  assert.equal(hitWhere({ kind: 'setting', topic: 'Routers', router: 'Ultrix', section: 'Takes' }), 'Routers › Ultrix › Takes');
+  assert.equal(hitWhere({ kind: 'setting', topic: 'Routers', router: 'B Stage 2', section: 'Routers' }), 'Routers › B Stage 2 › Routers');
+});
+
+test("a router's settings are found once for each router, and the section once", () => {
+  const settings = [{ id: 'cfg-rt-address', label: 'Address' }];
+  const index = buildIndex([
+    { id: 'routers', title: 'Routers', topic: 'Routers', settings: [] },
+    { id: 'routers', title: 'Routers', topic: 'Routers', settingsOnly: true, router: 'A Studio', uid: 'ua', settings },
+    { id: 'routers', title: 'Routers', topic: 'Routers', settingsOnly: true, router: 'B Stage 2', uid: 'ub', settings },
+  ]);
+  const hits = find(index, 'address');
+  assert.deepEqual(
+    hits.filter((h) => h.kind === 'setting').map((h) => [h.uid, hitWhere(h)]),
+    [
+      ['ua', 'Routers › A Studio › Routers'],
+      ['ub', 'Routers › B Stage 2 › Routers'],
+    ],
+  );
+  assert.equal(find(index, 'routers').filter((h) => h.kind === 'section').length, 1);
 });

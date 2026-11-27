@@ -87,12 +87,10 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
+	// healthz says only that Sode answers (the container health check). The links are in /api/health.
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		a.mu.Lock()
-		st := a.firstUnit().status
-		a.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(st)
+		w.Write([]byte(`{"server":"up"}` + "\n"))
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
 	mux.HandleFunc("POST /api/log/download", a.serveLogDownload)
@@ -388,6 +386,7 @@ type inMsg struct {
 	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
 	approver     *config.User       // approve sets it after it checks the Approval's PIN
 	Router       string             `json:"router"`  // setupRouter: the address typed; routerUses and uptime: the router UID
+	Routers      []string           `json:"routers"` // protectClearAll: the router UIDs to act on; none is every router
 	Setup        *setupReq          `json:"setup"`   // setupFinish
 	TakeOver     bool               `json:"take"`    // setupClaim: Take control from the browser that runs setup
 	For          *inMsg             `json:"for"`     // approvalAsk: the action to approve

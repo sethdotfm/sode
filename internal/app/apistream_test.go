@@ -164,8 +164,8 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	}
 
 	a.mu.Lock()
-	a.first.router.srcNames[6] = "ANOTHER SECRET"
-	a.broadcast(a.first.namesMsg())
+	a.firstUnit().router.srcNames[6] = "ANOTHER SECRET"
+	a.broadcast(a.firstUnit().namesMsg())
 	a.mu.Unlock()
 	m = s.next()
 	strmWantType(t, m, "names", "names")
@@ -174,8 +174,8 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	}
 
 	a.mu.Lock()
-	a.first.status = statusMsg{T: "status", Router: "down", Addr: "r:1"}
-	a.broadcast(a.first.statusOut())
+	a.firstUnit().status = statusMsg{T: "status", Router: "down", Addr: "r:1"}
+	a.broadcast(a.firstUnit().statusOut())
 	a.mu.Unlock()
 	m = s.next()
 	strmWantType(t, m, "status", "status")
@@ -191,7 +191,7 @@ func TestStreamSendsOnlyChosenTopics(t *testing.T) {
 	strmWantType(t, s.next(), "snapshot", "status")
 	a.mu.Lock()
 	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
-	a.broadcast(a.first.namesMsg())
+	a.broadcast(a.firstUnit().namesMsg())
 	a.mu.Unlock()
 	s.quiet(300 * time.Millisecond)
 }

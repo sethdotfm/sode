@@ -300,20 +300,22 @@ const wireDsts = (dsts) =>
 const where = (dsts) => (dsts.length === 1 ? dsts[0].dst.label : `${dsts.length} destinations`);
 
 // One message for any number of destinations, so the server writes one History Group. ap: an Approval in person;
-// answer: the Approval popup's { fail, done }.
-export function sendProtect(plan, ap = null, answer = null) {
+// answer: the Approval popup's { fail, done }. report(kind, head, text) takes the result in place of the banner.
+// Settings > Routers > Protects uses it, since the banner is out of sight there.
+export function sendProtect(plan, ap = null, answer = null, report = null) {
   const { dsts, on } = plan.protect;
   const id = ++seq;
   const protect = { dsts: wireDsts(dsts) };
   // Each type written out, so policy_test.go finds both sent.
   const msg = on ? { t: 'protectSet', id, protect } : { t: 'protectClear', id, protect };
   if (ap) msg.approval = ap;
+  const say = report || showResult;
   if (!wsSend(msg)) {
-    showResult('error', 'Not sent', `${LINK_DOWN} Try again.`);
+    say('error', 'Not sent', `${LINK_DOWN} Try again.`);
     return false;
   }
-  pending.set(id, { plan, answer });
-  showResult('info', on ? 'Protecting…' : dsts.length === 1 ? 'Freeing the Protect…' : 'Freeing the Protects…', `${where(dsts)}, every level`);
+  pending.set(id, { plan, answer, say });
+  say('info', on ? 'Protecting…' : dsts.length === 1 ? 'Freeing the Protect…' : 'Freeing the Protects…', `${where(dsts)}, every level`);
   return true;
 }
 
@@ -326,6 +328,7 @@ function onResult(m) {
   // A request the server ran after an Approval answers with the frozen id, which this page no longer holds.
   if (!p) return void (m.t === 'protectClearResult' && m.ok && showResult('done', 'Protect freed', 'Approved.'));
   pending.delete(m.id);
+  const say = p.say;
   const { dsts, on } = p.plan.protect;
   const rows = m.results || [];
   noteOwn(
@@ -336,7 +339,7 @@ function onResult(m) {
   if (p.answer && refused) return void p.answer.fail(refused.err || m.err);
   p.answer?.done();
   const fail = on ? 'Protect failed' : 'Free Protect failed';
-  if (!rows.length) return showResult('error', fail, `${dsts.length === 1 ? `${dsts[0].dst.label}: ` : ''}${m.err || 'refused'}.`);
+  if (!rows.length) return say('error', fail, `${dsts.length === 1 ? `${dsts[0].dst.label}: ` : ''}${m.err || 'refused'}.`);
   const asks = !p.answer && role && role !== 'administrator' ? rows.filter((r) => r.admin) : [];
   if (asks.length) askAdmin(p.plan, asks, m.id);
   const rest = rows.filter((r) => !asks.includes(r));
@@ -355,10 +358,10 @@ function onResult(m) {
     });
   const n = rest.length - failed.length;
   if (dsts.length === 1)
-    return failed.length ? showResult('error', fail, failed[0]) : showResult('done', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
+    return failed.length ? say('error', fail, failed[0]) : say('done', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
   const head = on ? `${n} Protected` : `${n} Protects freed`;
-  if (!failed.length) return showResult('done', head, 'Every level.');
-  showResult(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, failed.join(' '));
+  if (!failed.length) return say('done', head, 'Every level.');
+  say(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, failed.join(' '));
 }
 
 // Another Sode user's Protects: one Approval frees every one of rows, each with its own undo.
@@ -380,21 +383,26 @@ function askAdmin(plan, rows, id) {
 onMsg('protectSetResult', onResult);
 onMsg('protectClearResult', onResult);
 
-const clearing = new Map(); // id → done
+const clearing = new Map(); // id → { done, routers }
 // Free Sode's Protects (Settings > Routers > Protects): Critical, so a refusal asks the PIN again and sends once more.
-// done(ok, text).
-export function clearSodeProtects(done) {
+// routers: the router UIDs to act on (none: every router). done(m) gets the protectClearAllResult, or { ok: false, err }
+// when nothing went.
+export function clearSodeProtects(done, routers = null) {
   const id = ++seq;
-  if (!wsSend({ t: 'protectClearAll', id })) return done(false, LINK_DOWN);
-  clearing.set(id, done);
+  const msg = { t: 'protectClearAll', id };
+  if (routers) msg.routers = routers;
+  if (!wsSend(msg)) return done({ ok: false, err: LINK_DOWN });
+  clearing.set(id, { done, routers });
 }
 onMsg('protectClearAllResult', (m) => {
-  const done = clearing.get(m.id);
-  if (!done) return;
+  const c = clearing.get(m.id);
+  if (!c) return;
   clearing.delete(m.id);
   if (m.recheck) {
-    import('./recheck.js').then(({ askRecheck }) => askRecheck("Freeing Sode's Protects")).then((ok) => (ok ? clearSodeProtects(done) : done(false, m.err)));
+    import('./recheck.js')
+      .then(({ askRecheck }) => askRecheck("Freeing Sode's Protects"))
+      .then((ok) => (ok ? clearSodeProtects(c.done, c.routers) : c.done({ ok: false, err: m.err })));
     return;
   }
-  done(m.ok, m.ok ? `${m.cleared || 0} freed` : m.err);
+  c.done(m);
 });

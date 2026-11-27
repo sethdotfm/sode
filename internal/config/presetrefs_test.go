@@ -33,7 +33,7 @@ func TestPresetRefsAndIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := c.Presets[0]
-	if s.ID == "" || s.Items[0].Src.Router != c.UID || s.Items[0].Dsts[0].Router != c.UID || s.Items[0].Src.Shown != "" {
+	if s.ID == "" || s.Items[0].Src.Router != c.Routers[0].UID || s.Items[0].Dsts[0].Router != c.Routers[0].UID || s.Items[0].Src.Shown != "" {
 		t.Fatalf("not filled: %+v", s)
 	}
 	if s.Items[0].Dsts[0].Name != "MON 2" {
@@ -47,7 +47,7 @@ func TestPresetRefsAndIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(path)
-	for _, want := range []string{"id: " + s.ID, "router: " + c.UID, `"n": 4`, "name: MON 2"} {
+	for _, want := range []string{"id: " + s.ID, "router: " + c.Routers[0].UID, `"n": 4`, "name: MON 2"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("file lacks %q:\n%s", want, b)
 		}
@@ -114,7 +114,7 @@ func TestProfilePresetRefsFilled(t *testing.T) {
 	c.Users = []User{{Name: "Ann", Profile: Profile{Presets: []Preset{{Name: "Mine", Items: []PresetItem{refItem(1, nil, 2)}}}}}}
 	c.Normalize()
 	p := c.Users[0].Profile.Presets[0]
-	if p.ID == "" || p.Items[0].Src.Router != c.UID || p.Items[0].Dsts[0].Router != c.UID {
+	if p.ID == "" || p.Items[0].Src.Router != c.Routers[0].UID || p.Items[0].Dsts[0].Router != c.Routers[0].UID {
 		t.Fatalf("profile preset not filled: %+v", p)
 	}
 }

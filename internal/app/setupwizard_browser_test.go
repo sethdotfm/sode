@@ -17,7 +17,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	sim := startSim(t)
 	t.Setenv("SODE_ROUTER", sim) // cmd/sode puts it in the config, as the edit below does
 
-	a := setupApp(t, func(c *config.Config) { c.Address = sim })
+	a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = sim })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -53,6 +53,11 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(next + `.click(); true`)
 
 	b.waitFor("Router, filled from the config", `document.getElementById('setup-router')?.value === '`+sim+`'`)
+	b.waitFor("Router title, with the default title of Add router", `document.getElementById('setup-routerTitle')?.value === 'Router A'
+		&& document.querySelector('label[for="setup-routerTitle"]').textContent === 'Router title'`)
+	b.waitFor("Level numbering shows the real ranges, as the detail view does", `(() => { const n = +document.getElementById('setup-levels').value;
+		return [...document.querySelectorAll('label[for^="setup-levelNumbering-"]')].map((l) => l.textContent).join(' | ') === '1–' + n + ' | 0–' + (n - 1) + ' | V, 1–' + (n - 1); })()`)
+	type_("setup-routerTitle", "Studio Ultrix")
 	b.waitFor("the env hint under Address", `document.getElementById('setup-router')?.parentElement.querySelector('.sode__hint')?.textContent === 'Filled from SODE_ROUTER.'`)
 	status := `(document.getElementById('setup-router-status')?.textContent || '')`
 	found := `/^Connected: \d+ sources? and \d+ destinations? discovered\.$/.test(` + status + `)`
@@ -82,7 +87,7 @@ func TestChromeSetupWizard(t *testing.T) {
 		return t.includes('signed in as Ada') && t.includes('connected to the router at `+sim+`') && t.includes('Standard access'); })()`)
 	b.waitFor("earlier steps lock", `!document.querySelector('#setup-steps [data-go]')`)
 	c := loadFile(t, a.cfgPath)
-	if ada, ok := c.FindUserByName("Ada"); !ok || ada.Role != config.RoleAdministrator || c.Address != sim || !c.PinWaits || c.BrandBorder != "teal" {
+	if ada, ok := c.FindUserByName("Ada"); !ok || ada.Role != config.RoleAdministrator || c.Routers[0].Address != sim || c.Routers[0].Title != "Studio Ultrix" || !c.PinWaits || c.BrandBorder != "teal" {
 		t.Fatalf("after Finish: %+v", c)
 	}
 	b.waitFor("signed in", `!!localStorage.getItem('sode-session')`)

@@ -59,7 +59,26 @@ The hello's `routers` list carries the names, tally, levels and link of every ro
 | `prefix` | `prefix` of each router |
 | `routerUid` | `uid` of each router: its UID in the settings |
 
-The first router's Protects stay in `protected` and `protectBy`. Each router after the first in `routers` has its own `protected`, `protectBy` and `protectDevice`.
+Each router in `routers` has its own `protected`, `protectBy` and `protectDevice`, the first router too. Each element also has every setting of its router, by the attribute of its one Save key (below).
+
+## Router settings: one shape on the wire
+
+The owner approved these renames (docs/research/settings-review/RECOMMENDATIONS.md, section 0, decisions 2 and 3). Each router setting has one key `router/<uid>/<attribute>` in the one Save, for every router, the first router too. The attribute is the JSON name that the hello's `routers` list sends. A page reloads when the build label changes, so no page reads the old names.
+
+| Old name | New name | Where |
+| --- | --- | --- |
+| `router` | `router/<uid>/address` | One Save key, `config` message, `cfg` of `hello` |
+| `routerName` | `router/<uid>/title` | The same |
+| `matrix`, `levels`, `levelWireOffset`, `levelNumbering`, `defaultLevels`, `numberOffset`, `nameLength`, `nameRequests`, `nameRereadSeconds`, `tallyResyncSeconds`, `fireMode`, `salvoGroup`, `protectDevice` | `router/<uid>/<the same name>` | The same. The hello's `routers` list has each one by its name; its `levels` is the level list, and the length of the list is the `levels` setting |
+| `protected`, `protectBy` of `hello` | `protected`, `protectBy` of each element of `routers` | WebSocket |
+| The `protected` message with no `routerUid` | Every `protected` message has `routerUid` | WebSocket |
+| `statusLabel` of each router | `statusLabel` at the top level of `config.yaml`; its JSON key stays `routerShow` | `config.yaml` |
+| `router`, `targetAddress`, `err` at the top of `/api/health` | `routers[]` | HTTP |
+| `router`, `routerUp`, `error`, `address`, `err` at the top of `GET /api/v1/status` and its stream frames | `routers[]` | HTTP and the API stream |
+
+The order of the routers is the one Save key `routers/order` (section `routers`): a list of router UIDs. The first router of the list is the default router. The hello carries its version. A router that the list does not name (one that the same save adds) comes after the named ones. A new order is not Critical and reconnects no router. It is new in this release; no old name.
+
+`routerShow` stays a plain one Save key: the status label is one setting for the status bar, not one for each router.
 
 ## Close names that are not retired
 

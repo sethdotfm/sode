@@ -36,7 +36,8 @@ export function parseShown(text, offset) {
   return n >= 0 && n <= 0xffff ? n : null;
 }
 
-export const swapLabel = (v, offset) => `Swap ${v.side} ${v.from + offset} for ${v.to + offset}`;
+// name: the router's shown name with two or more routers, else ''. Keep in step with label in internal/app/swap.go.
+export const swapLabel = (v, offset, name = '') => `Swap ${v.side} ${v.from + offset} for ${v.to + offset}${name ? ` on ${name}` : ''}`;
 
 // "3 items: Everyone 1, Ana 1, Bo 1". items is the list the value was made from.
 export function swapShow(v, items) {

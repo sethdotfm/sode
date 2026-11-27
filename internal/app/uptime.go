@@ -136,6 +136,29 @@ func openUptimeCap(path string, now func() time.Time, capBytes int) (*Uptime, er
 
 func alivePath(path string) string { return path + ".alive" }
 
+// uptimeRouterPath: the UID of the router that the uptime file is about (App.SetUptime).
+func uptimeRouterPath(path string) string { return path + ".router" }
+
+func writeUptimeRouter(path, uid string) {
+	if err := config.AtomicWrite(uptimeRouterPath(path), []byte(uid+"\n")); err != nil {
+		log.Printf("uptime: %v", err)
+	}
+}
+
+// clear drops the history: the file was about a router that Sode no longer has.
+func (u *Uptime) clear() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.trans = []UptimeTrans{{u.now().UnixMilli(), upDown}}
+	u.mins, u.pend = nil, nil
+	u.cur = minute{M: u.now().Unix() / 60}
+	if u.path != "" {
+		if err := u.rewrite(); err != nil {
+			log.Printf("uptime: %v", err)
+		}
+	}
+}
+
 // prune keeps the last transition before the cutoff: the state the oldest kept range
 // starts in.
 func (u *Uptime) prune(now time.Time) {

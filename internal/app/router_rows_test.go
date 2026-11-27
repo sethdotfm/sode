@@ -12,9 +12,9 @@ import (
 
 // A History entry keeps the router title it was made under, so it stays readable after a rename.
 func TestHistoryEntriesNameTheirRouter(t *testing.T) {
-	a, f, key := takerApp(t, func(c *config.Config) { c.Title = "Studio Ultrix" })
+	a, f, key := takerApp(t, func(c *config.Config) { c.Routers[0].Title = "Studio Ultrix" })
 	f.seed(2, 1, 0)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	take := func() {
 		t.Helper()
 		if rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, nil); rec.Code != 200 {
@@ -22,8 +22,8 @@ func TestHistoryEntriesNameTheirRouter(t *testing.T) {
 		}
 	}
 	take()
-	cfg := a.r().cfg
-	cfg.Title = "Truck B"
+	cfg := a.r().cfg.Clone()
+	cfg.Routers[0].Title = "Truck B"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -44,18 +44,18 @@ func TestHistoryEntriesNameTheirRouter(t *testing.T) {
 // Router messages and link events name the router; rows with no router behind them do not.
 func TestLogRowsNameTheirRouter(t *testing.T) {
 	a := newTestApp(t)
-	cfg := a.r().cfg
-	cfg.Title = "Studio Ultrix"
+	cfg := a.r().cfg.Clone()
+	cfg.Routers[0].Title = "Studio Ultrix"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
 	stop := startLog(t, a)
 	defer stop()
 	a.onTx(swp08.TxEvent{Msg: swp08.ExtConnect(0, 0, 2, 4), Why: swp08.Why{Reason: swp08.ReasonTake}, At: time.Now(), Tries: 1, Result: "ack"})
-	a.onUnitState(a.first, swp08.StateUp, nil)
+	a.onUnitState(a.firstUnit(), swp08.StateUp, nil)
 	a.logEvent(event(kindBrowser, "connect", "10.1.1.1", "connected"))
 	rows := waitLogged(t, a, 3)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	if got := results(rows, kindLink); got != "up" {
 		t.Fatalf("link rows %q, want up", got)
 	}

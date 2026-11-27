@@ -1,0 +1,16 @@
+{
+  "browsers": 0,
+  "routers": [
+    {
+      "prefix": "A",
+      "router": "up",
+      "targetAddress": "10.0.0.50:8910",
+      "title": "Studio",
+      "uid": "a1a1a1a1a1a1a1a1"
+    }
+  ],
+  "server": "up",
+  "state": "healthy",
+  "uptimeSeconds": "*",
+  "version": "*"
+}

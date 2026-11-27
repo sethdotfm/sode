@@ -1,15 +1,25 @@
-// Settings > Routers: the Routers list, with Add router and Remove router (settingsrouterlist.js). Pure, no imports
-// (Node-tested). Keep the keys in step with internal/app/routeradd.go.
+// Settings > Routers: the keys of the router list, Add router and Remove router, the shown name and the link state
+// (settingsrouterdetail.js, settingsrouterlist.js). Pure, no imports (Node-tested). Keep the keys in step with
+// internal/app/routeradd.go.
 
-export const LIST_ATTRS = ['prefix', 'title', 'address', 'matrix'];
-export const ATTR_LABELS = { prefix: 'Prefix', title: 'Title', address: 'Address', matrix: 'Matrix' };
+// routerDisplay: the one shown form of a router, the Router prefix and then the Router title ("B Studio B"). A router
+// with no title, or with a title that only repeats the default ("Router B"), shows "Router B". With one router Sode
+// hides the prefix (GLOSSARY.md), so callers use it only when there are two or more.
+export function routerDisplay(r) {
+  const title = String(r?.title || '').trim();
+  const prefix = r?.prefix || '';
+  return !title || title === `Router ${prefix}` ? `Router ${prefix}`.trim() : `${prefix} ${title}`.trim();
+}
 
 export const listKey = (uid, attr) => `router/${uid}/${attr}`;
 export const addKey = (n) => `router/new:${n}/add`;
 export const removeKey = (uid) => `router/${uid}/remove`;
+// The order of the routers, a list of router UIDs. The first router of the list is the default router. Keep in step
+// with routersOrderKey in internal/app/routeradd.go.
+export const ORDER_KEY = 'routers/order';
 
-// The keys this list owns: a router's prefix, title, address and matrix, Add and Remove.
-export const LIST_KEY = /^router\/[^/]+\/(prefix|title|address|matrix|add|remove)$/;
+// The keys of the router list: every setting of a router, its Remove, and Add router.
+export const LIST_KEY = /^router\/[^/]+\/[A-Za-z]+$/;
 export const keyAttr = (key) => key.slice(key.lastIndexOf('/') + 1);
 export const keyRouter = (key) => key.split('/')[1];
 
@@ -19,35 +29,6 @@ export function freePrefix(used) {
   const letters = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
   for (const p of [...letters, ...letters.flatMap((a) => letters.map((b) => a + b))]) {
     if (!have.has(p)) return p;
-  }
-  return '';
-}
-
-// readRouter turns the typed text of one row into the values it saves.
-export function readRouter({ prefix = '', title = '', address = '', matrix = '0', levels }) {
-  const out = {
-    prefix: String(prefix).trim().toUpperCase(),
-    title: String(title).trim(),
-    address: String(address).trim(),
-    matrix: Number(String(matrix).trim() || 0),
-  };
-  if (levels !== undefined) out.levels = Number(String(levels).trim() || 0);
-  return out;
-}
-
-const whole = (n, lo, hi) => Number.isInteger(n) && n >= lo && n <= hi;
-
-// routerListProblem: rows are the routers that stay after the save, each {name, prefix, title, matrix, levels?}. It
-// gives the first problem as text, or ''.
-export function routerListProblem(rows) {
-  const seen = new Set();
-  for (const r of rows) {
-    if (!/^[A-Z]{1,2}$/.test(r.prefix)) return `${r.name}: the prefix must be one or two letters, A to Z.`;
-    if (seen.has(r.prefix)) return `Two routers have the prefix ${r.prefix}. Give each router its own prefix.`;
-    seen.add(r.prefix);
-    if ([...r.title].length > 32) return `${r.name}: the title must be at most 32 characters.`;
-    if (!whole(r.matrix, 0, 255)) return `${r.name}: the matrix must be a number from 0 to 255.`;
-    if (r.levels !== undefined && r.levels !== 0 && !whole(r.levels, 1, 256)) return `${r.name}: the levels must be a number from 1 to 256.`;
   }
   return '';
 }
@@ -82,4 +63,24 @@ export function usesNote(prefix, items) {
   });
   const parts = [broken.length ? `makes ${joinAnd(broken)} Broken` : '', ties.length ? `removes ${ties[0]}` : ''].filter(Boolean);
   return { head: `Remove router ${prefix} ${parts.join(' and ')}:`, lines };
+}
+
+// The link state of a router in the Routers list, as an icon and words. A healthy link shows no color
+// (docs/color-roles.md): Connected is plain text. Connecting is caution (state warn). Down and Never connected are
+// failure (state error).
+const LINK_STATES = {
+  connected: { word: 'Connected', glyph: 'circle-check', state: '' },
+  connecting: { word: 'Connecting', glyph: 'loader-circle', state: 'warn' },
+  down: { word: 'Down', glyph: 'circle-x', state: 'error' },
+  never: { word: 'Never connected', glyph: 'circle-x', state: 'error' },
+};
+
+// linkState: r is one entry of routerLinks (routerlinkrules.js), {link, err}. link is '' while the server link is down,
+// so nothing is known and nothing shows (null). everUp: the router was connected at some time (the server's never flag is
+// false). A link that connects for the first time is Connecting; one that failed is Down, or Never
+// connected when it was never up.
+export function linkState(r, everUp) {
+  if (!r?.link) return null;
+  const key = r.link === 'up' ? 'connected' : r.link === 'connecting' && !r.err ? 'connecting' : everUp ? 'down' : 'never';
+  return { key, ...LINK_STATES[key] };
 }

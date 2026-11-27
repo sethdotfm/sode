@@ -75,7 +75,7 @@ func (a *App) liveNameSet() liveNameSet {
 	out := liveNameSet{}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	for _, rc := range cfg.Routers() {
+	for _, rc := range cfg.Routers {
 		u, ok := a.unitOfRouter(cfg, rc.UID)
 		if !ok {
 			out[rc.UID] = routerNames{}
@@ -190,8 +190,8 @@ func (a *App) writeImport(p *importPlanner, act Actor, mode string, live config.
 		fields := configFieldsByYAML()
 		err := a.applyConfig(func(cur *config.Config) error {
 			for _, k := range p.written {
-				if k == "router" { // every router: Router and MoreRouters
-					cur.Router, cur.MoreRouters = p.next.Router, p.next.MoreRouters
+				if k == "router" { // every router
+					cur.Routers = slices.Clone(p.next.Routers)
 				} else if idx, ok := fields[k]; ok {
 					copyConfigKey(cur, &p.next, idx)
 				}

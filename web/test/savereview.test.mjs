@@ -1,6 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { diffRows, groupRows, saveLabel, refusalNote, showValue, reconnects } from '../savereviewrules.js';
+import {
+  diffRows,
+  groupRows,
+  saveLabel,
+  refusalNote,
+  showValue,
+  reconnects,
+  reconnectTargets,
+  reconnectQuestion,
+  sectionOfKey,
+  critical,
+} from '../savereviewrules.js';
+import { routerDisplay } from '../routerlistrules.js';
 
 test('only changed fields make rows, with was and now', () => {
   const base = { brandText: 'Sode', confirmEnter: false, matrix: 0 };
@@ -79,6 +91,55 @@ test('a refused field says why; a conflict shows the saved value', () => {
 });
 
 test('router connection fields reconnect; others do not', () => {
-  for (const k of ['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests']) assert.ok(reconnects(k), k);
-  for (const k of ['routerName', 'brandText', 'locks']) assert.ok(!reconnects(k), k);
+  for (const a of ['address', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests']) assert.ok(reconnects(`router/ua/${a}`), a);
+  for (const k of ['router/ua/title', 'router/ua/fireMode', 'routerShow', 'brandText', 'locks', 'routers/order']) assert.ok(!reconnects(k), k);
+  // A new order reconnects no router and is not Critical.
+  assert.ok(!critical('routers/order'));
+  // The flat keys of the first router are gone: router/<uid>/<attribute> names every router.
+  for (const k of ['router', 'matrix', 'levels']) assert.ok(!reconnects(k), k);
+});
+
+test('every router key is in the Routers section, the first router too', () => {
+  for (const k of [
+    'router/ua/address',
+    'router/ub/levels',
+    'router/ua/fireMode',
+    'router/ua/protectDevice',
+    'router/new:1/add',
+    'router/ub/remove',
+    'routerShow',
+  ])
+    assert.equal(sectionOfKey(k), 'routers', k);
+});
+
+const ROUTERS = [
+  { uid: 'ua', prefix: 'A', title: 'Studio A', address: '10.0.0.1:8910' },
+  { uid: 'ub', prefix: 'B', title: 'Stage 2', address: '10.0.0.2:8910' },
+  { uid: 'uc', prefix: 'C', title: '', address: '10.0.0.3:8910' },
+];
+const NEW = { ua: '10.0.0.11:8910', ub: '10.0.0.12:8910', uc: '10.0.0.3:8910' };
+
+test('the reconnect question names the router that reconnects and its new address, not the first router', () => {
+  const t = reconnectTargets(['router/ub/address', 'brandText'], ROUTERS, routerDisplay, (uid) => NEW[uid]);
+  assert.deepEqual(t, [{ uid: 'ub', name: 'B Stage 2', address: '10.0.0.12:8910' }]);
+  assert.deepEqual(reconnectQuestion(t, true), { title: 'Save and reconnect B Stage 2 to 10.0.0.12:8910?', lines: [] });
+});
+
+test('the reconnect question names each router when two or more reconnect, in list order', () => {
+  const keys = ['router/uc/matrix', 'router/ua/address', 'router/ua/levels', 'router/ub/address'];
+  const t = reconnectTargets(keys, ROUTERS, routerDisplay, (uid) => NEW[uid]);
+  assert.deepEqual(
+    t.map((x) => x.uid),
+    ['ua', 'ub', 'uc'],
+  );
+  assert.deepEqual(reconnectQuestion(t, true), {
+    title: 'Save and reconnect 3 routers?',
+    lines: ['A Studio A to 10.0.0.11:8910', 'B Stage 2 to 10.0.0.12:8910', 'Router C to 10.0.0.3:8910'],
+  });
+});
+
+test('with one router the reconnect question gives only the address', () => {
+  const t = reconnectTargets(['router/ua/address'], [ROUTERS[0]], routerDisplay, () => '10.0.0.9:8910');
+  assert.deepEqual(reconnectQuestion(t, false), { title: 'Save and reconnect to 10.0.0.9:8910?', lines: [] });
+  assert.deepEqual(reconnectQuestion([{ uid: '', name: 'Router A', address: '' }], false).title, 'Save and reconnect?');
 });

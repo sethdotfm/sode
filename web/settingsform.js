@@ -2,24 +2,20 @@
 // previews beside the fields. settingssave.js wraps the form as formSource, a save source of the one Save.
 
 import { $, el, S, icon, routerData } from './core.js';
-import { levelColor, levelLabel, levelInput } from './levelview.js';
-import { fmtTime } from './device.js';
-import { parseLevelsAs } from './levels.js';
+import { levelColor } from './levelview.js';
 import { resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { brandCaution, pickerColors, CAUTION_NOTE } from './accent.js';
 import { parseFilter, compileFilter } from './filter.js';
-import { intProblem, namesTimeText } from './settingsrules.js';
-import { rereadNames } from './rereadnames.js';
+import { intProblem, positionTip } from './settingsrules.js';
 
 const root = document.documentElement;
 export const form = $('settings-view');
 export const isOpen = () => root.dataset.view === 'settings';
 const fields = () => form.querySelectorAll('[data-key]');
 
-const formMode = () => form.querySelector('input[name="lvlnum"]:checked')?.value || '1';
-const formLevels = () => Number($('cfg-levels').value);
-let shownMode = '1';
+// Level colors are one palette by position for every router: a slot for each level of the router with the most.
+const colorSlots = () => Math.max(1, ...S.routers.map((r) => (r.levels || []).length));
 
 // A computed rgb() color as #rrggbb.
 const rgbHex = (css) =>
@@ -69,10 +65,6 @@ export function fillForm() {
     else f.value = v ?? '';
   }
   fillBrandColors(S.cfg.brandBorder);
-  $(`cfg-lvlnum-${S.cfg.levelNumbering || '1'}`).checked = true;
-  shownMode = formMode();
-  $('cfg-default').value = levelInput(parseLevelsAs(S.cfg.defaultLevels, '1', S.cfg.levels) || [], shownMode);
-  renderNumbering();
   renderBrandPreview();
   renderColors(S.cfg.levelColors || []);
   for (const page of ['main', 'log', 'panel']) $(`cfg-lock-${page}`).checked = !!S.cfg.locks?.[page];
@@ -105,44 +97,21 @@ export function readSettings() {
   c.locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked, panel: $('cfg-lock-panel').checked };
   c.newUserDefaults = { persistent: $('cfg-new-persistent').checked, noAutoLock: $('cfg-new-no-auto-lock').checked };
   c.levelColors = [...$('cfg-colors').querySelectorAll('input.pb-input')].map((f) => f.value.trim());
-  c.levelNumbering = formMode();
   c.browserDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));
-
-  const def = $('cfg-default').value.trim();
-  const list = def ? parseLevelsAs(def, c.levelNumbering, formLevels()) : [];
-  c.defaultLevels = list ? levelInput(list, '1') : null;
   return c;
 }
 
 // The first field readSettings' result cannot be saved with: {text, node}, or null. The PIN fields are the save path's.
+// The router settings check themselves (settingsrouterdetail.js).
+
 export function formProblem(c) {
   const badColor = [...$('cfg-colors').querySelectorAll('input.pb-input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) return { text: `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`, node: badColor };
-  if (c.defaultLevels === null) return { text: `Default levels: "${$('cfg-default').value.trim()}" is not a level or range here.`, node: $('cfg-default') };
   const hidden = parseFilter(c.hiddenDsts);
   if (hidden.error) return { text: `Globally hidden destinations: ${hidden.error}.`, node: $('cfg-hidden') };
   const bad = [...fields()].find((f) => intProblem([{ key: f.dataset.key, type: f.dataset.type, value: f.value }]));
   if (bad) return { text: `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`, node: bad };
   return null;
-}
-
-function renderNumbering() {
-  const n = formLevels();
-  const span = (mode) => (Number.isInteger(n) && n > 1 ? `${levelLabel(1, mode)}–${levelLabel(n, mode)}` : levelLabel(1, mode));
-  form.querySelector('label[for="cfg-lvlnum-0"]').textContent = span('0');
-  form.querySelector('label[for="cfg-lvlnum-1"]').textContent = span('1');
-  form.querySelector('label[for="cfg-lvlnum-va"]').textContent = Number.isInteger(n) && n > 1 ? `V + ${levelLabel(2, 'va')}–${levelLabel(n, 'va')}` : 'V';
-}
-
-// Not limited to the level count, since the count can be mid-edit: Save checks it.
-function numberingChanged() {
-  const f = $('cfg-default');
-  const list = f.value.trim() && parseLevelsAs(f.value, shownMode, Infinity);
-  if (list) f.value = levelInput(list, formMode());
-  shownMode = formMode();
-  renderNumbering();
-  renderOffsetNote();
-  rerenderColors();
 }
 
 const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -190,18 +159,22 @@ function colorPick(f) {
   return el('span', 'sode__colorpick-wrap', b, pick);
 }
 
+// Each slot is a position: level 1 of every router takes slot 1, whatever its numbering shows.
 function renderColors(vals) {
-  const n = Number($('cfg-levels').value);
+  const n = colorSlots();
   const rows = [];
-  for (let ui = 1; Number.isInteger(n) && ui <= Math.min(n, 256); ui++) {
-    const slot = el('span', 'sode__slot sode__slot--on', levelLabel(ui, formMode()));
+  for (let ui = 1; ui <= Math.min(n, 256); ui++) {
+    const slot = el('span', 'sode__slot sode__slot--on', String(ui));
     slot.setAttribute('aria-hidden', 'true');
+    const tip = positionTip(ui, S.routers);
+    if (tip) slot.dataset.pbTip = tip;
     const f = el('input', 'pb-input');
     f.id = `cfg-color-${ui}`;
     f.value = vals[ui - 1] || '';
     f.placeholder = defaultHex(ui);
     f.spellcheck = false;
-    f.setAttribute('aria-label', `Level ${levelLabel(ui, formMode())} color`);
+    f.setAttribute('aria-label', `Position ${ui} color`);
+    if (tip) f.setAttribute('aria-description', tip);
     f.addEventListener('input', () => {
       preview(slot, ui, f.value);
       f.classList.toggle('pb-input--invalid', f.value.trim() !== '' && !HEX.test(f.value.trim()));
@@ -212,16 +185,6 @@ function renderColors(vals) {
   $('cfg-colors').replaceChildren(...rows);
 }
 
-function rerenderColors() {
-  const vals = [...$('cfg-colors').querySelectorAll('input.pb-input')].map((f) => f.value);
-  renderColors([...vals, ...(S.cfg.levelColors || []).slice(vals.length)]);
-}
-
-export function renderOffsetNote() {
-  const off = Number($('cfg-offset').value);
-  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = level ${1 + off} on the router` : '';
-}
-
 export function renderHiddenNote() {
   const f = $('cfg-hidden');
   const p = parseFilter(f.value);
@@ -230,37 +193,16 @@ export function renderHiddenNote() {
   if (p.error) text = `${p.error}.`;
   else if (p.rules.length) {
     const fn = compileFilter(p.rules);
-    const n = routerData('').dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
+    const n = routerData('').dsts.filter((d) => fn(d.n + routerData('').off, d.name)).length;
     text = `${n} of ${routerData('').dsts.length} destinations`;
   }
   $('cfg-hidden-note').textContent = text;
 }
 
-export function renderNamesStatus() {
-  if (!isOpen()) return;
-  $('names-at').textContent = namesTimeText({ at: routerData('').namesAt, savedAt: routerData('').namesSavedAt }, fmtTime);
-  $('names-status').textContent = `${routerData('').srcs.length} sources, ${routerData('').dsts.length} destinations`;
-  const btn = $('names-refresh');
-  btn.disabled = routerData('').link !== 'up';
-  btn.textContent = 'Re-read now';
-}
-
-$('cfg-offset').addEventListener('input', renderOffsetNote);
 $('cfg-hidden').addEventListener('input', renderHiddenNote);
 $('cfg-colors-reset').addEventListener('click', () => {
   for (const f of $('cfg-colors').querySelectorAll('input.pb-input')) {
     f.value = '';
     f.dispatchEvent(new Event('input'));
-  }
-});
-$('cfg-levels').addEventListener('input', () => {
-  rerenderColors();
-  renderNumbering();
-});
-for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
-$('names-refresh').addEventListener('click', () => {
-  if (rereadNames()) {
-    $('names-refresh').disabled = true;
-    $('names-refresh').textContent = 'Re-reading…';
   }
 });

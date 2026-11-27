@@ -8,8 +8,8 @@ import (
 )
 
 // The accent with two routers, one of them Down (docs/color-roles.md, web/accent.js). The page border color gives the
-// accent on the main page, /log and a panel page in both themes, as with one router. The red of the Down router stays
-// the failure color, and its icon has the word "Router B" beside it.
+// accent on the main page, /log and a panel page in both themes, as with one router. The Routers icon stays the caution
+// color (one router of two is lost), and its word is "1 of 2 down".
 func TestChromeAccentDownRouter(t *testing.T) {
 	b := startBrowser(t)
 	simA := startSim(t)
@@ -50,16 +50,14 @@ func TestChromeAccentDownRouter(t *testing.T) {
 	}
 
 	check("/", `document.documentElement.dataset.conn === 'up'`)
-	marks := `[...document.querySelectorAll('#conn-routers > .pb-status')]`
-	b.waitFor("router B is Down: a red icon with its word", `(() => {
-		const [ra, rb] = `+marks+`;
-		if (!rb) return false;
-		const red = getComputedStyle(document.documentElement).getPropertyValue('--pb-status-error').trim();
-		const probe = document.createElement('i'); probe.style.color = red; document.body.append(probe);
+	b.waitFor("router B is Down: an amber Routers icon with its word", `(() => {
+		const open = document.querySelector('#conn-routers > .sode__conn-open');
+		if (!open) return false;
+		const amber = getComputedStyle(document.documentElement).getPropertyValue('--pb-status-warn').trim();
+		const probe = document.createElement('i'); probe.style.color = amber; document.body.append(probe);
 		const want = getComputedStyle(probe).color; probe.remove();
-		const dot = rb.querySelector('.sode__state');
-		return ra.querySelector('.sode__state').dataset.state === 'ok' && dot.dataset.state === 'error' && getComputedStyle(dot).color === want
-			&& rb.lastElementChild.textContent.trim() === 'Router B';
+		const dot = open.querySelector('.sode__state');
+		return dot.dataset.state === 'warn' && getComputedStyle(dot).color === want && open.textContent.trim() === '1 of 2 down';
 	})()`)
 	check("/log", `document.querySelectorAll('.sode-up__bars[data-router]').length === 2`)
 	check("/panels/"+id, `!!document.getElementById('panel-title')`)

@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="gridpanelphone.css">
 <link rel="stylesheet" href="gridpopup.css">
 <link rel="stylesheet" href="tiepicker.css">
+<link rel="stylesheet" href="routers.css">
 </head>
 <body>
 
@@ -126,7 +127,7 @@
       </div>
       <div class="sode__group sode__group--levels">
         <div class="sode__box sode__box--levels">
-          <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
+          <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span class="sode__box-router sode__lvl-router" id="lvl-router" hidden></span><span data-last="lvl"></span></div>
           <span class="sode__keyed">
             <input id="lvl" class="pb-input sode__input" spellcheck="false">
             <kbd class="sode__key-note" aria-hidden="true">f</kbd>
@@ -375,6 +376,7 @@
 
     <fieldset class="sode__group" data-section="level-colors" data-topic="look-and-feel">
       <legend>Level colors</legend>
+      <p class="sode__hint">Each router takes these colors by position: its first level takes color 1, its second level takes color 2. So level 1, level 0 and level V can have the same color on different routers.</p>
       <div class="sode__colors" id="cfg-colors"></div>
       <div class="sode__names">
         <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-colors-reset">Reset to default</button>
@@ -397,182 +399,213 @@
     </fieldset>
 
     <h3 class="sode__topic" data-topic="routers" id="topic-routers">Routers</h3>
-    <fieldset class="sode__group" data-apart data-section="routers" data-topic="routers">
+    <fieldset class="sode__group" data-section="routers" data-topic="routers">
       <legend>Routers</legend>
-      <ul class="sode__routers" id="routers-list" aria-label="Routers"></ul>
-      <button type="button" class="pb-btn pb-btn--sm sode__routers-add" id="router-add" data-find data-label="Add router" hidden>Add router</button>
+      <div class="sode__field sode__field--half">
+        <label for="cfg-routershow">Status label</label>
+        <span class="pb-select-wrap"><select id="cfg-routershow" class="pb-select" data-key="routerShow"><option value="address">Address</option><option value="name">Router title</option><option value="none">Nothing</option></select></span>
+        <span class="sode__hint">The text next to the Routers icon in the status bar, for every router.</span>
+      </div>
+      <div class="sode__broken-count" id="routers-broken" hidden></div>
+      <div class="sode__rbar">
+        <span class="sode__pcount-line" id="routers-count" role="status"></span>
+        <span class="sode__rbar-tools">
+          <input type="search" class="pb-input sode__pfind" id="routers-find" placeholder="Find a router" aria-label="Find a router" spellcheck="false" hidden>
+          <label class="pb-check" id="routers-problems-wrap" hidden><input type="checkbox" class="pb-check__input" id="routers-problems"><span class="pb-check__label">Only routers with a problem</span></label>
+          <button type="button" class="pb-btn pb-btn--outline" id="router-add" data-find="router-add" data-label="Add router" hidden>Add router</button>
+        </span>
+      </div>
+      <div class="sode__rt" id="routers-panes">
+        <div class="sode__rwrap" id="routers-list-wrap"><div class="sode__rlist" id="routers-list" role="listbox" aria-label="Routers"></div></div>
+        <div class="sode__rdetail" id="router-detail" aria-label="Router settings">
+          <div class="sode__rhead">
+            <div class="sode__rhead-name">
+              <div class="sode__rname" id="router-detail-name"></div>
+              <div class="sode__rlink" id="router-detail-link"></div>
+            </div>
+            <div class="sode__racts">
+              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-up" data-pb-tip="The first router is the default router" hidden>Move up</button>
+              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-down" hidden>Move down</button>
+              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-swap" aria-haspopup="dialog" hidden>Swap…</button>
+              <a class="pb-btn pb-btn--outline pb-btn--sm" id="router-log" href="log">Communication Log</a>
+              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-remove" hidden>Remove…</button>
+            </div>
+          </div>
+          <div class="sode__rnote" id="router-remove-note"></div>
+          <div class="sode__rgroup" data-group="router">
+            <p class="sode__rgroup-head">Router</p>
+            <div class="sode__fields">
+              <div class="sode__field" id="cfg-rt-prefix-field">
+                <label for="cfg-rt-prefix">Prefix</label>
+                <input id="cfg-rt-prefix" class="pb-input sode__rprefix" maxlength="2" spellcheck="false" autocomplete="off">
+                <span class="sode__hint">One or two letters. B.69 is number 69 on this router.</span>
+              </div>
+              <div class="sode__field">
+                <label for="cfg-rt-title">Router title</label>
+                <input id="cfg-rt-title" class="pb-input" maxlength="32" placeholder="Router title" spellcheck="false" autocomplete="off">
+              </div>
+            </div>
+          </div>
+          <div class="sode__rgroup" data-group="connection">
+            <p class="sode__rgroup-head">Connection <span class="sode__hint">A change here reconnects this router only.</span></p>
+            <div class="sode__fields">
+              <div class="sode__field">
+                <label for="cfg-rt-address">Address</label>
+                <input id="cfg-rt-address" class="pb-input" placeholder="10.0.0.50:8910" spellcheck="false" autocomplete="off">
+              </div>
+              <div class="sode__field">
+                <label for="cfg-rt-matrix">Matrix</label>
+                <span class="pb-number-wrap"><input type="number" id="cfg-rt-matrix" class="pb-input" min="0" max="255"></span>
+              </div>
+              <div class="sode__field">
+                <label for="cfg-rt-nameRequests">Name requests</label>
+                <span class="pb-select-wrap"><select id="cfg-rt-nameRequests" class="pb-select"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
+              </div>
+              <div class="sode__field">
+                <label for="cfg-rt-nameLength">Name character limit</label>
+                <span class="pb-select-wrap"><select id="cfg-rt-nameLength" class="pb-select"><option>4</option><option>8</option><option>12</option><option>16</option></select></span>
+              </div>
+            </div>
+          </div>
+          <div class="sode__rgroup" data-group="levels">
+            <p class="sode__rgroup-head">Levels</p>
+            <div class="sode__fields">
+              <div class="sode__field">
+                <label for="cfg-rt-levels">Levels</label>
+                <span class="pb-number-wrap"><input type="number" id="cfg-rt-levels" class="pb-input" min="1" max="256"></span>
+              </div>
+              <div class="sode__field">
+                <label for="cfg-rt-levelWireOffset">Level offset</label>
+                <span class="pb-number-wrap"><input type="number" id="cfg-rt-levelWireOffset" class="pb-input"></span>
+                <span class="sode__hint" id="cfg-rt-offset-note"></span>
+              </div>
+            </div>
+            <div class="sode__field">
+              <span class="sode__field-label" id="cfg-rt-lvlnum-label">Level numbering</span>
+              <span class="pb-btn-group" id="cfg-rt-lvlnum" role="radiogroup" aria-labelledby="cfg-rt-lvlnum-label">
+                <input type="radio" class="pb-btn-check" name="rt-lvlnum" id="cfg-rt-lvlnum-1" value="1"><label class="pb-btn pb-btn--outline sode__num" for="cfg-rt-lvlnum-1"></label>
+                <input type="radio" class="pb-btn-check" name="rt-lvlnum" id="cfg-rt-lvlnum-0" value="0"><label class="pb-btn pb-btn--outline sode__num" for="cfg-rt-lvlnum-0"></label>
+                <input type="radio" class="pb-btn-check" name="rt-lvlnum" id="cfg-rt-lvlnum-va" value="va"><label class="pb-btn pb-btn--outline sode__num" for="cfg-rt-lvlnum-va"></label>
+              </span>
+              <span class="sode__hint">This changes only how Sode shows and reads level numbers. V is the first level, for video.</span>
+            </div>
+            <div class="sode__field">
+              <label for="cfg-rt-defaultLevels">Default levels</label>
+              <input id="cfg-rt-defaultLevels" class="pb-input" placeholder="Every level" spellcheck="false" autocomplete="off">
+              <span class="sode__hint" id="cfg-rt-default-note"></span>
+            </div>
+            <div class="sode__rchips" id="router-chips" role="img" aria-label="Levels of this router"></div>
+            <span class="sode__hint">Colors come from Look and feel &gt; Level colors, by position. They are the same for every router.</span>
+          </div>
+          <div class="sode__rgroup" data-group="names">
+            <p class="sode__rgroup-head">Router names</p>
+            <div class="sode__fields">
+              <div class="sode__field">
+                <label for="cfg-rt-numberOffset">Source and destination numbers</label>
+                <span class="pb-select-wrap"><select id="cfg-rt-numberOffset" class="pb-select"><option value="1">Start at 1 (router 0 = 1)</option><option value="0">Start at 0 (as the router)</option></select></span>
+              </div>
+              <div class="sode__field">
+                <label for="cfg-rt-nameRereadSeconds">Re-read names every (s)</label>
+                <span class="pb-number-wrap"><input type="number" id="cfg-rt-nameRereadSeconds" class="pb-input" min="0"></span>
+                <span class="sode__hint">0 is off.</span>
+              </div>
+            </div>
+            <div class="sode__rfacts">
+              <span id="router-names-count"></span>
+              <span class="sode__chipbox" id="router-names-at"></span>
+              <button type="button" class="pb-btn pb-btn--sm" id="router-names-reread" data-find="router-names-reread" data-label="Re-read names now">Re-read now</button>
+              <span class="sode__hint" id="router-names-why"></span>
+            </div>
+          </div>
+          <div class="sode__rgroup" data-group="takes">
+            <p class="sode__rgroup-head">Takes</p>
+            <div class="sode__fields">
+              <div class="sode__field">
+                <label for="cfg-rt-fireMode">Multi destination</label>
+                <span class="pb-select-wrap"><select id="cfg-rt-fireMode" class="pb-select"><option value="sequential">One after another</option><option value="native">Router salvo (stage, then Take all)</option></select></span>
+              </div>
+              <div class="sode__field">
+                <label for="cfg-rt-salvoGroup">Router salvo group</label>
+                <span class="pb-number-wrap"><input type="number" id="cfg-rt-salvoGroup" class="pb-input" min="0" max="127"></span>
+                <span class="sode__hint" id="cfg-rt-salvo-note"></span>
+              </div>
+              <div class="sode__field">
+                <label for="cfg-rt-tallyResyncSeconds">Re-read routes every (s)</label>
+                <span class="pb-number-wrap"><input type="number" id="cfg-rt-tallyResyncSeconds" class="pb-input" min="0"></span>
+                <span class="sode__hint">0 is off.</span>
+              </div>
+            </div>
+          </div>
+          <div class="sode__rgroup" data-group="protects">
+            <p class="sode__rgroup-head">Protects</p>
+            <div class="sode__fields">
+              <div class="sode__field">
+                <label for="cfg-rt-protectDevice">Sode's device number</label>
+                <span class="pb-number-wrap"><input type="number" id="cfg-rt-protectDevice" class="pb-input" min="0" max="4095"></span>
+                <span class="sode__hint">0 is off. Panels use the same numbers, so pick a number that no panel uses.</span>
+              </div>
+            </div>
+            <div class="sode__rfacts">
+              <span id="router-protects-count"></span>
+              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-protects-show">Show in Protects</button>
+            </div>
+          </div>
+          <div class="sode__rgroup" data-group="tie-lines" id="router-ties-group">
+            <p class="sode__rgroup-head">Tie lines</p>
+            <div class="sode__rfacts">
+              <span id="router-ties-count"></span>
+              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-ties-show">Show in Tie lines</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </fieldset>
 
     <fieldset class="sode__group" data-section="tie-lines" data-topic="routers">
       <legend>Tie lines</legend>
       <p class="sode__hint" id="tielines-note">A tie line is a one-way cable from a destination on one router to a source on another router. It carries all levels.</p>
-      <div class="sode__field sode__field--half">
+      <p class="sode__hint" id="tielines-one" hidden>Tie lines need two or more routers. Add router in Routers adds one.</p>
+      <div class="sode__field sode__field--half" id="tielines-weight">
         <label for="cfg-tie-hop-weight" data-pb-tip="The cost of each hop that changes a tie line, added to the number of Affected destinations. Sode offers the path with the lowest cost first">Hop weight</label>
         <span class="pb-number-wrap"><input type="number" id="cfg-tie-hop-weight" class="pb-input" data-key="tieHopWeight" data-type="int" min="0" max="100"></span>
       </div>
-      <ul class="sode__tielines" id="tielines-list" aria-label="Tie lines"></ul>
-      <div id="tielines-suggest" hidden>
-        <p><strong>Suggested tie lines</strong></p>
-        <p class="sode__hint">A destination and a source on different routers have the same name. Sode uses a suggestion only after you accept it.</p>
-        <ul class="sode__tielines" id="tielines-suggest-list" aria-label="Suggested tie lines"></ul>
-        <p class="sode__hint" id="tielines-suggest-more" hidden></p>
-      </div>
-      <div id="tielines-oneoffs" hidden>
-        <p><strong>One-off tie lines in use</strong></p>
-        <p class="sode__hint">A person stated each one in the Tie line picker for one take. Sode keeps it only while its source is routed to a destination. Save it to keep it.</p>
-        <ul class="sode__tielines" id="tielines-oneoffs-list" aria-label="One-off tie lines in use"></ul>
-      </div>
-      <div id="tielines-form" data-apart>
-        <div class="sode__fields">
-          <div class="sode__field">
-            <label for="tieline-from-router">From router</label>
-            <span class="pb-select-wrap"><select id="tieline-from-router" class="pb-select"></select></span>
+      <div id="tielines-app" data-apart>
+        <div class="sode__pbar">
+          <div class="sode__ptools">
+            <button type="button" class="pb-btn pb-btn--outline" id="tieline-new">Add tie line</button>
+            <span class="sode__ptools" id="tielines-tools"></span>
           </div>
-          <div class="sode__field">
-            <label for="tieline-from">Destination</label>
-            <span class="pb-number-wrap"><input type="number" id="tieline-from" class="pb-input" min="0"></span>
-            <span class="sode__hint" id="tieline-from-name"></span>
-          </div>
+          <span class="sode__pcount-line" id="tielines-count"></span>
         </div>
-        <div class="sode__fields">
-          <div class="sode__field">
-            <label for="tieline-to-router">To router</label>
-            <span class="pb-select-wrap"><select id="tieline-to-router" class="pb-select"></select></span>
-          </div>
-          <div class="sode__field">
-            <label for="tieline-to">Source</label>
-            <span class="pb-number-wrap"><input type="number" id="tieline-to" class="pb-input" min="0"></span>
-            <span class="sode__hint" id="tieline-to-name"></span>
-          </div>
+        <div class="sode__tadd" id="tielines-add-box" hidden></div>
+        <div class="sode__pwrap"><div class="sode__tlist" id="tielines-list" aria-label="Tie lines"></div></div>
+        <p class="sode__presult" id="tielines-status" role="status" aria-live="polite"></p>
+        <div id="tielines-suggest" hidden>
+          <p><strong>Suggested tie lines</strong></p>
+          <p class="sode__hint">A destination and a source on different routers have the same name. Sode uses a suggestion only after you accept it.</p>
+          <ul class="sode__tielines" id="tielines-suggest-list" aria-label="Suggested tie lines"></ul>
+          <p class="sode__hint" id="tielines-suggest-more" hidden></p>
         </div>
-        <div class="sode__field sode__field--half">
-          <label for="tieline-name" data-pb-tip="Sode fills it from the source name. You can change it">Tie line name</label>
-          <input id="tieline-name" class="pb-input" maxlength="32" spellcheck="false">
-        </div>
-        <div class="sode__tielines-acts">
-          <button type="button" class="pb-btn sode-btn--primary" id="tieline-add">Add tie line</button>
-          <button type="button" class="pb-btn pb-btn--outline" id="tieline-cancel" hidden>Cancel</button>
-        </div>
-      </div>
-      <p class="sode__hint" id="tielines-status" role="status"></p>
-    </fieldset>
-
-    <fieldset class="sode__group" data-section="router-levels" data-topic="routers" id="router-levels-group">
-      <legend>Router levels</legend>
-      <p class="sode__hint" id="router-levels-note"></p>
-      <div class="sode__router-levels" id="router-levels-list"></div>
-    </fieldset>
-
-    <h4 class="sode__router" data-router="1" id="router-1"><span class="sode__router-title" id="router-1-title">Router</span></h4>
-    <fieldset class="sode__group" data-section="router-matrix" data-topic="routers" data-router="1">
-      <legend>Router & matrix</legend>
-      <div class="sode__field sode__field--half">
-        <label for="cfg-router">Address</label>
-        <input id="cfg-router" class="pb-input" data-key="router" placeholder="10.0.0.50:8910" spellcheck="false">
-      </div>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-routername">Name</label>
-          <input id="cfg-routername" class="pb-input" data-key="routerName" placeholder="Ultrix" maxlength="32" spellcheck="false">
-        </div>
-        <div class="sode__field">
-          <label for="cfg-routershow">Status label</label>
-          <span class="pb-select-wrap"><select id="cfg-routershow" class="pb-select" data-key="routerShow"><option value="address">Address</option><option value="name">Name</option><option value="none">Nothing</option></select></span>
-        </div>
-      </div>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-matrix">Matrix</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-matrix" class="pb-input" data-key="matrix" data-type="int" min="0" max="255"></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-levels">Levels</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-levels" class="pb-input" data-key="levels" data-type="int" min="1" max="256"></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-offset">Level offset</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-offset" class="pb-input" data-key="levelWireOffset" data-type="int"></span>
-          <span class="sode__hint" id="cfg-offset-note"></span>
-        </div>
-      </div>
-      <div class="sode__field">
-        <span class="sode__field-label" id="cfg-lvlnum-label">Level numbering</span>
-        <span class="pb-btn-group" id="cfg-lvlnum" role="radiogroup" aria-labelledby="cfg-lvlnum-label">
-          <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-0" value="0"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-0"></label>
-          <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-1" value="1"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-1"></label>
-          <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-va" value="va"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-va"></label>
-        </span>
-      </div>
-      <div class="sode__field sode__field--half">
-        <label for="cfg-numoff">Source and destination numbers</label>
-        <span class="pb-select-wrap"><select id="cfg-numoff" class="pb-select" data-key="numberOffset" data-type="int"><option value="1">Start at 1 (router 0 = 1)</option><option value="0">Start at 0 (as the router)</option></select></span>
-      </div>
-    </fieldset>
-
-    <fieldset class="sode__group" data-section="router-names" data-topic="routers" data-router="1">
-      <legend>Router names</legend>
-      <div class="sode__names">
-        <span id="names-status"></span>
-        <span class="sode__names-refresh">
-          <span class="sode__chipbox" id="names-at"></span>
-          <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Re-read now</button>
-        </span>
-      </div>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-namerefresh" data-pb-tip="0 = off">Re-read every (s)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRereadSeconds" data-type="int" min="0"></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-namelen">Name character limit</label>
-          <span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-namereq">Name requests</label>
-          <span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select" data-key="nameRequests"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
+        <div id="tielines-oneoffs" hidden>
+          <p><strong>One-off tie lines in use</strong></p>
+          <p class="sode__hint">A person stated each one in the Tie line picker for one take. Sode keeps it only while its source is routed to a destination. Save it to keep it.</p>
+          <ul class="sode__tielines" id="tielines-oneoffs-list" aria-label="One-off tie lines in use"></ul>
         </div>
       </div>
     </fieldset>
 
-    <fieldset class="sode__group" data-section="takes" data-topic="routers" data-router="1">
-      <legend>Takes</legend>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-default" data-pb-tip="Used when Levels is blank">Default levels</label>
-          <input id="cfg-default" class="pb-input" spellcheck="false">
-        </div>
-        <div class="sode__field">
-          <label for="cfg-resync" data-pb-tip="0 = off">Re-read routes every (s)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
-        </div>
-      </div>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-firemode">Multi destination</label>
-          <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">One after another</option><option value="native">Router salvo (stage, then Take all)</option></select></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-salvogroup">Router salvo group</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
-        </div>
-      </div>
-    </fieldset>
-
-    <fieldset class="sode__group" data-section="protects" data-topic="routers" data-router="1">
+    <fieldset class="sode__group" data-section="protects" data-topic="routers">
       <legend>Protects</legend>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-protectdevice" data-pb-tip="0 = off. A panel with the same ID can free Sode's Protects, so use a number no panel uses">Sode's device number</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-protectdevice" class="pb-input" data-key="protectDevice" data-type="int" min="0" max="4095"></span>
-        </div>
-      </div>
       <div class="sode__field" data-apart data-find="protects-list" data-label="Protects and Router locks">
         <span class="sode__label">Protects and Router locks</span>
-        <ul class="sode__protects" id="protects-list"></ul>
-        <div class="sode__protects-acts">
-          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Free Sode's Protects" data-pb-tip="Frees every Protect with Sode's device number, also with no record. Asks your PIN again">Free Sode's Protects</button>
+        <div class="sode__ptools" id="protects-tools"></div>
+        <div class="sode__pbar">
+          <span class="sode__pcount-line" id="protects-count"></span>
+          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Free Sode's Protects" data-pb-tip="Frees every Protect with Sode's device number, also with no record, on the routers you pick. Asks your PIN again">Free Sode's Protects…</button>
         </div>
-        <div id="protects-confirm"></div>
+        <div class="sode__pwrap"><div class="sode__plist" id="protects-list"></div></div>
+        <p class="sode__presult" id="protects-status" role="status" aria-live="polite"></p>
+        <p class="sode__hint">Sode can free only a Protect that it set. Free a Protect of another device, or a Router lock, at that device, for example a panel or DashBoard.</p>
       </div>
     </fieldset>
 

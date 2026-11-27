@@ -3,14 +3,17 @@ package config
 import "reflect"
 
 // ReconnectChanged: a field that needs a new link changed on some router, or a router came or went. Routers match
-// by UID; the first router matches the first router.
+// by UID, so a new order is no change. A default router whose UID b does not have (a restore gave it a new UID)
+// matches the default router of b.
 func ReconnectChanged(a, b Config) bool {
-	ra, rb := a.Routers(), b.Routers()
-	if len(ra) != len(rb) || RouterReconnectChanged(a.Router, b.Router) {
+	if len(a.Routers) != len(b.Routers) {
 		return true
 	}
-	for _, r := range ra[1:] {
+	for _, r := range a.Routers {
 		o, ok := b.RouterByUID(r.UID)
+		if !ok && r.UID == a.DefaultRouter().UID {
+			o, ok = b.DefaultRouter(), true
+		}
 		if !ok || RouterReconnectChanged(r, o) {
 			return true
 		}
@@ -33,21 +36,20 @@ func RouterReconnectChanged(a, b Router) bool {
 	return false
 }
 
-// Not reflect.VisibleFields: Config.Extra hides Router.Extra there.
+// Fields gives Config's own fields in order.
 func Fields() []reflect.StructField {
-	var out []reflect.StructField
-	t := reflect.TypeOf(Config{})
-	for i := range t.NumField() {
-		f := t.Field(i)
-		if !f.Anonymous {
-			out = append(out, f)
-			continue
-		}
-		for j := range f.Type.NumField() {
-			rf := f.Type.Field(j)
-			rf.Index = []int{i, j}
-			out = append(out, rf)
-		}
+	t := reflect.TypeFor[Config]()
+	out := make([]reflect.StructField, t.NumField())
+	for i := range out {
+		out[i] = t.Field(i)
 	}
 	return out
+}
+
+// FieldOf gives the field of c at a Fields index, to read.
+func (c Config) FieldOf(index []int) reflect.Value { return reflect.ValueOf(c).FieldByIndex(index) }
+
+// FieldToSet gives the field of c at a Fields index, to write.
+func (c *Config) FieldToSet(index []int) reflect.Value {
+	return reflect.ValueOf(c).Elem().FieldByIndex(index)
 }

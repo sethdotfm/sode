@@ -21,7 +21,7 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126
+		c.Routers[0].ProtectDevice = 126
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -111,13 +111,13 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 		t.Fatalf("API Protect: %d %s", rec.Code, rec.Body.String())
 	}
 	b.eval(`document.getElementById('settings-open').click(); true`)
-	b.waitFor("the Protects list", `[...document.querySelectorAll('#protects-list li')].some((n) => n.textContent.includes('DSM2') && n.textContent.includes('Protected by you'))`)
+	b.waitFor("the Protects list", `[...document.querySelectorAll('#protects-list .sode__prow')].some((n) => n.textContent.includes('DSM2') && n.textContent.includes('Protected by you'))`)
 	b.eval(`document.getElementById('protects-clear-all').click(); true`)
-	b.waitFor("the Confirm unlocks", `!!document.querySelector('#protects-confirm .sode-btn--primary:not(:disabled)')`)
-	b.eval(`document.querySelector('#protects-confirm .sode-btn--primary').click(); true`)
+	b.waitFor("the Confirm unlocks", `!!document.querySelector('#protects-free-go:not(:disabled)')`)
+	b.eval(`document.getElementById('protects-free-go').click(); true`)
 	b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
 	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
-	b.waitFor("cleared", `!!document.querySelector('#protects-confirm + .sode__hint')?.textContent.startsWith("Sode's Protects freed")`)
+	b.waitFor("cleared", `document.getElementById('protects-status').textContent.startsWith("Sode freed")`)
 	if n := sodeRows(); n != 0 {
 		t.Fatalf("Free Sode's Protects left %d levels", n)
 	}
@@ -131,7 +131,7 @@ func TestChromePaletteProtectPick(t *testing.T) {
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126
+		c.Routers[0].ProtectDevice = 126
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

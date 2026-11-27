@@ -12,7 +12,7 @@ import (
 
 // twoLevelRouterB: router B has 2 levels, router A the simulator's 17.
 func twoLevelRouterB(c *config.Config) {
-	c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 2, ""
+	c.Routers[1].Levels, c.Routers[1].DefaultLevels = 2, ""
 }
 
 // lastTakeLevels gives the levels of the newest History entry, which must be on router uid. The router's tally can

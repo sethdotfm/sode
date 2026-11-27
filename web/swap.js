@@ -1,7 +1,9 @@
 // The Swap dialog (GLOSSARY.md, Swap). An Administrator opens it from Settings > Routers and stages one Swap into
 // the one Save (savesources.js). A user opens it from their own Profile dialog, and it saves their own items at once. Rules in
-// swaprules.js.
-import { el, emit, off, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN, routerData } from './core.js';
+// swaprules.js. With two or more routers the Router select picks the router whose numbers swap; each number is shown
+// in that router's own numbering.
+import { S, el, emit, on, onMsg, srcItem, dstItem, wsSend, sentence, LINK_DOWN, routerData } from './core.js';
+import { routerDisplay } from './routerlistrules.js';
 import { btn } from './formbits.js';
 import { modal } from './modal.js';
 import { addSaveSource } from './savesources.js';
@@ -19,12 +21,22 @@ let back = null;
 let waiting = 0;
 let staged = null; // {value, items}: the Swap that the next Save sends
 
+// The router in the dialog (a routerData UID: blank is the first router) and its number offset.
+const picked = () => (ui?.router.value && ui.router.value !== routerData('').uid ? ui.router.value : '');
+const off = (uid = picked()) => routerData(uid).off;
+// A staged value's router: its shown name with two or more routers.
+const nameOf = (uid) => (S.routers.length > 1 ? routerDisplay(S.routers.find((r) => r.uid === uid) || routerData(uid)) : '');
+const offOf = (uid) => routerData(uid === routerData('').uid ? '' : uid).off;
+
 addSaveSource({
   owns: (key) => key === 'swap',
   base: () => ({}),
   now: () => (staged ? { swap: staged.value } : {}),
   version: () => '',
-  label: (r) => swapLabel(r.now || staged?.value || r.was, off()),
+  label: (r) => {
+    const v = r.now || staged?.value || r.was;
+    return swapLabel(v, offOf(v.router), nameOf(v.router));
+  },
   show: (_r, v) => swapShow(v, staged?.items || []),
   problem: () => '',
   saved: () => {
@@ -46,10 +58,10 @@ function numberBox(id, label) {
   return { input, name, field };
 }
 
-const nameAt = (side, n) => (n == null ? '' : (side === 'source' ? srcItem(n) : dstItem(n)).name || 'No name');
+const nameAt = (side, n) => (n == null ? '' : (side === 'source' ? srcItem(n, '', picked()) : dstItem(n, '', picked())).name || 'No name');
 
 function fields() {
-  return { side: ui.side.value, from: parseShown(ui.from.input.value, off()), to: parseShown(ui.to.input.value, off()) };
+  return { router: routerData(picked()).uid, side: ui.side.value, from: parseShown(ui.from.input.value, off()), to: parseShown(ui.to.input.value, off()) };
 }
 
 function paintNames() {
@@ -70,8 +82,8 @@ function fail(text) {
 // The value for the list on screen, or null while the numbers differ from the ones it was found for.
 function current() {
   const f = fields();
-  if (!asked || f.side !== asked.side || f.from !== asked.from || f.to == null || f.to === f.from) return null;
-  return swapValue({ router: routerData('').uid, side: f.side, from: f.from, to: f.to }, items, ticked, ui.broken.checked);
+  if (!asked || f.router !== asked.router || f.side !== asked.side || f.from !== asked.from || f.to == null || f.to === f.from) return null;
+  return swapValue({ router: f.router, side: f.side, from: f.from, to: f.to }, items, ticked, ui.broken.checked);
 }
 
 function paintList() {
@@ -107,7 +119,7 @@ function find() {
   if (f.from == null) return fail('Enter the old number.');
   fail('');
   waiting = ++seq;
-  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: routerData('').uid, side: f.side, from: f.from, mine } })) fail(LINK_DOWN);
+  if (!wsSend({ t: 'swapList', id: waiting, swap: { router: f.router, side: f.side, from: f.from, mine } })) fail(LINK_DOWN);
 }
 
 onMsg('swapListResult', (m) => {
@@ -115,7 +127,7 @@ onMsg('swapListResult', (m) => {
   waiting = 0;
   if (!m.ok) return fail(m.err || 'List not loaded.');
   const f = fields();
-  asked = { side: f.side, from: f.from };
+  asked = { router: f.router, side: f.side, from: f.from };
   items = m.items || [];
   ticked = new Set(firstTicked(items));
   paintList();
@@ -163,6 +175,8 @@ function close() {
 
 function build() {
   if (ui) return;
+  const router = el('select', { class: 'pb-select', id: 'swap-router' });
+  const routerField = el('div', 'sode__field', Object.assign(el('label', null, 'Router'), { htmlFor: 'swap-router' }), el('span', 'pb-select-wrap', router));
   const side = el('select', { class: 'pb-select', id: 'swap-side' });
   side.append(Object.assign(el('option', null, 'Destination'), { value: 'destination' }), Object.assign(el('option', null, 'Source'), { value: 'source' }));
   const sideField = el('div', 'sode__field', Object.assign(el('label', null, 'Swap'), { htmlFor: 'swap-side' }), el('span', 'pb-select-wrap', side));
@@ -177,7 +191,7 @@ function build() {
     title: 'Swap',
     cls: 'sode__filters sode__swap',
     body: [
-      el('div', 'sode__fields', sideField, from.field, to.field),
+      el('div', 'sode__fields', routerField, sideField, from.field, to.field),
       btn('pb-btn--outline', 'Find items', find, 'swap-find'),
       el('label', 'pb-check', broken, el('span', 'pb-check__label', 'Only Broken')),
       list,
@@ -186,12 +200,15 @@ function build() {
     foot: [btn('pb-btn--outline', 'Cancel', close, 'swap-cancel'), go],
     onEsc: close,
   });
-  ui = { dlg, title: dlg.title, side, from, to, broken, list, err, go };
-  side.addEventListener('change', () => {
+  ui = { dlg, title: dlg.title, router, routerField, side, from, to, broken, list, err, go };
+  const restart = () => {
     asked = null;
     items = [];
+    for (const b of [ui.from, ui.to]) b.input.min = String(off());
     paintList();
-  });
+  };
+  side.addEventListener('change', restart);
+  router.addEventListener('change', restart);
   from.input.addEventListener('input', paintNames);
   to.input.addEventListener('input', paintNames);
   from.input.addEventListener('keydown', (e) => {
@@ -202,9 +219,20 @@ function build() {
   broken.addEventListener('change', paintList);
 }
 
+// The Router select: every router of the hello, shown only with two or more. want is a router UID; blank or unknown is
+// the first router.
+function fillRouters(want) {
+  const list = S.routers.length ? S.routers : [{ uid: routerData('').uid, prefix: routerData('').prefix, title: routerData('').title }];
+  ui.router.replaceChildren(...list.map((r) => Object.assign(el('option', null, routerDisplay(r)), { value: r.uid })));
+  ui.router.value = list.some((r) => r.uid === want) ? want : list[0].uid;
+  ui.routerField.hidden = list.length < 2;
+}
+
 // opts.mine: the user's own items from their Profile dialog, saved at once. Else everyone's, staged into the one Save.
+// opts.router: the router to start on (a router UID), else the first router.
 function open(opts = {}) {
   build();
+  fillRouters(opts.router);
   mine = !!opts.mine;
   ui.title.textContent = mine ? 'Swap in my items' : 'Swap source or destination';
   asked = null;

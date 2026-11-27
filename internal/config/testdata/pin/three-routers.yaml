@@ -1,0 +1,27 @@
+format: 2
+installUid: c0ffee0000000003
+routers:
+  - uid: a1a1a1a1a1a1a1a1
+    prefix: A
+    title: Studio Ultrix
+    address: 10.0.0.50:8910
+    levels: 4
+    defaultLevels: 1-2
+  - uid: b2b2b2b2b2b2b2b2
+    prefix: b
+    title: " Second "
+    address: 10.0.0.9:8910
+    levels: 2
+    numberOffset: 0
+    levelNumbering: "0"
+    futureRouterKey: kept
+  - uid: c3c3c3c3c3c3c3c3
+    prefix: CC
+    address: 10.0.0.10:8910
+    matrix: 1
+    statusLabel: none
+    fireMode: native
+    salvoGroup: 3
+    protectDevice: 7
+brandText: Desk
+hiddenDstsRouter: b2b2b2b2b2b2b2b2

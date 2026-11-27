@@ -10,16 +10,16 @@ import { initToc } from './settingstoc.js';
 import { fillAbout } from './about.js';
 import { askRecheck } from './recheck.js';
 import { askApproval } from './approval.js';
-import { form, isOpen, fillForm, fillGlobalDefaults, renderOffsetNote, renderHiddenNote, renderNamesStatus } from './settingsform.js';
+import { form, isOpen, fillForm, fillGlobalDefaults, renderHiddenNote } from './settingsform.js';
 import { initSave, markClean, warnUnsaved, unwarn, showSaveErr } from './settingssave.js';
 import { initFind } from './settingsfind.js';
-import { fillRouters, routerTitle } from './settingsrouters.js';
+import { selectRouter, selectedRouter, searchRouters } from './settingsrouterdetail.js';
+import './settingsrouterlist.js';
 import { initRoles } from './settingsroles.js';
 import './mykeys.js';
 import './myclients.js';
 import './users.js';
 import './apisettings.js';
-import './settingsrouterlevels.js';
 import './accesspreset.js';
 import './setupagain.js';
 import './profiles.js';
@@ -66,11 +66,9 @@ function openSettings() {
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
-  root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
+  root.dataset.view = 'settings';
   roles.apply();
-  renderOffsetNote();
   renderHiddenNote();
-  renderNamesStatus();
   window.scrollTo(0, 0);
   markSection();
   markClean(false);
@@ -91,16 +89,29 @@ fillAbout($('settings-foot'), { id: 'open-log' });
 
 // Every section is in index.html, so the table of contents sees them all at load.
 const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
-const toc = initToc({ form, sections, toc: $('settings-toc'), isOpen });
+const toc = initToc({ form, sections, toc: $('settings-toc'), isOpen, pickRouter: (uid) => selectRouter(uid) });
 const { showPage, markSection } = toc;
 const roles = initRoles({ form, sections, toc, isOpen });
 
+// The sidebar's router entries and the search follow the router list (settingsrouterdetail.js).
 function showRouters() {
-  fillRouters((id) => toc.goRouter(id));
   askBrokenCounts();
-  toc.renameRouter('1', routerTitle());
+  toc.setRouters(searchRouters(), selectedRouter());
   reindex();
 }
+on('routerRows', () => {
+  toc.setRouters(searchRouters(), selectedRouter());
+  reindex();
+});
+
+// showRouter (bus): Settings > Routers with router uid selected. The status bar's router list, the Broken lists' Swap…
+// and a Protects group with Protect off send it. A blank or unknown UID is the first router.
+on('showRouter', (uid) => {
+  if (!isOpen()) openSettings();
+  selectRouter(uid || '');
+  toc.goSection('routers');
+  requestAnimationFrame(() => document.querySelector('#routers-list [aria-selected="true"]')?.focus({ preventScroll: true }));
+});
 
 function syncSave() {
   if (S.wsState !== 'up') $('settings-save').disabled = false;
@@ -194,9 +205,8 @@ window.addEventListener('popstate', showView);
 
 // The Broken banner's and the Broken lists' Swap…: Swap stages into this page's one Save, so Settings opens first.
 on('swapAt', (m) => {
-  if (!isOpen()) openSettings();
-  toc.goRouter('1');
-  emit('openSwap', { mine: false, side: m.side, from: m.from });
+  emit('showRouter', m.router || '');
+  emit('openSwap', { mine: false, side: m.side, from: m.from, router: m.router || '' });
 });
 
 on('hello', () => {
@@ -204,11 +214,6 @@ on('hello', () => {
   showView();
   syncSave();
 });
-on('names', renderNamesStatus);
-on('namesChecked', renderNamesStatus);
-on('conn', () => {
-  renderNamesStatus();
-  syncSave();
-});
+on('conn', syncSave);
 
-reindex = initFind({ sections, toc });
+reindex = initFind({ sections, toc, routers: { list: searchRouters, select: selectRouter, selected: selectedRouter } });

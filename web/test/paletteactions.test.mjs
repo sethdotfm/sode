@@ -50,6 +50,8 @@ test('buttonMode: every Settings button in index.html runs, opens Settings, or i
     'cfg-apply-preset': 'settings',
     'users-manage': 'settings',
     'setup-again-open': 'settings',
+    'router-add': 'settings',
+    'router-names-reread': 'action',
   };
   assert.deepEqual(buttons.sort(), Object.keys(want).sort(), 'a new Settings button needs a decision in palettecatalogue.js');
   for (const id of buttons) assert.equal(buttonMode(id), want[id], id);
@@ -104,7 +106,7 @@ test('catalogue: an action and its Settings button show as one row', () => {
   assert.ok(keys(paletteView(rows, { query: 'sign out', pins: [alias] })).includes(alias.key), 'a Palette pin still shows');
   // Signed out, the Settings Sign out is not there, as in Settings.
   assert.equal(rowByKey(catalogue(src({ who: who({ user: '' }) })), 'setting:my-user/account-logout'), null);
-  assert.equal(Object.keys(BUTTON_ACTIONS).length, 5);
+  assert.equal(Object.keys(BUTTON_ACTIONS).length, 6);
 });
 
 test('catalogue: buttons for a signed-in user only, API keys only with a PIN', () => {

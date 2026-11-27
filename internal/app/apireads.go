@@ -31,7 +31,7 @@ type apiRouter struct {
 
 func (a *App) apiRouters(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	out := []apiRouter{}
-	for _, rc := range a.r().cfg.Routers() {
+	for _, rc := range a.r().cfg.Routers {
 		out = append(out, apiRouter{rc.UID, rc.Prefix, rc.Title})
 	}
 	apiJSONTagged(w, r, map[string][]apiRouter{"routers": out})

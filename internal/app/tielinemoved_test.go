@@ -17,10 +17,10 @@ var (
 func tieMovedApp(t *testing.T) (*App, *routerUnit, *client) {
 	t.Helper()
 	a, _, _, u := twoRouterFiles(t)
-	readUnitNames(a, a.first, movedASrcs, movedADsts)
+	readUnitNames(a, a.firstUnit(), movedASrcs, movedADsts)
 	readUnitNames(a, u, movedBSrcs, movedBDsts)
 	ada := adminClient(t, a)
-	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.first.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 1}}
+	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.firstUnit().uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 1}}
 	if err := a.SaveTieLines(ada, []config.TieLine{tie}); err != nil {
 		t.Fatal(err)
 	}
@@ -66,16 +66,16 @@ func TestTieLineNameMoved(t *testing.T) {
 
 	// The upstream end on the first router: its own check marks it and keeps the mark of router B.
 	gone := with(movedADsts, 1, "")
-	readUnitNames(a, a.first, movedASrcs, gone)
-	readUnitNames(a, a.first, movedASrcs, gone)
+	readUnitNames(a, a.firstUnit(), movedASrcs, gone)
+	readUnitNames(a, a.firstUnit(), movedASrcs, gone)
 	if got := onlyTie(t, a, "TIE 3"); len(got.Moved) != 2 || got.Moved[0].Kind != config.MissingDestination || got.Moved[0].Now != "" {
 		t.Fatalf("after the upstream end lost its name %+v", got.Moved)
 	}
 
 	readUnitNames(a, u, movedBSrcs, movedBDsts)
 	readUnitNames(a, u, movedBSrcs, movedBDsts)
-	readUnitNames(a, a.first, movedASrcs, movedADsts)
-	readUnitNames(a, a.first, movedASrcs, movedADsts)
+	readUnitNames(a, a.firstUnit(), movedASrcs, movedADsts)
+	readUnitNames(a, a.firstUnit(), movedASrcs, movedADsts)
 	if got := onlyTie(t, a, "TIE 3"); len(got.Moved) != 0 || got.Name != "TIE 3" {
 		t.Fatalf("names back: %+v", got)
 	}
@@ -97,7 +97,7 @@ func TestTieLineSaveNamesOnlyChangedEnds(t *testing.T) {
 	sent := tie3
 	sent.Moved = nil
 	sent.To.Name = "SOMETHING ELSE" // a stale name from the page changes nothing
-	added := config.TieLine{Name: "TIE 10", From: config.Ref{Router: a.first.uid(), N: 2}, To: config.Ref{Router: u.uid(), N: 2},
+	added := config.TieLine{Name: "TIE 10", From: config.Ref{Router: a.firstUnit().uid(), N: 2}, To: config.Ref{Router: u.uid(), N: 2},
 		Moved: []config.Missing{{Kind: config.MissingSource, Ref: config.Ref{Router: u.uid(), N: 2}}}}
 	if err := a.SaveTieLines(ada, []config.TieLine{sent, added}); err != nil {
 		t.Fatal(err)

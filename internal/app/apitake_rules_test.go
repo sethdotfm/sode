@@ -91,7 +91,7 @@ func TestAPIWUndoRestoresOutsideSources(t *testing.T) {
 		t.Fatalf("entry %+v", es[0])
 	}
 	a.mu.Lock()
-	now := a.first.router.tally[2][1]
+	now := a.firstUnit().router.tally[2][1]
 	a.mu.Unlock()
 	if now != 1 {
 		t.Fatalf("dst 2 level 1 is on %d, want 1", now)
@@ -237,7 +237,7 @@ func TestAPIWCheckSkippedOnlyWhenUnread(t *testing.T) {
 	f.mute[12], f.mute[20] = true, true
 	f.mu.Unlock()
 	a.mu.Lock()
-	clear(a.first.router.seenAt)
+	clear(a.firstUnit().router.seenAt)
 	a.mu.Unlock()
 	routes = strings.ReplaceAll(routes, `"src":4`, `"src":5`) // a change, so a Connected confirms it
 	if big := apiBody(t, apiPost(a, "/api/v1/takes", key, routes, nil)); big["checkSkipped"] != true || big["ok"] != true {
@@ -295,7 +295,7 @@ func TestAPIWIdempotentRepeatWaitsForFirst(t *testing.T) {
 
 func TestAPIWTakeCap(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) { c.API.TakeCap = 1 })
-	a.first.routeTimeout = 400 * time.Millisecond
+	a.firstUnit().routeTimeout = 400 * time.Millisecond
 	f.mu.Lock()
 	f.ignore[2] = true
 	f.mu.Unlock()
@@ -341,7 +341,7 @@ func TestAPIWCommandRows(t *testing.T) {
 
 func TestAPIWDeadlinePerRequest(t *testing.T) {
 	a, _, _ := takerApp(t, nil)
-	a.first.checkTimeout, a.first.queueMax, a.first.routeTimeout, a.first.routeGrace = time.Second, 30*time.Second, 3*time.Second, time.Second
+	a.firstUnit().checkTimeout, a.firstUnit().queueMax, a.firstUnit().routeTimeout, a.firstUnit().routeGrace = time.Second, 30*time.Second, 3*time.Second, time.Second
 	if d := a.takeDeadline(1); d < 35*time.Second || d > 60*time.Second {
 		t.Fatalf("one route: %v, want above 35s and under a proxy's 60s cut", d)
 	}

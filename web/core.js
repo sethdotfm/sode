@@ -62,8 +62,8 @@ export const S = {
   myRights: null,
   users: [], // the hello's sign-in list, [{name, len}]; len 0 is no PIN
   userNames: [],
-  // Every router, the first one first: [{uid, prefix, title, address, matrix}]. Read one router's names, tally, levels
-  // and link with routerData.
+  // Every router, the first one first: each with its uid and settings (ROUTER_SETTINGS), as the hello's routers list
+  // sends them. Read one router's names, tally, levels and link with routerData.
   routers: [],
 };
 
@@ -73,9 +73,9 @@ const more = new Map();
 // list is the first router, as a blank one is.
 const otherRouter = (uid) => (uid && more.get(uid)) || null;
 
-// The first router's state. A hello fills it in place, so a reference to it stays good. Its number offset is the
-// settings' (off), so tests that set S.cfg still number its items.
-const FIRST = Object.defineProperty(newRouter({}, true), 'off', { get: () => off(), enumerable: true });
+// The first router's state. A hello fills it in place, so a reference to it stays good. Tests set its fields (off,
+// numbering, defaultLevels) through routerData('').
+const FIRST = newRouter({}, true);
 
 // routerData is the one accessor for the names, tally, Via rows, levels (with numbering and default levels) and link
 // of one router. Blank is the first router. Tests set the fields of routerData('') to give the first router names.
@@ -129,22 +129,55 @@ function newRouter(r, first = false) {
     prot: new Map(),
     protBy: new Map(), // Sode's record of them.
     protectDevice: r.protectDevice || 0, // Sode's device number on the router.
+    protectAt: r.protectAt || null, // while the link is not up: when it went down, the age of the Protect rows.
     link: null,
     addr: '',
     err: '',
+    never: false, // the link was not up one time since the start or the last address change (server's status)
   };
 }
+
+// The settings of a router in the hello's routers list, by the attribute of its one Save key router/<uid>/<attribute>.
+// levels is the level list there; its length is the levels setting. Keep in step with helloRouter in
+// internal/app/messages.go.
+export const ROUTER_SETTINGS = Object.freeze([
+  'prefix',
+  'title',
+  'address',
+  'matrix',
+  'levels',
+  'levelWireOffset',
+  'levelNumbering',
+  'defaultLevels',
+  'numberOffset',
+  'nameRereadSeconds',
+  'nameLength',
+  'nameRequests',
+  'tallyResyncSeconds',
+  'fireMode',
+  'salvoGroup',
+  'protectDevice',
+]);
+
+// The value of one setting of router r of S.routers, as its one Save key holds it.
+export const routerSetting = (r, attr) => (attr === 'levels' ? (r?.levels || []).length : r?.[attr]);
 
 // The hello's routers list: the first router goes to FIRST, each other one to more. S.routers comes first: with two
 // or more routers, the items of the first router show its prefix too.
 function setRouters(list) {
-  S.routers = list.map((r) => ({ uid: r.uid, prefix: r.prefix || '', title: r.title || '', address: r.address || '', matrix: r.matrix || 0 }));
+  S.routers = list.map((r) => ({
+    ...Object.fromEntries(ROUTER_SETTINGS.map((k) => [k, r[k]])),
+    uid: r.uid,
+    prefix: r.prefix || '',
+    title: r.title || '',
+    address: r.address || '',
+    matrix: r.matrix || 0,
+  }));
   more.clear();
-  const { link, addr, err } = FIRST;
+  const { link, addr, err, never } = FIRST;
   const fresh = newRouter(list[0] || {}, true);
-  delete fresh.off; // the offset of the first router comes from the settings (off)
   // The link fields stay. So the hello's status keeps the last error of an unchanged address, as a status message does.
-  Object.assign(FIRST, fresh, { link, addr, err });
+  Object.assign(FIRST, fresh, { link, addr, err, never });
   fillRouter(FIRST, list[0] || {});
   for (const r of list.slice(1)) {
     const st = newRouter(r);
@@ -170,7 +203,7 @@ function fillRouter(st, r) {
 // {dev, kind}). by is Sode's record, dst → {by, device, levels}. device is Sode's device number on the router.
 export function protectsOf(uid = '') {
   const rt = otherRouter(uid);
-  if (!rt) return { prot: S.prot, by: S.protBy, device: S.cfg?.protectDevice || 0 };
+  if (!rt) return { prot: S.prot, by: S.protBy, device: FIRST.protectDevice };
   return { prot: rt.prot, by: rt.protBy, device: rt.protectDevice };
 }
 
@@ -179,6 +212,7 @@ function setRouterStatus(st, m) {
   if ((m.addr || '') !== st.addr) st.err = '';
   st.link = m.router || null;
   st.addr = m.addr || '';
+  st.never = !!m.never;
   if (m.err) st.err = m.err;
   else if (st.link === 'up') st.err = '';
 }
@@ -220,7 +254,8 @@ export const onMsg = (t, fn) => {
   handlers.set(t, fn);
 };
 
-export const off = () => (S.cfg ? S.cfg.numberOffset : 0);
+// The number offset of the first router.
+export const off = () => FIRST.off;
 
 // An item of a router after the first has router (its UID) and prefix, and its label shows the prefix (B.23). num stays
 // the number alone, so a search of that router's list matches it.
@@ -369,9 +404,10 @@ function handle(m) {
       S.setup = m.setup || null;
       S.levelDefaults = m.levelDefaults || [];
       setRouters(m.routers || []);
+      // The first router's Protects stay in S.prot; each other router keeps its own (fillRouter).
       S.prot = new Map();
-      applyProtect(m.protected || []);
-      applyProtectBy(m.protectBy || []);
+      applyProtect(m.routers?.[0]?.protected || []);
+      applyProtectBy(m.routers?.[0]?.protectBy || []);
       S.hist = m.history || [];
       S.histMore = m.more;
       // A page asked for before this snapshot is for a replaced list and is ignored (takePage):
@@ -530,7 +566,7 @@ export const linkList = () => routerLinks(S, routerData);
 export function routerTitle() {
   const show = S.cfg?.routerShow || 'address';
   if (show === 'none') return ['', false];
-  if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];
+  if (show === 'name' && FIRST.title) return [FIRST.title, true];
   return [FIRST.addr, false];
 }
 
@@ -560,7 +596,7 @@ export function renderDown(box, c) {
     downObs.observe(box);
   }
   if (downObs) publishDownHeight();
-  const key = c.down ? JSON.stringify([c.down, FIRST.addr, S.cfg?.routerName]) : '';
+  const key = c.down ? JSON.stringify([c.down, FIRST.addr, FIRST.title]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   if (!c.down) return box.replaceChildren();
@@ -575,7 +611,7 @@ export function renderDown(box, c) {
   // With more than one router, the last wire leads to a node for each router.
   const routerNodes = routers
     ? routers.map((r) => node(routerIcon(), links[1], `Router ${r.prefix} `, r.title ? `${r.title} ` : '', el('code', null, r.addr || '?')))
-    : [node(routerIcon(), links?.[1], 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, FIRST.addr || '?'))];
+    : [node(routerIcon(), links?.[1], 'Router ', FIRST.title ? `${FIRST.title} ` : '', el('code', null, FIRST.addr || '?'))];
   box.replaceChildren(
     ...[
       el('div', 'sode__down-title', icon('unplug', false), title),

@@ -27,14 +27,14 @@ func threeApp(t *testing.T, mut func(*config.Config)) (a *App, fa, fb, fc *fakeR
 	a, fa, fb, key = tieApp(t, func(c *config.Config) {
 		r := moreRouter("C", "Third", "10.0.0.10:8910", 1)
 		r.UID = uidC
-		c.MoreRouters = append(c.MoreRouters, r)
+		c.Routers = append(c.Routers, r)
 		c.TieLines = append(c.TieLines, config.TieLine{ID: "t9", Name: "TIE 9", From: config.Ref{Router: uidB, N: 30}, To: config.Ref{Router: uidC, N: 7}})
 		if mut != nil {
 			mut(c)
 		}
 	})
 	var u *routerUnit
-	fc, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[1])
+	fc, u = addFakeUnit(t, a, a.r().cfg.Routers[2])
 	a.onUnitState(u, swp08.StateUp, nil)
 	wire := a.r().byUI[1].Wire
 	fb.seed(30, 5, wire)
@@ -78,7 +78,7 @@ func viaIDs(r apiRouteRow) []string {
 // GET /tally keeps `src` and adds `via` and `origin`, through one tie line or two. A source with no tie line has no Via.
 func TestTallyVia(t *testing.T) {
 	a, _, _, _, key := threeApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	b := tallyOf(t, a, key, uidB)
 	if r := b[20]; r.Src != 5 || !slices.Equal(viaIDs(r), []string{"t1=TIE 3"}) || r.Origin == nil || *r.Origin != (tieplan.End{Router: uidA, N: 3}) || r.Mixed {
 		t.Errorf("B.20 %+v", r)
@@ -98,7 +98,7 @@ func TestTallyVia(t *testing.T) {
 // Via resolves for each level: mixed with its level pie, nothing, unknown with the upstream router down, and loop.
 func TestTallyViaStates(t *testing.T) {
 	a, fa, _, _, key := threeApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	levels := a.r().routerOf(uidA).Levels
 	if levels < 2 {
 		t.Fatalf("router A has %d levels; the mixed case needs two", levels)
@@ -129,9 +129,9 @@ func TestTallyViaStates(t *testing.T) {
 // A chain that comes back to itself gives the loop mark: C.1 feeds TIE 5 into A.9, and A.10 routes A.9.
 func TestTallyViaLoop(t *testing.T) {
 	a, fa, _, _, key := threeApp(t, func(c *config.Config) {
-		c.TieLines = append(c.TieLines, config.TieLine{ID: "t5", Name: "TIE 5", From: config.Ref{Router: uidC, N: 1}, To: config.Ref{Router: c.UID, N: 9}})
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "t5", Name: "TIE 5", From: config.Ref{Router: uidC, N: 1}, To: config.Ref{Router: c.Routers[0].UID, N: 9}})
 	})
-	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+	for l := 1; l <= a.r().routerOf(a.r().cfg.Routers[0].UID).Levels; l++ {
 		fa.seed(10, 9, a.r().byUI[l].Wire)
 	}
 	if r := tallyOf(t, a, key, uidB)[20]; !r.Loop || r.Origin != nil || len(r.Via) == 0 {
@@ -200,7 +200,7 @@ func TestStreamViaDownstream(t *testing.T) {
 	m = sb.next()
 	ty = strmTally{}
 	json.Unmarshal(m.Data, &ty)
-	if len(ty.Routes) == 0 || ty.Routes[0].Unknown != a.r().cfg.UID {
+	if len(ty.Routes) == 0 || ty.Routes[0].Unknown != a.r().cfg.Routers[0].UID {
 		t.Errorf("down frame %s", m.Data)
 	}
 }
@@ -228,8 +228,8 @@ func TestExternalOnTieLineNotesAlso(t *testing.T) {
 		t.Errorf("also %q", got)
 	}
 
-	v := apiView{rights: config.Rights{Visibility: config.VisHidden, Sources: &[]config.Ref{{Router: a.r().cfg.UID, N: 3}, {Router: a.r().cfg.UID, N: 4}},
-		Dsts: &[]config.Ref{{Router: a.r().cfg.UID, N: 10}, {Router: uidB, N: 20}}}, first: a.r().cfg.UID, firstUnit: a.first.uid()}
+	v := apiView{rights: config.Rights{Visibility: config.VisHidden, Sources: &[]config.Ref{{Router: a.r().cfg.Routers[0].UID, N: 3}, {Router: a.r().cfg.Routers[0].UID, N: 4}},
+		Dsts: &[]config.Ref{{Router: a.r().cfg.Routers[0].UID, N: 10}, {Router: uidB, N: 20}}}, first: a.r().cfg.Routers[0].UID, firstUnit: a.firstUnit().uid()}
 	e, ok := v.Entry(es[0])
 	// As the Affected destinations of a 409 body: a destination that the caller cannot see goes, and others counts it.
 	if !ok || len(e.Also) != 1 || e.Also[0].Name != "B MON 20" || e.Also[0].N != 20 || e.AlsoOthers != 3 || len(es[0].Also) != 4 || es[0].AlsoOthers != 0 {

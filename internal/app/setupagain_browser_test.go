@@ -19,7 +19,7 @@ func TestChromeRunSetupAgain(t *testing.T) {
 		c.Users = append(c.Users, mkUser(t, "Bo", "5678"))
 		c.Users[1].Persistent = true
 		c.BrandText = "Studio B"
-		c.LevelNumbering = "va"
+		c.Routers[0].LevelNumbering = "va"
 		standard, _ := config.AccessPresetByName("standard")
 		standard.Apply(c)
 	})
@@ -65,8 +65,8 @@ func TestChromeRunSetupAgain(t *testing.T) {
 
 	cfg := a.r().cfg
 	bo, _ := cfg.FindUserByName("Bo")
-	if cfg.BrandText != "Studio C" || !cfg.Locks.Main || cfg.PublicPanels || cfg.Address != sim || cfg.LevelNumbering != "va" {
-		t.Fatalf("after the save: brand %q, locks %+v, public panels %v, router %q, numbering %q", cfg.BrandText, cfg.Locks, cfg.PublicPanels, cfg.Address, cfg.LevelNumbering)
+	if cfg.BrandText != "Studio C" || !cfg.Locks.Main || cfg.PublicPanels || cfg.Routers[0].Address != sim || cfg.Routers[0].LevelNumbering != "va" {
+		t.Fatalf("after the save: brand %q, locks %+v, public panels %v, router %q, numbering %q", cfg.BrandText, cfg.Locks, cfg.PublicPanels, cfg.Routers[0].Address, cfg.Routers[0].LevelNumbering)
 	}
 	if len(cfg.Users) != 2 || !bo.Persistent {
 		t.Fatalf("users %d, Bo persistent %v", len(cfg.Users), bo.Persistent)

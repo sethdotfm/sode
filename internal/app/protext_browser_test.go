@@ -40,7 +40,7 @@ func simProtect(t *testing.T, sim string, set bool, dst, dev, levels int) {
 func TestChromeExternalProtectInHistory(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
-	a := simApp(t, sim, func(c *config.Config) { c.ProtectDevice = 126 })
+	a := simApp(t, sim, func(c *config.Config) { c.Routers[0].ProtectDevice = 126 })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()

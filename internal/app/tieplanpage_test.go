@@ -33,7 +33,7 @@ func pageTiePlan(t *testing.T, a *App, c *client, id int, routes string) tieTake
 func TestPageTiePlanHoldsNothing(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	defer startLog(t, a)()
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	c := tiePageClient(a)
 	log := connectLog(fa, fb)
 	route := fmt.Sprintf(`[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1]}]`, uidA)
@@ -69,7 +69,7 @@ func TestPageTiePlanHoldsNothing(t *testing.T) {
 func TestAPITakePlanOnly(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	defer startLog(t, a)()
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	route := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1]}]}`, uidA)
 	rec := apiPost(a, "/api/v1/takes/plan", key, route, nil)
@@ -99,7 +99,7 @@ func TestProtectOfAnotherRouterReachesThePage(t *testing.T) {
 	c := tiePageClient(a)
 	b, _ := a.unit("b2b2b2b2")
 	a.mu.Lock()
-	a.applyProtect(b, a.r(), swp08.Protect{Matrix: a.r().cfg.Matrix, Level: a.r().levelsOf(b.uid()).byUI[1].Wire, Dst: 20, Device: 9, Protected: true, Kind: swp08.KindProtect}, true)
+	a.applyProtect(b, a.r(), swp08.Protect{Matrix: a.r().cfg.Routers[0].Matrix, Level: a.r().levelsOf(b.uid()).byUI[1].Wire, Dst: 20, Device: 9, Protected: true, Kind: swp08.KindProtect}, true)
 	a.mu.Unlock()
 	a.flush()
 	deadline := time.After(5 * time.Second)

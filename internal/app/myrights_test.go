@@ -48,7 +48,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if m == nil {
 		t.Fatal("Ana got no myRights after sign-in")
 	}
-	if got := mrJSON(m); got != `{"dsts":[],"protect":false,"sources":[{"n":7,"router":"`+a.r().cfg.UID+`"}],"visibility":"hidden"}` {
+	if got := mrJSON(m); got != `{"dsts":[],"protect":false,"sources":[{"n":7,"router":"`+a.r().cfg.Routers[0].UID+`"}],"visibility":"hidden"}` {
 		t.Fatalf("Ana's rights %s", got)
 	}
 
@@ -67,13 +67,13 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	if m == nil {
 		t.Fatal("no myRights after the edit")
 	}
-	if got := mrJSON(m); got != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":false}` {
+	if got := mrJSON(m); got != `{"dsts":[{"n":3,"router":"`+a.r().cfg.Routers[0].UID+`"}],"protect":false}` {
 		t.Fatalf("Ana's rights after the edit %s", got)
 	}
 	// Without it her Role is at least the Guest role, so her unset Protect right is on; her lists stay
 	// (config.Acts).
 	editCfg(t, a, func(cfg *config.Config) { cfg.Locks.Main = false })
-	if m = mrLast(anext(), "myRights"); m == nil || mrJSON(m) != `{"dsts":[{"n":3,"router":"`+a.r().cfg.UID+`"}],"protect":true}` {
+	if m = mrLast(anext(), "myRights"); m == nil || mrJSON(m) != `{"dsts":[{"n":3,"router":"`+a.r().cfg.Routers[0].UID+`"}],"protect":true}` {
 		t.Fatalf("Ana's rights on a page open to guests: %v", m)
 	}
 

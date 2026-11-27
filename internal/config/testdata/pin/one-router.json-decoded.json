@@ -1,0 +1,54 @@
+{
+  "routerShow": "name",
+  "brandText": "Desk",
+  "brandBorder": "",
+  "confirmLockoutMs": 500,
+  "resultDismissSeconds": 8,
+  "confirmEnter": false,
+  "trustedProxies": [],
+  "hiddenDsts": "1-4",
+  "filterSets": [],
+  "presets": [],
+  "bookmarks": [],
+  "tieLines": [],
+  "tieHopWeight": 1,
+  "levelColors": [
+    "#ff0000"
+  ],
+  "pinWaits": true,
+  "browserDefaults": {
+    "theme": "system",
+    "layout": "auto",
+    "clock": "24",
+    "flip": false,
+    "scrollTop": true,
+    "searchFilters": false,
+    "setStack": "and",
+    "nextMode": "number",
+    "stackGap": "30",
+    "compact": false,
+    "paletteChar": "\u003e"
+  },
+  "users": null,
+  "newUserDefaults": {
+    "persistent": false,
+    "noAutoLock": false
+  },
+  "locks": {
+    "main": false,
+    "log": false,
+    "panel": false
+  },
+  "autoLockMinutes": 0,
+  "maxPinLen": 8,
+  "api": {
+    "rateLimit": 600,
+    "takeCap": 4,
+    "guestEnabled": false,
+    "logReads": false
+  },
+  "guestRole": "standard",
+  "publicPanels": true,
+  "newPanelActs": "public",
+  "requireHttps": false
+}

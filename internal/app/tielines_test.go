@@ -11,14 +11,14 @@ import (
 // An Administrator saves tie lines; each end keeps its router name; the list survives a restart.
 func TestSaveTieLines(t *testing.T) {
 	a, _, _, u := twoRouterFiles(t)
-	readUnitNames(a, a.first, []string{"A CAM 1"}, []string{"A MON 1", "TO STAGE 2"})
+	readUnitNames(a, a.firstUnit(), []string{"A CAM 1"}, []string{"A MON 1", "TO STAGE 2"})
 	readUnitNames(a, u, []string{"B CAM 1", "FROM STAGE 1"}, []string{"B MON 1"})
 	ada := adminClient(t, a)
 	ada.send = make(chan []byte, 16)
 	a.mu.Lock()
 	a.clients[ada] = struct{}{}
 	a.mu.Unlock()
-	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.first.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 1}}
+	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.firstUnit().uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 1}}
 	if err := a.SaveTieLines(ada, []config.TieLine{tie}); err != nil {
 		t.Fatal(err)
 	}
@@ -79,8 +79,8 @@ func TestSaveTieLinesRefusesBad(t *testing.T) {
 	}{
 		{[]config.TieLine{{Name: "X", From: config.Ref{Router: u.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 2}}}, "different router"},
 		{[]config.TieLine{
-			{Name: "TIE", From: config.Ref{Router: a.first.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 2}},
-			{Name: "tie", From: config.Ref{Router: a.first.uid(), N: 2}, To: config.Ref{Router: u.uid(), N: 3}},
+			{Name: "TIE", From: config.Ref{Router: a.firstUnit().uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 2}},
+			{Name: "tie", From: config.Ref{Router: a.firstUnit().uid(), N: 2}, To: config.Ref{Router: u.uid(), N: 3}},
 		}, "two tie lines are named"},
 	} {
 		if err := a.SaveTieLines(ada, tc.list); err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -98,9 +98,9 @@ func TestAPITieLines(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		r := moreRouter("B", "Second", "", 1)
 		r.UID = "b2b2b2b2"
-		c.MoreRouters = []config.Router{r}
+		c.Routers = append(c.Routers[:1:1], []config.Router{r}...)
 		b = r.UID
-		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.UID, N: 40, Name: "TO B"}, To: config.Ref{Router: r.UID, N: 2, Name: "FROM A"}}}
+		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.Routers[0].UID, N: 40, Name: "TO B"}, To: config.Ref{Router: r.UID, N: 2, Name: "FROM A"}}}
 	})
 	rec := apiDo(a, "GET", "/api/v1/tielines", botKey(t, a), nil)
 	if rec.Code != http.StatusOK {
@@ -112,7 +112,7 @@ func TestAPITieLines(t *testing.T) {
 	}
 	got := list[0].(map[string]any)
 	from, to := got["from"].(map[string]any), got["to"].(map[string]any)
-	if got["id"] != "t1" || got["name"] != "TIE 3" || from["router"] != a.r().cfg.UID || from["n"] != 40.0 || to["router"] != b || to["n"] != 2.0 || len(from) != 2 {
+	if got["id"] != "t1" || got["name"] != "TIE 3" || from["router"] != a.r().cfg.Routers[0].UID || from["n"] != 40.0 || to["router"] != b || to["n"] != 2.0 || len(from) != 2 {
 		t.Errorf("tie line %v", got)
 	}
 }

@@ -42,8 +42,10 @@ test('every Take control is amber, never the red button', () => {
 
 test('info and healthy states show no color', () => {
   assert.deepEqual(using(/pb-badge--info|pb-banner--info|pb-toast--info|pb-badge--ok|--pb-status-info/), []);
-  // Green is routed only: the panel pages' current source and connected ring.
-  assert.deepEqual(using(/--pb-status-ok/), ['panels.css']);
+  // Green is routed only: the panel pages' current source and connected ring. In the Tie line picker, it is the bar
+  // of a tie line that carries the source already.
+  assert.deepEqual(using(/--pb-status-ok/), ['panels.css', 'tiepicker.css']);
+  assert.match(src.get('tiepicker.css'), /\.sode-tiepick__choice--has \{\s*box-shadow: inset var\(--pb-accent-bar-w\) 0 0 var\(--pb-status-ok\);\s*\}/);
   assert.doesNotMatch(src.get('panels.css'), /\.sode-panel__status--ok \{[^}]*--pb-status-ok/);
 });
 

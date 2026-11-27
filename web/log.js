@@ -58,7 +58,7 @@ function saveFilter() {
   writeJSON(FILTER_KEY, { ...filter, known: KIND_IDS });
 }
 
-const off = () => (S.cfg ? S.cfg.numberOffset : 0);
+const off = () => routerData('').off;
 
 // Not kept: a range far back means reading the log back to it, which should not happen on every
 // open.

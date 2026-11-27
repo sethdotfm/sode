@@ -91,6 +91,8 @@ type protectClearAllResultMsg struct {
 	Cleared  int    `json:"cleared,omitempty"` // the destinations it freed
 	Recheck  bool   `json:"recheck,omitempty"`
 	Approval bool   `json:"approval,omitempty"`
+	// Routers: what it did on each router it was to act on (clearSodeProtects).
+	Routers []protectClearRouter `json:"routers,omitempty"`
 }
 
 func protectReplyOf(dst int, o protectOutcome) protectDstReply {
@@ -142,8 +144,8 @@ type protectMsg struct {
 	T  string       `json:"t"`  // "protected"
 	U  []protChange `json:"u"`  // [dst, level, device, kind]; device -1 when freed
 	By []protectBy  `json:"by"` // every Protect in Sode's record of this router
-	// RouterUID names a router after the first.
-	RouterUID string `json:"routerUid,omitempty"`
+	// RouterUID names the router, the first router too.
+	RouterUID string `json:"routerUid"`
 }
 
 type protChange struct {
@@ -166,10 +168,8 @@ func protectRows(m map[int]map[int]protHold) json.RawMessage {
 	return b
 }
 
-// protectByList: the live name of a user who set one, else the name when set.
-func (a *App) protectByList(r *runtime) []protectBy { return a.protectByListOf(r, r.cfg.UID) }
-
-// protectByListOf is protectByList for the router with this settings UID.
+// protectByListOf: the Protects in Sode's record of the router with this settings UID. Each has the live name of the
+// user who set it, else the name from then.
 func (a *App) protectByListOf(r *runtime, uid string) []protectBy {
 	out := []protectBy{}
 	for _, rec := range a.protects.list(uid) {
@@ -215,9 +215,6 @@ func (a *App) broadcastProtectsMu(uid string) {
 // protectMsgOf is the protected message of router u with the hold changes ch. Caller holds mu.
 func (a *App) protectMsgOf(u *routerUnit, ch []protChange) protectMsg {
 	r := a.r()
-	if u == a.firstUnit() {
-		return protectMsg{T: "protected", U: ch, By: a.protectByList(r)}
-	}
 	return protectMsg{T: "protected", U: ch, By: a.protectByListOf(r, r.routerOf(u.uid()).UID), RouterUID: u.uid()}
 }
 
@@ -264,8 +261,8 @@ func refuseProtect(a *App, c *client, m *inMsg, err error) {
 func (a *App) serveProtectClearAll(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
-		n, still, err := a.clearSodeProtects(c)
-		res := protectClearAllResultMsg{T: "protectClearAllResult", ID: m.ID, OK: err == nil && len(still) == 0, Cleared: n}
+		n, still, per, err := a.clearSodeProtects(c, m.Routers)
+		res := protectClearAllResultMsg{T: "protectClearAllResult", ID: m.ID, OK: err == nil && len(still) == 0, Cleared: n, Routers: per}
 		note := fmt.Sprintf("%d freed", n)
 		if err == nil && len(still) > 0 {
 			err = fmt.Errorf("%d %s still Protected", len(still), plural(len(still), "destination is", "destinations are"))

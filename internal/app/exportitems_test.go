@@ -42,7 +42,7 @@ func TestExportTwoPresetsAndOnePanel(t *testing.T) {
 	files := unzipAll(t, rec.Body.Bytes())
 	var names []string
 	for n := range files {
-		if n != "names/"+a.r().cfg.UID+".yaml" && !bytes.HasPrefix([]byte(n), []byte("art/panels/"+desk+"/")) {
+		if n != "names/"+a.r().cfg.Routers[0].UID+".yaml" && !bytes.HasPrefix([]byte(n), []byte("art/panels/"+desk+"/")) {
 			names = append(names, n)
 		}
 	}

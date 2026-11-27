@@ -28,7 +28,8 @@ async function patched(src, dsts, levels = [1], srcName = `X${src}`) {
 
 test('lastTake: no Last until this browser has made a take, then that take and not History', async () => {
   const { S, lastTake, lastChip, routerData } = await import('./all.mjs');
-  S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign(routerData(''), { off: 1, numbering: '1', defaultLevels: '1,2' });
   routerData('').levels = [{ ui: 1 }, { ui: 2 }];
   routerData('').levelBy = new Map([
     [1, {}],
@@ -52,7 +53,8 @@ test('lastTake: no Last until this browser has made a take, then that take and n
 
 test('lastChip: hides what the box already has', async () => {
   const { S, lastChip, routerData } = await import('./all.mjs');
-  S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign(routerData(''), { off: 1, numbering: '1', defaultLevels: '1,2' });
   routerData('').levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
   const it = (n) => ({ n, num: n + 1, name: `X${n}` });
   const t = { src: it(1), dsts: [it(5), it(6)], levels: [1, 3] };

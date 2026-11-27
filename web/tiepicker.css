@@ -1,5 +1,6 @@
 /* The Tie line picker (tiepicker.js). It fills a large part of the screen. Tie lines use --pb-tieline only
-   (docs/color-roles.md): the lit wire of each chosen tie line. A Protected or Reserved choice is grey. */
+   (docs/color-roles.md): the lit wire of each chosen tie line. A Protected or Reserved choice is grey. The state bar
+   of a choice is routed or caution. */
 #tiepick > .pb-modal {
   height: min(80vh, 60rem);
   width: min(90vw, 90rem);
@@ -96,6 +97,33 @@
   background: var(--pb-tieline);
   height: 0.75rem;
 }
+/* The state of a choice (tiepickrules.js choiceLook, docs/color-roles.md). The left bar has the width of the bars of
+   the source and destination chips. It is routed when the tie line carries the source already, and caution when the
+   take changes Affected destinations. A free choice has no bar and no color. Each state also has words. */
+.sode-tiepick__choice--has {
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-status-ok);
+}
+.sode-tiepick__choice--change {
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-status-warn);
+}
+/* The best choice of a step: a neutral double outline and the word Best. It can have any other state. */
+.sode-tiepick__choice--best {
+  outline: calc(var(--pb-border-w) * 3) double var(--pb-text);
+  outline-offset: var(--pb-border-w);
+}
+.sode-tiepick__tierow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-tiepick__has,
+.sode-tiepick__free {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-1);
+}
 .sode-tiepick__tie {
   font-weight: 600;
 }
@@ -110,7 +138,9 @@
   font-family: var(--pb-font-num);
 }
 .sode-tiepick__choice--held,
-.sode-tiepick__choice--held .sode-tiepick__ago {
+.sode-tiepick__choice--held .sode-tiepick__ago,
+.sode-tiepick__choice--grey,
+.sode-tiepick__choice--grey .sode-tiepick__ago {
   color: var(--pb-text-disabled);
 }
 .sode-tiepick__affected {

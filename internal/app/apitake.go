@@ -84,6 +84,9 @@ type apiRouteIn struct {
 	// OneOffs: One-off tie lines for the plan of a route with no ties (tieoneoff.go). The 409 body then has paths
 	// through them too.
 	OneOffs []apiOneOffIn `json:"oneOffs"`
+	// Through: for the plan of a route with no ties, the first tie lines of each path, upstream first. The Tie line
+	// picker asks one question for each hop that routes share, so it plans the later hops through the earlier choices.
+	Through []string `json:"through"`
 }
 
 // apiTieIn is one tie line of a route: a saved tie line by id, or a One-off tie line by its two ends. From is a
@@ -207,17 +210,19 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			}
 			ls := ro.Levels
 			if len(ls) == 0 {
-				rc := rt.routerOf(u.uid())
-				ls, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
+				ls = rt.routerOf(u.uid()).DefaultLevelList()
 			}
 			r := tieRoute{index: i, src: tieplan.End{Router: su.uid(), N: ro.Src.N}, dst: tieplan.End{Router: u.uid(), N: ro.Dst.N}, levels: ls}
 			switch {
-			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil || len(ro.OneOffs) > 0):
-				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties, oneOffs and affected are only for a route across routers", i)
+			case su == u && (len(ro.Ties) > 0 || ro.Affected != nil || len(ro.OneOffs) > 0 || len(ro.Through) > 0):
+				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: ties, oneOffs, through and affected are only for a route across routers", i)
+			case len(ro.Ties) > 0 && len(ro.Through) > 0:
+				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: through is only for a route with no ties", i)
 			case len(ro.Ties) > 0 && len(ro.OneOffs) > 0:
 				return nil, problem(http.StatusBadRequest, "bad_request", "route %d: oneOffs is only for a route with no ties. Give a One-off tie line in ties as {from, to}", i)
 			case su != u && len(ro.Ties) == 0:
 				bare = true
+				r.through = ro.Through
 				for _, o := range ro.OneOffs {
 					if _, oo, prob := a.statedTie(rt, o.From, o.To); prob != nil {
 						return nil, prob

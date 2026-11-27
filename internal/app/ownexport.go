@@ -118,7 +118,8 @@ func (a *App) serveOwnExportItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := a.r().cfg
-	prefix := map[string]string{cfg.UID: cfg.Prefix}
+	def := cfg.DefaultRouter()
+	prefix := map[string]string{def.UID: def.Prefix}
 	var out exportList
 	var err error
 	add := func(c *exportListCat, id, name string, v any) {
@@ -127,7 +128,7 @@ func (a *App) serveOwnExportItems(w http.ResponseWriter, r *http.Request) {
 		if e != nil {
 			err = e
 		}
-		c.Items = append(c.Items, exportListItem{ID: id, Name: name, Size: len(b), Router: used[cfg.UID]})
+		c.Items = append(c.Items, exportListItem{ID: id, Name: name, Size: len(b), Router: used[def.UID]})
 		c.Size += len(b)
 	}
 	prof := exportListCat{Name: catProfile}
@@ -186,7 +187,7 @@ func (a *App) planOwn(id string, b *exportBundle, req importReq) (*cardPlanner, 
 	me, _ := live.FindUserByID(id)
 	m := b.Manifest
 	same := m.Install != "" && m.Install == live.InstallUID
-	out := ownCheck{Format: m.Format, Sode: m.Sode, SameInstall: same, Routers: m.Routers, Router: live.UID, LiveRouters: live.RouterUIDs(), Unknown: b.Unknown, Admin: []string{}}
+	out := ownCheck{Format: m.Format, Sode: m.Sode, SameInstall: same, Routers: m.Routers, Router: live.DefaultRouter().UID, LiveRouters: live.RouterUIDs(), Unknown: b.Unknown, Admin: []string{}}
 	from, found := ownFrom(b, me, same)
 	for _, c := range m.Categories {
 		if c != catRouters && (c != catUsers || len(b.Users) > 1 || !found) {

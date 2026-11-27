@@ -274,10 +274,10 @@ func (r *Rights) fillRouter(uid string) {
 
 func (c *Config) normalizeAPI() {
 	c.GuestRights.Visibility = strings.ToLower(strings.TrimSpace(c.GuestRights.Visibility))
-	c.GuestRights.fillRouter(c.UID)
+	c.GuestRights.fillRouter(c.DefaultRouter().UID)
 	for i := range c.Users {
 		c.Users[i].Rights.Visibility = strings.ToLower(strings.TrimSpace(c.Users[i].Rights.Visibility))
-		c.Users[i].Rights.fillRouter(c.UID)
+		c.Users[i].Rights.fillRouter(c.DefaultRouter().UID)
 	}
 	if c.GuestAPIScopes == nil {
 		c.GuestAPIScopes = slices.Clone(DefaultGuestScopes)
@@ -286,7 +286,7 @@ func (c *Config) normalizeAPI() {
 		a := &c.APIClients[i]
 		a.Name = strings.TrimSpace(a.Name)
 		a.Rights.Visibility = strings.ToLower(strings.TrimSpace(a.Rights.Visibility))
-		a.Rights.fillRouter(c.UID)
+		a.Rights.fillRouter(c.DefaultRouter().UID)
 		if a.Scopes == nil {
 			a.Scopes = []string{}
 		}
@@ -346,7 +346,7 @@ func (c Config) validateAPI() []error {
 	if c.RequireHTTPS && len(c.TrustedProxies) == 0 {
 		bad("Require HTTPS needs at least one trusted proxy: only a trusted proxy can say a request was secure")
 	}
-	routers := c.Routers()
+	routers := c.Routers
 	c.GuestRights.validate("Guest rights", routers, bad)
 	checkScopes("keyless scopes", c.GuestAPIScopes, bad)
 	for _, u := range c.Users {

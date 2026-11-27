@@ -60,10 +60,10 @@ func TestStreamStatusUsesAddressLikeGETStatus(t *testing.T) {
 	if err := json.Unmarshal(m.Data, &d); err != nil {
 		t.Fatal(err)
 	}
-	if d["address"] != fixRouterAddr {
+	if firstStatusRouter(d)["address"] != fixRouterAddr {
 		t.Errorf("snapshot %s", m.Data)
 	}
-	if _, ok := d["addr"]; ok {
+	if _, ok := firstStatusRouter(d)["addr"]; ok {
 		t.Errorf("snapshot still has addr: %s", m.Data)
 	}
 }

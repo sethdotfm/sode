@@ -21,7 +21,7 @@ func partialTie(t *testing.T) (a *App, fa, fb *fakeRouter, key string, hop int) 
 	fb.mu.Lock()
 	fb.deaf[[2]int{2, a.r().byUI[1].Wire}] = true
 	fb.mu.Unlock()
-	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(a.r().cfg.UID, [2]int{4, 2}), nil)
+	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(a.r().cfg.Routers[0].UID, [2]int{4, 2}), nil)
 	b := tieTakeAnswer(t, rec.Body)
 	if rec.Code != http.StatusOK || b.OK {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
@@ -37,7 +37,7 @@ func partialTie(t *testing.T) (a *App, fa, fb *fakeRouter, key string, hop int) 
 // the hop entry.
 func TestAPITiePutBack(t *testing.T) {
 	a, fa, fb, key, hop := partialTie(t)
-	levelsA := a.r().routerOf(a.r().cfg.UID).Levels
+	levelsA := a.r().routerOf(a.r().cfg.Routers[0].UID).Levels
 	if es, _ := a.hist.Page(-1, 5); len(es) != 2 || es[1].ID != hop || !es[1].OK || es[0].OK || es[0].Hops[0].Result != "connected" {
 		t.Fatalf("entries %+v", es)
 	}
@@ -70,7 +70,7 @@ func TestAPITiePutBack(t *testing.T) {
 func TestAPITiePutBackRefusedAfterTieMoved(t *testing.T) {
 	a, fa, fb, key, hop := partialTie(t)
 	a.mu.Lock()
-	a.first.router.srcNames[8] = "CAM 9"
+	a.firstUnit().router.srcNames[8] = "CAM 9"
 	a.mu.Unlock()
 	fa.seed(10, 8, a.r().byUI[1].Wire)
 	log := connectLog(fa, fb)
@@ -142,7 +142,7 @@ func TestPutBackSkipsRights(t *testing.T) {
 // put back.
 func TestAPITieTakeLinkDropMidTake(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	// The sender holds mu, so B drops on its own goroutine. A answers its connects only after B is down.
 	var once sync.Once
 	down := make(chan struct{})
@@ -191,12 +191,12 @@ func TestAPITieTakeStopsAtMiddleHop(t *testing.T) {
 	a, fa, fb, key := tieApp(t, func(c *config.Config) {
 		r := moreRouter("C", "Third", "10.0.0.10:8910", 1)
 		r.UID = "c3c3c3c3"
-		c.MoreRouters = append(c.MoreRouters, r)
+		c.Routers = append(c.Routers, r)
 		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 5", From: config.Ref{Router: "b2b2b2b2", N: 11}, To: config.Ref{Router: r.UID, N: 6}})
 	})
-	fc, uc := addFakeUnit(t, a, a.r().cfg.MoreRouters[1])
+	fc, uc := addFakeUnit(t, a, a.r().cfg.Routers[2])
 	a.onUnitState(uc, swp08.StateUp, nil)
-	uidA, wire := a.r().cfg.UID, a.r().byUI[1].Wire
+	uidA, wire := a.r().cfg.Routers[0].UID, a.r().byUI[1].Wire
 	fb.seed(11, 9, wire)
 	fc.seed(2, 1, wire)
 	fb.mu.Lock()

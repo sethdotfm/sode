@@ -24,7 +24,7 @@ func groupOf(t *testing.T, es ...*Entry) (string, int) {
 func TestProtectManySharesOneGroup(t *testing.T) {
 	a, f := protectApp(t)
 	ana := signedClient(t, a, "Ana", "1234")
-	a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 1, 2, 6, 9))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 1, 2, 6, 9))
 	outs := a.protectMany(ana, []protectDst{{Dst: 1}, {Dst: 2}, {Dst: 6}, {Dst: 3}}, true, nil)
 	protRefused(t, outs[2], "protected", "Router lock")
 	set := []*Entry{protEntry(t, outs[0]), protEntry(t, outs[1]), protEntry(t, outs[3])}
@@ -64,7 +64,7 @@ func TestClearSodeProtectsIsOneGroup(t *testing.T) {
 	protEntry(t, a.protectSet(ana, 4, nil))
 	protEntry(t, a.protectSet(ana, 5, nil))
 	before := a.hist.Len()
-	if n, still, err := a.clearSodeProtects(adminClient(t, a)); n != 2 || still != nil || err != nil {
+	if n, still, _, err := a.clearSodeProtects(adminClient(t, a), nil); n != 2 || still != nil || err != nil {
 		t.Fatalf("freed %d, still %v, %v", n, still, err)
 	}
 	es, _ := a.hist.Page(-1, a.hist.Len()-before)
@@ -79,7 +79,7 @@ func TestClearSodeProtectsIsOneGroup(t *testing.T) {
 // The page's message with dsts gets one result with a result for each destination, in its order.
 func TestProtectMessageWithDsts(t *testing.T) {
 	a, _ := protectApp(t)
-	a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 1, 2, 6, 9))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 1, 2, 6, 9))
 	p := dialPeer(t, a)
 	p.signIn("Ana", "1234")
 	r := p.ask("protectSet", 3, map[string]any{"protect": map[string]any{"dsts": []map[string]any{{"dst": 1}, {"dst": 6}, {"dst": 2}}}})
@@ -138,10 +138,10 @@ func TestProtExtBurstGroups(t *testing.T) {
 	a, _ := protectApp(t)
 	for _, d := range []int{1, 2, 3} {
 		for l := 0; l < 3; l++ {
-			a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, l, swp08.KindProtect, d, 40))
+			a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, l, swp08.KindProtect, d, 40))
 		}
 	}
-	a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, 0, swp08.KindRouterLock, 5, 9))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, 0, swp08.KindRouterLock, 5, 9))
 	es := endProtBurst(a)
 	if len(es) != 4 {
 		t.Fatalf("entries %+v", es)

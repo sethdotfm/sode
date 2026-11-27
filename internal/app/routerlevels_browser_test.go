@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -13,7 +14,7 @@ func TestChromeMainOneLevelRouter(t *testing.T) {
 	simA := startSim(t)
 	simB := startSim(t, simNames(t, "src 11 Stage Cam", "dst 3 Stage Mon"))
 	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
-		c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 1, ""
+		c.Routers[1].Levels, c.Routers[1].DefaultLevels = 1, ""
 	})
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
@@ -52,7 +53,7 @@ func TestChromeMainOneLevelRouter(t *testing.T) {
 	b.check()
 }
 
-// Settings > Routers > Router levels: router B's level settings save with the one Save.
+// Settings > Routers: router B's level settings, in its detail view, save with the one Save.
 func TestChromeSettingsRouterLevels(t *testing.T) {
 	b := startBrowser(t)
 	simA, simB := startSim(t), startSim(t)
@@ -63,22 +64,27 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	id := func(attr string) string { return `document.getElementById('cfg-rl-` + uid + `-` + attr + `')` }
-	b.waitFor("router B's block", id("levels")+`?.value === '17' && `+id("defaultLevels")+`.value === '1-17' && document.getElementById('router-levels-list').textContent.includes('Router B')`)
-	b.eval(`(() => { const n = ` + id("levelNumbering") + `; n.value = 'va'; n.dispatchEvent(new Event('change', {bubbles: true}));
+	id := func(attr string) string { return `document.getElementById('cfg-rt-` + attr + `')` }
+	b.waitFor("router B in the list", `!!document.querySelector('#routers-list [data-router="`+uid+`"]')`)
+	b.eval(`document.querySelector('#routers-list [data-router="` + uid + `"]').click(); true`)
+	b.waitFor("router B's detail view", id("levels")+`?.value === '17' && `+id("defaultLevels")+`.value === '' && document.getElementById('router-detail-name').textContent === 'Router B'
+		&& document.querySelector('label[for="cfg-rt-lvlnum-va"]').textContent === 'V, 1–16'`)
+	b.eval(`(() => { const n = document.getElementById('cfg-rt-lvlnum-va'); n.checked = true; n.dispatchEvent(new Event('change', {bubbles: true}));
 		const d = ` + id("defaultLevels") + `; d.value = 'V-2'; d.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("the review lists router B's changes", `(() => {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const t = d.textContent;
-		return t.includes('Router levels') && t.includes('Router B: Level numbering') && t.includes('V, then 1') && t.includes('Router B: Default levels')
+		const row = [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Router B: Default levels'));
+		return t.includes('Routers') && t.includes('Router B: Level numbering') && t.includes('V, 1–16') && !!row
+			&& row.textContent.includes('Every level') && row.textContent.includes('V, 1-2')
 			&& document.getElementById('review-save').textContent === 'Save 2 changes';
 	})()`)
 	b.eval(`document.getElementById('review-save').click(); true`)
 	b.waitFor("the review closes", `!document.getElementById('review')?.offsetParent`)
 	for i := 0; ; i++ {
-		rc := a.r().cfg.MoreRouters[0]
+		rc := a.r().cfg.Routers[1]
 		if rc.LevelNumbering == "va" && rc.DefaultLevels == "1-3" {
 			break
 		}
@@ -87,8 +93,8 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 		}
 		b.waitFor("a moment", `new Promise((r) => setTimeout(() => r(true), 50))`)
 	}
-	if a.r().cfg.LevelNumbering != "1" {
-		t.Errorf("the first router's numbering is %q", a.r().cfg.LevelNumbering)
+	if a.r().cfg.Routers[0].LevelNumbering != "1" {
+		t.Errorf("the first router's numbering is %q", a.r().cfg.Routers[0].LevelNumbering)
 	}
 	b.waitFor("nothing left unsaved", `document.getElementById('settings-unsaved').hidden && `+id("defaultLevels")+`.value === 'V-2'`)
 	b.check()
@@ -99,7 +105,7 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 func TestChromePhoneOneLevelRouter(t *testing.T) {
 	b := startBrowser(t)
 	simA, simB := startSim(t), startSim(t)
-	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) { c.Levels, c.DefaultLevels = 1, "" })
+	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) { c.Routers[0].Levels, c.Routers[0].DefaultLevels = 1, "" })
 	srv := seamServer(t, a)
 	waitRouterRead(t, a, userKey(t, a, "Ana"), routerUIDs(a)[0], "DSM1")
 
@@ -119,5 +125,59 @@ func TestChromePhoneOneLevelRouter(t *testing.T) {
 	b.waitFor("1-17 is the one level", `!document.getElementById('m-lvl').classList.contains('pb-input--invalid')
 		&& document.querySelector('.sode-m__sum-lvls')?.textContent === 'All levels'
 		&& document.querySelectorAll('#m-picks .sode__pick').length === 1`)
+	b.check()
+}
+
+// LP-14, LP-17: router B numbers from 0. The Save review shows its Default levels in that numbering, as the Settings
+// saves record does. Level colors name the level of each router at a position, and the main page's Levels box names
+// the router whose levels it shows.
+func TestChromeSaveReviewLevelsNumbering(t *testing.T) {
+	b := startBrowser(t)
+	simA, simB := startSim(t), startSim(t)
+	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
+		c.Users[0].Role = config.RoleAdministrator
+		c.Routers[1].LevelNumbering, c.Routers[1].Levels, c.Routers[1].DefaultLevels = "0", 4, "1-4"
+	})
+	srv := seamServer(t, a)
+	uid := routerUIDs(a)[1]
+
+	b.open(srv.URL + "/#settings")
+	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
+	signInSettings(b)
+	b.waitFor("the tip of color position 1 names each router's level", `document.querySelector('#cfg-colors .sode__slot')?.dataset.pbTip === 'Position 1. A: 1, B: 0.'
+		&& document.getElementById('cfg-color-1').getAttribute('aria-label') === 'Position 1 color'`)
+	b.eval(`document.querySelector('#routers-list [data-router="` + uid + `"]').click(); true`)
+	d := `document.getElementById('cfg-rt-defaultLevels')`
+	b.waitFor("router B's Default levels in its numbering", d+`.value === '0-3'`)
+	b.eval(`(() => { const d = ` + d + `; d.value = '0, 2-3'; d.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	b.eval(`document.getElementById('settings-save').click(); true`)
+	b.waitFor("the review shows was and now in 0 numbering", `(() => {
+		const d = document.getElementById('review');
+		if (!d?.offsetParent) return false;
+		const row = [...d.querySelectorAll('tr')].find((r) => r.textContent.includes('Router B: Default levels'));
+		const cells = row ? [...row.querySelectorAll('td')].map((c) => c.textContent) : [];
+		return cells.includes('0-3') && cells.includes('0, 2-3');
+	})()`)
+	b.eval(`document.getElementById('review-save').click(); true`)
+	b.waitFor("the review closes", `!document.getElementById('review')?.offsetParent`)
+	for i := 0; a.r().cfg.Routers[1].DefaultLevels != "1,3-4"; i++ {
+		if i > 100 {
+			t.Fatalf("router B default levels %q", a.r().cfg.Routers[1].DefaultLevels)
+		}
+		b.waitFor("a moment", `new Promise((r) => setTimeout(() => r(true), 50))`)
+	}
+	rows := waitSaves(t, a, 1)
+	for _, f := range rows[len(rows)-1].Save.Fields {
+		if strings.HasSuffix(f.Key, "/defaultLevels") && (string(f.Old) != `"0-3"` || string(f.New) != `"0, 2-3"`) {
+			t.Errorf("the record shows %s to %s, not as the review did", f.Old, f.New)
+		}
+	}
+
+	b.eval(`document.getElementById('settings-exit').click(); true`)
+	b.waitFor("the main page", `document.documentElement.dataset.view !== 'settings' && !!document.getElementById('dst')`)
+	b.waitFor("the Levels box names router A", `(() => { const r = document.getElementById('lvl-router'); return !r.hidden && r.textContent === 'Router A'; })()`)
+	b.eval(`(() => { const t = document.getElementById('dst'); t.focus(); t.value = 'B.4'; t.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	b.waitFor("the Levels box names router B", `document.getElementById('lvl-router').textContent === 'Router B'
+		&& document.querySelectorAll('#lvl-pick .sode__pick').length === 4`)
 	b.check()
 }

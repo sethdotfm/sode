@@ -14,7 +14,7 @@ func TestChromeBrokenBanner(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	gone := config.Ref{Router: uid, N: 2, Name: "GONE 3"}
 	a.cfgMu.Lock()
 	err := a.commit(func(c *config.Config) error {
@@ -62,7 +62,7 @@ func TestChromeBrokenBanner(t *testing.T) {
 	b.eval(`location.hash = '#settings'; true`)
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	const count = `document.getElementById('router-1-broken')?.firstChild?.textContent`
+	const count = `document.getElementById('routers-broken')?.firstChild?.textContent`
 	b.waitFor("the Routers row shows the server's count", count+` === '1 Broken, 0 Name moved'`)
 
 	a.cfgMu.Lock()

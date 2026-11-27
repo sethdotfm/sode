@@ -18,10 +18,10 @@ import (
 func twoRouterFiles(t *testing.T) (a *App, first, second *fakeRouter, u *routerUnit) {
 	t.Helper()
 	cfg := config.Defaults()
-	cfg.Levels, cfg.NameRefreshSeconds, cfg.TallyResyncSeconds = 3, 60, 60
+	cfg.Routers[0].Levels, cfg.Routers[0].NameRefreshSeconds, cfg.Routers[0].TallyResyncSeconds = 3, 60, 60
 	b := moreRouter("B", "Second", "10.0.0.9:8910", 3)
 	b.NameRefreshSeconds, b.TallyResyncSeconds = 60, 60
-	cfg.MoreRouters = []config.Router{b}
+	cfg.Routers = append(cfg.Routers[:1:1], []config.Router{b}...)
 	withAdministrator(&cfg)
 	cfg.Normalize()
 	h, _ := OpenHistory("")
@@ -31,7 +31,7 @@ func twoRouterFiles(t *testing.T) (a *App, first, second *fakeRouter, u *routerU
 	}
 	shortTimers(a)
 	first = newFakeRouter(t, a)
-	second, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	second, u = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	return a, first, second, u
 }
 
@@ -62,7 +62,7 @@ func TestNamesUseTheirRouter(t *testing.T) {
 	}
 
 	readUnitNames(a, u, []string{"B CAM 1"}, []string{"B MON 1"})
-	bPath, aPath := unitTablePath(a, u.uid()), unitTablePath(a, a.r().cfg.UID)
+	bPath, aPath := unitTablePath(a, u.uid()), unitTablePath(a, a.r().cfg.Routers[0].UID)
 	b, err := os.ReadFile(bPath)
 	if err != nil || !strings.Contains(string(b), "router: "+u.uid()) || !strings.Contains(string(b), "B CAM 1") {
 		t.Fatalf("second router's names table: %v\n%s", err, b)

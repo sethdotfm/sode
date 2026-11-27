@@ -35,11 +35,11 @@ func TestChromeMainChips(t *testing.T) {
 	b.waitFor("History has the take", `!!document.querySelector('#history .sode__end--dst.sode__end--pick')`)
 	b.waitFor("Last destination chip", `!!document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)')`)
 
-	// Last is a compact chip (--sode-h-compact) with the full edge of every other chip, and its key in a kbd. Both boxes
+	// Last is a compact chip (--sode-h-compact) with the full edge of every other chip, and no key hint. Both boxes
 	// end Last and Next at the box's right edge. History's route ends are compact chips too.
 	if got := b.eval(`(() => {
 		const last = document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)');
-		const c = getComputedStyle(last), k = getComputedStyle(last.querySelector('kbd'));
+		const c = getComputedStyle(last);
 		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize), r = last.getBoundingClientRect();
 		const edge = ['Top', 'Right', 'Bottom', 'Left'].every((s) => c['border' + s + 'Style'] === 'solid' && parseFloat(c['border' + s + 'Width']) >= 2 && c['border' + s + 'Color'] !== 'rgba(0, 0, 0, 0)');
 		const ends = ['src', 'dst'].map((k) => {
@@ -48,8 +48,8 @@ func TestChromeMainChips(t *testing.T) {
 		});
 		const hist = [...document.querySelectorAll('#history .sode__end')].map((n) => n.getBoundingClientRect().height);
 		const compact = (h) => Math.abs(h - 2 * rem) < 0.5;
-		const ok = edge && compact(r.height) && hist.length > 0 && hist.every(compact) && k.borderTopStyle === 'solid' && ends[0] === ends[1];
-		return ok || [c.borderTopColor, c.borderTopWidth, r.height, hist.join('/'), k.borderTopStyle, ends].join(' ');
+		const ok = edge && compact(r.height) && hist.length > 0 && hist.every(compact) && !last.querySelector('kbd') && ends[0] === ends[1];
+		return ok || [c.borderTopColor, c.borderTopWidth, r.height, hist.join('/'), !!last.querySelector('kbd'), ends].join(' ');
 	})()`); got != true {
 		t.Fatalf("Last chip or a History chip is not a compact chip with a full edge, or the boxes end Last apart: %v", got)
 	}

@@ -259,14 +259,14 @@ func TestReplaceImportRouterKeepsUIDs(t *testing.T) {
 	}
 	other := "0123456789abcdef"
 	for _, n := range []string{"manifest.yaml", "routers.yaml"} {
-		files[n] = strings.ReplaceAll(files[n], before.UID, other)
+		files[n] = strings.ReplaceAll(files[n], before.Routers[0].UID, other)
 	}
 	files["routers.yaml"] = regexp.MustCompile(`(?m)^(\s*)title: .*$`).ReplaceAllString(files["routers.yaml"], "${1}title: Truck B")
-	delete(files, "names/"+before.UID+".yaml")
+	delete(files, "names/"+before.Routers[0].UID+".yaml")
 	applied(t, postApply(t, a, tok, zipOf(t, files), replaceReq(catRouters)))
 	cfg := a.r().cfg
-	if cfg.UID != before.UID || cfg.InstallUID != before.InstallUID || cfg.Title != "Truck B" {
-		t.Fatalf("router %s %q, install %s", cfg.UID, cfg.Title, cfg.InstallUID)
+	if cfg.Routers[0].UID != before.Routers[0].UID || cfg.InstallUID != before.InstallUID || cfg.Routers[0].Title != "Truck B" {
+		t.Fatalf("router %s %q, install %s", cfg.Routers[0].UID, cfg.Routers[0].Title, cfg.InstallUID)
 	}
 }
 
@@ -369,8 +369,8 @@ func TestReplaceImportKeepsTwinsOfRefusedItems(t *testing.T) {
 	files["artwork.yaml"] = strings.Replace(files["artwork.yaml"], "art: lib:", "art: bad:", 1)
 	files["art/icons/"+ic.fileName()] = "not an image"
 	a.mu.Lock()
-	clear(a.first.router.srcNames)
-	clear(a.first.router.dstNames)
+	clear(a.firstUnit().router.srcNames)
+	clear(a.firstUnit().router.dstNames)
 	a.mu.Unlock()
 	res := applied(t, postApply(t, a, tok, zipOf(t, files), replaceReq(cats...)))
 	if len(res.Failed) != 0 {

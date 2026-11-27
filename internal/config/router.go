@@ -11,16 +11,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// JSON keys stay flat so the config message and hello keep their shape; the file nests them under routers.
+// The file nests every router under routers. The hello sends each router in its routers list (helloRouter in
+// internal/app), and the one Save edits a field as `router/<uid>/<JSON name>`.
 type Router struct {
 	// Normalize makes UID one time. It never changes, not even with the address. Never shown.
 	UID string `yaml:"uid" json:"-"`
 	// Prefix is one or two letters A to Z, hidden while there is one router.
-	Prefix  string `yaml:"prefix" json:"-"`
-	Title   string `yaml:"title" json:"routerName"`
-	Address string `yaml:"address" json:"router" reconnect:"true"`
-	// RouterShow: what the status line shows (address, name or none).
-	RouterShow      string `yaml:"statusLabel" json:"routerShow"`
+	Prefix          string `yaml:"prefix" json:"-"`
+	Title           string `yaml:"title" json:"routerName"`
+	Address         string `yaml:"address" json:"router" reconnect:"true"`
 	Matrix          int    `yaml:"matrix" json:"matrix" reconnect:"true"`
 	Levels          int    `yaml:"levels" json:"levels" reconnect:"true"`
 	LevelWireOffset int    `yaml:"levelOffset" json:"levelWireOffset" reconnect:"true"`
@@ -53,10 +52,6 @@ func (r *Router) normalize() {
 	if r.Prefix == "" {
 		r.Prefix = "A"
 	}
-	r.RouterShow = strings.ToLower(strings.TrimSpace(r.RouterShow))
-	if r.RouterShow == "" {
-		r.RouterShow = "address"
-	}
 	r.DefaultLevels = strings.TrimSpace(r.DefaultLevels)
 	r.FireMode = strings.ToLower(strings.TrimSpace(r.FireMode))
 	if r.FireMode == "" {
@@ -66,31 +61,55 @@ func (r *Router) normalize() {
 	if r.LevelNumbering == "" {
 		r.LevelNumbering = "1"
 	}
-	if r.DefaultLevels == "" && r.Levels > 0 {
-		r.DefaultLevels = fmt.Sprintf("1-%d", r.Levels)
+}
+
+// DefaultLevelList gives the Default levels as UI levels. Blank is every level: it stays blank in the file and on the
+// wire, so it stays true when the level count changes. A value that does not parse gives nil (Validate refuses it).
+func (r Router) DefaultLevelList() []int {
+	if r.DefaultLevels == "" {
+		out := make([]int, r.Levels)
+		for i := range out {
+			out[i] = i + 1
+		}
+		return out
 	}
+	ls, _ := ParseLevels(r.DefaultLevels, r.Levels)
+	return ls
 }
 
-// Routers is every router, the first one first.
-func (c Config) Routers() []Router {
-	return append([]Router{c.Router}, c.MoreRouters...)
+// DefaultRouter is the first router of the list. A Config with no routers (not normalized) gives the zero Router.
+func (c Config) DefaultRouter() Router {
+	if len(c.Routers) == 0 {
+		return Router{}
+	}
+	return c.Routers[0]
 }
 
-// RouterUIDs gives the UID of every router, the first router first.
+// EditDefaultRouter gives the default router to change in place. It first copies the list, so a copy of c that is not
+// a Clone keeps its router. Take it again after a second call: the earlier pointer is to the old list.
+func (c *Config) EditDefaultRouter() *Router {
+	c.Routers = slices.Clone(c.Routers)
+	if len(c.Routers) == 0 {
+		c.Routers = []Router{{}}
+	}
+	return &c.Routers[0]
+}
+
+// RouterUIDs gives the UID of every router, the default router first.
 func (c Config) RouterUIDs() []string {
-	out := make([]string, 0, 1+len(c.MoreRouters))
-	for _, r := range c.Routers() {
+	out := make([]string, 0, len(c.Routers))
+	for _, r := range c.Routers {
 		out = append(out, r.UID)
 	}
 	return out
 }
 
-// RouterByUID gives the router with this UID. Blank is the first router.
+// RouterByUID gives the router with this UID. Blank is the default router.
 func (c Config) RouterByUID(uid string) (Router, bool) {
 	if uid == "" {
-		return c.Router, true
+		return c.DefaultRouter(), true
 	}
-	for _, r := range c.Routers() {
+	for _, r := range c.Routers {
 		if r.UID == uid {
 			return r, true
 		}
@@ -108,9 +127,10 @@ type Ref struct {
 	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 
-// Shown carries no prefix: with one router it is hidden.
+// SourceRef is a source of the default router. Shown carries no prefix: with one router it is hidden.
 func (c Config) SourceRef(n int, name string) Ref {
-	return Ref{Router: c.UID, N: n, Shown: strconv.Itoa(n + c.NumberOffset), Name: name}
+	r := c.DefaultRouter()
+	return Ref{Router: r.UID, N: n, Shown: strconv.Itoa(n + r.NumberOffset), Name: name}
 }
 
 func (c Config) DestinationRef(n int, name string) Ref { return c.SourceRef(n, name) }
@@ -123,7 +143,7 @@ func NewRouterUID() string { return newRouterUID() }
 // FreePrefix gives the first router prefix that no router has: A to Z, then AA to ZZ.
 func (c Config) FreePrefix() string {
 	used := map[string]bool{}
-	for _, r := range c.Routers() {
+	for _, r := range c.Routers {
 		used[r.Prefix] = true
 	}
 	var try []string
@@ -161,7 +181,7 @@ func (c Config) MarshalYAML() (any, error) {
 	if err := top.Encode(configFile(c)); err != nil {
 		return nil, err
 	}
-	if err := routers.Encode(c.Routers()); err != nil {
+	if err := routers.Encode(c.Routers); err != nil {
 		return nil, err
 	}
 	// After format (Config's first field), so the marker stays the file's first key.
@@ -188,21 +208,46 @@ func (c *Config) UnmarshalYAML(n *yaml.Node) error {
 		if list.Kind != yaml.SequenceNode {
 			return fmt.Errorf("routers must be a list")
 		}
-		// Each one is decoded over the defaults (c.Router before the first), so a missing key keeps its default as
-		// top-level keys do.
-		base := c.Router
-		c.MoreRouters = nil
-		for j, rn := range list.Content {
+		// Each one is decoded over the defaults (the default router before the first), so a missing key keeps its
+		// default as top-level keys do. An empty list keeps the defaults.
+		base := c.DefaultRouter()
+		var all []Router
+		for _, rn := range list.Content {
 			r := base
 			if err := rn.Decode(&r); err != nil {
 				return err
 			}
-			if j == 0 {
-				c.Router = r
-			} else {
-				c.MoreRouters = append(c.MoreRouters, r)
-			}
+			all = append(all, r)
+		}
+		if len(all) > 0 {
+			c.Routers = all
 		}
 	}
+	c.takeOldStatusLabel(n)
 	return nil
+}
+
+// takeOldStatusLabel: releases before the top-level statusLabel kept it on each router. A file with no top-level key
+// takes the first router's. Each router's key is dropped, so a save does not write it again.
+func (c *Config) takeOldStatusLabel(n *yaml.Node) {
+	top := false
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		top = top || n.Content[i].Value == "statusLabel"
+	}
+	for i := range c.Routers {
+		r := &c.Routers[i]
+		v, ok := r.Extra["statusLabel"]
+		if !ok {
+			continue
+		}
+		if i == 0 && !top {
+			if s, ok := v.(string); ok {
+				c.RouterShow = s
+			}
+		}
+		delete(r.Extra, "statusLabel")
+		if len(r.Extra) == 0 {
+			r.Extra = nil
+		}
+	}
 }

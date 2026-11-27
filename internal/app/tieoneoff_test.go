@@ -29,7 +29,7 @@ func TestAPIOneOffTieLineTake(t *testing.T) {
 	a, fa, fb, key := tieApp(t, func(c *config.Config) {
 		c.APIClients[0].Rights = config.Rights{Dsts: &[]config.Ref{{Router: "b2b2b2b2", N: 2}}}
 	})
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	levelsA := a.r().routerOf(uidA).Levels
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, oneOffRoute(uidA, 4, 2, ""), nil)
@@ -91,7 +91,7 @@ func TestAPIOneOffTieLineTake(t *testing.T) {
 // and the body gives its id and ends. Nothing is sent, and Sode keeps nothing.
 func TestAPIOneOffTieLinePlan(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	body := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"oneOffs":[{"from":{"router":%q,"n":11},"to":{"router":"b2b2b2b2","n":6}}]}]}`, uidA, uidA)
 	rec := apiPost(a, "/api/v1/takes", key, body, nil)
@@ -123,9 +123,9 @@ func TestAPIOneOffTieLinePlan(t *testing.T) {
 // The Protect check covers the stated upstream destination: the route is refused and nothing goes to B.
 func TestAPIOneOffTieLineProtected(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	a.mu.Lock()
-	a.first.router.protect[11] = map[int]protHold{1: {5, 1}}
+	a.firstUnit().router.protect[11] = map[int]protHold{1: {5, 1}}
 	a.mu.Unlock()
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, oneOffRoute(uidA, 4, 2, ""), nil)
@@ -141,7 +141,7 @@ func TestAPIOneOffTieLineProtected(t *testing.T) {
 // Stated ends of a saved tie line are that tie line. An expect on a One-off tie line is compared as for a saved one.
 func TestAPIOneOffTieLineEnds(t *testing.T) {
 	a, _, _, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	body := fmt.Sprintf(`{"routes":[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"ties":[{"from":{"router":%q,"n":10},"to":{"router":"b2b2b2b2","n":5},"expect":{"router":%q,"n":3}}]}]}`, uidA, uidA, uidA)
 	rec := apiPost(a, "/api/v1/takes", key, body, nil)
 	if r := tieTakeAnswer(t, rec.Body).Results[0]; rec.Code != http.StatusOK || r.Hops[0].Tie != "t1" || r.Hops[0].OneOff != nil {
@@ -160,7 +160,7 @@ func TestAPIOneOffTieLineEnds(t *testing.T) {
 // Redo of a take through a One-off tie line offers it again, from the ends in History.
 func TestAPIOneOffTieLineRedo(t *testing.T) {
 	a, _, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	rec := apiPost(a, "/api/v1/takes", key, oneOffRoute(uidA, 4, 2, ""), nil)
 	r := tieTakeAnswer(t, rec.Body).Results[0]
 	if rec.Code != http.StatusOK || r.Entry == nil {

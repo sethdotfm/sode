@@ -42,7 +42,7 @@ func tiePageClient(a *App) *client {
 // upstream first. The entries name the page's caller, as a plain take from the page does.
 func TestPageTieTakeAsksThenSends(t *testing.T) {
 	a, fa, fb, _ := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	c := tiePageClient(a)
 	log := connectLog(fa, fb)
 
@@ -89,7 +89,7 @@ func TestPageTieTakeAsksThenSends(t *testing.T) {
 // A take that saw another source on the tie line is refused before anything goes out.
 func TestPageTieTakeStale(t *testing.T) {
 	a, fa, fb, _ := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	c := tiePageClient(a)
 	log := connectLog(fa, fb)
 	route := fmt.Sprintf(`[{"src":{"router":%q,"n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[1],"ties":[{"id":"t1","expect":{"router":%q,"n":9}}]}]`, uidA, uidA)
@@ -110,7 +110,7 @@ func TestPageTieTakeActsAsThePage(t *testing.T) {
 		t.Run(fmt.Sprintf("user=%v", user), func(t *testing.T) {
 			a, _, _, _ := tieApp(t, nil)
 			defer startLog(t, a)()
-			uidA := a.r().cfg.UID
+			uidA := a.r().cfg.Routers[0].UID
 			c := tiePageClient(a)
 			want := c.ip
 			if user {

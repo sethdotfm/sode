@@ -25,10 +25,10 @@ func importApp(t *testing.T) (*App, *client, string) {
 		t.Fatal("no session token for Ada")
 	}
 	a.mu.Lock()
-	a.first.router.srcNames[2] = "CAM 2"
-	a.first.router.srcNames[3] = "CAM 3"
-	a.first.router.dstNames[4] = "MON 4"
-	a.first.router.dstNames[5] = "MON 5"
+	a.firstUnit().router.srcNames[2] = "CAM 2"
+	a.firstUnit().router.srcNames[3] = "CAM 3"
+	a.firstUnit().router.dstNames[4] = "MON 4"
+	a.firstUnit().router.dstNames[5] = "MON 5"
 	a.mu.Unlock()
 	return a, c, tok
 }
@@ -108,7 +108,7 @@ func TestAddImportSameInstallUpdatesAfterRecheck(t *testing.T) {
 func TestAddImportRecheckOverTheSocket(t *testing.T) {
 	a := userApp(t, false)
 	a.mu.Lock()
-	a.first.router.srcNames[2], a.first.router.dstNames[4] = "CAM 2", "MON 4"
+	a.firstUnit().router.srcNames[2], a.firstUnit().router.dstNames[4] = "CAM 2", "MON 4"
 	a.mu.Unlock()
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")} })
 	p := dialPeer(t, a)

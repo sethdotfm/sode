@@ -8,9 +8,11 @@
 // usable one in rank order, else the first one. So a change on one step takes the best path through it, which
 // calculates the later steps again.
 //
-// State: { route, path, step, marks, protect }. path is the index of the chosen path in route.paths; step is the step
-// with focus. marks are the changes that the live update found on the chosen path (refresh). protect holds the ids of
-// the tie lines that the person wants Protected after the take (docs/tielines-design.md, Protect in a tie take).
+// State: { route, path, step, marks, protect, from, to, only }. path is the index of the chosen path in route.paths;
+// step is the step with focus. marks are the changes that the live update found on the chosen path (refresh). protect
+// holds the ids of the tie lines that the person wants Protected after the take (docs/tielines-design.md, Protect in
+// a tie take). from, to and only make the picker one question of a take (fitQuestion). It shows the steps from to to,
+// and only names the router that the step from must go to.
 
 // tieOf is the tie line id that hop h of path p feeds, or '' for the last hop.
 const tieOf = (p, h) => p.hops[h]?.tie?.id || '';
@@ -24,12 +26,14 @@ export const pathUsable = (p) => !!p && !p.gone && !p.protected && !p.hops.some(
 // The number of steps of path p: one for each tie line.
 export const stepsOf = (p) => (p ? p.hops.length - 1 : 0);
 
-// best gives the index of the best path whose first ties are prefix, or -1.
-function best(paths, prefix) {
+// best gives the index of the best path whose first ties are prefix, or -1. only: the router that the hop after the
+// prefix goes to, or none.
+export function best(paths, prefix, only = '') {
   let first = -1;
   for (let i = 0; i < paths.length; i++) {
     const p = paths[i];
     if (stepsOf(p) < prefix.length || prefix.some((id, h) => tieOf(p, h) !== id)) continue;
+    if (only && p.hops[prefix.length + 1]?.router !== only) continue;
     if (pathUsable(p)) return i;
     if (first < 0) first = i;
   }
@@ -196,6 +200,24 @@ export const hitMarked = (st, e) => !!st.marks?.hits.includes(endKey(e));
 
 export const chosen = (st) => st.route.paths[st.path] || null;
 
+// fitQuestion makes st one question of a take (tietakerules.js, nextQuestion). q.from is the first step that it
+// shows, and q.to the last one (null: to the destination). q.only is the router that step q.from goes to. When the path
+// of st does not go there, the best path that does comes in its place.
+export function fitQuestion(st, q) {
+  const out = { ...st, from: q.from, to: q.to ?? null, only: q.only || '', step: q.from };
+  const p = chosen(out);
+  if (!p || !out.only || p.hops[q.from + 1]?.router === out.only) return out;
+  const i = best(out.route.paths, prefixOf(p, q.from), out.only);
+  return i < 0 ? out : { ...out, path: i };
+}
+
+// shownSteps gives the first and the last step that the picker shows.
+export function shownSteps(st) {
+  const n = stepsOf(chosen(st));
+  const from = st.from || 0;
+  return { from, to: Math.min(st.to ?? n - 1, n - 1) };
+}
+
 // choices gives the choices of step s, in rank order: { tie, name, path, hop, held }. hop is the hop of that choice's
 // best path at step s.
 export function choices(st, s) {
@@ -208,6 +230,7 @@ export function choices(st, s) {
     if (stepsOf(p) <= s || prefix.some((id, h) => tieOf(p, h) !== id)) continue;
     const id = tieOf(p, s);
     if (out.some((c) => c.tie === id)) continue;
+    if (st.only && s === (st.from || 0) && p.hops[s + 1]?.router !== st.only) continue;
     const i = best(paths, [...prefix, id]);
     const bp = paths[i];
     out.push({ tie: id, name: bp.hops[s].tie?.name || id, path: i, hop: bp.hops[s], held: !pathUsable(bp), gone: !!bp.gone });
@@ -236,8 +259,8 @@ export function moveChoice(st, by) {
 }
 
 export function moveStep(st, by) {
-  const n = stepsOf(chosen(st));
-  const step = Math.min(Math.max(st.step + by, 0), Math.max(n - 1, 0));
+  const { from, to } = shownSteps(st);
+  const step = Math.min(Math.max(st.step + by, from), Math.max(to, from));
   return step === st.step ? st : { ...st, step };
 }
 
@@ -252,13 +275,15 @@ const KEYS = {
   h: 'prev',
   'shift+tab': 'prev',
   p: 'protect',
+  d: 'split',
   enter: 'send',
   escape: 'cancel',
 };
 export const pickKey = (chord) => KEYS[chord] || null;
 
-// keyStep applies one key to the state: { st, act }. act is 'send', 'cancel' or null. canProtect: the person has the
-// Protect right, so P protects; else P does nothing.
+// keyStep applies one key to the state: { st, act }. act is 'send', 'cancel', 'split' or null. canProtect: the
+// person has the Protect right, so P protects; else P does nothing. The picker does nothing on split when its question
+// has one destination.
 export function keyStep(st, chord, canProtect = false) {
   switch (pickKey(chord)) {
     case 'protect':
@@ -273,6 +298,8 @@ export function keyStep(st, chord, canProtect = false) {
       return { st: moveStep(st, -1), act: null };
     case 'send':
       return { st, act: 'send' };
+    case 'split':
+      return { st, act: 'split' };
     case 'cancel':
       return { st, act: 'cancel' };
   }
@@ -301,6 +328,42 @@ export function heldText(h, clock) {
   if (h.protect) return `Protected by ${h.protect}${h.protectSince ? ` at ${clock(h.protectSince)}` : ''}`;
   if (h.reserve) return `Reserved by panel ${h.reserve}`;
   return '';
+}
+
+// memberChanges gives the place of each route of a question whose path through prefix changed between two plans.
+// was and now are the routes of the 409 bodies. A change on any destination of the hop marks the hop.
+export function memberChanges(was, now, members, prefix) {
+  const through = (plans, k) => {
+    const r = (plans || []).find((x) => x.route === k);
+    const i = r ? best(r.paths, prefix) : -1;
+    return i < 0 ? null : r.paths[i];
+  };
+  return members.filter((k) => {
+    const a = through(was, k);
+    const b = through(now, k);
+    return !a !== !b || (a && b && pathChanges(a, b) != null);
+  });
+}
+
+// choiceLook gives the state of choice c of step s, so a person can read it at a glance (docs/color-roles.md):
+// { state, text, best }. cs are the choices of the step.
+//   - held: a Protected, Reserved or gone tie line. It is grey, and heldText says why.
+//   - has: the tie line carries the source already. Routed bar, "Has it".
+//   - change: the take changes Affected destinations ("3 change"). Caution bar and badge. The count is of the best
+//     path through the choice, so it holds the later hops too.
+//   - free: the take changes nothing else. No color.
+// best: the first choice that a person can choose, as the planner ranks them. It can have any other state.
+export function choiceLook(st, s, c, cs = choices(st, s)) {
+  const best = cs.find((x) => !x.held)?.tie === c.tie;
+  const h = c.hop;
+  if (c.held || c.gone || (h.sends && h.reserve)) return { state: 'held', text: '', best };
+  if (!h.sends) return { state: 'has', text: 'Has it', best };
+  const p = st.route.paths[c.path];
+  const n = (p?.affected?.length || 0) + (p?.others || 0);
+  const unknown = !!(p?.unknown?.length || p?.loop);
+  if (unknown) return { state: 'change', text: n ? `${n} or more change` : 'Unknown change', best };
+  if (n) return { state: 'change', text: `${n} change`, best };
+  return { state: 'free', text: 'Free', best };
 }
 
 // ready: the chosen path can go.

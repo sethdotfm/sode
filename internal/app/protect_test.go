@@ -66,9 +66,9 @@ func protectApp(t *testing.T) (*App, *fakeRouter) {
 	shortTimers(a)
 	f.prot = fakeProtect{holds: map[[2]int]protHold{}, deafSet: map[int]bool{}, deafClear: map[int]bool{}}
 	cfg := a.r().cfg.Clone()
-	cfg.Levels = 3
-	cfg.ProtectDevice = 126
-	cfg.DefaultLevels = "1-3"
+	cfg.Routers[0].Levels = 3
+	cfg.Routers[0].ProtectDevice = 126
+	cfg.Routers[0].DefaultLevels = "1-3"
 	for i := range cfg.Users {
 		if cfg.Users[i].Name == "Ana" {
 			cfg.Users[i].Role = config.RoleTrusted
@@ -78,9 +78,9 @@ func protectApp(t *testing.T) (*App, *fakeRouter) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	a.first.status.Router = string(swp08.StateUp)
+	a.firstUnit().status.Router = string(swp08.StateUp)
 	for d := 0; d < 8; d++ {
-		a.first.router.dstNames[d] = "MON " + string(rune('0'+d))
+		a.firstUnit().router.dstNames[d] = "MON " + string(rune('0'+d))
 	}
 	a.mu.Unlock()
 	return a, f
@@ -137,7 +137,7 @@ func TestProtectSetsEveryLevelAndRefusesTakes(t *testing.T) {
 	a, f := protectApp(t)
 	ana := signedClient(t, a, "Ana", "1234")
 	a.mu.Lock()
-	a.first.router.tally[4] = map[int]int{1: 7, 2: 7, 3: -1}
+	a.firstUnit().router.tally[4] = map[int]int{1: 7, 2: 7, 3: -1}
 	a.mu.Unlock()
 	e := protEntry(t, a.protectSet(ana, 4, nil))
 	if !e.OK || e.Protect != "set" || !slices.Equal(e.Levels, []int{1, 2, 3}) || e.Src != -1 || e.Client != "Ana" {
@@ -174,7 +174,7 @@ func TestProtectRollsBackAFailedLevel(t *testing.T) {
 	if got := f.holdsOn(4); len(got) != 0 {
 		t.Fatalf("rollback left %v", got)
 	}
-	if _, ok := a.protects.get(a.r().cfg.UID, 4); ok {
+	if _, ok := a.protects.get(a.r().cfg.Routers[0].UID, 4); ok {
 		t.Fatal("a rolled back Protect stays in the record")
 	}
 }
@@ -186,7 +186,7 @@ func TestProtectFailedRollbackKeepsWhatIsStillProtected(t *testing.T) {
 	if e.OK || !slices.Equal(e.Still, []int{3}) || !strings.Contains(e.Err, "levels 3 are still Protected") {
 		t.Fatalf("entry %+v", e)
 	}
-	rec, ok := a.protects.get(a.r().cfg.UID, 4)
+	rec, ok := a.protects.get(a.r().cfg.Routers[0].UID, 4)
 	if !ok || !slices.Equal(rec.Levels, []int{3}) {
 		t.Fatalf("record %+v %v", rec, ok)
 	}
@@ -214,21 +214,21 @@ func TestProtectRefusals(t *testing.T) {
 	protRefused(t, a.protectSet(bo, 4, nil), "outside_rights", "destination 5 is outside your rights")
 
 	ana := signedClient(t, a, "Ana", "1234")
-	a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 1, 2, 6, 9))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 1, 2, 6, 9))
 	protRefused(t, a.protectSet(ana, 6, nil), "protected", "Router lock by another system (device 9) on levels 2")
-	a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 0, 1, 7, 112))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 0, 1, 7, 112))
 	protRefused(t, a.protectSet(ana, 7, nil), "protected", "Protected by another system (device 112) on levels 1")
 	if n := f.sends(); n != 0 {
 		t.Fatalf("%d messages sent for refusals", n)
 	}
 
 	cfg = a.r().cfg.Clone()
-	cfg.ProtectDevice = 0
+	cfg.Routers[0].ProtectDevice = 0
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	a.first.status.Router = string(swp08.StateUp)
+	a.firstUnit().status.Router = string(swp08.StateUp)
 	a.mu.Unlock()
 	protRefused(t, a.protectSet(ana, 4, nil), "conflict", "device number")
 }
@@ -253,7 +253,7 @@ func TestClearAnotherUsersProtectNeedsAnAdministrator(t *testing.T) {
 		t.Fatalf("entry %+v", e)
 	}
 	// No button on a Protect Sode did not set: the server refuses a clear of one.
-	a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 0, 1, 6, 112))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 0, 1, 6, 112))
 	protRefused(t, a.protectClear(adminClient(t, a), 6, nil, nil), "not_found", "no Protect")
 }
 
@@ -290,9 +290,9 @@ func TestClearSodeProtectsNeedsRecheck(t *testing.T) {
 	waitFor(t, "the Protects", func() bool {
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		return len(a.first.router.protect[5]) == 3 && len(a.first.router.protect[6]) == 3
+		return len(a.firstUnit().router.protect[5]) == 3 && len(a.firstUnit().router.protect[6]) == 3
 	})
-	if err := a.protects.put(protectRec{Router: a.r().cfg.UID, Dst: 4}); err != nil {
+	if err := a.protects.put(protectRec{Router: a.r().cfg.Routers[0].UID, Dst: 4}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -330,7 +330,7 @@ func TestAPIProtectNeedsScopeAndRight(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	a.first.status.Router = string(swp08.StateUp)
+	a.firstUnit().status.Router = string(swp08.StateUp)
 	a.mu.Unlock()
 	key := func(name string) string {
 		return apiTestKey(t, a, keyOwner{Kind: actorClient, Name: name}, "k", time.Time{})
@@ -381,7 +381,7 @@ func TestProtectMessageCarriesKindAndSodeUser(t *testing.T) {
 	c := &client{ip: "10.0.0.50"}
 	next := registerAll(a, c)
 	protEntry(t, a.protectSet(signedClient(t, a, "Ana", "1234"), 4, nil))
-	a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 0, 2, 6, 9))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectTally, 0, 0, 2, 6, 9))
 	a.flush()
 	var by []any
 	var lock bool
@@ -411,10 +411,10 @@ func TestProtectByKindTellsOwnersApart(t *testing.T) {
 	r := a.r()
 	ana, _ := r.cfg.FindUserByName("Ana")
 	recs := []protectRec{
-		{Router: r.cfg.UID, Dst: 1, Device: 126, Levels: []int{1}, By: "Ana old", User: ana.ID},
-		{Router: r.cfg.UID, Dst: 2, Device: 126, Levels: []int{1}, By: "Desk", Client: "Desk"},
-		{Router: r.cfg.UID, Dst: 3, Device: 126, Levels: []int{1}, By: "10.0.0.9"},
-		{Router: r.cfg.UID, Dst: 5, Device: 126, Levels: []int{1}, By: "Cy", User: "u-gone"},
+		{Router: r.cfg.Routers[0].UID, Dst: 1, Device: 126, Levels: []int{1}, By: "Ana old", User: ana.ID},
+		{Router: r.cfg.Routers[0].UID, Dst: 2, Device: 126, Levels: []int{1}, By: "Desk", Client: "Desk"},
+		{Router: r.cfg.Routers[0].UID, Dst: 3, Device: 126, Levels: []int{1}, By: "10.0.0.9"},
+		{Router: r.cfg.Routers[0].UID, Dst: 5, Device: 126, Levels: []int{1}, By: "Cy", User: "u-gone"},
 	}
 	for _, rec := range recs {
 		if err := a.protects.put(rec); err != nil {
@@ -422,7 +422,7 @@ func TestProtectByKindTellsOwnersApart(t *testing.T) {
 		}
 	}
 	got := map[int][2]string{}
-	for _, b := range a.protectByList(r) {
+	for _, b := range a.protectByListOf(r, r.cfg.DefaultRouter().UID) {
 		got[b.Dst] = [2]string{b.By, b.Kind}
 	}
 	want := map[int][2]string{1: {"Ana", byUser}, 2: {"Desk", byClient}, 3: {"10.0.0.9", byGuest}, 5: {"Cy", byGone}}
@@ -440,7 +440,7 @@ func TestRequestApprovalClearsAnotherUsersProtect(t *testing.T) {
 	protEntry(t, a.protectSet(signedClient(t, a, "Ana", "1234"), 4, nil))
 	setRole(t, a, "Bo", config.RoleTrusted)
 	a.mu.Lock()
-	a.first.status.Router = string(swp08.StateUp)
+	a.firstUnit().status.Router = string(swp08.StateUp)
 	a.mu.Unlock()
 	ada := approver(t, a, "Ada", "2468")
 	bo := dialPeer(t, a)

@@ -14,7 +14,7 @@ import (
 func tieImportApp(t *testing.T) (*App, *client, string, *routerUnit) {
 	t.Helper()
 	a, _, _, u := twoRouterFiles(t)
-	readUnitNames(a, a.first, []string{"A CAM 0", "FROM STAGE 2"}, []string{"A MON 0", "A MON 1", "TO STAGE 2"})
+	readUnitNames(a, a.firstUnit(), []string{"A CAM 0", "FROM STAGE 2"}, []string{"A MON 0", "A MON 1", "TO STAGE 2"})
 	readUnitNames(a, u, []string{"B CAM 0", "FROM STAGE 1"}, []string{"B MON 0", "B MON 1", "TO STAGE 1"})
 	c := &client{ip: "10.0.0.9", send: make(chan []byte, 4096)}
 	a.mu.Lock()
@@ -26,8 +26,8 @@ func tieImportApp(t *testing.T) (*App, *client, string, *routerUnit) {
 	tok := a.issueSessionTab(c, true)
 	lifeCommit(t, a, func(cfg *config.Config) {
 		cfg.TieLines = []config.TieLine{
-			{ID: "aaaaaaaaaaaaaaa3", Name: "TIE 3", From: config.Ref{Router: cfg.UID, N: 2, Name: "TO STAGE 2"}, To: config.Ref{Router: u.uid(), N: 1, Name: "FROM STAGE 1"}},
-			{ID: "aaaaaaaaaaaaaaa9", Name: "TIE 9", From: config.Ref{Router: u.uid(), N: 2, Name: "TO STAGE 1"}, To: config.Ref{Router: cfg.UID, N: 1, Name: "FROM STAGE 2"}},
+			{ID: "aaaaaaaaaaaaaaa3", Name: "TIE 3", From: config.Ref{Router: cfg.Routers[0].UID, N: 2, Name: "TO STAGE 2"}, To: config.Ref{Router: u.uid(), N: 1, Name: "FROM STAGE 1"}},
+			{ID: "aaaaaaaaaaaaaaa9", Name: "TIE 9", From: config.Ref{Router: u.uid(), N: 2, Name: "TO STAGE 1"}, To: config.Ref{Router: cfg.Routers[0].UID, N: 1, Name: "FROM STAGE 2"}},
 		}
 	})
 	return a, c, tok, u
@@ -51,7 +51,7 @@ func TestExportTieLinesRoundTrip(t *testing.T) {
 	if err := yaml.Unmarshal(files["manifest.yaml"], &man); err != nil || !slices.Equal(man.Categories, []string{catRouters, catTieLines}) {
 		t.Fatalf("manifest categories: %v %v", err, man.Categories)
 	}
-	if !bytes.Contains(files["tielines.yaml"], []byte("router: "+a.r().cfg.Prefix+"\n")) {
+	if !bytes.Contains(files["tielines.yaml"], []byte("router: "+a.r().cfg.Routers[0].Prefix+"\n")) {
 		t.Errorf("an end on the first router does not keep its prefix:\n%s", files["tielines.yaml"])
 	}
 	b, done, err := a.stageImport(bytes.NewReader(file))
@@ -115,7 +115,7 @@ func TestImportDropsTieLineWithUnmappedRouter(t *testing.T) {
 
 	// Two routers here, but the page maps the file's first router to none.
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.TieLines = nil })
-	fileUID := a.r().cfg.UID
+	fileUID := a.r().cfg.Routers[0].UID
 	res = applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Routers: map[string]string{fileUID: ""}}))
 	if it := planItem(t, res.Plan, catTieLines, "TIE 9"); !strings.Contains(it.Refused, "which has no target here") {
 		t.Fatalf("TIE 9: %+v", it)
@@ -135,8 +135,8 @@ func TestImportTieLineClashes(t *testing.T) {
 	file := foreign(t, exported(t, a, tok, exportReq{Categories: []string{catTieLines}}))
 	lifeCommit(t, a, func(cfg *config.Config) {
 		cfg.TieLines = []config.TieLine{
-			{Name: "TIE 3", From: config.Ref{Router: cfg.UID, N: 1}, To: config.Ref{Router: u.uid(), N: 0}},
-			{Name: "B TO A", From: config.Ref{Router: u.uid(), N: 2}, To: config.Ref{Router: cfg.UID, N: 1}},
+			{Name: "TIE 3", From: config.Ref{Router: cfg.Routers[0].UID, N: 1}, To: config.Ref{Router: u.uid(), N: 0}},
+			{Name: "B TO A", From: config.Ref{Router: u.uid(), N: 2}, To: config.Ref{Router: cfg.Routers[0].UID, N: 1}},
 		}
 	})
 	req := importReq{Mode: importAdd, Choices: map[string]map[string]string{catTieLines: {"aaaaaaaaaaaaaaa9": useCurrent}}}
@@ -161,7 +161,7 @@ func TestReplaceImportTieLines(t *testing.T) {
 	a, c, tok, u := tieImportApp(t)
 	file := exported(t, a, tok, exportReq{Categories: []string{catTieLines}, Pick: map[string][]string{catTieLines: {"aaaaaaaaaaaaaaa3"}}})
 	lifeCommit(t, a, func(cfg *config.Config) {
-		cfg.TieLines = append(cfg.TieLines, config.TieLine{Name: "EXTRA", From: config.Ref{Router: cfg.UID, N: 0}, To: config.Ref{Router: u.uid(), N: 0}})
+		cfg.TieLines = append(cfg.TieLines, config.TieLine{Name: "EXTRA", From: config.Ref{Router: cfg.Routers[0].UID, N: 0}, To: config.Ref{Router: u.uid(), N: 0}})
 	})
 	grantRecheck(a, c)
 	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importReplace, Categories: []string{catTieLines}}))

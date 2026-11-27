@@ -81,7 +81,7 @@ type sentWhy struct {
 }
 
 // newFakeRouter puts a fake router on the first router's link.
-func newFakeRouter(t *testing.T, a *App) *fakeRouter { return bindFakeRouter(t, a, a.first) }
+func newFakeRouter(t *testing.T, a *App) *fakeRouter { return bindFakeRouter(t, a, a.firstUnit()) }
 
 // addFakeUnit puts a fake router on the unit of router rc, with short timers. New made the unit when the settings
 // name rc; else addFakeUnit adds one.
@@ -261,8 +261,8 @@ func leftovers(t *testing.T, a *App) {
 	t.Helper()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.first.waiters) != 0 || len(a.first.ext.own) != 0 {
-		t.Fatalf("left behind: %d waiters, own %v", len(a.first.waiters), a.first.ext.own)
+	if len(a.firstUnit().waiters) != 0 || len(a.firstUnit().ext.own) != 0 {
+		t.Fatalf("left behind: %d waiters, own %v", len(a.firstUnit().waiters), a.firstUnit().ext.own)
 	}
 }
 
@@ -279,8 +279,8 @@ func TestTakeChanges(t *testing.T) {
 	}
 	leftovers(t, a)
 	a.mu.Lock()
-	if len(a.first.ext.causes) != 1 || !a.first.ext.causes[0].done || a.first.ext.causes[0].id != e.ID || a.first.ext.causes[0].first.IsZero() {
-		t.Fatalf("cause %+v", a.first.ext.causes)
+	if len(a.firstUnit().ext.causes) != 1 || !a.firstUnit().ext.causes[0].done || a.firstUnit().ext.causes[0].id != e.ID || a.firstUnit().ext.causes[0].first.IsZero() {
+		t.Fatalf("cause %+v", a.firstUnit().ext.causes)
 	}
 	a.mu.Unlock()
 	endBurst(a)
@@ -310,7 +310,7 @@ func TestTakeProtected(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	a.mu.Lock()
-	a.first.router.protect[5] = map[int]protHold{2: {9, 1}}
+	a.firstUnit().router.protect[5] = map[int]protHold{2: {9, 1}}
 	a.mu.Unlock()
 	n := f.sends()
 	e := routeOne(t, a, 7, 5, 1, 2, 3)
@@ -323,8 +323,8 @@ func TestTakeProtected(t *testing.T) {
 	leftovers(t, a)
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.first.ext.causes) != 0 {
-		t.Fatalf("causes %+v", a.first.ext.causes)
+	if len(a.firstUnit().ext.causes) != 0 {
+		t.Fatalf("causes %+v", a.firstUnit().ext.causes)
 	}
 }
 
@@ -363,7 +363,7 @@ func TestTakeNoConfirmation(t *testing.T) {
 		es, _ := a.hist.Page(-1, 1)
 		return es[0]
 	}
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
 	if n := a.hist.Len(); n != 1 {
 		t.Fatalf("late Connected of our route recorded: %d entries", n)
@@ -373,22 +373,22 @@ func TestTakeNoConfirmation(t *testing.T) {
 		e.Err != "no confirmation from router: level 2 no answer; level 3 no answer" {
 		t.Fatalf("partly late %+v", e)
 	}
-	a.onUnitMsg(a.first, swp08.ExtTally(0, 1, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtTally(0, 1, 5, 7))
 	endBurst(a)
 	e = last()
 	if a.hist.Len() != 1 || e.OK || !equalInts(e.Failed, []int{3}) || !equalInts(e.Late, []int{1, 2}) ||
 		e.Err != "no confirmation from router: level 3 no answer" {
 		t.Fatalf("entries %d, %+v", a.hist.Len(), e)
 	}
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 2, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 2, 5, 7))
 	endBurst(a)
 	e = last()
 	if a.hist.Len() != 1 || !e.OK || e.Err != "" || len(e.Failed) != 0 || !equalInts(e.Late, []int{1, 2, 3}) {
 		t.Fatalf("all late %+v", e)
 	}
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 8))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 8))
 	endBurst(a)
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
 	if es, _ := a.hist.Page(-1, 1); a.hist.Len() != 3 || !es[0].Ext || es[0].Src != 7 {
 		t.Fatalf("later change elsewhere %+v", es)
@@ -403,16 +403,16 @@ func TestTakeLateTooLate(t *testing.T) {
 	f.ignore[5] = true
 	e := routeOne(t, a, 7, 5, 1)
 	a.mu.Lock()
-	if len(a.first.ext.lateRoute) != 1 {
-		t.Fatalf("lateRoute %v", a.first.ext.lateRoute)
+	if len(a.firstUnit().ext.lateRoute) != 1 {
+		t.Fatalf("lateRoute %v", a.firstUnit().ext.lateRoute)
 	}
-	for _, lts := range a.first.ext.lateRoute {
+	for _, lts := range a.firstUnit().ext.lateRoute {
 		for i := range lts {
 			lts[i].until = time.Now().Add(-time.Second)
 		}
 	}
 	a.mu.Unlock()
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 2)
 	if len(es) != 2 || !es[0].Ext || es[0].Src != 7 || es[1].OK || len(es[1].Late) != 0 || es[1].ID != e.ID {
@@ -428,7 +428,7 @@ func TestTakeAnswerInGap(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
-	a.gapHook = func() { a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7)) }
+	a.gapHook = func() { a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7)) }
 	routeOne(t, a, 7, 5, 1, 2, 3)
 	leftovers(t, a)
 	endBurst(a)
@@ -444,13 +444,13 @@ func TestLateConfirmNames(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	a.mu.Lock()
-	a.first.router.srcNames[5] = "CAM; level 3 no answer"
-	a.first.router.srcNames[6] = "level 1 B"
+	a.firstUnit().router.srcNames[5] = "CAM; level 3 no answer"
+	a.firstUnit().router.srcNames[6] = "level 1 B"
 	a.mu.Unlock()
 	e := &Entry{Src: 7, Dst: 2, Levels: []int{1, 2, 3}, Prev: [][2]int{{1, 5}, {2, 6}, {3, 4}},
 		Failed: []int{1, 2, 3, 4}, Unsent: []int{4}, SendErr: "busy; level 1 no", Now: [][2]int{{1, 5}, {2, 6}}}
 	a.record(e)
-	a.lateConfirm(a.first, e.ID, []int{3})
+	a.lateConfirm(a.firstUnit(), e.ID, []int{3})
 	got, _ := a.hist.Page(-1, 1)
 	want := "no confirmation from router: level 1 still on CAM; level 3 no answer; level 2 still on level 1 B; levels 4 not sent: busy; level 1 no"
 	if len(got) != 1 || got[0].Err != want {
@@ -463,7 +463,7 @@ func TestLateConfirmUnsent(t *testing.T) {
 	a := newTestApp(t)
 	e := &Entry{Src: 7, Dst: 2, Levels: []int{1}, Prev: [][2]int{{1, 4}}, Failed: []int{1}, Unsent: []int{1}, SendErr: "busy"}
 	a.record(e)
-	a.lateConfirm(a.first, e.ID, []int{1})
+	a.lateConfirm(a.firstUnit(), e.ID, []int{1})
 	got, _ := a.hist.Page(-1, 1)
 	if len(got) != 1 || !got[0].OK || got[0].Err != "" || len(got[0].Unsent) != 0 || got[0].SendErr != "" {
 		t.Fatalf("got %+v", got)
@@ -509,7 +509,7 @@ func TestTakeOtherSource(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.deaf[[2]int{5, 0}] = true
-	a.first.routeTimeout = 300 * time.Millisecond // the other source must show before the interrogate
+	a.firstUnit().routeTimeout = 300 * time.Millisecond // the other source must show before the interrogate
 	go func() {
 		time.Sleep(30 * time.Millisecond)
 		f.mu.Lock()
@@ -606,7 +606,7 @@ func TestTakeLinkDown(t *testing.T) {
 	if e.OK || !strings.HasPrefix(e.Err, "levels 1, 2, 3 not sent:") {
 		t.Fatalf("take %+v", e)
 	}
-	if d := time.Since(start); d > a.first.checkTimeout/2 {
+	if d := time.Since(start); d > a.firstUnit().checkTimeout/2 {
 		t.Fatalf("took %v", d)
 	}
 	leftovers(t, a)
@@ -656,7 +656,7 @@ func TestTakeWhy(t *testing.T) {
 func TestDescribeSent(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
-	a.first.router.srcNames[7], a.first.router.dstNames[5] = "CAM 7", "MON 5"
+	a.firstUnit().router.srcNames[7], a.firstUnit().router.dstNames[5] = "CAM 7", "MON 5"
 	a.mu.Unlock()
 	e := a.describe(swp08.TxEvent{Msg: swp08.ExtConnect(0, 1, 5, 7), Why: swp08.Why{Reason: "take", By: "10.0.0.1"}, Tries: 1, Result: swp08.TxAck})
 	if e.Kind != "connect" || e.Level != 2 || e.Wire != 1 || e.Dst != 5 || e.DstName != "MON 5" || e.Src != 7 || e.SrcName != "CAM 7" ||
@@ -671,11 +671,11 @@ func TestDescribeSent(t *testing.T) {
 
 func TestUnsentOnlyForTakes(t *testing.T) {
 	a := newTestApp(t) // never connected: every Send is refused
-	if err := a.first.sendMsg(swp08.NamesReq(false, false, 0, 0, 2), swp08.Why{Reason: "names"}); err == nil {
+	if err := a.firstUnit().sendMsg(swp08.NamesReq(false, false, 0, 0, 2), swp08.Why{Reason: "names"}); err == nil {
 		t.Fatal("send with no router succeeded")
 	}
-	a.first.sendMsg(swp08.ExtTallyDumpReq(0, 0), swp08.Why{Reason: "resync"})
-	a.first.sendMsg(swp08.ExtConnect(0, 0, 5, 7), swp08.Why{Reason: "take", By: "10.0.0.1"})
+	a.firstUnit().sendMsg(swp08.ExtTallyDumpReq(0, 0), swp08.Why{Reason: "resync"})
+	a.firstUnit().sendMsg(swp08.ExtConnect(0, 0, 5, 7), swp08.Why{Reason: "take", By: "10.0.0.1"})
 	if n := len(a.txq); n != 1 {
 		t.Fatalf("%d events, want just the take's", n)
 	}
@@ -692,8 +692,8 @@ func TestTakeLateFollow(t *testing.T) {
 	f.seed(9, 1, 0, 1, 2)
 	f.ignore[5] = true
 	e := routeOne(t, a, 7, 5, 1)
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7))
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 9, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 9, 7))
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 3)
 	if len(es) != 2 || !es[0].Ext || es[0].Dst != 9 || es[0].Follow == nil || *es[0].Follow != e.ID || !es[1].OK {
@@ -713,8 +713,8 @@ func TestTakeFollowGroup(t *testing.T) {
 		{ID: 1, Src: 7, Dst: 5, Levels: []int{1}},
 		{ID: 2, Src: 7, Dst: 6, Levels: []int{1}},
 	})
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7))
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 9, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 9, 7))
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 5)
 	group := ""
@@ -750,7 +750,7 @@ func TestTakeFreshSkipsCheck(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	a.mu.Lock()
 	for l := 1; l <= 3; l++ {
-		a.first.router.seenAt[[2]int{5, l}] = time.Now()
+		a.firstUnit().router.seenAt[[2]int{5, l}] = time.Now()
 	}
 	a.mu.Unlock()
 	e := routeOne(t, a, 7, 5, 1, 2, 3)
@@ -758,7 +758,7 @@ func TestTakeFreshSkipsCheck(t *testing.T) {
 		t.Fatalf("take %+v, checks %d", e, f.sentFor("check"))
 	}
 	a.mu.Lock()
-	a.first.router.seenAt[[2]int{5, 2}] = time.Now().Add(-time.Minute)
+	a.firstUnit().router.seenAt[[2]int{5, 2}] = time.Now().Add(-time.Minute)
 	a.mu.Unlock()
 	routeOne(t, a, 8, 5, 1, 2, 3)
 	if n := f.sentFor("check"); n != 1 {
@@ -869,7 +869,7 @@ func TestTakeBigCheckCost(t *testing.T) {
 	g := newFakeRouter(t, big)
 	big.mu.Lock()
 	for d := 0; d < 1024; d++ {
-		big.first.router.dstNames[d] = "D" + strconv.Itoa(d)
+		big.firstUnit().router.dstNames[d] = "D" + strconv.Itoa(d)
 	}
 	big.mu.Unlock()
 	big.take(&client{ip: "10.0.0.1"}, bigItems(7, 0, 1, 2, 3, 4, 5))
@@ -898,7 +898,7 @@ func TestTakeBigSkipsFresh(t *testing.T) {
 	for _, d := range dsts {
 		for l := 1; l <= 3; l++ {
 			if d != 4 || l != 2 {
-				a.first.router.seenAt[[2]int{d, l}] = time.Now()
+				a.firstUnit().router.seenAt[[2]int{d, l}] = time.Now()
 			}
 		}
 	}
@@ -942,7 +942,7 @@ func TestTakeSmallCheckUnanswered(t *testing.T) {
 	if !a.takeAllowed(&client{ip: "10.0.0.1"}, bigItems(7, 0, 1)) {
 		t.Fatal("a check with no answer for dst 1 reported every route read")
 	}
-	if d := time.Since(start); d < a.first.checkTimeout {
+	if d := time.Since(start); d < a.firstUnit().checkTimeout {
 		t.Fatalf("took %v, under checkTimeout", d)
 	}
 	es, _ := a.hist.Page(-1, 20)
@@ -976,10 +976,10 @@ func TestTakeWaitsForQueue(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	a.mu.Lock()
 	for l := 1; l <= 3; l++ {
-		a.first.router.seenAt[[2]int{5, l}] = time.Now() // no check: only the connects wait
+		a.firstUnit().router.seenAt[[2]int{5, l}] = time.Now() // no check: only the connects wait
 	}
 	a.mu.Unlock()
-	f.hold = a.first.routeTimeout + a.first.routeGrace + 100*time.Millisecond
+	f.hold = a.firstUnit().routeTimeout + a.firstUnit().routeGrace + 100*time.Millisecond
 	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || len(e.Failed) != 0 {
 		t.Fatalf("take %+v", e)
@@ -999,7 +999,7 @@ func TestTakeLateRetryKeepsBoth(t *testing.T) {
 	if e1.OK || e2.OK || e1.ID == e2.ID {
 		t.Fatalf("takes %+v %+v", e1, e2)
 	}
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 3)
 	if len(es) != 2 || !es[0].OK || !es[1].OK || !equalInts(es[0].Late, []int{1}) || !equalInts(es[1].Late, []int{1}) {
@@ -1017,7 +1017,7 @@ func TestTakeLateOnlyUnanswered(t *testing.T) {
 	if e.OK || len(e.Now) != 1 {
 		t.Fatalf("take %+v", e)
 	}
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 5, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 3)
 	if len(es) != 2 || !es[0].Ext || es[0].Src != 7 || es[1].OK || len(es[1].Late) != 0 {
@@ -1028,16 +1028,16 @@ func TestTakeLateOnlyUnanswered(t *testing.T) {
 func TestRegisterOwnKeysOutlastQueue(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
-	w, err := planRoute(a.r(), a.first, routeReq{Src: 7, Dst: 5, Levels: []int{1}})
+	w, err := planRoute(a.r(), a.firstUnit(), routeReq{Src: 7, Dst: 5, Levels: []int{1}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	w.ext = a.first.ext // take sets it
+	w.ext = a.firstUnit().ext // take sets it
 	w.register()
-	until := a.first.ext.own[ownKey{5, w.levels[0].wire, 7}]
+	until := a.firstUnit().ext.own[ownKey{5, w.levels[0].wire, 7}]
 	a.mu.Unlock()
-	if time.Until(until) < a.first.queueMax+ownFor-time.Second {
+	if time.Until(until) < a.firstUnit().queueMax+ownFor-time.Second {
 		t.Fatalf("own key ends in %v", time.Until(until))
 	}
 }

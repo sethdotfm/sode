@@ -1,0 +1,18 @@
+{
+  "routers": [
+    {
+      "address": "10.0.0.50:8910",
+      "err": "",
+      "error": false,
+      "prefix": "A",
+      "router": "up",
+      "routerUp": true,
+      "title": "Studio",
+      "uid": "a1a1a1a1a1a1a1a1"
+    }
+  ],
+  "server": "up",
+  "state": "healthy",
+  "uptimeSeconds": "*",
+  "version": "*"
+}
