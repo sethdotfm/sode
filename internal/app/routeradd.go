@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"maps"
 	"slices"
@@ -19,7 +20,8 @@ import (
 // routersSection: Settings > Routers, the list of routers.
 const routersSection = "routers"
 
-// newRouter is the value of `router/new:<tmp>/add`. Levels 0 is the default level count.
+// newRouter is the value of `router/new:<tmp>/add`: prefix, title, address, matrix and levels, and any other setting
+// of routerAttrs by its JSON name. Levels 0 is the default level count.
 type newRouter struct {
 	Prefix  string `json:"prefix"`
 	Title   string `json:"title"`
@@ -29,7 +31,7 @@ type newRouter struct {
 }
 
 // addRouterSpec adds a router with the default settings and the values the page sent. Its UID is made one time, so
-// the check and the commit agree.
+// the check and the commit agree. The detail view of a new router sends every setting; an older page sends five.
 func addRouterSpec(key string) fieldSpec {
 	return fieldSpec{section: routersSection, adds: true, item: key,
 		get: func(config.Config) any { return nil },
@@ -38,8 +40,25 @@ func addRouterSpec(key string) fieldSpec {
 			if err != nil {
 				return err
 			}
+			var more map[string]json.RawMessage
+			if err := json.Unmarshal(v, &more); err != nil {
+				return err
+			}
 			uid, _ := x.once(key, func() (string, error) { return config.NewRouterUID(), nil })
 			r := config.Defaults().DefaultRouter()
+			for _, at := range routerAttrNames() {
+				raw, ok := more[at]
+				switch at {
+				case "prefix", "title", "address", "matrix", "levels":
+					continue
+				}
+				if !ok || string(raw) == "null" {
+					continue
+				}
+				if err := json.Unmarshal(raw, routerField(&r, at)); err != nil {
+					return fmt.Errorf("%s: %w", at, err)
+				}
+			}
 			r.UID, r.Address, r.Matrix = uid, strings.TrimSpace(n.Address), n.Matrix
 			r.Prefix = cmp.Or(strings.ToUpper(strings.TrimSpace(n.Prefix)), c.FreePrefix())
 			r.Title = cmp.Or(strings.TrimSpace(n.Title), "Router "+r.Prefix)
@@ -57,7 +76,7 @@ func removeRouterSpec(uid string) fieldSpec {
 		get: func(c config.Config) any { _, ok := c.RouterByUID(uid); return !ok },
 		set: func(c *config.Config, _ json.RawMessage, _ *saveCtx) error {
 			if uid == c.DefaultRouter().UID {
-				return errors.New("the first router stays: change its address in its own block")
+				return errors.New("the first router stays: Sode needs one router")
 			}
 			dropRouter(c, uid)
 			return nil

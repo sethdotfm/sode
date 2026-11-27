@@ -34,14 +34,11 @@ func TestChromeSettingsTopics(t *testing.T) {
 			return h.offsetParent && parseFloat(cs.borderTopWidth) >= 4 && cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
 		});
 	})()`)
-	b.waitFor("router block under Routers, titled by the router", `(() => {
-		const r = document.querySelector('#settings-view > .sode__router');
-		const routers = document.getElementById('topic-routers'), access = document.getElementById('topic-access');
-		const thin = parseFloat(getComputedStyle(r).borderTopWidth) < parseFloat(getComputedStyle(routers).borderTopWidth);
-		return r.offsetParent && thin && r.textContent.trim() === (document.getElementById('cfg-routername').value.trim() || 'Router')
-			&& (routers.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING)
-			&& (r.compareDocumentPosition(access) & Node.DOCUMENT_POSITION_FOLLOWING)
-			&& document.querySelector('#routers-list li')?.textContent.includes(r.textContent.trim());
+	b.waitFor("one router: the detail view fills the Routers section, with no list and no Prefix", `(() => {
+		const d = document.getElementById('router-detail');
+		return !!d.offsetParent && !document.getElementById('routers-list-wrap').offsetParent && !document.getElementById('cfg-rt-prefix').offsetParent
+			&& !document.querySelector('#settings-view > .sode__router')
+			&& document.getElementById('router-detail-name').textContent === (document.getElementById('cfg-rt-title').value.trim() || 'Router');
 	})()`)
 
 	// The sidebar follows the scroll: Access opens, Users is marked, other topics' entries close.
@@ -54,9 +51,10 @@ func TestChromeSettingsTopics(t *testing.T) {
 	})()`
 	b.eval(`document.getElementById('users-group').scrollIntoView({ block: 'start', behavior: 'instant' }); true`)
 	b.waitFor("Users marked under Access", tree+` === JSON.stringify({ open: ['Access'], cur: 'Users', shown: ['Locks', 'Users', 'API', 'Panels'] })`)
-	b.eval(`document.querySelector('[data-section="takes"]').scrollIntoView({ block: 'start', behavior: 'instant' }); true`)
-	// An Administrator also sees Tie lines, the one section for every router, before the block of each router.
-	b.waitFor("Takes marked under Routers", `(() => { const s = JSON.parse(`+tree+`); return s.open[0] === 'Routers' && s.cur === 'Takes' && s.shown.join() === 'Routers,Tie lines,Router levels,Router & matrix,Router names,Takes,Protects'; })()`)
+	b.eval(`document.querySelector('[data-section="protects"]').scrollIntoView({ block: 'start', behavior: 'instant' }); true`)
+	// An Administrator sees the three sections of Routers. One router has no entry of its own.
+	b.waitFor("Protects marked under Routers", `(() => { const s = JSON.parse(`+tree+`); return s.open[0] === 'Routers' && s.cur === 'Protects' && s.shown.join() === 'Routers,Tie lines,Protects'
+		&& !document.querySelector('#settings-toc .sode__toc-router'); })()`)
 
 	// A topic entry scrolls to its band.
 	b.eval(`document.querySelector('.sode__toc-topic[data-topic="server"]').click(); true`)

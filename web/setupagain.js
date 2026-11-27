@@ -1,11 +1,22 @@
 // Run setup again (Settings > Server, Administrator only; docs/agents/settings-saves.md). The setup steps over Settings,
 // prefilled from the form; Finish stages the changed fields and the picked preset, then opens the one Save review.
-import { $, on } from './core.js';
+import { $, S, on } from './core.js';
 import { openAgain, closeAgain } from './setupwizard.js';
 import { form, readSettings } from './settingsform.js';
 import { saveSources } from './savesources.js';
 import { stagePreset } from './accesspreset.js';
 import { againAnswers, againStage } from './setupagainrules.js';
+import { stageFirstRouter } from './settingsrouterdetail.js';
+
+// The setup steps name the first router's settings by these keys; the one Save names them router/<uid>/<attribute>.
+const FIRST = {
+  router: 'address',
+  levels: 'levels',
+  levelNumbering: 'levelNumbering',
+  numberOffset: 'numberOffset',
+  fireMode: 'fireMode',
+  salvoGroup: 'salvoGroup',
+};
 
 const open = $('setup-again-open');
 let presets = [];
@@ -14,12 +25,15 @@ let presets = [];
 function valuesNow() {
   const out = readSettings();
   for (const src of saveSources()) Object.assign(out, src.now());
+  const uid = S.routers[0]?.uid;
+  for (const [k, attr] of Object.entries(FIRST)) out[k] = out[`router/${uid}/${attr}`];
   return out;
 }
 
 // Each write fires the events its own field listens to (the brand preview, the level numbering labels).
 function write(key, value) {
-  const node = key === 'levelNumbering' ? $(`cfg-lvlnum-${value}`) : form.querySelector(`[data-key="${key}"]`);
+  if (key in FIRST) return stageFirstRouter(FIRST[key], value);
+  const node = form.querySelector(`[data-key="${key}"]`);
   if (!node) return;
   if (node.type === 'radio') node.checked = true;
   else node.value = String(value);

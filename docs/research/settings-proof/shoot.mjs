@@ -2,6 +2,7 @@
 //   node shoot.mjs <sode url> <out dir> <name prefix> [section ...]
 // Signs in as Ada (PIN 1234) on the PIN pad, opens Settings, and for each data-section slug scrolls it to the top
 // and saves <prefix>-<slug>.png at 1920x1080. "status" saves the main page with the Routers list open.
+// "click=<css>" clicks the first element that matches, and "<slug>~<name>" saves the section as <prefix>-<name>.png.
 import { createRequire } from 'node:module';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
@@ -23,7 +24,13 @@ for (const d of '1234') await page.click(`.sode-lock__key[data-key="${d}"]`);
 await page.evaluate(() => document.querySelector('.sode-lock__key[data-key="enter"]')?.offsetParent && document.querySelector('.sode-lock__key[data-key="enter"]').click());
 await page.waitForFunction(() => !document.documentElement.hasAttribute('data-sode-lock'), null, { timeout: 20000 });
 await page.waitForTimeout(3000);
-for (const s of sections) {
+for (const arg of sections) {
+  if (arg.startsWith('click=')) {
+    await page.evaluate((sel) => document.querySelector(sel)?.click(), arg.slice(6));
+    await page.waitForTimeout(400);
+    continue;
+  }
+  const [s, name = s] = arg.split('~');
   if (s === 'status') {
     await page.evaluate(() => { location.hash = ''; });
     await page.waitForTimeout(500);
@@ -39,7 +46,7 @@ for (const s of sections) {
     return true;
   }, s);
   await page.waitForTimeout(500);
-  if (ok) await page.screenshot({ path: `${out}/${prefix}-${s}.png` });
+  if (ok) await page.screenshot({ path: `${out}/${prefix}-${name}.png` });
   else console.log('no section', s);
 }
 await browser.close();

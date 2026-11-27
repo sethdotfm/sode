@@ -45,7 +45,7 @@ test('each topic holds its sections in order', () => {
   assert.deepEqual(byTopic, {
     preferences: ['this-browser', 'my-user'],
     'look-and-feel': ['everyone-defaults', 'branding', 'history', 'level-colors', 'confirm'],
-    routers: ['routers', 'tie-lines', 'router-levels', 'router-matrix', 'router-names', 'takes', 'protects'],
+    routers: ['routers', 'tie-lines', 'protects'],
     access: ['locks', 'users', 'api', 'panels'],
     server: ['proxy', 'export-import', 'run-setup-again'],
   });
@@ -55,17 +55,20 @@ test('each topic holds its sections in order', () => {
   for (let i = 1; i < order.length; i++) assert.ok(firsts.indexOf(order[i]) >= firsts.indexOf(order[i - 1]), `section out of its topic at ${i}`);
 });
 
-test('the router block has a sub-heading and holds the per-router sections', () => {
-  const routers = heads.filter((h) => h.kind === 'router');
-  assert.equal(routers.length, 1);
-  const inBlock = groups.filter((g) => g.router === routers[0].id).map((g) => g.slug);
-  assert.deepEqual(inBlock, ['router-matrix', 'router-names', 'takes', 'protects']);
-  const ids = (slug) => [...groups.find((g) => g.slug === slug).body.matchAll(/\bid="(cfg-[a-z0-9-]+)"/g)].map((m) => m[1]);
-  for (const id of ['cfg-router', 'cfg-routername', 'cfg-routershow', 'cfg-matrix', 'cfg-levels', 'cfg-offset', 'cfg-lvlnum', 'cfg-numoff'])
-    assert.ok(ids('router-matrix').includes(id), id);
-  for (const id of ['cfg-namerefresh', 'cfg-namelen', 'cfg-namereq']) assert.ok(ids('router-names').includes(id), id);
-  assert.deepEqual(ids('takes'), ['cfg-default', 'cfg-resync', 'cfg-firemode', 'cfg-salvogroup']);
-  assert.deepEqual(ids('protects'), ['cfg-protectdevice']);
+test('the Routers section holds the status label and one detail view, with every router setting', () => {
+  assert.equal(heads.filter((h) => h.kind === 'router').length, 0, 'no router sub-heading: every router is in the list');
+  const ids = (slug) => [...groups.find((g) => g.slug === slug).body.matchAll(/\bid="(cfg-[A-Za-z0-9-]+)"/g)].map((m) => m[1]);
+  const attrs = ['prefix', 'title', 'address', 'matrix', 'nameRequests', 'nameLength', 'levels', 'levelWireOffset', 'defaultLevels', 'numberOffset'];
+  for (const id of ['cfg-routershow', 'cfg-rt-lvlnum', ...attrs.map((a) => `cfg-rt-${a}`), 'cfg-rt-nameRereadSeconds', 'cfg-rt-fireMode', 'cfg-rt-salvoGroup'])
+    assert.ok(ids('routers').includes(id), id);
+  for (const id of ['cfg-rt-tallyResyncSeconds', 'cfg-rt-protectDevice']) assert.ok(ids('routers').includes(id), id);
+  // The detail view's inputs are not form fields: settingsrouterdetail.js saves them as router keys.
+  const body = groups.find((g) => g.slug === 'routers').body;
+  assert.deepEqual(
+    [...body.matchAll(/data-key="([^"]+)"/g)].map((m) => m[1]),
+    ['routerShow'],
+  );
+  assert.deepEqual(ids('protects'), []);
   assert.deepEqual(ids('confirm'), ['cfg-lockout', 'cfg-dismiss', 'cfg-enter']);
 });
 

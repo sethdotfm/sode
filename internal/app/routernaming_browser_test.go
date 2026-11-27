@@ -25,8 +25,8 @@ func TestChromeReconnectConfirmNamesEachRouter(t *testing.T) {
 		b.t.Helper()
 		b.eval(`(() => { const f = document.getElementById('` + id + `'); f.value = '` + v + `'; f.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	}
-	b.waitFor("router B's row", `!!document.getElementById('cfg-rt-`+uid+`-address')`)
-	set("cfg-rt-"+uid+"-address", "127.0.0.1:2")
+	pickRouter(b, uid)
+	set("cfg-rt-address", "127.0.0.1:2")
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("review", `!!document.getElementById('review')?.offsetParent && document.getElementById('review-save').textContent === 'Save 1 change'`)
 	b.eval(`document.getElementById('review-save').click(); true`)
@@ -40,7 +40,8 @@ func TestChromeReconnectConfirmNamesEachRouter(t *testing.T) {
 	b.eval(`document.getElementById('review-back').click(); true`)
 	b.waitFor("review closed", `!document.getElementById('review').offsetParent`)
 
-	set("cfg-router", "127.0.0.1:1")
+	pickRouter(b, routerUIDs(a)[0])
+	set("cfg-rt-address", "127.0.0.1:1")
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("review of two", `!!document.getElementById('review')?.offsetParent && document.getElementById('review-save').textContent === 'Save 2 changes'`)
 	b.eval(`document.getElementById('review-save').click(); true`)
@@ -72,8 +73,16 @@ func twoNamedRouters(t *testing.T, b *tab, edit ...func(*config.Config)) (*App, 
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	b.waitFor("router B's row", `!!document.getElementById('cfg-rt-`+uid+`-address')`)
+	b.waitFor("router B's row", `!!document.querySelector('#routers-list [data-router="`+uid+`"]')`)
 	return a, uid
+}
+
+// pickRouter selects router uid in the list of Settings > Routers and waits for its detail view.
+func pickRouter(b *tab, uid string) {
+	b.t.Helper()
+	b.waitFor("the row of router "+uid, `!!document.querySelector('#routers-list [data-router="`+uid+`"]')`)
+	b.eval(`document.querySelector('#routers-list [data-router="` + uid + `"]').click(); true`)
+	b.waitFor("router "+uid+" selected", `document.querySelector('#routers-list [aria-selected="true"]')?.dataset.router === '`+uid+`'`)
 }
 
 // typeField types v into the field and sends its input event.
@@ -86,25 +95,29 @@ func typeField(b *tab, id, v string) {
 func TestChromeReviewNamesEveryRouter(t *testing.T) {
 	b := startBrowser(t)
 	a, uid := twoNamedRouters(t, b)
-	typeField(b, "cfg-router", "nohost")
-	typeField(b, "cfg-rt-"+uid+"-address", "nohost2")
+	pickRouter(b, routerUIDs(a)[0])
+	typeField(b, "cfg-rt-address", "nohost")
+	pickRouter(b, uid)
+	typeField(b, "cfg-rt-address", "nohost2")
+	// The page checks the address: Save names each router with an error, shows the first and goes no further.
+	b.eval(`document.getElementById('settings-save').click(); true`)
+	b.waitFor("the error line names both routers, and A's field shows its error", `(() => {
+		const e = document.getElementById('settings-err');
+		const t = e.textContent;
+		return !e.hidden && t.startsWith('2 settings have an error.') && t.includes('A Studio A: Address. Enter the address as host:port')
+			&& t.includes('B Stage 2: Address.') && !document.getElementById('review')?.offsetParent
+			&& document.querySelector('#routers-list [aria-selected="true"]')?.dataset.router === '`+routerUIDs(a)[0]+`'
+			&& document.querySelector('.sode__field-err')?.textContent.startsWith('Enter the address');
+	})()`)
+	typeField(b, "cfg-rt-address", "127.0.0.1:1")
+	pickRouter(b, uid)
+	typeField(b, "cfg-rt-address", "127.0.0.1:2")
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("each row names its router", `(() => {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const rows = [...d.querySelectorAll('tbody tr')].map((r) => r.cells[0]?.textContent || '');
 		return rows.includes('A Studio A: Address') && rows.includes('B Stage 2: Address');
-	})()`)
-	// Save, Save and reconnect, then the PIN recheck.
-	b.waitFor("PIN recheck asked", `(() => {
-		if (document.getElementById('review')?.offsetParent) document.getElementById('review-save').click();
-		return !!document.getElementById('recheck-pin')?.offsetParent;
-	})()`)
-	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
-	b.waitFor("each refusal names its router and says address", `(() => {
-		const m = (k) => document.querySelector('.sode__refused[data-refused="' + k + '"]')?.textContent || '';
-		return m('`+aKey(a, "address")+`') === 'Not saved. A Studio A: address must be host:port, for example 10.0.0.50:8910.'
-			&& m('router/`+uid+`/address') === 'Not saved. B Stage 2: address must be host:port, for example 10.0.0.50:8910.';
 	})()`)
 	b.check()
 }
@@ -122,7 +135,8 @@ func TestChromeSwapOnSecondRouter(t *testing.T) {
 	if uid != ub {
 		t.Fatalf("router B's UID is %q", uid)
 	}
-	b.eval(`[...document.querySelectorAll('[data-router="` + ub + `"] .sode__routers-head button')].find((x) => x.textContent === 'Swap…').click(); true`)
+	pickRouter(b, ub)
+	b.eval(`document.getElementById('router-swap').click(); true`)
 	b.waitFor("the dialog opens on router B", `!!document.getElementById('swap-router')?.offsetParent && document.getElementById('swap-router').value === '`+ub+`'
 		&& document.getElementById('swap-router').selectedOptions[0].textContent === 'B Stage 2'`)
 	typeField(b, "swap-from", "5")
@@ -139,19 +153,19 @@ func TestChromeSwapOnSecondRouter(t *testing.T) {
 	b.check()
 }
 
-// Every router's title field is labelled Router title, and the first router's heading names it as the others are
-// named.
+// Every router's title field is labelled Router title, and the detail view of each router names it the same way.
 func TestChromeRouterTitleLabel(t *testing.T) {
 	b := startBrowser(t)
-	_, uid := twoNamedRouters(t, b)
+	a, uid := twoNamedRouters(t, b)
 	b.waitFor("one label for the title field", `(() => {
 		const label = (id) => document.querySelector('label[for="' + id + '"]')?.textContent;
-		return label('cfg-routername') === 'Router title' && label('cfg-rt-`+uid+`-title') === 'Router title'
-			&& document.querySelector('#cfg-routershow option[value="name"]').textContent === 'Router title'
-			&& document.getElementById('router-1-title').textContent === 'A Studio A'
-			&& document.querySelector('[data-router="`+uid+`"] .sode__routers-head .sode__label').textContent === 'B Stage 2';
+		return label('cfg-rt-title') === 'Router title' && document.querySelector('#cfg-routershow option[value="name"]').textContent === 'Router title'
+			&& document.getElementById('router-detail-name').textContent === 'A Studio A';
 	})()`)
-	typeField(b, "cfg-routername", "Studio 1")
+	pickRouter(b, uid)
+	b.waitFor("router B's name", `document.getElementById('router-detail-name').textContent === 'B Stage 2'`)
+	pickRouter(b, routerUIDs(a)[0])
+	typeField(b, "cfg-rt-title", "Studio 1")
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("the review row", `[...document.querySelectorAll('#review tbody tr')].some((r) => r.cells[0]?.textContent === 'A Studio A: Router title')`)
 	b.check()
@@ -173,14 +187,17 @@ func TestChromeRoutersListLinkState(t *testing.T) {
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
 	link := func(uid string) string {
-		return `document.querySelector('#routers-list [data-link="` + uid + `"]')`
+		return `document.querySelector('#routers-list [data-router="` + uid + `"] .sode__rstate')`
 	}
-	b.waitFor("A and C Connected with no color, B Never connected in red", `(() => {
+	b.waitFor("A and C Connected with no color, B Never connected in red, and the count line", `(() => {
 		const a = `+link(uids[0])+`, b = `+link(uids[1])+`, c = `+link(uids[2])+`;
-		return a?.textContent === 'Connected' && a.className === 'sode__routers-link' && c?.textContent === 'Connected'
-			&& b?.textContent === 'Never connected' && b.classList.contains('pb-badge--error') && !!b.dataset.pbTip;
+		return a?.textContent === 'Connected' && !a.dataset.state && c?.textContent === 'Connected'
+			&& b?.textContent === 'Never connected' && b.dataset.state === 'error' && !!b.querySelector('svg')
+			&& document.getElementById('routers-count').textContent === '3 routers. 2 connected, 1 down.';
 	})()`)
+	pickRouter(b, uids[1])
+	b.waitFor("B's detail view shows the state and the error", `(() => { const l = document.getElementById('router-detail-link'); return l.textContent.startsWith('Never connected') && l.textContent.length > 'Never connected'.length; })()`)
 	stopC()
-	b.waitFor("C goes Down, live", `(() => { const c = `+link(uids[2])+`; return c.textContent === 'Down' && c.classList.contains('pb-badge--error'); })()`)
+	b.waitFor("C goes Down, live", `(() => { const c = `+link(uids[2])+`; return c.textContent === 'Down' && c.dataset.state === 'error'; })()`)
 	b.check()
 }

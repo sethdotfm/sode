@@ -86,7 +86,7 @@ export function askBrokenCounts() {
 onMsg('brokenCountResult', (m) => {
   if (!m.ok) return;
   const r = (m.routers || [])[0];
-  if (m.id === asked.all) paint($('router-1-broken'), r);
+  if (m.id === asked.all) paint($('routers-broken'), r);
   if (m.id === asked.mine) {
     const box = $('account-broken');
     if (box) box.hidden = false;
@@ -96,6 +96,9 @@ onMsg('brokenCountResult', (m) => {
 
 on('access', (a) => {
   role = a.role || '';
+  // The count of Settings > Routers covers everyone's items: Administrator only.
+  const all = $('routers-broken');
+  if (all) all.hidden = role !== 'administrator';
   const box = $('account-broken');
   if (box && !a.user) box.hidden = true;
   askBrokenCounts();

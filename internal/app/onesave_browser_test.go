@@ -31,13 +31,13 @@ func TestChromeOneSaveReview(t *testing.T) {
 		b.eval(`(() => { const f = document.getElementById('` + id + `'); ` + js + `; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`)
 	}
 	set("cfg-brandtext", `f.value = 'Truck 4'`)
-	set("cfg-router", `f.value = '127.0.0.1:1'`)
+	set("cfg-rt-address", `f.value = '127.0.0.1:1'`)
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("review lists both changes by section", `(() => {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const t = d.textContent;
-		return t.includes('Look and feel') && t.includes('Branding') && t.includes('Truck 4') && t.includes('Router & matrix')
+		return t.includes('Look and feel') && t.includes('Branding') && t.includes('Truck 4') && t.includes('Routers')
 			&& t.includes('127.0.0.1:1') && t.includes('Reconnects the router')
 			&& document.getElementById('review-save').textContent === 'Save 2 changes';
 	})()`)
@@ -52,7 +52,7 @@ func TestChromeOneSaveReview(t *testing.T) {
 		t.Fatalf("Back sent the save: brand %q, router %q", cfg.BrandText, cfg.Routers[0].Address)
 	}
 
-	set("cfg-router", `f.value = '`+sim+`'`)
+	set("cfg-rt-address", `f.value = '`+sim+`'`)
 	a.cfgMu.Lock()
 	err := a.applyConfig(func(c *config.Config) error { c.ConfirmLockoutMs = 700; return nil })
 	a.cfgMu.Unlock()

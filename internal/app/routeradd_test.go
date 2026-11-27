@@ -259,3 +259,23 @@ func TestBrokenCheckKeepsOtherRouterMarks(t *testing.T) {
 		t.Fatalf("broken %+v", p.Broken)
 	}
 }
+
+// The detail view of a new router sends every setting with Add router. Each one is in the new router; a value that
+// does not fit refuses the add.
+func TestAddRouterTakesEverySetting(t *testing.T) {
+	a := userApp(t, false)
+	p := dialPeer(t, a)
+	p.signIn("Ada", "2468")
+	passed(t, "recheck", p.recheck("2468"))
+	key := "router/new:1/add"
+	add := map[string]any{"prefix": "B", "title": "Stage 2", "address": "10.0.0.7:8910", "matrix": 20, "nameRequests": "ext", "levels": 4,
+		"levelWireOffset": 0, "levelNumbering": "va", "defaultLevels": "1-2", "numberOffset": 0, "nameRereadSeconds": 120, "nameLength": 16,
+		"tallyResyncSeconds": 60, "fireMode": "sequential", "salvoGroup": 9, "protectDevice": 201}
+	wantSaved(t, p.saveFields(1, map[string]any{key: add}), key)
+	b := a.r().cfg.Routers[1]
+	if b.Matrix != 20 || b.NameRequests != "ext" || b.Levels != 4 || b.LevelWireOffset != 0 || b.LevelNumbering != "va" || b.DefaultLevels != "1-2" ||
+		b.NumberOffset != 0 || b.NameRefreshSeconds != 120 || b.NameLength != 16 || b.TallyResyncSeconds != 60 || b.SalvoGroup != 9 || b.ProtectDevice != 201 {
+		t.Fatalf("new router %+v", b)
+	}
+	wantRefused(t, p.saveFields(2, map[string]any{"router/new:2/add": map[string]any{"protectDevice": 9000}}), "router/new:2/add", "invalid")
+}

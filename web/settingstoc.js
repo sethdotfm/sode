@@ -1,25 +1,23 @@
-// Settings sidebar: a tree of topics, router blocks and sections, pinned beside the column (wide), a strip (narrow), or
-// the phone's list page. Only the topic in view is open; Ctrl+J/K steps sections. initToc runs one time, after every
-// section is in the page.
+// Settings sidebar: a tree of topics and sections, pinned beside the column (wide), a strip (narrow), or the phone's
+// list page. Routers > Routers has an entry for each router with two or more (setRouters). Only the topic in view is
+// open; Ctrl+J/K steps sections. initToc runs one time, after every section is in the page.
 
 import { el } from './core.js';
 import { layout } from './layout.js';
 import { listStep } from './keys.js';
-import { topicTree, topicOf } from './settingstree.js';
+import { topicTree, topicOf, routerEntries } from './settingstree.js';
 
 const sectionTitle = (s) => s.dataset.toc || s.querySelector('legend').firstChild.textContent.trim();
-// A section's topic band and router sub-heading (index.html: data-topic, data-router).
+// A section's topic band (index.html: data-topic).
 const bandOf = (form, s) => form.querySelector(`.sode__topic[data-topic="${s.dataset.topic}"]`);
-const routerHeadOf = (form, s) => (s.dataset.router ? form.querySelector(`.sode__router[data-router="${s.dataset.router}"]`) : null);
 
-export function initToc({ form, sections, toc, isOpen }) {
+// pickRouter(uid): an entry of a router selects it in the router list.
+export function initToc({ form, sections, toc, isOpen, pickRouter }) {
   const tree = topicTree(
     sections.map((s) => ({
       title: sectionTitle(s),
       topic: s.dataset.topic,
       topicTitle: bandOf(form, s)?.textContent.trim(),
-      router: s.dataset.router,
-      routerTitle: routerHeadOf(form, s)?.textContent.trim(),
     })),
   );
   // A clicked entry stays marked until the scroll ends or the user scrolls, (near the bottom a scroll can stop short).
@@ -50,7 +48,7 @@ export function initToc({ form, sections, toc, isOpen }) {
     node.focus();
   };
   const smooth = (instant) => (instant || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
-  // i: the section to mark; node: what to scroll to (a band or router sub-heading, or the section).
+  // i: the section to mark; node: what to scroll to (a band or the section).
   function go(i, instant, node = sections[i]) {
     if (phone()) return showPage(i);
     picked = i;
@@ -65,44 +63,32 @@ export function initToc({ form, sections, toc, isOpen }) {
     b.addEventListener('click', onClick);
     return b;
   };
-  // What starts each section on the page: a topic's first section starts at its band, a router's at its sub-heading.
-  const anchors = sections.map((s, i) => {
-    const t = tree.find((x) => x.first === i);
-    if (t) return bandOf(form, s);
-    return tree.flatMap((x) => x.routers).some((r) => r.first === i) ? routerHeadOf(form, s) : s;
-  });
+  // What starts each section on the page: a topic's first section starts at its band.
+  const anchors = sections.map((s, i) => (tree.some((x) => x.first === i) ? bandOf(form, s) : s));
   const secBtns = sections.map((s, i) => entry('sode__toc-sec', sectionTitle(s), () => go(i, false)));
   const branches = tree.map((t) => {
     const head = entry('sode__toc-topic', t.title, () => go(t.first, false, bandOf(form, sections[t.first])));
     head.dataset.topic = t.id;
-    const kids = t.sections.map((i) => secBtns[i]);
-    for (const r of t.routers) {
-      const rb = entry('sode__toc-router', r.title, () => go(r.first, false, routerHeadOf(form, sections[r.first])));
-      rb.dataset.router = r.id;
-      for (const i of r.sections) secBtns[i].classList.add('sode__toc-sec--deep');
-      kids.push(rb, ...r.sections.map((i) => secBtns[i]));
-    }
-    return { head, kids };
+    return { head, kids: t.sections.map((i) => secBtns[i]) };
   });
   toc.replaceChildren(...branches.flatMap((b) => [b.head, ...b.kids]));
+  // The entries of the routers, after the Routers section's entry. The phone has no Routers topic.
+  const routersAt = sections.findIndex((s) => s.dataset.section === 'routers');
+  let routerBtns = [];
 
   function mark(cur) {
     marked = cur;
     const at = topicOf(tree, cur);
     branches.forEach((b, k) => {
-      const open = k === at.topic;
+      const open = k === at;
       const t = tree[k];
-      b.head.hidden = ![...t.sections, ...t.routers.flatMap((r) => r.sections)].some(shown);
+      b.head.hidden = !t.sections.some(shown);
       b.head.setAttribute('aria-expanded', String(open));
       b.head.classList.toggle('sode__toc-open', open);
-      for (const kid of b.kids) {
-        const sec = secBtns.indexOf(kid);
-        const r = kid.dataset.router && t.routers.find((x) => x.id === kid.dataset.router);
-        const gone = sec >= 0 ? !shown(sec) : r ? !r.sections.some(shown) : false;
-        kid.hidden = gone || (!open && !phone());
-        if (kid.dataset.router) kid.classList.toggle('sode__toc-open', open && kid.dataset.router === at.router);
-      }
+      for (const kid of b.kids) kid.hidden = !shown(secBtns.indexOf(kid)) || (!open && !phone());
     });
+    const routersOpen = routersAt >= 0 && shown(routersAt) && !phone() && topicOf(tree, routersAt) === at;
+    for (const b of routerBtns) b.hidden = !routersOpen;
     secBtns.forEach((b, i) => {
       b.classList.toggle('active', i === cur);
       if (i === cur) b.setAttribute('aria-current', 'location');
@@ -180,12 +166,33 @@ export function initToc({ form, sections, toc, isOpen }) {
       if (phone() && form.dataset.page != null && off.has(Number(form.dataset.page))) showPage(-1);
       mark(shown(marked) ? marked : firstShown());
     },
-    goRouter(id) {
-      const r = tree.flatMap((t) => t.routers).find((x) => x.id === id);
-      if (r) go(r.first, false, routerHeadOf(form, sections[r.first]));
+    goSection(slug) {
+      const i = sections.findIndex((s) => s.dataset.section === slug);
+      if (i >= 0) go(i, false);
     },
-    renameRouter(id, title) {
-      for (const b of toc.querySelectorAll(`.sode__toc-router[data-router="${id}"]`)) b.textContent = title;
+    // setRouters: one entry for each router under Routers > Routers (routerEntries). routers: [{uid, name}].
+    setRouters(routers, selected) {
+      if (routersAt < 0) return;
+      const want = routerEntries(routers, selected);
+      const same = want.length === routerBtns.length && want.every((r, k) => routerBtns[k].dataset.router === r.uid && routerBtns[k].textContent === r.title);
+      if (!same) {
+        for (const b of routerBtns) b.remove();
+        routerBtns = want.map((r) => {
+          const b = entry('sode__toc-router', r.title, () => {
+            pickRouter?.(r.uid);
+            go(routersAt, false);
+          });
+          b.dataset.router = r.uid;
+          return b;
+        });
+        secBtns[routersAt].after(...routerBtns);
+      }
+      routerBtns.forEach((b, k) => {
+        b.classList.toggle('sode__toc-open', want[k].current);
+        if (want[k].current) b.setAttribute('aria-current', 'true');
+        else b.removeAttribute('aria-current');
+      });
+      mark(marked);
     },
   };
 }

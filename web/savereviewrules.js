@@ -13,7 +13,7 @@ export const SAVE_FIELDS = Object.freeze({
   confirmLockoutMs: 'confirm',
   resultDismissSeconds: 'confirm',
   confirmEnter: 'confirm',
-  routerShow: 'router-matrix',
+  routerShow: 'routers',
   pinWaits: 'locks',
   locks: 'locks',
   autoLockMinutes: 'locks',
@@ -33,44 +33,25 @@ export const SAVE_FIELDS = Object.freeze({
 // Item keys, `user/<id>/<attribute>`, `client/<name>/<attribute>` and `router/<uid>/<attribute>`, by their first part.
 // Keep in step with internal/app/onesavefields.go.
 const ITEM_SECTIONS = Object.freeze({ user: 'users', client: 'users', swap: 'routers', router: 'routers' });
-// The section of each router key router/<uid>/<attribute>, every router the same. Keep in step with routerAttrs in
-// internal/app/onesavefields.go (TestRouterAttrsMatchPage).
+// The section of each router key router/<uid>/<attribute>, every router the same: each is in the detail view of its
+// router. Keep in step with routerAttrs in internal/app/onesavefields.go (TestSaveFieldsMatchPage).
 export const ROUTER_ATTRS = Object.freeze({
   prefix: 'routers',
   title: 'routers',
   address: 'routers',
   matrix: 'routers',
-  levels: 'router-levels',
-  levelWireOffset: 'router-levels',
-  levelNumbering: 'router-levels',
-  defaultLevels: 'router-levels',
-  numberOffset: 'router-matrix',
-  nameRereadSeconds: 'router-names',
-  nameLength: 'router-names',
-  nameRequests: 'router-names',
-  tallyResyncSeconds: 'takes',
-  fireMode: 'takes',
-  salvoGroup: 'takes',
-  protectDevice: 'protects',
-});
-// The first router's fields in its own block of the form: the form's data-key, then the attribute of the one Save key
-// router/<uid>/<attribute>. The form keeps its keys; settingssave.js turns them into router keys.
-export const FIRST_ROUTER_FIELDS = Object.freeze({
-  router: 'address',
-  routerName: 'title',
-  matrix: 'matrix',
-  levels: 'levels',
-  levelWireOffset: 'levelWireOffset',
-  levelNumbering: 'levelNumbering',
-  numberOffset: 'numberOffset',
-  nameRereadSeconds: 'nameRereadSeconds',
-  nameLength: 'nameLength',
-  nameRequests: 'nameRequests',
-  defaultLevels: 'defaultLevels',
-  tallyResyncSeconds: 'tallyResyncSeconds',
-  fireMode: 'fireMode',
-  salvoGroup: 'salvoGroup',
-  protectDevice: 'protectDevice',
+  levels: 'routers',
+  levelWireOffset: 'routers',
+  levelNumbering: 'routers',
+  defaultLevels: 'routers',
+  numberOffset: 'routers',
+  nameRereadSeconds: 'routers',
+  nameLength: 'routers',
+  nameRequests: 'routers',
+  tallyResyncSeconds: 'routers',
+  fireMode: 'routers',
+  salvoGroup: 'routers',
+  protectDevice: 'routers',
 });
 const routerAttrOf = (key) => (key.startsWith('router/') ? key.slice(key.lastIndexOf('/') + 1) : '');
 export const sectionOfKey = (key) => SAVE_FIELDS[key] || ROUTER_ATTRS[routerAttrOf(key)] || ITEM_SECTIONS[key.split('/')[0]];

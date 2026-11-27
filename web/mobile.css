@@ -525,7 +525,7 @@
   display: flex;
 }
 /* The list page names the topics; a section's page has no band. */
-[data-layout="phone"] .sode__settings > :is(.sode__topic, .sode__router) {
+[data-layout="phone"] .sode__settings > .sode__topic {
   display: none;
 }
 [data-layout="phone"] .sode__toc .sode__toc-topic::after {

@@ -52,7 +52,7 @@ func TestChromeMainOneLevelRouter(t *testing.T) {
 	b.check()
 }
 
-// Settings > Routers > Router levels: router B's level settings save with the one Save.
+// Settings > Routers: router B's level settings, in its detail view, save with the one Save.
 func TestChromeSettingsRouterLevels(t *testing.T) {
 	b := startBrowser(t)
 	simA, simB := startSim(t), startSim(t)
@@ -63,16 +63,19 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	id := func(attr string) string { return `document.getElementById('cfg-rl-` + uid + `-` + attr + `')` }
-	b.waitFor("router B's block", id("levels")+`?.value === '17' && `+id("defaultLevels")+`.value === '1-17' && document.getElementById('router-levels-list').textContent.includes('Router B')`)
-	b.eval(`(() => { const n = ` + id("levelNumbering") + `; n.value = 'va'; n.dispatchEvent(new Event('change', {bubbles: true}));
+	id := func(attr string) string { return `document.getElementById('cfg-rt-` + attr + `')` }
+	b.waitFor("router B in the list", `!!document.querySelector('#routers-list [data-router="`+uid+`"]')`)
+	b.eval(`document.querySelector('#routers-list [data-router="` + uid + `"]').click(); true`)
+	b.waitFor("router B's detail view", id("levels")+`?.value === '17' && document.getElementById('router-detail-name').textContent === 'Router B'
+		&& document.querySelector('label[for="cfg-rt-lvlnum-va"]').textContent === 'V, 1–16'`)
+	b.eval(`(() => { const n = document.getElementById('cfg-rt-lvlnum-va'); n.checked = true; n.dispatchEvent(new Event('change', {bubbles: true}));
 		const d = ` + id("defaultLevels") + `; d.value = 'V-2'; d.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("the review lists router B's changes", `(() => {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const t = d.textContent;
-		return t.includes('Router levels') && t.includes('Router B: Level numbering') && t.includes('V, then 1') && t.includes('Router B: Default levels')
+		return t.includes('Routers') && t.includes('Router B: Level numbering') && t.includes('V, 1–16') && t.includes('Router B: Default levels')
 			&& document.getElementById('review-save').textContent === 'Save 2 changes';
 	})()`)
 	b.eval(`document.getElementById('review-save').click(); true`)

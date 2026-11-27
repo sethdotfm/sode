@@ -11,18 +11,7 @@ import { requesting, cancelRequest } from './approvalcards.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { askInterruptions, initInterruptions } from './interruptions.js';
-import {
-  SAVE_FIELDS,
-  FIRST_ROUTER_FIELDS,
-  diffRows,
-  showValue,
-  refusalNote,
-  reconnects,
-  reconnectTargets,
-  reconnectQuestion,
-  critical,
-  sectionOfKey,
-} from './savereviewrules.js';
+import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, reconnectTargets, reconnectQuestion, critical, sectionOfKey } from './savereviewrules.js';
 import { routerDisplay, listKey } from './routerlistrules.js';
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
@@ -45,24 +34,10 @@ let seq = 0;
 let requested = null; // { id, sent, keys }: a save the server holds for Request approval.
 let pending = null; // { id, sent, retried, answer }; sent: key -> the value sent; answer: the Approval popup's
 
-// The first router's fields keep their form keys in the form (FIRST_ROUTER_FIELDS); the one Save names them
-// router/<uid>/<attribute>. wireKey and formKey turn one into the other.
-const firstUid = () => S.routers[0]?.uid || '';
-const wireKey = (k) => (k in FIRST_ROUTER_FIELDS ? `router/${firstUid()}/${FIRST_ROUTER_FIELDS[k]}` : k);
-const FORM_KEY = Object.fromEntries(Object.entries(FIRST_ROUTER_FIELDS).map(([k, attr]) => [attr, k]));
-function formKey(key) {
-  const [head, uid, attr] = key.split('/');
-  return head === 'router' && uid === firstUid() && attr in FORM_KEY ? FORM_KEY[attr] : key;
-}
-const formOwns = (key) => key in SAVE_FIELDS || formKey(key) in FIRST_ROUTER_FIELDS;
+const formOwns = (key) => key in SAVE_FIELDS;
 
 // A data-apart input with a data-key saves on its own, so it is never a change here.
-const saveFields = () =>
-  Object.fromEntries(
-    Object.entries(readSettings())
-      .filter(([k]) => k in SAVE_FIELDS || k in FIRST_ROUTER_FIELDS)
-      .map(([k, v]) => [wireKey(k), v]),
-  );
+const saveFields = () => Object.fromEntries(Object.entries(readSettings()).filter(([k]) => k in SAVE_FIELDS));
 
 // The form first: the review and the sent fields keep that order.
 const sources = () => [formSource, ...saveSources()];
@@ -97,8 +72,6 @@ const warned = () => !$('settings-unsaved').hidden;
 
 const SPECIAL = {
   levelColors: 'cfg-colors',
-  levelNumbering: 'cfg-lvlnum',
-  defaultLevels: 'cfg-default',
   browserDefaults: 'gcfg-theme',
   locks: 'cfg-lock-main',
   newUserDefaults: 'cfg-new-persistent',
@@ -127,34 +100,22 @@ function place(r) {
 const label = (r) => srcOf(r.key).label(r);
 const show = (r, v) => srcOf(r.key).show(r, v);
 
-// With two or more routers a field of the first router's own block carries the router's name, as the other routers'
-// rows do (settingsrouterlist.js).
-function formLabel(row) {
-  const r = { ...row, key: formKey(row.key) };
-  const own = topFieldset(keyNode(r.key))?.dataset.router && S.routers.length > 1;
-  const text = plainLabel(r);
-  return own ? `${routerDisplay(S.routers[0])}: ${text}` : text;
-}
-
-function plainLabel(r) {
+function formLabel(r) {
   if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
   if (r.key === 'newUserDefaults') return `New user defaults: ${checkText($(r.sub === 'persistent' ? 'cfg-new-persistent' : 'cfg-new-no-auto-lock')) || r.sub}`;
   if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;
   if (r.key === 'levelColors') return $(`cfg-color-${r.sub + 1}`)?.getAttribute('aria-label') || `Level ${r.sub + 1} color`;
-  if (r.key === 'levelNumbering') return $('cfg-lvlnum-label').textContent;
   const node = keyNode(r.key);
   return (forText(node) || checkText(node) || r.key).trim();
 }
 
-function formShow(row, v) {
-  const r = { ...row, key: formKey(row.key) };
+function formShow(r, v) {
   if (r.key === 'levelColors' && r.sub != null) return v || 'Default';
   if (v && typeof v === 'object' && !Array.isArray(v)) {
     return Object.entries(v)
       .map(([sub, x]) => `${label({ key: r.key, sub })}: ${show({ key: r.key, sub }, x)}`)
       .join(', ');
   }
-  if (r.key === 'levelNumbering') return form.querySelector(`label[for="cfg-lvlnum-${v}"]`)?.textContent || v;
   const sel = r.key === 'browserDefaults' ? form.querySelector(`select[data-gpref="${r.sub}"]`) : keyNode(r.key);
   if (sel?.tagName === 'SELECT') {
     const same = r.key === 'browserDefaults' ? (o) => toGlobal(r.sub, o.value) === v : (o) => o.value === String(v);
@@ -172,7 +133,7 @@ const formSource = {
   version: (key) => versions[key],
   label: formLabel,
   show: formShow,
-  node: (key) => keyNode(formKey(key)),
+  node: keyNode,
   saved(key, value, r) {
     base[key] = value;
     if (r.version) versions[key] = r.version;
@@ -397,8 +358,8 @@ function stillDiffers(gaps) {
   return el('div', null, el('p', null, `Still different from ${applied.name}:`), el('ul', null, ...items));
 }
 
-// addressAfter()(uid): the address a router has after the save. The first router's is the form's Address; the
-// others are in the Routers list (settingsrouterlist.js).
+// addressAfter()(uid): the address a router has after the save, from the detail views of Settings > Routers
+// (settingsrouterdetail.js).
 function addressAfter() {
   const list = Object.assign({}, ...sources().map((src) => src.now()));
   return (uid) => list[listKey(uid, 'address')] ?? S.routers.find((r) => r.uid === uid)?.address ?? '';

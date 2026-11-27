@@ -25,7 +25,7 @@ const settings = [
   set('my-user', 'My user', 'Preferences', 'account-transfer', 'Export & Import', 'account-transfer'),
   set('history', 'History', 'Look and feel', 'cfg-hidden', 'Hidden destinations in History'),
   set('history', 'History', 'Look and feel', 'clear-history', 'Clear History', 'clear-history'),
-  set('takes', 'Takes', 'Routers', 'cfg-salvogroup', 'Router salvo group'),
+  set('routers', 'Routers', 'Routers', 'cfg-rt-salvoGroup', 'Router salvo group'),
   set('locks', 'Locks', 'Access', 'cfg-lock-main', 'Main page'),
   set('api', 'API', 'Access', 'api-log-reads', 'Log API reads'),
 ];
@@ -62,7 +62,7 @@ test('a loose match is never the row that Enter picks first', () => {
   assert.equal(enterRow(find('sing in')), 'action:signOut', '"sing in" is a typo of sign in');
   assert.equal(enterRow(find('lgo')), '', '"lgo" has only loose matches: nothing is picked');
   assert.equal(enterRow(find('ip')), '', '"ip" is not Export & Import');
-  assert.equal(enterRow(find('salvo')), 'setting:takes/cfg-salvogroup', 'a whole word beats letters in order');
+  assert.equal(enterRow(find('salvo')), 'setting:routers/cfg-rt-salvoGroup', 'a whole word beats letters in order');
   assert.equal(enterRow(find('patch')), 'page:home', 'patch is a word of Home');
 });
 

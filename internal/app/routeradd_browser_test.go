@@ -20,9 +20,10 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	signInSettings(b)
 	b.waitFor("Add router shown, and one line in Tie lines", `!!document.getElementById('router-add')?.offsetParent && !!document.getElementById('tielines-one').offsetParent && document.getElementById('tielines-app').hidden && document.getElementById('tielines-weight').hidden`)
 	b.eval(`document.getElementById('router-add').click(); true`)
-	b.waitFor("a new router row with the free prefix", `document.getElementById('cfg-rt-new1-prefix')?.value === 'B'`)
-	b.eval(`(() => { const f = document.getElementById('cfg-rt-new1-address'); f.value = '` + simB + `'; f.dispatchEvent(new Event('input', {bubbles: true}));
-		const t = document.getElementById('cfg-rt-new1-title'); t.value = 'Stage 2'; t.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	b.waitFor("a new router row marked New, selected, with the free prefix", `document.getElementById('cfg-rt-prefix')?.value === 'B'
+		&& document.querySelector('#routers-list [aria-selected="true"]')?.textContent.includes('New') && !!document.getElementById('cfg-rt-prefix').offsetParent`)
+	typeField(b, "cfg-rt-address", simB)
+	typeField(b, "cfg-rt-title", "Stage 2")
 	save := func(want string) {
 		t.Helper()
 		b.eval(`document.getElementById('settings-save').click(); true`)
@@ -57,8 +58,9 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	if rc := a.r().cfg.Routers[1]; rc.Prefix != "B" || rc.Title != "Stage 2" || rc.Address != simB {
 		t.Fatalf("router B %+v", rc)
 	}
-	b.waitFor("every prefix shows", `document.getElementById('cfg-rt-`+a.r().cfg.Routers[0].UID+`-prefix')?.value === 'A' && document.getElementById('cfg-rt-`+uid+`-prefix')?.value === 'B'
-		&& !!document.getElementById('cfg-rl-`+uid+`-levels') && !document.getElementById('tielines-app').hidden && document.getElementById('tielines-one').hidden`)
+	b.waitFor("router B saved and selected, every prefix shows", `document.querySelector('#routers-list [aria-selected="true"]')?.dataset.router === '`+uid+`'
+		&& document.getElementById('cfg-rt-prefix').value === 'B' && document.querySelectorAll('#routers-list .sode__rrow').length === 2
+		&& !document.getElementById('tielines-app').hidden && document.getElementById('tielines-one').hidden`)
 
 	a.cfgMu.Lock()
 	err := a.applyConfig(func(c *config.Config) error {
@@ -71,11 +73,11 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.eval(`[...document.querySelectorAll('[data-router="` + uid + `"] .sode__routers-head .pb-btn')].find((x) => x.textContent === 'Remove…').click(); true`)
-	b.waitFor("the note lists the preset", `(() => { const n = document.querySelector('[data-router="`+uid+`"] .sode__routers-note'); return !!n && n.textContent.includes('1 preset') && n.textContent.includes('Preset Stage (Everyone)')
+	b.eval(`document.getElementById('router-remove').click(); true`)
+	b.waitFor("the note lists the preset", `(() => { const n = document.getElementById('router-remove-note'); return n.textContent.includes('1 preset') && n.textContent.includes('Preset Stage (Everyone)')
 		&& n.textContent.includes('removes 1 tie line') && n.textContent.includes('Tie line TIE 3'); })()`)
-	b.eval(`[...document.querySelectorAll('[data-router="` + uid + `"] .sode__routers-acts .pb-btn')].find((x) => x.textContent === 'Remove router B').click(); true`)
-	b.waitFor("router B staged", `document.querySelector('[data-router="`+uid+`"]').classList.contains('sode__routers-item--removed')`)
+	b.eval(`[...document.querySelectorAll('#router-remove-note .pb-btn')].find((x) => x.textContent === 'Remove router B').click(); true`)
+	b.waitFor("router B staged", `document.querySelector('#routers-list [data-router="`+uid+`"]').textContent.includes('Remove on Save')`)
 	save("Remove B Stage 2")
 	for deadline := time.Now().Add(10 * time.Second); (len(a.r().cfg.Routers) - 1) > 0; time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
@@ -88,6 +90,6 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	if l := a.r().cfg.TieLines; len(l) != 0 {
 		t.Errorf("tie lines left %+v", l)
 	}
-	b.waitFor("one row left", `document.querySelectorAll('#routers-list > li').length === 1 && !document.querySelector('.sode__routers-first-prefix:not([hidden])')`)
+	b.waitFor("one router left: no list and no Prefix", `!document.getElementById('routers-list-wrap').offsetParent && !document.getElementById('cfg-rt-prefix').offsetParent`)
 	b.check()
 }

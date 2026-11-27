@@ -56,16 +56,8 @@ async function askHealth() {
   }
 }
 
-// Settings > Routers, scrolled to the row of the router. Home only.
-function jumpTo(uid) {
-  const list = document.getElementById('routers-list');
-  if (!list) return;
-  const first = !S.routers.length || S.routers[0].uid === uid;
-  const row = first ? list.firstElementChild : [...list.children].find((n) => n.dataset.router === uid);
-  if (!row) return;
-  row.scrollIntoView({ block: 'center' });
-  row.querySelector('input, select, button')?.focus({ preventScroll: true });
-}
+// Settings > Routers with the router selected (settings.js showRouter). Home only.
+const jumpTo = (uid) => emit('showRouter', uid);
 
 function routerSettings(uid, e) {
   if (!document.getElementById('settings-view')) {
@@ -73,8 +65,7 @@ function routerSettings(uid, e) {
     return; // the link opens Home at #settings
   }
   e.preventDefault();
-  emit('settingsOpen');
-  requestAnimationFrame(() => jumpTo(uid));
+  jumpTo(uid);
 }
 
 on('hello', () => {
@@ -82,8 +73,7 @@ on('hello', () => {
   if (uid == null || !document.getElementById('settings-view')) return;
   writeTab(JUMP_KEY, null);
   setTimeout(() => {
-    if (document.documentElement.dataset.view !== 'settings') emit('settingsOpen');
-    requestAnimationFrame(() => jumpTo(uid));
+    jumpTo(uid);
   });
 });
 

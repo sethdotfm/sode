@@ -89,14 +89,15 @@ export const BUTTON_ACTIONS = Object.freeze({
   'account-stepin': 'stepIn',
   'account-stepout': 'stepOut',
   'lock-btn': 'lock',
+  'router-names-reread': 'reread',
 });
 // A Palette row presses these buttons where the Palette is (on Home), with no Settings view. Each one opens its own
 // dialog, which works over any view.
 const BUTTONS_RUN = new Set(['account-pin', 'account-keys', 'account-clients', 'account-profile', 'account-copy', 'account-transfer', 'xi-open']);
 // These open Settings at the button and then press it, since what they do shows in the Settings view. Clear History and
 // Clear Sode's Protects show an inline confirm. A my default button changes the value next to it. Manage users, Apply
-// an Access preset and Run setup again stage edits for Settings' one Save.
-const BUTTONS_IN_SETTINGS = new Set(['clear-history', 'protects-clear-all', 'cfg-apply-preset', 'users-manage', 'setup-again-open']);
+// an Access preset, Run setup again and Add router stage edits for Settings' one Save.
+const BUTTONS_IN_SETTINGS = new Set(['clear-history', 'protects-clear-all', 'cfg-apply-preset', 'users-manage', 'setup-again-open', 'router-add']);
 // Only a signed-in user has these, and only a user with a PIN has API keys and API clients (devicesettings.js).
 const BUTTONS_SIGNED_IN = new Set(['account-pin', 'account-keys', 'account-clients', 'account-profile', 'account-copy', 'account-transfer']);
 const BUTTONS_PIN = new Set(['account-keys', 'account-clients']);
@@ -296,4 +297,41 @@ export function catalogue(src) {
   return rows;
 }
 
-export const rowByKey = (rows, key) => rows.find((r) => r.key === key) || null;
+// Settings keys from before Settings > Routers had one detail view for every router. A pin or Bookmark that holds one
+// finds the setting at its new place, under its old key, so unpinning it still works.
+const RENAMED = {
+  'router-matrix/cfg-router': 'routers/cfg-rt-address',
+  'router-matrix/cfg-routername': 'routers/cfg-rt-title',
+  'router-matrix/cfg-routershow': 'routers/cfg-routershow',
+  'router-matrix/cfg-matrix': 'routers/cfg-rt-matrix',
+  'router-matrix/cfg-levels': 'routers/cfg-rt-levels',
+  'router-matrix/cfg-offset': 'routers/cfg-rt-levelWireOffset',
+  'router-matrix/cfg-lvlnum': 'routers/cfg-rt-lvlnum',
+  'router-matrix/cfg-numoff': 'routers/cfg-rt-numberOffset',
+  'router-names/cfg-namerefresh': 'routers/cfg-rt-nameRereadSeconds',
+  'router-names/cfg-namelen': 'routers/cfg-rt-nameLength',
+  'router-names/cfg-namereq': 'routers/cfg-rt-nameRequests',
+  'router-names/names-refresh': 'routers/router-names-reread',
+  'takes/cfg-default': 'routers/cfg-rt-defaultLevels',
+  'takes/cfg-resync': 'routers/cfg-rt-tallyResyncSeconds',
+  'takes/cfg-firemode': 'routers/cfg-rt-fireMode',
+  'takes/cfg-salvogroup': 'routers/cfg-rt-salvoGroup',
+  'protects/cfg-protectdevice': 'routers/cfg-rt-protectDevice',
+};
+// settingKeyNow: the key a Settings row has now. The fields of one router (cfg-rt-<uid>-<attribute>, cfg-rl-<uid>-<attribute>)
+// are the one field of the detail view.
+export function settingKeyNow(key) {
+  const m = key.match(/^setting:(.+)$/);
+  if (!m) return key;
+  if (RENAMED[m[1]]) return `setting:${RENAMED[m[1]]}`;
+  const r = m[1].match(/^(?:routers|router-levels)\/cfg-r[tl]-[^-]+-([A-Za-z]+)$/);
+  return r ? `setting:routers/cfg-rt-${r[1]}` : key;
+}
+
+export function rowByKey(rows, key) {
+  const row = rows.find((r) => r.key === key);
+  if (row) return row;
+  const now = settingKeyNow(key);
+  const moved = now !== key && rows.find((r) => r.key === now);
+  return moved ? { ...moved, key } : null;
+}

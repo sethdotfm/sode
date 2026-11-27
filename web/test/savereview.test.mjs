@@ -86,14 +86,17 @@ test('router connection fields reconnect; others do not', () => {
   for (const k of ['router', 'matrix', 'levels']) assert.ok(!reconnects(k), k);
 });
 
-test('every router key has the section of its attribute, the first router too', () => {
-  assert.equal(sectionOfKey('router/ua/address'), 'routers');
-  assert.equal(sectionOfKey('router/ub/levels'), 'router-levels');
-  assert.equal(sectionOfKey('router/ua/fireMode'), 'takes');
-  assert.equal(sectionOfKey('router/ua/protectDevice'), 'protects');
-  assert.equal(sectionOfKey('router/new:1/add'), 'routers');
-  assert.equal(sectionOfKey('router/ub/remove'), 'routers');
-  assert.equal(sectionOfKey('routerShow'), 'router-matrix');
+test('every router key is in the Routers section, the first router too', () => {
+  for (const k of [
+    'router/ua/address',
+    'router/ub/levels',
+    'router/ua/fireMode',
+    'router/ua/protectDevice',
+    'router/new:1/add',
+    'router/ub/remove',
+    'routerShow',
+  ])
+    assert.equal(sectionOfKey(k), 'routers', k);
 });
 
 const ROUTERS = [

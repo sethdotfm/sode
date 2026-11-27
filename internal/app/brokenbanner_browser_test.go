@@ -62,7 +62,7 @@ func TestChromeBrokenBanner(t *testing.T) {
 	b.eval(`location.hash = '#settings'; true`)
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	const count = `document.getElementById('router-1-broken')?.firstChild?.textContent`
+	const count = `document.getElementById('routers-broken')?.firstChild?.textContent`
 	b.waitFor("the Routers row shows the server's count", count+` === '1 Broken, 0 Name moved'`)
 
 	a.cfgMu.Lock()

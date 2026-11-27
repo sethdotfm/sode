@@ -4,7 +4,7 @@
 // not move. The row and the status line under the list then show the result; the banner of Home is out of sight
 // here. Free Sode's Protects asks which routers (settingsprotectsfree.js). Rules in protectlistrules.js.
 
-import { $, el, S, on, icon, dstItem, numText, routerData, protectsOf } from './core.js';
+import { $, el, S, on, emit, icon, dstItem, numText, routerData, protectsOf } from './core.js';
 import { levelText, allLevels } from './levelview.js';
 import { holdLabel, holdShort, holdLook } from './protectrules.js';
 import { protectPlan, sendProtect, clearSodeProtects, everyHold } from './protects.js';
@@ -180,7 +180,12 @@ function groupNode(g, many) {
   }
   const notes = [];
   if (g.stale) notes.push(el('span', 'sode__hint', `${staleNote(rt)} Sode cannot free a Protect while the router is not connected.`));
-  if (!rt.device) notes.push(el('span', 'sode__hint', "Protect is off for this router: Sode's device number is 0. Set it in the Router settings."));
+  if (!rt.device) {
+    // The router's settings are in Settings > Routers (settingsrouterdetail.js shows the router on showRouter).
+    const go = btn('pb-btn--ghost pb-btn--sm', 'Router settings', () => emit('showRouter', rt.id));
+    go.dataset.act = `router-settings-${rt.uid}`;
+    notes.push(el('span', 'sode__hint', "Protect is off for this router: Sode's device number is 0."), go);
+  }
   const res = results[rt.uid];
   if (res) notes.push(el('span', `sode__hint sode__pgroup-result${res.ok ? '' : ' sode__pgroup-result--error'}`, res.text));
   if (notes.length) head.append(el('div', 'sode__pgroup-notes', ...notes));
@@ -465,3 +470,13 @@ async function openFreeSode(only = '') {
 }
 
 freeAll.addEventListener('click', () => openFreeSode(''));
+
+// protectsFor (bus): the Protects group of a router's detail view links here. uid is the routerData UID, blank for
+// the first router. The list shows that router only.
+on('protectsFor', (uid) => {
+  if (document.documentElement.dataset.view !== 'settings') emit('settingsOpen');
+  F.router = S.routers.length > 1 ? uid || '' : ALL_ROUTERS;
+  F.q = find.value = '';
+  draw();
+  requestAnimationFrame(() => host.closest('fieldset')?.scrollIntoView({ block: 'start' }));
+});

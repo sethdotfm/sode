@@ -496,3 +496,22 @@ func TestAddImportMapsRightsPresets(t *testing.T) {
 		}
 	}
 }
+
+// The status label is in the Routers group of settings.yaml under its file name statusLabel, and an import sets it.
+func TestStatusLabelExportsAndImports(t *testing.T) {
+	a, c, tok := importApp(t)
+	lifeCommit(t, a, func(cfg *config.Config) { cfg.RouterShow = "name" })
+	files := map[string]string{}
+	for name, b := range unzipAll(t, exported(t, a, tok, exportReq{Categories: []string{catSettings}, Sections: []string{"routers"}})) {
+		files[name] = string(b)
+	}
+	if !regexp.MustCompile(`(?m)^routers:\n\s+statusLabel: name\n`).MatchString(files["settings.yaml"]) {
+		t.Fatalf("settings.yaml:\n%s", files["settings.yaml"])
+	}
+	lifeCommit(t, a, func(cfg *config.Config) { cfg.RouterShow = "none" })
+	grantRecheck(a, c)
+	applied(t, postApply(t, a, tok, zipOf(t, files), importReq{Mode: importAdd}))
+	if got := a.r().cfg.RouterShow; got != "name" {
+		t.Fatalf("status label %q after the import", got)
+	}
+}

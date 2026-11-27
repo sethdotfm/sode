@@ -267,11 +267,6 @@ func TestSaveFieldsMatchPage(t *testing.T) {
 	if !reflect.DeepEqual(attrs, want) {
 		t.Fatalf("page ROUTER_ATTRS %v\nserver routerAttrs %v", attrs, want)
 	}
-	for k, attr := range jsObject(t, src, "FIRST_ROUTER_FIELDS") {
-		if _, ok := want[attr]; !ok {
-			t.Errorf("FIRST_ROUTER_FIELDS %s names %s, which is no router attribute", k, attr)
-		}
-	}
 	m := regexp.MustCompile(`ROUTER_RECONNECT = /\^router\\/\[\^/\]\+\\/\(([^)]*)\)\$/`).FindStringSubmatch(src)
 	if m == nil {
 		t.Fatal("no ROUTER_RECONNECT in savereviewrules.js")

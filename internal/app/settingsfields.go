@@ -1,12 +1,20 @@
 package app
 
+import (
+	"cmp"
+	"reflect"
+	"strings"
+
+	"github.com/sethdotfm/sode/internal/config"
+)
+
 // settingField: one plain Config key of the one Save. Adding a setting is one row here
 // (docs/agents/settings-saves.md). Item keys (a user's or an API client's attribute) are in
 // onesavefields.go.
 type settingField struct {
 	key, section, label string
-	// export: the settings.yaml group. It differs from section for maxPinLen and guestRights;
-	// "" is not in settings.yaml (routerShow, whose file name statusLabel differs from its key).
+	// export: the settings.yaml group. It differs from section for maxPinLen and guestRights. The
+	// group holds the key by its file name (statusLabel for routerShow), as config.yaml does.
 	export string
 	// source: written only by Manage users or the API section, never by the form.
 	source bool
@@ -34,10 +42,10 @@ var settingFields = []settingField{
 	{"guestApiScopes", "api", "Keyless API scopes", "api", true},
 	{"publicPanels", "panels", "Public panels allowed", "panels", false},
 	{"newPanelActs", "panels", "New-panel Authentication mode", "panels", false},
+	{"routerShow", "routers", "Status label", "routers", false},
 	{"tieHopWeight", "tie-lines", "Hop weight", "tie-lines", false},
 	{"trustedProxies", "proxy", "Trusted proxies", "proxy", false},
 	{"requireHttps", "proxy", "Require HTTPS", "proxy", false},
-	{"routerShow", "router-matrix", "Status label", "", false},
 }
 
 // saveFields: key to section. Every Config JSON key is here or saved apart
@@ -55,8 +63,10 @@ type exportSection struct {
 	Keys []string
 }
 
-// exportSections: the settings.yaml groups, which are data-section names in web/index.html.
+// exportSections: the settings.yaml groups, which are data-section names in web/index.html. Keys are the file names
+// of the config keys (the yaml tags), since settings.yaml is a part of config.yaml.
 var exportSections = func() []exportSection {
+	file := fileKeys()
 	var out []exportSection
 	for _, f := range settingFields {
 		if f.export == "" {
@@ -65,10 +75,25 @@ var exportSections = func() []exportSection {
 		if n := len(out); n == 0 || out[n-1].Name != f.export {
 			out = append(out, exportSection{Name: f.export})
 		}
-		out[len(out)-1].Keys = append(out[len(out)-1].Keys, f.key)
+		out[len(out)-1].Keys = append(out[len(out)-1].Keys, cmp.Or(file[f.key], f.key))
 	}
 	return out
 }()
+
+// fileKeys: the yaml name of each Config JSON key that has one. Only routerShow (statusLabel) differs today.
+func fileKeys() map[string]string {
+	out := map[string]string{}
+	t := reflect.TypeFor[config.Config]()
+	for i := range t.NumField() {
+		f := t.Field(i)
+		j, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		y, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")
+		if j != "" && j != "-" && y != "" && y != "-" {
+			out[j] = y
+		}
+	}
+	return out
+}
 
 // configKeys: the keys the form writes.
 func configKeys() []string {

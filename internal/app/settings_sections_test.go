@@ -3,7 +3,6 @@ package app
 import (
 	"encoding/json"
 	"io/fs"
-	"os"
 	"reflect"
 	"regexp"
 	"testing"
@@ -20,9 +19,8 @@ func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 	}
 	fieldset := regexp.MustCompile(`(?s)<fieldset class="sode__group[^"]*"[^>]*data-section="([^"]+)"[^>]*>(.*?)</fieldset>`)
 	// data-key fields, plus the form fields saveSettings reads by id (settingsform.js readForm).
-	field := regexp.MustCompile(`data-key="([^"]+)"|data-gpref="|id="(cfg-default|cfg-lvlnum|cfg-colors|cfg-lock-main|cfg-new-persistent)"`)
-	byID := map[string]string{"cfg-default": "defaultLevels", "cfg-lvlnum": "levelNumbering", "cfg-colors": "levelColors", "cfg-lock-main": "locks",
-		"cfg-new-persistent": "newUserDefaults"}
+	field := regexp.MustCompile(`data-key="([^"]+)"|data-gpref="|id="(cfg-colors|cfg-lock-main|cfg-new-persistent)"`)
+	byID := map[string]string{"cfg-colors": "levelColors", "cfg-lock-main": "locks", "cfg-new-persistent": "newUserDefaults"}
 	keys = map[string][]string{}
 	for _, m := range fieldset.FindAllStringSubmatch(string(b), -1) {
 		order = append(order, m[1])
@@ -47,8 +45,9 @@ func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 // Each key saves alone, the way a page sends it, and the test reads it back from the live config and config.yaml.
 func TestEverySettingsSectionSaves(t *testing.T) {
 	order, keys := settingsSections(t)
-	// Saved apart from the form: their own messages, or nothing to save yet.
-	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "router-levels": true, "api": true, "export-import": true, "run-setup-again": true}
+	// Saved apart from the form: their own messages, or nothing to save yet. The router settings are router keys of
+	// the detail view (onesave_routerkeys_test.go); Protects is a list.
+	apart := map[string]bool{"this-browser": true, "my-user": true, "protects": true, "api": true, "export-import": true, "run-setup-again": true}
 	values := map[string]any{
 		"browserDefaults":      config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "12", SetStack: "or", NextMode: "fuzzy", StackGap: "30", PaletteChar: "~"},
 		"brandText":            "Stage B",
@@ -59,22 +58,7 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 		"resultDismissSeconds": 9,
 		"tieHopWeight":         3,
 		"confirmEnter":         true,
-		"router":               "127.0.0.1:1",
-		"routerName":           "Studio B",
 		"routerShow":           "name",
-		"matrix":               2,
-		"levels":               20,
-		"levelWireOffset":      1,
-		"levelNumbering":       "0",
-		"numberOffset":         0,
-		"nameRereadSeconds":    120,
-		"nameLength":           16,
-		"nameRequests":         "ext",
-		"defaultLevels":        "1-2",
-		"tallyResyncSeconds":   30,
-		"fireMode":             "native",
-		"salvoGroup":           5,
-		"protectDevice":        126,
 		"pinWaits":             false,
 		"locks":                config.Locks{Main: true, Log: true, Panel: true},
 		"autoLockMinutes":      9,
@@ -84,11 +68,6 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 		"publicPanels":         false,
 		"newPanelActs":         "session",
 	}
-	src, err := os.ReadFile("../../web/savereviewrules.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	first := jsObject(t, string(src), "FIRST_ROUTER_FIELDS")
 	// Saved only from an HTTPS address through a trusted proxy; settings_https tests cover it.
 	skip := map[string]bool{"requireHttps": true}
 
@@ -112,16 +91,7 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 				continue
 			}
 			a := userApp(t, false)
-			// A field of the first router's own block saves as router/<uid>/<attribute>.
-			key := k
-			if attr, ok := first[k]; ok {
-				key = aKey(a, attr)
-				res, err := a.saveKeys(adminClient(t, a), map[string]any{key: want})
-				if r, f := firstRefused(res); err != nil || r != "" {
-					t.Errorf("%s: saving %s: %v %v", sec, key, err, f)
-					continue
-				}
-			} else if err := pageSave(t, a, adminClient(t, a), map[string]any{k: want}); err != nil {
+			if err := pageSave(t, a, adminClient(t, a), map[string]any{k: want}); err != nil {
 				t.Errorf("%s: saving %s: %v", sec, k, err)
 				continue
 			}
@@ -131,11 +101,8 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 			}
 			for where, c := range map[string]config.Config{"live": a.r().cfg, "config.yaml": loaded} {
 				got := jsonKey(t, c, k)
-				if key != k {
-					got = jsonValue(t, json.RawMessage(fieldJSON(c, key)))
-				}
 				if !reflect.DeepEqual(got, jsonValue(t, want)) {
-					t.Errorf("%s: %s in %s is %v, want %v", sec, key, where, got, want)
+					t.Errorf("%s: %s in %s is %v, want %v", sec, k, where, got, want)
 				}
 			}
 		}

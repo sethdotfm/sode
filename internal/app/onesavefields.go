@@ -132,19 +132,16 @@ func lookupField(key string) (fieldSpec, bool) {
 	return fieldSpec{}, false
 }
 
-// routerLevelsSection: Settings > Routers > Router levels, the level settings of each router.
-const routerLevelsSection = "router-levels"
-
 // routerAttrs: the `router/<uid>/<attribute>` keys of every router, the first router too, by the JSON name Sode sends,
-// each with its Settings section. Keep in step with ROUTER_ATTRS in web/savereviewrules.js.
+// each with its Settings section. Every one is in the detail view of its router, in Settings > Routers > Routers. Keep
+// in step with ROUTER_ATTRS in web/savereviewrules.js.
 var routerAttrs = []struct{ name, section string }{
 	{"prefix", routersSection}, {"title", routersSection}, {"address", routersSection}, {"matrix", routersSection},
-	{"levels", routerLevelsSection}, {"levelWireOffset", routerLevelsSection}, {"levelNumbering", routerLevelsSection},
-	{"defaultLevels", routerLevelsSection},
-	{"numberOffset", "router-matrix"},
-	{"nameRereadSeconds", "router-names"}, {"nameLength", "router-names"}, {"nameRequests", "router-names"},
-	{"tallyResyncSeconds", "takes"}, {"fireMode", "takes"}, {"salvoGroup", "takes"},
-	{"protectDevice", "protects"},
+	{"levels", routersSection}, {"levelWireOffset", routersSection}, {"levelNumbering", routersSection},
+	{"defaultLevels", routersSection}, {"numberOffset", routersSection},
+	{"nameRereadSeconds", routersSection}, {"nameLength", routersSection}, {"nameRequests", routersSection},
+	{"tallyResyncSeconds", routersSection}, {"fireMode", routersSection}, {"salvoGroup", routersSection},
+	{"protectDevice", routersSection},
 }
 
 // routerAttrNames: the names of routerAttrs, in order.

@@ -905,7 +905,7 @@ html {
     outline-offset: var(--pb-space-3);
   }
 }
-.sode__settings > :is(.sode__group, .sode__topic, .sode__router) {
+.sode__settings > :is(.sode__group, .sode__topic) {
   scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px));
 }
 /* Media rems are 16px, not the 125% root. Below about 1380px the centered form leaves no room on its left, so it moves right of the sidebar. */
@@ -935,7 +935,7 @@ html {
     flex-direction: column;
     overflow-x: hidden;
   }
-  .sode__settings > :is(.sode__group, .sode__topic, .sode__router) {
+  .sode__settings > :is(.sode__group, .sode__topic) {
     scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px));
   }
 }
@@ -1021,73 +1021,15 @@ html {
 .sode__settings > .sode__topic:first-of-type {
   margin-top: 0;
 }
-.sode__router {
-  border-top: var(--pb-border-w) solid var(--pb-accent);
-  color: var(--pb-text-strong);
-  font-size: var(--pb-text-lg);
-  font-weight: var(--pb-weight-bold);
-  margin: 0;
-  padding: var(--pb-space-3) var(--pb-space-5) 0;
-}
-/* The column's gap is for sections; a band or sub-heading sits close to the section under it. */
-.sode__settings > :is(.sode__topic, .sode__router) {
+/* The column's gap is for sections; a band sits close to the section under it. */
+.sode__settings > .sode__topic {
   margin-bottom: calc((var(--pb-space-10) + var(--pb-space-5)) * -0.6);
 }
-:is(.sode__topic, .sode__router) + .sode__group > legend {
+.sode__topic + .sode__group > legend {
   border-top: 0;
-}
-.sode__routers {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.sode__routers-row {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-4);
-}
-/* The rows of the routers after the first, and of the routers to add (settingsrouterlist.js). */
-.sode__routers-item {
-  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-3);
-  padding-top: var(--pb-space-4);
-}
-.sode__routers-item--removed .sode__fields {
-  opacity: 0.6;
-}
-.sode__routers-head,
-.sode__routers-acts {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-4);
-}
-.sode__routers-first-prefix {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--pb-space-3);
-}
-.sode__routers-prefix {
-  max-width: 5rem;
 }
 .sode__routers-uses {
   margin: var(--pb-space-2) 0;
-}
-.sode__routers-add {
-  align-self: flex-start;
-  margin-top: var(--pb-space-4);
-}
-/* Router levels: one block for each router after the first. */
-.sode__router-levels {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-4);
 }
 .sode__swap-list {
   margin-top: var(--pb-space-4);
@@ -1437,11 +1379,12 @@ html {
   color: var(--pb-text-strong);
   font-weight: var(--pb-weight-bold);
 }
-.sode__toc .sode__toc-sec,
-.sode__toc .sode__toc-router {
+.sode__toc .sode__toc-sec {
   padding-inline-start: var(--pb-space-6);
 }
-.sode__toc .sode__toc-sec--deep {
+/* An entry for each router under Routers > Routers (settingstoc.js setRouters). */
+.sode__toc .sode__toc-router {
+  font-size: var(--pb-text-sm);
   padding-inline-start: var(--pb-space-8);
 }
 .sode__toc .pb-tab[hidden] {
@@ -1465,7 +1408,7 @@ html {
   color: var(--pb-text-strong);
   font-weight: var(--pb-weight-bold);
 }
-.sode__settings > :is(.sode__group, .sode__topic, .sode__router)[hidden] {
+.sode__settings > :is(.sode__group, .sode__topic)[hidden] {
   display: none;
 }
 .sode__group > legend > .pb-badge[hidden] {

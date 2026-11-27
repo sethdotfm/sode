@@ -383,8 +383,7 @@ func TestStartRemovesImportStaging(t *testing.T) {
 // Every top-level config key is in one Settings section, or in exportNotSettings, so a new setting cannot
 // miss the export. The sections are the page's own.
 func TestExportSectionsCoverTheConfig(t *testing.T) {
-	// statusLabel: its key routerShow differs from its file name, and the export matches the two.
-	exportNotSettings := []string{"format", "installUid", "users", "presets", "filterSets", "apiClients", "bookmarks", "tieLines", "statusLabel"}
+	exportNotSettings := []string{"format", "installUid", "users", "presets", "filterSets", "apiClients", "bookmarks", "tieLines"}
 	where := map[string][]string{}
 	for _, s := range exportSections {
 		for _, k := range s.Keys {

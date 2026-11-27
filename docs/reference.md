@@ -42,7 +42,7 @@ Sode stores presets as numbers, so a rename on the router changes nothing. A num
 
 The Bookmarks strip above History holds your bookmarks: presets, pages, filter sets, settings or web addresses. Alt+1 to 9 open the first nine. Ctrl+g (⌘g on a Mac, **Show all** on the strip) opens a popup that lists all presets with a search box. Arrows or Ctrl+j/k move, Enter fires through the usual confirm, and Esc closes. In keyboard mode, `p` jumps to the bookmarks.
 
-Because a preset is one confirm of several routes, Sode sends it the way the **Multi destination** setting says, under Settings > Routers > Takes. See `SODE_FIRE_MODE` in the settings table below.
+A preset is one confirm of several routes. So Sode sends it the way the **Multi destination** setting of the router says (Settings > Routers, the Takes group). See `SODE_FIRE_MODE` in the settings table below.
 
 ### Last take and next
 
@@ -114,7 +114,7 @@ statusLabel: address
 | `SODE_NAMES` | `nameRequests` (router) | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
 | `SODE_FIRE_MODE` | `fireMode` (router) | `sequential` | How Sode sends a confirm of several takes: `sequential` (one connect after another, about 16 ms per crosspoint on the Ultrix) or `native` (the router's own salvos: a SW-P-08 group send, cmd 120/248 and 121, which needs a router that supports them; verified on the Ross Ultrix). Measured on the Ultrix on 2026-11-02, a group Go announces its crosspoints about 4 ms apart (51 in about 210 ms), against about 16 ms each for ordinary connects (51 in about 840 ms). Whether the switch itself is simultaneous is unproven. Level 17 and numbers past 1023 are staged with the extended stage command (248) in the same group send. If the router does not acknowledge it, Sode clears the router's own salvo group and sends the takes one after another as before |
 | `SODE_SALVO_GROUP` | `salvoGroup` (router) | `127` | The router's salvo group (0-127) that native salvos use. Every controller shares the router's staged list, so pick a group nothing else uses |
-| (none) | `protectDevice` (router) | `0` | Sode's device number for Protects (0 turns them off, at most 4095). Settings > Routers > Protects. Panel IDs and device numbers are one number space, and the router does not check who sends a number. So pick a number no panel uses (ADR 0012) |
+| (none) | `protectDevice` (router) | `0` | Sode's device number for Protects (0 turns them off, at most 4095). The Protects group of each router in Settings > Routers. Panel IDs and device numbers are one number space, and the router does not check who sends a number. So pick a number no panel uses (ADR 0012) |
 | `SODE_NUM_OFFSET` | `numberOffset` (router) | `1` | Added to router numbers for display (Ultrix shows 1-based) |
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | How long the confirm key is ignored after the dialog opens |
 | `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 keeps it open). Failures always stay until closed |
@@ -131,7 +131,7 @@ Settings-only keys (no seed var):
 - `brandText`: replaces "Sode" in the header and page title, up to 24 characters.
 - `brandBorder` (`blue`, `teal`, `sky`, `slate`, `violet`, or a custom `#rrggbb`): a border round the window, off by default. Sode makes the accent from it (docs/color-roles.md). `green`, `amber` and `pink` are retired: Settings does not offer them, but a config that has one still loads, with a caution note in Settings.
 - `title` (router): the router title, up to 32 characters.
-- `statusLabel` (`address`, `name` or `none`): the text next to the Routers icon in the status bar, one setting for every router. Older releases kept it on each router. A file with no top-level `statusLabel` takes the first router's, and Sode does not write the router's key again.
+- `statusLabel` (`address`, `name` or `none`): the text next to the Routers icon in the status bar, one setting for every router. It is Status label at the top of Settings > Routers > Routers. It exports in the `routers` group of settings.yaml. Older releases kept it on each router. A file with no top-level `statusLabel` takes the first router's, and Sode does not write the router's key again.
 - `levelColors`
 - `filterSets`
 - `tieLines`: the tie lines of Settings > Routers > Tie lines (Administrator). Each has a hidden `id` and a `name`, the Tie line name (unique, up to 32 characters). `from` is a destination, `{router, n}`, and `to` is a source on another router. Each end also keeps its router `name` from the save. Sode fills a blank `name` from the source name. The section saves each change at once, apart from the Save button, and needs two or more routers.

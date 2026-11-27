@@ -1,0 +1,11 @@
+- Settings > Routers has three sections: Routers, Tie lines and Protects. Router levels, Router & matrix, Router names, Takes and the block of the first router are gone.
+- The Routers section is a list of the routers and the settings of the router that you select. Every router has the same settings in the same place: Router, Connection, Levels, Router names, Takes, Protects and Tie lines.
+- Each row of the list shows the prefix, the Router title, the address and the link state as an icon and words. The first row has the mark Default. A row with changes has the mark New, Edited or Remove on Save. A line above the list counts the routers and their link states, for example "4 routers. 3 connected, 1 down."
+- With one router the list does not show and the Prefix field does not show. With 8 or more routers a find box and "Only routers with a problem" show.
+- Level numbering is three buttons that show the real range of the router, for example "1–17", "0–16" and "V, 1–16". The settings show a row of the level chips of the router.
+- Sode checks a router setting when you leave the field and shows the error under the field. Sode checks Matrix against Name requests. Save names each router and setting with an error.
+- Add router opens a new router with every setting. Swap… acts on the router that you select.
+- Settings search finds a router setting once for each router and names the router. A pick selects that router.
+- The status label is at the top of the Routers section. It is now in the settings export, and an import sets it.
+- Protects is its own section. A router with Protect off links to its settings.
+- A pinned or bookmarked router setting from an older release still opens the setting.

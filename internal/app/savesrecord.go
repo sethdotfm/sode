@@ -23,10 +23,6 @@ var sectionNames = map[string]string{
 	"confirm":           "Confirm and results",
 	"routers":           "Routers",
 	"tie-lines":         "Tie lines",
-	"router-levels":     "Router levels",
-	"router-matrix":     "Router & matrix",
-	"router-names":      "Router names",
-	"takes":             "Takes",
 	"protects":          "Protects",
 	"locks":             "Locks",
 	"users":             "Users",
@@ -41,7 +37,7 @@ func topicOf(section string) string {
 	switch section {
 	case "this-browser", "my-user":
 		return "Preferences"
-	case "routers", "tie-lines", "router-levels", "router-matrix", "router-names", "takes", "protects":
+	case "routers", "tie-lines", "protects":
 		return "Routers"
 	case "locks", "users", "api", "panels":
 		return "Access"
@@ -59,8 +55,8 @@ var attrLabels = map[string]string{
 // routerAttrLabels: the labels of the router keys, as the first router's fields name them.
 var routerAttrLabels = map[string]string{
 	"levels": "Levels", "levelWireOffset": "Level offset", "levelNumbering": "Level numbering", "defaultLevels": "Default levels",
-	"prefix": "Prefix", "title": "Title", "address": "Address", "matrix": "Matrix", "remove": "Remove",
-	"numberOffset": "Source and destination numbers", "nameRereadSeconds": "Re-read every (s)",
+	"prefix": "Prefix", "title": "Router title", "address": "Address", "matrix": "Matrix", "remove": "Remove",
+	"numberOffset": "Source and destination numbers", "nameRereadSeconds": "Re-read names every (s)",
 	"nameLength": "Name character limit", "nameRequests": "Name requests", "tallyResyncSeconds": "Re-read routes every (s)",
 	"fireMode": "Multi destination", "salvoGroup": "Router salvo group", "protectDevice": "Sode's device number",
 }

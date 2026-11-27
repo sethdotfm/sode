@@ -36,8 +36,8 @@ func TestChromeSwap(t *testing.T) {
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	b.waitFor("Swap offered on the Routers row", `!!document.getElementById('router-1-swap')?.offsetParent`)
-	b.eval(`document.getElementById('router-1-swap').click(); true`)
+	b.waitFor("Swap offered in the router's detail view", `!!document.getElementById('router-swap')?.offsetParent`)
+	b.eval(`document.getElementById('router-swap').click(); true`)
 	b.waitFor("Swap dialog open", `!!document.getElementById('swap-from')?.offsetParent`)
 	b.eval(`(() => {
 		const f = document.getElementById('swap-from'), to = document.getElementById('swap-to');
@@ -89,8 +89,8 @@ func TestChromeSwapTieLines(t *testing.T) {
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	b.waitFor("Swap offered on the Routers row", `!!document.getElementById('router-1-swap')?.offsetParent`)
-	b.eval(`document.getElementById('router-1-swap').click(); true`)
+	b.waitFor("Swap offered in the router's detail view", `!!document.getElementById('router-swap')?.offsetParent`)
+	b.eval(`document.getElementById('router-swap').click(); true`)
 	b.waitFor("Swap dialog open", `!!document.getElementById('swap-from')?.offsetParent`)
 	b.eval(`(() => {
 		const f = document.getElementById('swap-from'), to = document.getElementById('swap-to');
