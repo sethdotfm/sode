@@ -91,7 +91,15 @@ function place(r) {
 const label = (r) => srcOf(r.key).label(r);
 const show = (r, v) => srcOf(r.key).show(r, v);
 
+// With two or more routers a field of the first router's own block carries the router's name, as the other routers'
+// rows do (settingsrouterlist.js).
 function formLabel(r) {
+  const own = fieldset(r.key)?.dataset.router && S.routers.length > 1;
+  const text = plainLabel(r);
+  return own ? `${routerDisplay(S.routers[0])}: ${text}` : text;
+}
+
+function plainLabel(r) {
   if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
   if (r.key === 'newUserDefaults') return `New user defaults: ${checkText($(r.sub === 'persistent' ? 'cfg-new-persistent' : 'cfg-new-no-auto-lock')) || r.sub}`;
   if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;

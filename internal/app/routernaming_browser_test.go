@@ -57,3 +57,54 @@ func TestChromeReconnectConfirmNamesEachRouter(t *testing.T) {
 	}
 	b.check()
 }
+
+// twoNamedRouters: an Administrator Settings page on two routers, "A Studio A" and "B Stage 2". It gives the App and
+// router B's UID.
+func twoNamedRouters(t *testing.T, b *tab) (*App, string) {
+	t.Helper()
+	simA, simB := startSim(t), startSim(t)
+	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
+		c.Users[0].Role = config.RoleAdministrator
+		c.Title, c.MoreRouters[0].Title = "Studio A", "Stage 2"
+	})
+	srv := seamServer(t, a)
+	uid := routerUIDs(a)[1]
+	b.open(srv.URL + "/#settings")
+	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
+	signInSettings(b)
+	b.waitFor("router B's row", `!!document.getElementById('cfg-rt-`+uid+`-address')`)
+	return a, uid
+}
+
+// typeField types v into the field and sends its input event.
+func typeField(b *tab, id, v string) {
+	b.t.Helper()
+	b.eval(`(() => { const f = document.getElementById('` + id + `'); f.value = '` + v + `'; f.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
+}
+
+// With two routers, review rows and refusals name each router by prefix and Router title, the first router too.
+func TestChromeReviewNamesEveryRouter(t *testing.T) {
+	b := startBrowser(t)
+	_, uid := twoNamedRouters(t, b)
+	typeField(b, "cfg-router", "nohost")
+	typeField(b, "cfg-rt-"+uid+"-address", "nohost2")
+	b.eval(`document.getElementById('settings-save').click(); true`)
+	b.waitFor("each row names its router", `(() => {
+		const d = document.getElementById('review');
+		if (!d?.offsetParent) return false;
+		const rows = [...d.querySelectorAll('tbody tr')].map((r) => r.cells[0]?.textContent || '');
+		return rows.includes('A Studio A: Address') && rows.includes('B Stage 2: Address');
+	})()`)
+	// Save, Save and reconnect, then the PIN recheck.
+	b.waitFor("PIN recheck asked", `(() => {
+		if (document.getElementById('review')?.offsetParent) document.getElementById('review-save').click();
+		return !!document.getElementById('recheck-pin')?.offsetParent;
+	})()`)
+	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
+	b.waitFor("each refusal names its router and says address", `(() => {
+		const m = (k) => document.querySelector('.sode__refused[data-refused="' + k + '"]')?.textContent || '';
+		return m('router') === 'Not saved. A Studio A: address must be host:port, for example 10.0.0.50:8910.'
+			&& m('router/`+uid+`/address') === 'Not saved. B Stage 2: address must be host:port, for example 10.0.0.50:8910.';
+	})()`)
+	b.check()
+}

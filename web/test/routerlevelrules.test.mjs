@@ -39,10 +39,11 @@ test('a new level count reads the default levels against it', () => {
 });
 
 test('routerLevelsProblem names the router and the field', () => {
+  // The caller passes routerDisplay of the router: its prefix and Router title.
   const ok = { levels: 4, levelWireOffset: 0, levelNumbering: '1', defaultLevels: '1-4' };
-  assert.equal(routerLevelsProblem('B', ok), '');
-  assert.match(routerLevelsProblem('B', { ...ok, levels: NaN }), /^Router B: Levels/);
-  assert.match(routerLevelsProblem('B', { ...ok, levels: 300 }), /^Router B: Levels/);
-  assert.match(routerLevelsProblem('B', { ...ok, levelWireOffset: NaN }), /^Router B: Level offset/);
-  assert.match(routerLevelsProblem('B', { ...ok, defaultLevels: null }), /^Router B: Default levels/);
+  assert.equal(routerLevelsProblem('B Stage 2', ok), '');
+  assert.match(routerLevelsProblem('B Stage 2', { ...ok, levels: NaN }), /^B Stage 2: Levels/);
+  assert.match(routerLevelsProblem('B Stage 2', { ...ok, levels: 300 }), /^B Stage 2: Levels/);
+  assert.match(routerLevelsProblem('B Stage 2', { ...ok, levelWireOffset: NaN }), /^B Stage 2: Level offset/);
+  assert.match(routerLevelsProblem('B Stage 2', { ...ok, defaultLevels: null }), /^B Stage 2: Default levels/);
 });

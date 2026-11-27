@@ -5,6 +5,7 @@
 import { $, S, el, on, routerData } from './core.js';
 import { addSaveSource } from './savesources.js';
 import { diffRows, showValue } from './savereviewrules.js';
+import { routerDisplay } from './routerlistrules.js';
 import {
   routerKey,
   routerLevelsOf,
@@ -64,7 +65,7 @@ function block(r) {
     ),
   );
   node.dataset.router = r.uid;
-  return { uid: r.uid, prefix: r.prefix, inputs, node };
+  return { uid: r.uid, prefix: r.prefix, name: routerDisplay(r), inputs, node };
 }
 
 const values = (b) =>
@@ -117,12 +118,12 @@ addSaveSource({
   base: () => base,
   now,
   version: (key) => vers[key],
-  label: (r) => `Router ${blockOf(r.key)?.prefix || ''}: ${ATTRS[attrOf(r.key)]}`,
+  label: (r) => `${blockOf(r.key)?.name || 'Router'}: ${ATTRS[attrOf(r.key)]}`,
   show: (r, v) => (attrOf(r.key) === 'levelNumbering' ? numberingText(v) : showValue(v)),
   node: (key) => $(idOf(blockOf(key)?.uid, attrOf(key))),
   problem() {
     for (const b of blocks) {
-      const p = routerLevelsProblem(b.prefix, values(b));
+      const p = routerLevelsProblem(b.name, values(b));
       if (p) return p;
     }
     return '';

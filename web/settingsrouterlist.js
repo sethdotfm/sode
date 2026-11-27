@@ -17,6 +17,7 @@ import {
   listKey,
   readRouter,
   removeKey,
+  routerDisplay,
   routerListProblem,
   usesNote,
 } from './routerlistrules.js';
@@ -239,6 +240,8 @@ $('router-add').addEventListener('click', addRow);
 
 const blockOf = (key) => blocks.find((b) => b.uid === keyRouter(key));
 const prefixOf = (key) => (first && keyRouter(key) === first.uid ? first.prefix : blockOf(key)?.prefix || '');
+// The shown name of a key's router as loaded: its prefix and Router title (routerDisplay).
+const nameOf = (key) => routerDisplay(S.routers.find((r) => r.uid === keyRouter(key)) || { prefix: prefixOf(key) });
 
 addSaveSource({
   owns: (key) => LIST_KEY.test(key),
@@ -248,8 +251,8 @@ addSaveSource({
   label(r) {
     const attr = keyAttr(r.key);
     if (attr === 'add') return `New router ${now()[r.key]?.prefix || ''}`.trim();
-    if (attr === 'remove') return `Remove router ${prefixOf(r.key)}`;
-    return `Router ${prefixOf(r.key)}: ${ATTR_LABELS[attr]}`;
+    if (attr === 'remove') return `Remove ${nameOf(r.key)}`;
+    return `${nameOf(r.key)}: ${ATTR_LABELS[attr]}`;
   },
   show(r, v) {
     const attr = keyAttr(r.key);
@@ -266,8 +269,8 @@ addSaveSource({
   problem() {
     const rows = [];
     const r0 = S.routers[0];
-    if (r0) rows.push({ name: `Router ${r0.prefix}`, prefix: first ? readRouter({ prefix: first.input.value }).prefix : r0.prefix, title: '', matrix: 0 });
-    for (const b of blocks) if (!removed.has(b.uid)) rows.push({ name: `Router ${b.prefix}`, ...values(b) });
+    if (r0) rows.push({ name: routerDisplay(r0), prefix: first ? readRouter({ prefix: first.input.value }).prefix : r0.prefix, title: '', matrix: 0 });
+    for (const b of blocks) if (!removed.has(b.uid)) rows.push({ name: nameOf(listKey(b.uid, 'prefix')), ...values(b) });
     for (const x of adds) rows.push({ name: 'The new router', ...values(x) });
     return routerListProblem(rows);
   },
