@@ -1,6 +1,6 @@
-// Settings > Routers > Router levels: the level settings of each router after the first, as the one Save keys
-// router/<uid>/<attribute> (docs/agents/settings-saves.md). The first router's are the plain keys of its own block.
-// Pure, no page state (Node-tested).
+// The level settings of a router, as the one Save keys router/<uid>/<attribute> (docs/agents/settings-saves.md). The
+// Levels group of the detail view in Settings > Routers reads them (routerdetailrules.js). Pure, no page state
+// (Node-tested).
 
 import { parseLevelsAs, levelInputOf } from './levels.js';
 
