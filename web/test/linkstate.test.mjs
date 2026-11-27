@@ -2,7 +2,7 @@
 // and Down, the Degraded note's words, and the /log rules for each router.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { routerLinks, routerLink, routerMarks, lost, wholeState, degradedLine, DEGRADED_NAMES_MAX } from '../routerlinkrules.js';
+import { routerLinks, routerLink, barMark, lost, wholeState, degradedLine, DEGRADED_NAMES_MAX } from '../routerlinkrules.js';
 import { logPasses, pressRouter, routerWord, linkResult } from '../logfilter.js';
 import { logCSV, statesCSV, minutesCSV, LOG_COLS } from '../logfile.js';
 
@@ -51,15 +51,9 @@ test('wholeState: Healthy, Degraded and Down', () => {
   assert.equal(wholeState([link('A', 'down')]), 'down');
 });
 
-test('Degraded: only the down router is red', () => {
-  const marks = routerMarks([link('A', 'up'), link('B', 'down')]);
-  assert.deepEqual(
-    marks.map((m) => [m.label, m.state]),
-    [
-      ['Router A', 'ok'],
-      ['Router B', 'error'],
-    ],
-  );
+test('Degraded: the one Routers icon is amber and counts the down router', () => {
+  const m = barMark([link('A', 'up'), link('B', 'down')]);
+  assert.deepEqual([m.word, m.state], ['1 of 2 down', 'warn']);
 });
 
 test('the Degraded note names the router and its destinations', () => {
