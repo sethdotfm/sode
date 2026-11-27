@@ -241,7 +241,8 @@ function makeBox(root) {
     // A status with no room on its left (the setup wizard's bar) opens the list rightward.
     if (pop.getBoundingClientRect().left < 0) pop.classList.add('sode-statusinfo--start');
     tick = setInterval(paint, 30_000);
-    (find.hidden ? list.querySelector('.sode-routerlist__head') : find)?.focus({ preventScroll: true });
+    // The phone gets no focus in the find box, since that opens the on-screen keyboard over the list.
+    (find.hidden || layout() === 'phone' ? list.querySelector('.sode-routerlist__head') : find)?.focus({ preventScroll: true });
   }
 
   // back: focus goes back to the Routers button.

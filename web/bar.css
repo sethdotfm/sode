@@ -197,18 +197,23 @@
 :has(> .sode__conn > .sode-statusinfo:not([hidden])) {
   z-index: var(--pb-z-tooltip);
 }
-/* The phone header: the list is as wide as the screen, under the header. */
+/* The phone header places the router list. */
 .sode-m__head {
   position: relative;
 }
+/* The phone header: the list is as wide as the screen, under the header. The Lost link banner can make the phone view
+   wider than the screen, so the width also has a limit. */
 .sode-m__head > .sode-statusinfo {
   left: var(--pb-space-3);
+  max-width: calc(100vw - 2 * var(--pb-space-3));
   right: var(--pb-space-3);
   top: 100%;
   width: auto;
 }
+/* The phone's Lost link banner is a flex item under the header with its own z-index (base.css), so the open list goes
+   over it. */
 .sode-m__head:has(> .sode-statusinfo:not([hidden])) {
-  z-index: var(--pb-z-tooltip);
+  z-index: calc(var(--pb-z-toast) + 3);
 }
 .sode-statusinfo__rows {
   display: grid;
