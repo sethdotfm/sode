@@ -388,6 +388,7 @@ type inMsg struct {
 	Approval     *approvalReq       `json:"approval"` // an Approval in person for this one message
 	approver     *config.User       // approve sets it after it checks the Approval's PIN
 	Router       string             `json:"router"`  // setupRouter: the address typed; routerUses and uptime: the router UID
+	Routers      []string           `json:"routers"` // protectClearAll: the router UIDs to act on; none is every router
 	Setup        *setupReq          `json:"setup"`   // setupFinish
 	TakeOver     bool               `json:"take"`    // setupClaim: Take control from the browser that runs setup
 	For          *inMsg             `json:"for"`     // approvalAsk: the action to approve

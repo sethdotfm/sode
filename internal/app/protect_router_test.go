@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -121,7 +122,7 @@ func TestClearSodeProtectsOnEveryRouter(t *testing.T) {
 	ana := signedClient(t, a, "Ana", "1234")
 	protEntry(t, a.protectSet(ana, 1, nil))
 	protEntry(t, a.protectMany(ana, []protectDst{{Dst: 2, Router: u.uid()}}, true, nil)[0])
-	if n, still, err := a.clearSodeProtects(adminClient(t, a)); n != 2 || still != nil || err != nil {
+	if n, still, _, err := a.clearSodeProtects(adminClient(t, a), nil); n != 2 || still != nil || err != nil {
 		t.Fatalf("cleared %d, still %v, err %v", n, still, err)
 	}
 	if len(first.holdsOn(1)) != 0 || len(second.holdsOn(2)) != 0 {
@@ -138,11 +139,55 @@ func TestClearSodeProtectsOnEveryRouter(t *testing.T) {
 	a.mu.Lock()
 	u.status.Router = string(swp08.StateDown)
 	a.mu.Unlock()
-	if n, _, err := a.clearSodeProtects(adminClient(t, a)); n != 1 || err != nil {
+	n, _, per, err := a.clearSodeProtects(adminClient(t, a), nil)
+	if n != 1 || err != nil {
 		t.Fatalf("cleared %d, err %v", n, err)
 	}
 	if len(second.holdsOn(2)) != 3 {
 		t.Fatalf("B holds %v", second.holdsOn(2))
+	}
+	want := []protectClearRouter{{Router: a.firstUnit().uid(), Cleared: 1}, {Router: u.uid(), Err: "the router is down"}}
+	if !slices.Equal(per, want) {
+		t.Fatalf("per router %+v, want %+v", per, want)
+	}
+}
+
+// The hello gives a router that is not up the time its link went down, the age of its Protect rows. An up router has
+// none.
+func TestHelloGivesProtectAtOfALostRouter(t *testing.T) {
+	a, _, _, u := protectTwoRouters(t)
+	before := time.Now()
+	a.onUnitState(u, swp08.StateDown, nil)
+	a.mu.Lock()
+	rs := a.helloRouters(a.r())
+	a.mu.Unlock()
+	if !rs[0].ProtectAt.IsZero() {
+		t.Fatalf("the up router has protectAt %v", rs[0].ProtectAt)
+	}
+	if rs[1].ProtectAt.Before(before) {
+		t.Fatalf("the lost router has protectAt %v, want after %v", rs[1].ProtectAt, before)
+	}
+}
+
+// Free Sode's Protects with routers acts only on those routers, and names one it does not know.
+func TestClearSodeProtectsOnPickedRouters(t *testing.T) {
+	a, first, second, u := protectTwoRouters(t)
+	ana := signedClient(t, a, "Ana", "1234")
+	protEntry(t, a.protectSet(ana, 1, nil))
+	protEntry(t, a.protectMany(ana, []protectDst{{Dst: 2, Router: u.uid()}}, true, nil)[0])
+	n, _, per, err := a.clearSodeProtects(adminClient(t, a), []string{u.uid(), "nope"})
+	if n != 1 || err != nil {
+		t.Fatalf("cleared %d, err %v", n, err)
+	}
+	if len(first.holdsOn(1)) != 3 || len(second.holdsOn(2)) != 0 {
+		t.Fatalf("A holds %v, B holds %v", first.holdsOn(1), second.holdsOn(2))
+	}
+	want := []protectClearRouter{{Router: u.uid(), Cleared: 1}, {Router: "nope", Err: "no such router"}}
+	if !slices.Equal(per, want) {
+		t.Fatalf("per router %+v, want %+v", per, want)
+	}
+	if _, _, _, err := a.clearSodeProtects(adminClient(t, a), []string{"nope"}); err == nil {
+		t.Fatal("no router to act on, and no error")
 	}
 }
 

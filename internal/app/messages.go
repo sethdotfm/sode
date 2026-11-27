@@ -111,6 +111,9 @@ type helloRouter struct {
 	ProtectBy []protectBy     `json:"protectBy,omitempty"`
 	// ProtectDevice is Sode's device number on this router (0: Protect is off), so the page offers Protect there.
 	ProtectDevice int `json:"protectDevice"`
+	// ProtectAt: while the link is not up, when it went down, so the page can say how old its Protect rows are. Zero
+	// while up, or when the link was never up in this run.
+	ProtectAt time.Time `json:"protectAt,omitzero"`
 }
 
 type helloUser struct {

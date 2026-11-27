@@ -64,7 +64,7 @@ func TestClearSodeProtectsIsOneGroup(t *testing.T) {
 	protEntry(t, a.protectSet(ana, 4, nil))
 	protEntry(t, a.protectSet(ana, 5, nil))
 	before := a.hist.Len()
-	if n, still, err := a.clearSodeProtects(adminClient(t, a)); n != 2 || still != nil || err != nil {
+	if n, still, _, err := a.clearSodeProtects(adminClient(t, a), nil); n != 2 || still != nil || err != nil {
 		t.Fatalf("freed %d, still %v, %v", n, still, err)
 	}
 	es, _ := a.hist.Page(-1, a.hist.Len()-before)

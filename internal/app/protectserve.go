@@ -91,6 +91,8 @@ type protectClearAllResultMsg struct {
 	Cleared  int    `json:"cleared,omitempty"` // the destinations it freed
 	Recheck  bool   `json:"recheck,omitempty"`
 	Approval bool   `json:"approval,omitempty"`
+	// Routers: what it did on each router it was to act on (clearSodeProtects).
+	Routers []protectClearRouter `json:"routers,omitempty"`
 }
 
 func protectReplyOf(dst int, o protectOutcome) protectDstReply {
@@ -264,8 +266,8 @@ func refuseProtect(a *App, c *client, m *inMsg, err error) {
 func (a *App) serveProtectClearAll(c *client, m *inMsg) {
 	go func() {
 		defer m.finish()
-		n, still, err := a.clearSodeProtects(c)
-		res := protectClearAllResultMsg{T: "protectClearAllResult", ID: m.ID, OK: err == nil && len(still) == 0, Cleared: n}
+		n, still, per, err := a.clearSodeProtects(c, m.Routers)
+		res := protectClearAllResultMsg{T: "protectClearAllResult", ID: m.ID, OK: err == nil && len(still) == 0, Cleared: n, Routers: per}
 		note := fmt.Sprintf("%d freed", n)
 		if err == nil && len(still) > 0 {
 			err = fmt.Errorf("%d %s still Protected", len(still), plural(len(still), "destination is", "destinations are"))
