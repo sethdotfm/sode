@@ -1,13 +1,15 @@
 // Settings > Routers > Tie lines (Administrator): add, edit and remove tie lines. The list is cfg.tieLines and saves whole
 // with the `tieLines` message, apart from the one Save. Rules are in tielinerules.js; the server checks them again.
 // One-off tie lines in use come from the `oneOffTieLines` message (internal/app/tieoneoff.go). Save as tie line adds
-// one to the list.
+// one to the list. Remove asks the churning-letter Confirm (confirmbox.js) under the row; the change stays instant
+// after it, apart from the one Save. The result shows where the row was.
 
 import { $, el, S, on, onMsg, emit, request, routerData } from './core.js';
 import { btn, opt } from './formbits.js';
+import { confirmBox } from './confirmbox.js';
 import { readJSON, writeJSON } from './store.js';
 import { suggest, suggestSig, acceptName } from './tielinesuggest.js';
-import { listProblem, fillName, upsert, without, wireNumber, otherRouter, movedLines } from './tielinerules.js';
+import { listProblem, fillName, upsert, without, wireNumber, otherRouter, movedLines, removeQuestion } from './tielinerules.js';
 
 const list = $('tielines-list');
 const form = $('tielines-form');
@@ -28,6 +30,12 @@ const oneOffList = $('tielines-oneoffs-list');
 // editing: the id of the tie line in the form, or '' for a new one. auto: the name that Sode filled last.
 let editing = '';
 let auto = '';
+// The Remove Confirm. asking: the id of the tie line it asks about. removed: {at, text}, the result of the last
+// Remove, shown at the place of its row until the next Remove.
+const confirm = confirmBox(list.closest('fieldset'));
+const confirmRow = el('li', 'sode__tielines-confirm', confirm.node);
+let asking = '';
+let removed = null;
 
 const tieLines = () => (Array.isArray(S.cfg?.tieLines) ? S.cfg.tieLines : []);
 const uids = () => S.routers.map((r) => r.uid);
@@ -46,7 +54,7 @@ function row(t) {
   const now = () => tieLines().find((x) => x.id === t.id) || t;
   const edit = btn('pb-btn--outline pb-btn--sm', 'Edit', () => startEdit(now()));
   edit.setAttribute('aria-label', `Edit ${t.name}`);
-  const remove = btn('pb-btn--outline pb-btn--sm', 'Remove', () => save(without(tieLines(), t.id), `Removed ${now().name}.`));
+  const remove = btn('pb-btn--outline pb-btn--sm', 'Remove', () => askRemove(now()));
   remove.setAttribute('aria-label', `Remove ${t.name}`);
   // Name moved: the tie line works on. Edit and Save tie line store the names now.
   const moved = movedLines(t, (r) => `${routerData(r.router).prefix}.${shownNum(r.router, r.n)}`);
@@ -64,6 +72,20 @@ function row(t) {
   );
   li.dataset.id = t.id;
   return li;
+}
+
+async function askRemove(t) {
+  removed = null;
+  asking = t.id;
+  render();
+  const ok = await confirm.ask(removeQuestion(t, `${endText(t.from, 'dst')} feeds ${endText(t.to, 'src')}`, S.cfg?.presets || []), 'Remove');
+  if (asking !== t.id) return;
+  asking = '';
+  const at = tieLines().findIndex((x) => x.id === t.id);
+  if (!ok) return render();
+  const text = `Removed ${t.name}.`;
+  if (await save(without(tieLines(), t.id), text)) removed = { at, text };
+  render();
 }
 
 // Dismissed suggestions stay in this browser, by their two ends. A dismissal is no setting of the server.
@@ -127,12 +149,12 @@ function showOneOffs() {
   oneOffList.replaceChildren(...oneOffs.map(oneOffRow));
 }
 
-let asking = 0;
+let oneOffSeq = 0;
 async function askOneOffs() {
   if (!admin) return;
-  const seq = ++asking;
+  const seq = ++oneOffSeq;
   const m = await request('oneOffTieLines', { t: 'oneOffTieLines' });
-  if (seq !== asking) return;
+  if (seq !== oneOffSeq) return;
   const next = Array.isArray(m.oneOffs) ? m.oneOffs : [];
   if (JSON.stringify(next) === JSON.stringify(oneOffs)) return;
   oneOffs = next;
@@ -233,7 +255,15 @@ function render() {
   const two = S.routers.length >= 2;
   form.hidden = !two;
   const rows = tieLines().map(row);
+  if (removed) rows.splice(Math.max(0, removed.at), 0, el('li', 'sode__hint sode__tielines-removed', removed.text));
   if (!rows.length) rows.push(el('li', 'sode__hint', two ? 'No tie lines.' : 'Tie lines need two or more routers.'));
+  // The Confirm stays under its row while the list draws again.
+  const at = asking ? rows.findIndex((r) => r.dataset.id === asking) : -1;
+  if (asking && at < 0) {
+    asking = '';
+    confirm.cancel();
+  }
+  if (at >= 0) rows.splice(at + 1, 0, confirmRow);
   list.replaceChildren(...rows);
   showSuggestions(two ? suggestions() : { shown: [], more: 0 });
   if (!two) return;

@@ -2,3 +2,4 @@
 - Settings: with two or more routers, every Save review row and every error names its router by prefix and Router title ("A Studio A: Address"). This includes the first router. The address error now says "address must be host:port".
 - Settings: Swap… is on the row of each router, and the Swap dialog has a Router select. Before, Swap worked only on the first router.
 - Settings: the title field of every router is labelled "Router title". The first router's field said "Name", and the others said "Title". With two or more routers the first router's heading shows its prefix too ("A Studio A").
+- Settings > Tie lines: Remove asks a Confirm with the churning letter and lockout, under the row. It names the tie line, its ends and Everyone's presets that store it. The result shows where the row was. Tie line changes still save at once.

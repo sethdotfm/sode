@@ -1122,6 +1122,17 @@ html {
   flex-wrap: wrap;
   gap: var(--pb-space-4);
 }
+/* The Remove Confirm under a tie line row (confirmbox.js), drawn as #protects-confirm draws it. */
+.sode__tielines-confirm > .sode-ov__keyconfirm {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4);
+}
+.sode__tielines-confirm > .sode-ov__keyconfirm[hidden] {
+  display: none;
+}
 .sode__tielines-acts {
   display: flex;
   flex-wrap: wrap;

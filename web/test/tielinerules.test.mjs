@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { tieLineProblem, listProblem, fillName, upsert, without, wireNumber, otherRouter, movedLines } from '../tielinerules.js';
+import { tieLineProblem, listProblem, fillName, upsert, without, wireNumber, otherRouter, movedLines, removeQuestion } from '../tielinerules.js';
 
 const shared = JSON.parse(readFileSync(new URL('./tieline_cases.json', import.meta.url), 'utf8'));
 
@@ -78,4 +78,17 @@ test('movedLines: each Name moved end, with the stored name and the name now', (
     ],
   };
   assert.deepEqual(movedLines(t, shown), ['A.2 was TO STAGE 2, now no name', 'B.1 was FROM STAGE 1, now FROM STAGE ONE']);
+});
+
+test('removeQuestion names the tie line, its ends and the shared presets that store it', () => {
+  const t = { id: 't1', name: 'TIE AB 1' };
+  const presets = [
+    { name: 'Studio feed', items: [{ ties: ['t1'] }] },
+    { name: 'Other', items: [{ ties: ['t2'] }, {}] },
+  ];
+  assert.equal(
+    removeQuestion(t, 'A.21 MV 8 feeds B.31 SRC 031', presets),
+    "Remove tie line TIE AB 1? A.21 MV 8 feeds B.31 SRC 031. A preset that stores this tie line becomes Broken. Everyone's presets that store it: Studio feed.",
+  );
+  assert.equal(removeQuestion(t, 'A.21 feeds B.31'), 'Remove tie line TIE AB 1? A.21 feeds B.31. A preset that stores this tie line becomes Broken.');
 });
