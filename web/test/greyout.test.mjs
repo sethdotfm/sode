@@ -8,7 +8,8 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 const setup = async () => {
   const mod = await import('./all.mjs');
   const { S, routerData } = mod;
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   S.ws = {};
   S.wsState = 'up';
   routerData('').link = 'up';

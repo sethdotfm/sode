@@ -96,9 +96,9 @@ routers:
     prefix: A
     title: Studio Ultrix
     address: 10.0.0.50:8910
-    statusLabel: address
     matrix: 0
     levels: 17
+statusLabel: address
 ```
 
 
@@ -131,7 +131,7 @@ Settings-only keys (no seed var):
 - `brandText`: replaces "Sode" in the header and page title, up to 24 characters.
 - `brandBorder` (`blue`, `teal`, `sky`, `slate`, `violet`, or a custom `#rrggbb`): a border round the window, off by default. Sode makes the accent from it (docs/color-roles.md). `green`, `amber` and `pink` are retired: Settings does not offer them, but a config that has one still loads, with a caution note in Settings.
 - `title` (router): the router title, up to 32 characters.
-- `statusLabel` (router: `address`, `name` or `none`): what the Router status shows.
+- `statusLabel` (`address`, `name` or `none`): the text next to the Routers icon in the status bar, one setting for every router. Older releases kept it on each router. A file with no top-level `statusLabel` takes the first router's, and Sode does not write the router's key again.
 - `levelColors`
 - `filterSets`
 - `tieLines`: the tie lines of Settings > Routers > Tie lines (Administrator). Each has a hidden `id` and a `name`, the Tie line name (unique, up to 32 characters). `from` is a destination, `{router, n}`, and `to` is a source on another router. Each end also keeps its router `name` from the save. Sode fills a blank `name` from the source name. The section saves each change at once, apart from the Save button, and needs two or more routers.
@@ -211,10 +211,10 @@ Sode checks each file as it checks an upload. It must be PNG or SVG, at most 2 M
 `GET /api/health` reports the server, the state of Sode as a whole and each router. It needs no PIN and shows no settings:
 
 ```json
-{"server":"up","state":"degraded","routers":[{"uid":"3f9c...","prefix":"A","title":"Main","router":"up","targetAddress":"10.0.0.1:8910"},{"uid":"7d21...","prefix":"B","title":"Stage 2","router":"down","targetAddress":"10.0.0.2:8910","err":"connection refused"}],"router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
+{"server":"up","state":"degraded","routers":[{"uid":"3f9c...","prefix":"A","title":"Main","router":"up","targetAddress":"10.0.0.1:8910"},{"uid":"7d21...","prefix":"B","title":"Stage 2","router":"down","targetAddress":"10.0.0.2:8910","err":"connection refused"}],"version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
 ```
 
-`state` is `healthy` when every router is up and `down` when every router is down. It is `degraded` when one or more routers are down and one or more are up. A router that is connecting counts as down. `routers` has one element for each router, in the order of Settings. Its `router` is `up`, `connecting` or `down`, and `err` appears when that router link has a problem. The flat `router`, `targetAddress` and `err` are those of the first router. The status code is 200 only while Sode is Healthy and 503 otherwise, so a plain HTTP(s) monitor alerts when any router is lost. A dead server shows as no answer. Uptime Kuma counts a 503 as down even for a JSON Query monitor. To watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `state` as the key and `healthy` as the expected value. `/healthz` is unchanged.
+`state` is `healthy` when every router is up and `down` when every router is down. It is `degraded` when one or more routers are down and one or more are up. A router that is connecting counts as down. `routers` has one element for each router, in the order of Settings. Its `router` is `up`, `connecting` or `down`, and `err` appears when that router link has a problem. There are no flat router fields: read `state` and `routers`. The status code is 200 only while Sode is Healthy and 503 otherwise, so a plain HTTP(s) monitor alerts when any router is lost. A dead server shows as no answer. Uptime Kuma counts a 503 as down even for a JSON Query monitor. To watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `state` as the key and `healthy` as the expected value. `/healthz` only says that Sode answers: `{"server":"up"}`.
 
 ## Communication log
 

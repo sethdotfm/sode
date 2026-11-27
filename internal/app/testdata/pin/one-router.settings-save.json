@@ -1,11 +1,16 @@
 {
-  "nameLength": {
+  "router/a1a1a1a1a1a1a1a1/nameLength": {
     "err": "name length must be 4, 8, 12 or 16",
     "reason": "invalid",
     "status": "refused"
   },
-  "routerName": {
+  "router/a1a1a1a1a1a1a1a1/title": {
     "status": "saved",
     "version": "*"
+  },
+  "routerName": {
+    "err": "routerName is not saved here",
+    "reason": "Role",
+    "status": "refused"
   }
 }

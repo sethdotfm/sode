@@ -15,9 +15,7 @@ func TestAddressChangeKeepsRouterUID(t *testing.T) {
 	if len(uid) < 16 || a.r().cfg.Routers[0].Prefix != "A" {
 		t.Fatalf("router uid %q prefix %q", uid, a.r().cfg.Routers[0].Prefix)
 	}
-	if err := decodeAndSave(a, adminClient(t, a), []byte(`{"router":"127.0.0.1:2"}`)); err != nil {
-		t.Fatal(err)
-	}
+	mustSave(t, a, adminClient(t, a), map[string]any{aKey(a, "address"): "127.0.0.1:2"})
 	if got := a.r().cfg; got.Routers[0].Address != "127.0.0.1:2" || got.Routers[0].UID != uid || got.Routers[0].Prefix != "A" {
 		t.Fatalf("after the save: address %q uid %q prefix %q, want uid %q", got.Routers[0].Address, got.Routers[0].UID, got.Routers[0].Prefix, uid)
 	}
@@ -46,8 +44,11 @@ func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 			t.Errorf("config JSON has %q", k)
 		}
 	}
-	if m["router"] != a.r().cfg.Routers[0].Address || m["routerName"] == nil || m["matrix"] == nil {
-		t.Errorf("flat router keys missing: %v", m)
+	// The settings of every router are in the hello's routers list, not flat keys.
+	for _, k := range []string{"router", "routerName", "matrix", "levels", "numberOffset", "protectDevice"} {
+		if _, ok := m[k]; ok {
+			t.Errorf("config JSON has the flat router key %q", k)
+		}
 	}
 	if strings.Contains(string(b), a.r().cfg.Routers[0].UID) {
 		t.Errorf("config JSON with no references holds the UID")
@@ -55,7 +56,7 @@ func TestConfigMessageHidesRouterUIDAndPrefix(t *testing.T) {
 }
 
 // The hello's routers list carries the prefix for typing (A.23) and the UID, for the references This browser presets
-// store; no page shows the UID. The UID is nowhere else in the hello.
+// store; no page shows the UID. Outside the list it is only in the version keys of its one Save fields.
 func TestHelloCarriesPrefixNotUID(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
@@ -67,6 +68,7 @@ func TestHelloCarriesPrefixNotUID(t *testing.T) {
 		t.Errorf("hello first router prefix %v, uid %v", first["prefix"], first["uid"])
 	}
 	delete(m, "routers")
+	delete(m, "versions")
 	if b, _ := json.Marshal(m); strings.Contains(string(b), a.r().cfg.Routers[0].UID) {
 		t.Error("hello holds the router UID outside the routers list")
 	}

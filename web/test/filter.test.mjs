@@ -97,7 +97,8 @@ test('histRows', async () => {
   assert.deepEqual(filterState(), { ...FILTER_DEFAULT, ext: false });
   assert.equal(store.has('sode-ext'), false);
 
-  S.cfg = { numberOffset: 1, hiddenDsts: 'MON' };
+  S.cfg = { hiddenDsts: 'MON' };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   const T = (s) => new Date(Date.UTC(2026, 9, 23, 12, 0, s)).toISOString();
   const L = [1, 2];
   const e = (o) => ({ levels: L, prev: [], ok: true, srcName: 'CAM', dstName: 'MV', ...o });
@@ -133,7 +134,8 @@ test('histRows', async () => {
 
 test('rapid changes to one destination stack, from any instance', async () => {
   const { histRows, S, setFilter, stackBefore, tallyText, stackGapMs, setPref, FILTER_DEFAULT, routerData } = await import('./all.mjs');
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
@@ -207,7 +209,8 @@ test('rapid changes to one destination stack, from any instance', async () => {
 test('filter sets', async () => {
   const core = await import('./all.mjs'); // same instance as the histRows test
   const { S, setFilter, filterState, activeSet, pickSet, saveLocalSet, deleteLocalSet, allSets, FILTER_DEFAULT } = core;
-  S.cfg = { numberOffset: 1, filterSets: [{ id: 'ns', name: 'No shader', src: '', dst: '!MON', sode: true, ext: true, hidden: false }] };
+  S.cfg = { filterSets: [{ id: 'ns', name: 'No shader', src: '', dst: '!MON', sode: true, ext: true, hidden: false }] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   assert.deepEqual(
     allSets().map((s) => `${s.scope}:${s.name}`),
     ['all:All', 'global:No shader'],
@@ -239,7 +242,8 @@ test('follows and merged chains', async () => {
   const core = await import('./all.mjs');
   const { S, histRows, undoPlan, groupUndoPlan, sendTakes, pickSet, routerData } = core;
   pickSet('all', 'All');
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([
     [1, {}],
     [2, {}],
@@ -349,7 +353,8 @@ test('follows and merged chains', async () => {
 test('quick search', async () => {
   const core = await import('./all.mjs');
   const { S, histRows, setSearch, setFilter, setPref, FILTER_DEFAULT, routerData } = core;
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   const T = (s) => new Date(Date.UTC(2026, 9, 23, 14, 0, s)).toISOString();
   const e = (o) => ({ levels: [1], prev: [], ok: true, time: T(0), ...o });
   const hist = [
@@ -388,7 +393,8 @@ test('quick search', async () => {
 test('follows whose take is hidden, and trimming after a search', async () => {
   const core = await import('./all.mjs');
   const { S, histRows, setFilter, setSearch, FILTER_DEFAULT, routerData } = core;
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').srcBy = new Map();
   routerData('').dstBy = new Map();
   const T = (s) => new Date(Date.UTC(2026, 9, 23, 15, 0, s)).toISOString();
@@ -465,7 +471,8 @@ test('history pages', async () => {
 
 test('undo warns about changes since', async () => {
   const { S, undoPlan, restorePlan, changedSince, routerData } = await import('./all.mjs');
-  S.cfg = { ...S.cfg, numberOffset: 1 };
+  S.cfg = { ...S.cfg };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([1, 2, 3].map((ui) => [ui, { ui, label: String(ui) }]));
   // #20 put src 7 on dst 5, levels 1-3, replacing src 1.
   const e = {

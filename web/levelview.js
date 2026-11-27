@@ -28,7 +28,7 @@ on('hello', () => {
 });
 
 // Display and typing follow the router's Level numbering; internally 1..N.
-const numbering = () => S.cfg.levelNumbering;
+const numbering = () => routerData('').numbering;
 const parseCtx = (uid) => {
   const rt = routerData(uid);
   return { levels: rt.levels, numbering: rt.numbering, defaultLevels: rt.defaultLevels };

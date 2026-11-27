@@ -81,10 +81,12 @@ type setupReq struct {
 	Preset         string `json:"preset"`
 }
 
-// setupKeys: the one Save keys Finish writes, for the Settings saves row.
-var setupKeys = []string{"brandText", "brandBorder", "router", "levels", "levelNumbering", "numberOffset",
-	"fireMode", "salvoGroup", "locks", "autoLockMinutes", "guestRole", "pinWaits", "publicPanels",
+// setupKeys: the one Save keys Finish writes, for the Settings saves row. setupRouterAttrs are the default router's
+// (router/<uid>/<attribute>).
+var setupKeys = []string{"brandText", "brandBorder", "locks", "autoLockMinutes", "guestRole", "pinWaits", "publicPanels",
 	"api", "guestApiScopes", "newPanelActs", "newUserDefaults"}
+
+var setupRouterAttrs = []string{"address", "levels", "levelNumbering", "numberOffset", "fireMode", "salvoGroup"}
 
 // setupHold: the one browser that runs setup. addr is the address before its Router step moved
 // the link. Sode puts it back when that browser closes or loses control, since its answers go.
@@ -261,9 +263,17 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 
 func (a *App) recordSetup(c *client, was, now config.Config, id string) {
 	var fields []SavedField
-	for _, key := range setupKeys {
+	keys := slices.Clone(setupKeys)
+	for _, at := range setupRouterAttrs {
+		keys = append(keys, "router/"+now.DefaultRouter().UID+"/"+at)
+	}
+	for _, key := range keys {
 		spec, _ := lookupField(key)
-		f := newSavedField(key, spec.section, fieldLabels[key])
+		label := fieldLabels[key]
+		if spec.item != "" {
+			label = itemLabel(key, was, now)
+		}
+		f := newSavedField(key, spec.section, label)
 		if spec.secret {
 			f.Changed = true
 		} else {

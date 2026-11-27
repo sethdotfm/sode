@@ -1,9 +1,4 @@
 {
-  "address": "10.0.0.50:8910",
-  "err": "connection refused",
-  "error": true,
-  "router": "down",
-  "routerUp": false,
   "routers": [
     {
       "address": "10.0.0.50:8910",

@@ -135,7 +135,7 @@ func TestTrustedUserIsRefusedAnAdministratorAction(t *testing.T) {
 	if f := wantRefused(t, p.saveLive(a, 5, map[string]any{bo: "Bob"}), bo, reasonRole); !strings.Contains(f["err"].(string), config.RoleLabel(config.RoleAdministrator)) {
 		t.Fatalf("users: refusal does not name the Administrator: %v", f)
 	}
-	p.send(map[string]any{"t": "config", "config": map[string]any{"router": "10.9.9.9:8910"}})
+	p.send(map[string]any{"t": "config", "config": map[string]any{"routerShow": "none"}})
 	refusedForRole(t, "router change", p.until("configResult"), config.RoleAdministrator)
 
 	q := dialPeer(t, a)

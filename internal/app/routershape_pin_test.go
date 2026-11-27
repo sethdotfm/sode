@@ -120,7 +120,8 @@ func pinName(routers int, what string) string {
 }
 
 // These keep their shape byte for byte, with one router and with three: the hello, /api/health and GET /api/v1/status.
-// The hello after a config message and after a one Save also keeps it.
+// The hello after a config message and after a one Save also keeps it. A config message ignores the old flat router
+// keys.
 func TestPinRouterShapes(t *testing.T) {
 	for _, n := range []int{1, 3} {
 		t.Run(map[int]string{1: "one-router", 3: "three-routers"}[n], func(t *testing.T) {
@@ -133,12 +134,13 @@ func TestPinRouterShapes(t *testing.T) {
 
 			c := &client{ip: "10.0.0.1"}
 			next := registerAll(a, c)
-			if err := a.saveSettings(c, json.RawMessage(`{"routerName":"Studio One","levels":4,"brandText":"Desk"}`)); err != nil {
+			if err := a.saveSettings(c, json.RawMessage(`{"routerName":"Studio One","levels":4,"brandText":"Desk","routerShow":"name"}`)); err != nil {
 				t.Fatal(err)
 			}
 			pinJSON(t, pinName(n, "config-hello"), jsonOf(lastHello(t, next())))
 
-			kv := map[string]any{"routerName": "Studio Two", "nameLength": 10}
+			// The flat key routerName is gone: the first router's title is router/<uid>/title.
+			kv := map[string]any{"routerName": "Studio X", "router/" + pinUIDA + "/title": "Studio Two", "router/" + pinUIDA + "/nameLength": 10}
 			if n == 3 {
 				kv["router/"+pinUIDB+"/levels"] = 5
 			}

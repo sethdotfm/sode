@@ -22,6 +22,16 @@ func fixStatusApp(t *testing.T) *App {
 	return a
 }
 
+// firstStatusRouter is the first element of routers in a status body.
+func firstStatusRouter(st map[string]any) map[string]any {
+	rs, _ := st["routers"].([]any)
+	if len(rs) == 0 {
+		return nil
+	}
+	r, _ := rs[0].(map[string]any)
+	return r
+}
+
 func TestStatusHidesRouterAddressWithoutLogScope(t *testing.T) {
 	a := fixStatusApp(t)
 	statLog := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: "StatLog"}, "Wall", time.Time{})
@@ -34,15 +44,21 @@ func TestStatusHidesRouterAddressWithoutLogScope(t *testing.T) {
 			t.Errorf("%s sees the router address: %s", name, rec.Body.String())
 		}
 		st := apiBody(t, rec)
-		if st["routerUp"] != false || st["router"] != "down" || st["error"] != true || st["server"] != "up" {
+		r := firstStatusRouter(st)
+		if r["routerUp"] != false || r["router"] != "down" || r["error"] != true || st["server"] != "up" {
 			t.Errorf("%s: status %v", name, st)
 		}
-		if _, ok := st["address"]; ok {
+		if _, ok := r["address"]; ok {
 			t.Errorf("%s: address key present", name)
+		}
+		for _, k := range []string{"router", "routerUp", "error", "address", "err"} {
+			if _, ok := st[k]; ok {
+				t.Errorf("%s: flat %s left in the status: %v", name, k, st)
+			}
 		}
 	}
 	st := apiBody(t, apiDo(a, "GET", "/api/v1/status", statLog, nil))
-	if st["address"] != fixRouterAddr || st["err"] == nil || st["error"] != true {
+	if r := firstStatusRouter(st); r["address"] != fixRouterAddr || r["err"] == nil || r["error"] != true {
 		t.Errorf("log scope: %v", st)
 	}
 }

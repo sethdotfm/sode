@@ -12,7 +12,7 @@ const LISTS = [
   { kind: 'levels', title: 'Levels', example: () => `1-${routerData('').levels.length || 8}` },
   { kind: 'presets', title: 'Presets', hint: "One name per line (Everyone or the user's Me presets)", area: true },
 ];
-const off = () => S.cfg?.numberOffset ?? 0;
+const off = () => routerData('').off;
 // Rights name presets by id. The Everyone presets, and a user's own Me presets, give the names to type.
 const presets = () => S.cfg?.presets || [];
 

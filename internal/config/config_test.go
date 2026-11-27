@@ -29,7 +29,7 @@ func TestValidate(t *testing.T) {
 		"refresh too fast":  func(c *Config) { c.Routers[0].NameRefreshSeconds = 1 },
 		"bad color":         func(c *Config) { c.LevelColors = []string{"#12345g"} },
 		"bad numbering":     func(c *Config) { c.Routers[0].LevelNumbering = "2" },
-		"bad router show":   func(c *Config) { c.Routers[0].RouterShow = "ip" },
+		"bad router show":   func(c *Config) { c.RouterShow = "ip" },
 		"long router name":  func(c *Config) { c.Routers[0].Title = strings.Repeat("x", 33) },
 		"long brand text":   func(c *Config) { c.BrandText = strings.Repeat("x", 25) },
 		"bad brand border":  func(c *Config) { c.BrandBorder = "red" },
@@ -213,9 +213,6 @@ func TestNameRereadFromEnv(t *testing.T) {
 	c, err := FromEnv(Defaults())
 	if err != nil || c.Routers[0].NameRefreshSeconds != 90 {
 		t.Fatalf("%d %v", c.Routers[0].NameRefreshSeconds, err)
-	}
-	if b, _ := json.Marshal(c); !strings.Contains(string(b), `"nameRereadSeconds":90`) {
-		t.Fatalf("json: %s", b)
 	}
 }
 

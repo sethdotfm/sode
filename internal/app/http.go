@@ -87,12 +87,10 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
+	// healthz says only that Sode answers (the container health check). The links are in /api/health.
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		a.mu.Lock()
-		st := a.firstUnit().status
-		a.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(st)
+		w.Write([]byte(`{"server":"up"}` + "\n"))
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
 	mux.HandleFunc("POST /api/log/download", a.serveLogDownload)

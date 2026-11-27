@@ -6,7 +6,7 @@ package app
 type settingField struct {
 	key, section, label string
 	// export: the settings.yaml group. It differs from section for maxPinLen and guestRights;
-	// "" is a router field, which goes in routers.yaml.
+	// "" is not in settings.yaml (routerShow, whose file name statusLabel differs from its key).
 	export string
 	// source: written only by Manage users or the API section, never by the form.
 	source bool
@@ -37,22 +37,7 @@ var settingFields = []settingField{
 	{"tieHopWeight", "tie-lines", "Hop weight", "tie-lines", false},
 	{"trustedProxies", "proxy", "Trusted proxies", "proxy", false},
 	{"requireHttps", "proxy", "Require HTTPS", "proxy", false},
-	{"router", "router-matrix", "Address", "", false},
-	{"routerName", "router-matrix", "Name", "", false},
 	{"routerShow", "router-matrix", "Status label", "", false},
-	{"matrix", "router-matrix", "Matrix", "", false},
-	{"levels", "router-matrix", "Levels", "", false},
-	{"levelWireOffset", "router-matrix", "Level offset", "", false},
-	{"levelNumbering", "router-matrix", "Level numbering", "", false},
-	{"numberOffset", "router-matrix", "Source and destination numbers", "", false},
-	{"nameRereadSeconds", "router-names", "Re-read every (s)", "", false},
-	{"nameLength", "router-names", "Name character limit", "", false},
-	{"nameRequests", "router-names", "Name requests", "", false},
-	{"defaultLevels", "takes", "Default levels", "", false},
-	{"tallyResyncSeconds", "takes", "Re-read routes every (s)", "", false},
-	{"fireMode", "takes", "Multi destination", "", false},
-	{"salvoGroup", "takes", "Router salvo group", "", false},
-	{"protectDevice", "protects", "Sode's device number", "", false},
 }
 
 // saveFields: key to section. Every Config JSON key is here or saved apart

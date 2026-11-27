@@ -3,7 +3,6 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -12,17 +11,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The JSON keys of the default router are flat keys of Config, so the config message and hello keep their shape
-// (Config.MarshalJSON). The file nests every router under routers.
+// The file nests every router under routers. The hello sends each router in its routers list (helloRouter in
+// internal/app), and the one Save edits a field as `router/<uid>/<JSON name>`.
 type Router struct {
 	// Normalize makes UID one time. It never changes, not even with the address. Never shown.
 	UID string `yaml:"uid" json:"-"`
 	// Prefix is one or two letters A to Z, hidden while there is one router.
-	Prefix  string `yaml:"prefix" json:"-"`
-	Title   string `yaml:"title" json:"routerName"`
-	Address string `yaml:"address" json:"router" reconnect:"true"`
-	// RouterShow: what the status line shows (address, name or none).
-	RouterShow      string `yaml:"statusLabel" json:"routerShow"`
+	Prefix          string `yaml:"prefix" json:"-"`
+	Title           string `yaml:"title" json:"routerName"`
+	Address         string `yaml:"address" json:"router" reconnect:"true"`
 	Matrix          int    `yaml:"matrix" json:"matrix" reconnect:"true"`
 	Levels          int    `yaml:"levels" json:"levels" reconnect:"true"`
 	LevelWireOffset int    `yaml:"levelOffset" json:"levelWireOffset" reconnect:"true"`
@@ -54,10 +51,6 @@ func (r *Router) normalize() {
 	r.Prefix = strings.ToUpper(strings.TrimSpace(r.Prefix))
 	if r.Prefix == "" {
 		r.Prefix = "A"
-	}
-	r.RouterShow = strings.ToLower(strings.TrimSpace(r.RouterShow))
-	if r.RouterShow == "" {
-		r.RouterShow = "address"
 	}
 	r.DefaultLevels = strings.TrimSpace(r.DefaultLevels)
 	r.FireMode = strings.ToLower(strings.TrimSpace(r.FireMode))
@@ -219,34 +212,31 @@ func (c *Config) UnmarshalYAML(n *yaml.Node) error {
 			c.Routers = all
 		}
 	}
+	c.takeOldStatusLabel(n)
 	return nil
 }
 
-// MarshalJSON writes the default router's fields as flat keys before Config's own keys, as the embedded Router of
-// older releases did. The other routers are not in it.
-func (c Config) MarshalJSON() ([]byte, error) {
-	r, err := json.Marshal(c.DefaultRouter())
-	if err != nil {
-		return nil, err
+// takeOldStatusLabel: releases before the top-level statusLabel kept it on each router. A file with no top-level key
+// takes the first router's. Each router's key is dropped, so a save does not write it again.
+func (c *Config) takeOldStatusLabel(n *yaml.Node) {
+	top := false
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		top = top || n.Content[i].Value == "statusLabel"
 	}
-	top, err := json.Marshal(configFile(c))
-	if err != nil {
-		return nil, err
+	for i := range c.Routers {
+		r := &c.Routers[i]
+		v, ok := r.Extra["statusLabel"]
+		if !ok {
+			continue
+		}
+		if i == 0 && !top {
+			if s, ok := v.(string); ok {
+				c.RouterShow = s
+			}
+		}
+		delete(r.Extra, "statusLabel")
+		if len(r.Extra) == 0 {
+			r.Extra = nil
+		}
 	}
-	out := make([]byte, 0, len(r)+len(top))
-	out = append(out, r[:len(r)-1]...)
-	if len(r) > 2 && len(top) > 2 {
-		out = append(out, ',')
-	}
-	return append(out, top[1:]...), nil
-}
-
-// UnmarshalJSON decodes over c: the flat router keys go to the default router, in a copy of the list.
-func (c *Config) UnmarshalJSON(b []byte) error {
-	// Both decode, as one struct did: a wrong value in one key leaves the others decoded.
-	err := json.Unmarshal(b, (*configFile)(c))
-	if rerr := json.Unmarshal(b, c.EditDefaultRouter()); err == nil {
-		err = rerr
-	}
-	return err
 }

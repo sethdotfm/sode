@@ -64,8 +64,8 @@ func TestHealthDegradedAndDown(t *testing.T) {
 	fb.drop(errors.New("connection refused"))
 	want(http.StatusServiceUnavailable, "degraded", "up", "down")
 	rec, _ = getHealth(t, a, http.MethodGet)
-	if w := decodeWhole(t, rec.Body.Bytes()); w.Router != "up" || w.Routers[1]["err"] != "connection refused" {
-		t.Errorf("first router flat, B err: %s", rec.Body)
+	if w := decodeWhole(t, rec.Body.Bytes()); w.Router != "" || w.Routers[0]["router"] != "up" || w.Routers[1]["err"] != "connection refused" {
+		t.Errorf("no flat router, A up, B err: %s", rec.Body)
 	}
 
 	fa.drop(errors.New("connection refused"))

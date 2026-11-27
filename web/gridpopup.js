@@ -215,8 +215,8 @@ function push() {
   const tally = tallyReplyOf({
     router: routerData('').uid,
     levels: routerData('').levels,
-    levelNumbering: S.cfg.levelNumbering,
-    defaultLevels: S.cfg.defaultLevels,
+    levelNumbering: routerData('').numbering,
+    defaultLevels: routerData('').defaultLevels,
     tally: routerData('').tally,
     via: routerData('').via,
   });

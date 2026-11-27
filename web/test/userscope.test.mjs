@@ -34,7 +34,8 @@ const f = (o) => ({ src: '', dst: '', sode: true, ext: true, hidden: false, ...o
 const signIn = (name, filterSets = [], presets = []) => deliver({ t: 'profile', name, prefs: {}, filterSets, presets });
 const reset = () => {
   mem.clear();
-  m.S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1', filterSets: [], presets: [] };
+  m.S.cfg = { filterSets: [], presets: [] };
+  Object.assign(m.routerData(''), { off: 1, numbering: '1', defaultLevels: '1' });
   signIn('');
   m.pickSet('all', 'All');
 };

@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"io/fs"
+	"os"
 	"reflect"
 	"regexp"
 	"testing"
@@ -83,6 +84,11 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 		"publicPanels":         false,
 		"newPanelActs":         "session",
 	}
+	src, err := os.ReadFile("../../web/savereviewrules.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := jsObject(t, string(src), "FIRST_ROUTER_FIELDS")
 	// Saved only from an HTTPS address through a trusted proxy; settings_https tests cover it.
 	skip := map[string]bool{"requireHttps": true}
 
@@ -106,7 +112,16 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 				continue
 			}
 			a := userApp(t, false)
-			if err := pageSave(t, a, adminClient(t, a), map[string]any{k: want}); err != nil {
+			// A field of the first router's own block saves as router/<uid>/<attribute>.
+			key := k
+			if attr, ok := first[k]; ok {
+				key = aKey(a, attr)
+				res, err := a.saveKeys(adminClient(t, a), map[string]any{key: want})
+				if r, f := firstRefused(res); err != nil || r != "" {
+					t.Errorf("%s: saving %s: %v %v", sec, key, err, f)
+					continue
+				}
+			} else if err := pageSave(t, a, adminClient(t, a), map[string]any{k: want}); err != nil {
 				t.Errorf("%s: saving %s: %v", sec, k, err)
 				continue
 			}
@@ -115,8 +130,12 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 				t.Fatal(err)
 			}
 			for where, c := range map[string]config.Config{"live": a.r().cfg, "config.yaml": loaded} {
-				if got := jsonKey(t, c, k); !reflect.DeepEqual(got, jsonValue(t, want)) {
-					t.Errorf("%s: %s in %s is %v, want %v", sec, k, where, got, want)
+				got := jsonKey(t, c, k)
+				if key != k {
+					got = jsonValue(t, json.RawMessage(fieldJSON(c, key)))
+				}
+				if !reflect.DeepEqual(got, jsonValue(t, want)) {
+					t.Errorf("%s: %s in %s is %v, want %v", sec, key, where, got, want)
 				}
 			}
 		}

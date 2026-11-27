@@ -128,7 +128,7 @@ func TestAdministratorApprovalCountsAsRecheck(t *testing.T) {
 	a := userApp(t, false)
 	p := dialPeer(t, a)
 	p.signIn("Ana", "1234")
-	wantSaved(t, p.saveApproved(1, map[string]any{"router": "127.0.0.1:9"}, "Ada", "2468"), "router")
+	wantSaved(t, p.saveApproved(1, map[string]any{aKey(a, "address"): "127.0.0.1:9"}, "Ada", "2468"), aKey(a, "address"))
 
 	// Clear History needs an Administrator and a recheck; the Approval gives both.
 	p.send(map[string]any{"t": "clearHistory"})

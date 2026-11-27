@@ -86,8 +86,8 @@ func TestSetupWizardHelloNamesEnvFilledFields(t *testing.T) {
 	if env["router"] != "SODE_ROUTER" || env["preset"] != "SODE_ACCESS_PRESET" || setup["preset"] != "secured" {
 		t.Fatalf("first start: %v", setup)
 	}
-	if cfg, _ := helloMap(t, a)["cfg"].(map[string]any); cfg["router"] != "10.0.0.5:8910" {
-		t.Fatalf("the router address is not in the hello: %v", cfg["router"])
+	if rs, _ := helloMap(t, a)["routers"].([]any); len(rs) == 0 || rs[0].(map[string]any)["address"] != "10.0.0.5:8910" {
+		t.Fatalf("the router address is not in the hello: %v", rs)
 	}
 
 	if err := os.WriteFile(a.cfgPath, []byte("brandText: x\n"), 0o600); err != nil {

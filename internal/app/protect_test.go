@@ -422,7 +422,7 @@ func TestProtectByKindTellsOwnersApart(t *testing.T) {
 		}
 	}
 	got := map[int][2]string{}
-	for _, b := range a.protectByList(r) {
+	for _, b := range a.protectByListOf(r, r.cfg.DefaultRouter().UID) {
 		got[b.Dst] = [2]string{b.By, b.Kind}
 	}
 	want := map[int][2]string{1: {"Ana", byUser}, 2: {"Desk", byClient}, 3: {"10.0.0.9", byGuest}, 5: {"Cy", byGone}}

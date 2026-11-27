@@ -5,7 +5,6 @@ routers:
       prefix: A
       title: Studio Ultrix
       address: 10.0.0.50:8910
-      statusLabel: name
       matrix: 2
       levels: 5
       levelOffset: 0
@@ -21,6 +20,7 @@ routers:
       protectDevice: 42
       futureRouterKey: kept
 installUid: c0ffee0000000001
+statusLabel: name
 brandText: Desk
 confirmLockoutMs: 500
 resultDismissSeconds: 8

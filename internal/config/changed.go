@@ -33,46 +33,20 @@ func RouterReconnectChanged(a, b Router) bool {
 	return false
 }
 
-// routersIndex is the index of Config.Routers.
-var routersIndex = func() int {
-	f, _ := reflect.TypeFor[Config]().FieldByName("Routers")
-	return f.Index[0]
-}()
-
-// Fields gives Config's fields in order. The fields of the default router come before Routers, since their JSON keys
-// are flat keys of Config. Each one has the Index {Routers, its field in Router}. Read and write a field with FieldOf
-// and FieldToSet, not with reflect's FieldByIndex.
+// Fields gives Config's own fields in order.
 func Fields() []reflect.StructField {
-	var out []reflect.StructField
 	t := reflect.TypeFor[Config]()
-	for i := range t.NumField() {
-		f := t.Field(i)
-		if i == routersIndex {
-			rt := reflect.TypeFor[Router]()
-			for j := range rt.NumField() {
-				rf := rt.Field(j)
-				rf.Index = []int{i, j}
-				out = append(out, rf)
-			}
-		}
-		out = append(out, f)
+	out := make([]reflect.StructField, t.NumField())
+	for i := range out {
+		out[i] = t.Field(i)
 	}
 	return out
 }
 
 // FieldOf gives the field of c at a Fields index, to read.
-func (c Config) FieldOf(index []int) reflect.Value {
-	if len(index) == 2 && index[0] == routersIndex {
-		return reflect.ValueOf(c.DefaultRouter()).Field(index[1])
-	}
-	return reflect.ValueOf(c).FieldByIndex(index)
-}
+func (c Config) FieldOf(index []int) reflect.Value { return reflect.ValueOf(c).FieldByIndex(index) }
 
-// FieldToSet gives the field of c at a Fields index, to write. A field of the default router is in a copy of the list
-// (EditDefaultRouter).
+// FieldToSet gives the field of c at a Fields index, to write.
 func (c *Config) FieldToSet(index []int) reflect.Value {
-	if len(index) == 2 && index[0] == routersIndex {
-		return reflect.ValueOf(c.EditDefaultRouter()).Elem().Field(index[1])
-	}
 	return reflect.ValueOf(c).Elem().FieldByIndex(index)
 }

@@ -15,6 +15,11 @@ func (c Config) Validate() error {
 	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
 
 	errs = append(errs, c.validateRouters()...)
+	switch c.RouterShow {
+	case "address", "name", "none":
+	default:
+		bad("router status must show address, name or none")
+	}
 	if !slices.Contains(PanelActs, c.NewPanelActs) {
 		bad("the new-panel Authentication mode is session, api, both or public")
 	}
@@ -197,11 +202,6 @@ func (r Router) problems() []error {
 	case "0", "1", "va":
 	default:
 		bad("level numbering must be 0, 1 or va")
-	}
-	switch r.RouterShow {
-	case "address", "name", "none":
-	default:
-		bad("router status must show address, name or none")
 	}
 	if !validPrefix(r.Prefix) {
 		bad("router prefix must be one or two letters, A to Z")

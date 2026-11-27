@@ -390,3 +390,6 @@ func setUsers(t *testing.T, a *App, fn func(*config.Config)) {
 		t.Fatal(err)
 	}
 }
+
+// aKey is the one Save key of attribute attr of the first router: router/<uid>/<attr>.
+func aKey(a *App, attr string) string { return "router/" + a.r().cfg.DefaultRouter().UID + "/" + attr }

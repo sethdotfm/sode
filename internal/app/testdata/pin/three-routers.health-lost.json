@@ -1,7 +1,5 @@
 {
   "browsers": 0,
-  "err": "connection refused",
-  "router": "down",
   "routers": [
     {
       "err": "connection refused",
@@ -29,7 +27,6 @@
   ],
   "server": "up",
   "state": "degraded",
-  "targetAddress": "10.0.0.50:8910",
   "uptimeSeconds": "*",
   "version": "*"
 }

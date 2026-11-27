@@ -44,14 +44,17 @@ func TestRoutersListLoads(t *testing.T) {
 	}
 	want := Router{
 		UID: "7f3c9a1e2b4d5f60", Prefix: "A", Title: "Studio Ultrix", Address: "10.0.0.50:8910",
-		RouterShow: "name", Matrix: 2, Levels: 5, LevelWireOffset: 0, LevelNumbering: "va", NumberOffset: 0,
+		Matrix: 2, Levels: 5, LevelWireOffset: 0, LevelNumbering: "va", NumberOffset: 0,
 		DefaultLevels: "1-3", NameLength: 8, NameRequests: "ext", NameRefreshSeconds: 120,
 		TallyResyncSeconds: 600, FireMode: "native", SalvoGroup: 9,
 	}
 	got := c.Routers[0]
-	got.Extra = nil
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("router\n got %+v\nwant %+v", got, want)
+	}
+	// The status label of the first router became the one status label, and the router no longer has it.
+	if c.RouterShow != "name" {
+		t.Errorf("status label %q, want name", c.RouterShow)
 	}
 	if c.BrandText != "Desk" || len(c.UnknownKeys()) != 0 {
 		t.Errorf("brandText %q, unknown %q", c.BrandText, c.UnknownKeys())

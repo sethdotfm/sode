@@ -15,7 +15,8 @@ const it = (n) => ({ n, num: n + 1, name: `X${n}`, label: `X${n}` });
 async function setup() {
   const m = await import('./all.mjs');
   const { S, routerData } = m;
-  S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign(routerData(''), { off: 1, numbering: '1', defaultLevels: '1,2' });
   routerData('').levels = [{ ui: 1 }, { ui: 2 }, { ui: 3 }];
   routerData('').levelBy = new Map([1, 2, 3].map((u) => [u, {}]));
   routerData('').srcBy = new Map([1, 2, 3, 4].map((n) => [n, it(n)]));

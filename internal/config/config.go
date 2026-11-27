@@ -21,6 +21,9 @@ type Config struct {
 	// Defaults, Normalize and Load leave at least one. The JSON of Config has the default router's fields as flat keys
 	// (MarshalJSON in router.go).
 	Routers []Router `yaml:"-" json:"-"`
+	// RouterShow: what the status bar shows next to the Routers icon (address, name or none), the same for every
+	// router. Releases before it kept it on each router (`statusLabel` of the first router, read by UnmarshalYAML).
+	RouterShow string `yaml:"statusLabel" json:"routerShow"`
 	// Brand fields are display only.
 	BrandText            string   `yaml:"brandText,omitempty" json:"brandText"`
 	BrandBorder          string   `yaml:"brandBorder,omitempty" json:"brandBorder"`
@@ -185,7 +188,6 @@ func Defaults() Config {
 		Format: Format,
 		Routers: []Router{{
 			Prefix:             "A",
-			RouterShow:         "address",
 			Matrix:             0,
 			Levels:             17,
 			LevelWireOffset:    -1,
@@ -198,6 +200,7 @@ func Defaults() Config {
 			TallyResyncSeconds: 300,
 			LevelNumbering:     "1",
 		}},
+		RouterShow:           "address",
 		ConfirmLockoutMs:     500,
 		ResultDismissSeconds: 8,
 		TieHopWeight:         DefaultTieHopWeight,
@@ -322,6 +325,9 @@ func (c *Config) Normalize() {
 		c.InstallUID = newRouterUID()
 	}
 	c.BrandText = strings.TrimSpace(c.BrandText)
+	if c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow)); c.RouterShow == "" {
+		c.RouterShow = "address"
+	}
 	if c.NewPanelActs = strings.ToLower(strings.TrimSpace(c.NewPanelActs)); c.NewPanelActs == "" {
 		c.NewPanelActs = "public"
 	}

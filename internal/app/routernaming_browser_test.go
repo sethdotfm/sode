@@ -85,7 +85,7 @@ func typeField(b *tab, id, v string) {
 // With two routers, review rows and refusals name each router by prefix and Router title, the first router too.
 func TestChromeReviewNamesEveryRouter(t *testing.T) {
 	b := startBrowser(t)
-	_, uid := twoNamedRouters(t, b)
+	a, uid := twoNamedRouters(t, b)
 	typeField(b, "cfg-router", "nohost")
 	typeField(b, "cfg-rt-"+uid+"-address", "nohost2")
 	b.eval(`document.getElementById('settings-save').click(); true`)
@@ -103,7 +103,7 @@ func TestChromeReviewNamesEveryRouter(t *testing.T) {
 	b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
 	b.waitFor("each refusal names its router and says address", `(() => {
 		const m = (k) => document.querySelector('.sode__refused[data-refused="' + k + '"]')?.textContent || '';
-		return m('router') === 'Not saved. A Studio A: address must be host:port, for example 10.0.0.50:8910.'
+		return m('`+aKey(a, "address")+`') === 'Not saved. A Studio A: address must be host:port, for example 10.0.0.50:8910.'
 			&& m('router/`+uid+`/address') === 'Not saved. B Stage 2: address must be host:port, for example 10.0.0.50:8910.';
 	})()`)
 	b.check()

@@ -181,7 +181,7 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 		return p.until("configResult")
 	}
 	passed(t, "brand text", saveForm(func(c *config.Config) { c.BrandText = "Studio" }))
-	needsRecheck(t, "router address", saveForm(func(c *config.Config) { c.Routers[0].Address = "127.0.0.1:9" }))
+	wantRefused(t, p.saveLive(a, 9, map[string]any{aKey(a, "address"): "127.0.0.1:9"}), aKey(a, "address"), "needs PIN recheck")
 	needsRecheck(t, "a page lock", saveForm(func(c *config.Config) { c.Locks.Log = true }))
 	needsRecheck(t, "Wait after wrong PINs", saveForm(func(c *config.Config) { c.PinWaits = !c.PinWaits }))
 	needsRecheck(t, "Guest role", saveForm(func(c *config.Config) { c.GuestRole = config.RoleTrusted }))

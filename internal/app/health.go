@@ -60,10 +60,10 @@ func linkStates(links []routerLink) []statusMsg {
 }
 
 // statusBody is the body of GET /api/v1/status and of each frame of the status topic. It has the state as a whole and
-// one element for each router. The flat fields are of the first router, for a client of one router. Caller holds mu.
+// one element for each router. Caller holds mu.
 func (a *App) statusBody(withDetail bool) map[string]any {
 	links := a.routerLinks()
-	m := linkStatus(links[0].Status, withDetail)
+	m := map[string]any{}
 	routers := make([]map[string]any, len(links))
 	for i, l := range links {
 		e := linkStatus(l.Status, withDetail)
@@ -85,14 +85,11 @@ type healthRouter struct {
 	Err    string `json:"err,omitempty"`
 }
 
-// healthMsg: router, targetAddress and err are the first router's, as with one router.
+// healthMsg: a monitor reads state, and routers for each link.
 type healthMsg struct {
 	Server        string         `json:"server"`
 	State         string         `json:"state"`
 	Routers       []healthRouter `json:"routers"`
-	Router        string         `json:"router"`
-	Addr          string         `json:"targetAddress"`
-	Err           string         `json:"err,omitempty"`
 	Version       string         `json:"version"`
 	UptimeSeconds int64          `json:"uptimeSeconds"`
 	Browsers      int            `json:"browsers"`
@@ -109,8 +106,7 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	links := a.routerLinks()
 	browsers := len(a.clients)
 	a.mu.Unlock()
-	first := links[0].Status
-	m := healthMsg{Server: "up", State: wholeState(linkStates(links)), Router: first.Router, Addr: first.Addr, Err: first.Err,
+	m := healthMsg{Server: "up", State: wholeState(linkStates(links)),
 		Version: VersionLabel(), UptimeSeconds: int64(time.Since(a.started).Seconds()), Browsers: browsers}
 	for _, l := range links {
 		m.Routers = append(m.Routers, healthRouter{l.UID, l.Prefix, l.Title, l.Status.Router, l.Status.Addr, l.Status.Err})

@@ -358,8 +358,8 @@ paths:
         about every router, so it needs no `router` parameter. `state` is `healthy` when every
         router is up and `down` when every router is down. It is `degraded` when one or more
         routers are down and one or more are up. A router that is connecting counts as down. `routers`
-        has one element for each router, in the order of Settings. The flat link fields are
-        those of the first router. The router address and the error text name the router. So
+        has one element for each router, in the order of Settings. There are no flat link fields:
+        read `state`, and `routers` for each link. The router address and the error text name the router. So
         only a caller that also has the scope `log` gets `address` and `err`. Every other
         caller gets the `error` flag.
       responses:
@@ -2609,28 +2609,26 @@ components:
         address: { type: string, description: Only with the scope `log` }
         err: { type: string, description: Only with the scope `log` }
     Status:
-      description: The flat link fields are those of the first router.
-      allOf:
-        - { $ref: "#/components/schemas/RouterLink" }
-        - type: object
-          required: [server, state, routers, version, uptimeSeconds]
-          properties:
-            server: { type: string, enum: [up] }
-            state: { type: string, enum: [healthy, degraded, down], description: The state of Sode as a whole }
-            routers:
-              type: array
-              description: One element for each router, in the order of Settings
-              items:
-                allOf:
-                  - { $ref: "#/components/schemas/RouterLink" }
-                  - type: object
-                    required: [uid, prefix, title]
-                    properties:
-                      uid: { type: string }
-                      prefix: { type: string }
-                      title: { type: string }
-            version: { type: string }
-            uptimeSeconds: { type: integer }
+      description: Read `state` for Sode as a whole and `routers` for each Router link.
+      type: object
+      required: [server, state, routers, version, uptimeSeconds]
+      properties:
+        server: { type: string, enum: [up] }
+        state: { type: string, enum: [healthy, degraded, down], description: The state of Sode as a whole }
+        routers:
+          type: array
+          description: One element for each router, in the order of Settings
+          items:
+            allOf:
+              - { $ref: "#/components/schemas/RouterLink" }
+              - type: object
+                required: [uid, prefix, title]
+                properties:
+                  uid: { type: string }
+                  prefix: { type: string }
+                  title: { type: string }
+        version: { type: string }
+        uptimeSeconds: { type: integer }
     TakeResult:
       type: object
       required: [ok, checkSkipped, results]

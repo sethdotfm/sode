@@ -10,7 +10,8 @@ globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v
 const setup = async () => {
   const m = await import('./all.mjs');
   const { S, routerData } = m;
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([[1, {}]]);
   routerData('').srcBy = new Map([[7, { n: 7, num: 8, name: 'CAM 8', label: 'CAM 8' }]]);
   routerData('').dstBy = new Map([[5, { n: 5, num: 6, name: 'MON 6', label: 'MON 6' }]]);
@@ -96,7 +97,7 @@ test('rowActions: a Group of Protect entries offers Undo all of what it can, and
   S.ws = {};
   S.wsState = 'up';
   routerData('').link = 'up';
-  S.cfg.protectDevice = 126;
+  routerData('').protectDevice = 126;
   S.myRights = { protect: true };
   routerData('').levels = [{ ui: 1 }];
   routerData('').dstBy = new Map([1, 2, 3].map((n) => [n, { n, num: n + 1, name: `MON ${n + 1}`, label: `MON ${n + 1}` }]));

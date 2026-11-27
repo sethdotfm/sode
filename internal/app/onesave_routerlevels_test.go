@@ -36,7 +36,7 @@ func TestOneSaveRouterLevels(t *testing.T) {
 	p.signIn("Ada", "2468")
 	key := func(attr string) string { return "router/" + uid + "/" + attr }
 	vers, _ := p.hello["versions"].(map[string]any)
-	for _, at := range routerAttrs {
+	for _, at := range routerAttrNames() {
 		if vers[key(at)] == nil {
 			t.Fatalf("the hello has no version for %s: %v", key(at), vers)
 		}
@@ -68,8 +68,8 @@ func TestOneSaveRouterLevels(t *testing.T) {
 	// A level count that the default levels do not fit is refused; an unknown router or attribute is no key.
 	r = p.saveFields(4, map[string]any{key("defaultLevels"): "1-5"})
 	wantRefused(t, r, key("defaultLevels"), "invalid")
-	if _, ok := lookupField("router/" + uid + "/nameLength"); ok {
-		t.Error("router/<uid>/nameLength is a key")
+	if _, ok := lookupField("router/" + uid + "/routerShow"); ok {
+		t.Error("router/<uid>/routerShow is a key")
 	}
 	if spec, _ := lookupField("router/b0b0/levels"); spec.get(a.r().cfg) != nil {
 		t.Error("a router that is not there has a value")

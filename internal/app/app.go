@@ -735,11 +735,10 @@ func (a *App) readHello() helloPage {
 	return helloPage{recent, morePages(recent)}
 }
 
-// The hello's routers list carries the names, tally, levels and link of every router. Protects are the first
-// router's. Caller holds mu.
+// The hello's routers list carries the settings, names, tally, levels, link and Protects of every router. Caller
+// holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
-	first := a.firstUnit()
 	// A hello reaches pages under a lock: no users in it (AGENTS.md).
 	cfg := r.cfg
 	users := make([]helloUser, 0, len(cfg.Users))
@@ -748,7 +747,7 @@ func (a *App) hello(p helloPage) []byte {
 	}
 	cfg.Users = nil
 	m := helloMsg{
-		T: "hello", Protect: protectRows(first.router.protect), ProtectBy: a.protectByList(r),
+		T:      "hello",
 		Recent: p.recent, More: p.more,
 		LevelDefaults: config.DefaultLevelColors, Cfg: cfg, Versions: fieldVersions(r.cfg), Users: users,
 		ConfigPath: a.cfgPath, Version: BuildLabel(), BrandColors: config.BrandColors,
@@ -772,8 +771,10 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 		n := u.namesMsg()
 		out = append(out, helloRouter{
 			UID: u.uid(), Prefix: rc.Prefix, Title: rc.Title, Address: rc.Address, Matrix: rc.Matrix,
-			NumberOffset: rc.NumberOffset, Levels: lv.levels,
+			NumberOffset: rc.NumberOffset, Levels: lv.levels, LevelWireOffset: rc.LevelWireOffset,
 			LevelNumbering: rc.LevelNumbering, DefaultLevels: rc.DefaultLevels,
+			NameRereadSeconds: rc.NameRefreshSeconds, NameLength: rc.NameLength, NameRequests: rc.NameRequests,
+			TallyResyncSeconds: rc.TallyResyncSeconds, FireMode: rc.FireMode, SalvoGroup: rc.SalvoGroup,
 			Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: u.router.savedAt, Tally: routeTriples(u.router.tally),
 			Status: u.statusOut(),
 			Via:    a.pageViaRows(u, x), ProtectDevice: rc.ProtectDevice,
@@ -781,10 +782,8 @@ func (a *App) helloRouters(r *runtime) []helloRouter {
 		if u.status.Router != string(swp08.StateUp) {
 			out[len(out)-1].ProtectAt = u.protAt
 		}
-		if u != a.firstUnit() {
-			out[len(out)-1].Protected = protectRows(u.router.protect)
-			out[len(out)-1].ProtectBy = a.protectByListOf(r, rc.UID)
-		}
+		out[len(out)-1].Protected = protectRows(u.router.protect)
+		out[len(out)-1].ProtectBy = a.protectByListOf(r, rc.UID)
 	}
 	return out
 }

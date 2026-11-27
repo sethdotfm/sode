@@ -5,7 +5,6 @@ routers:
       prefix: A
       title: Studio Ultrix
       address: 10.0.0.50:8910
-      statusLabel: address
       matrix: 0
       levels: 4
       levelOffset: -1
@@ -23,7 +22,6 @@ routers:
       prefix: B
       title: Second
       address: 10.0.0.9:8910
-      statusLabel: address
       matrix: 0
       levels: 2
       levelOffset: -1
@@ -42,7 +40,6 @@ routers:
       prefix: CC
       title: ""
       address: 10.0.0.10:8910
-      statusLabel: none
       matrix: 1
       levels: 17
       levelOffset: -1
@@ -57,6 +54,7 @@ routers:
       salvoGroup: 3
       protectDevice: 7
 installUid: c0ffee0000000003
+statusLabel: address
 brandText: Desk
 confirmLockoutMs: 500
 resultDismissSeconds: 8

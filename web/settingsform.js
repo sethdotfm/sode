@@ -1,7 +1,8 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
 // previews beside the fields. settingssave.js wraps the form as formSource, a save source of the one Save.
 
-import { $, el, S, icon, routerData } from './core.js';
+import { $, el, S, icon, routerData, routerSetting } from './core.js';
+import { FIRST_ROUTER_FIELDS } from './savereviewrules.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
 import { fmtTime } from './device.js';
 import { parseLevelsAs } from './levels.js';
@@ -62,17 +63,20 @@ $('cfg-brandcustom-wrap').append(icon('paintbrush', false));
 $('cfg-brandcustom').addEventListener('input', renderBrandPreview);
 $('brand-caution').append(icon('triangle-alert'), el('span', null, CAUTION_NOTE));
 
+// The value of a form field as saved: a field of the first router's own block from the hello's routers list.
+const savedValue = (k) => (k in FIRST_ROUTER_FIELDS ? routerSetting(S.routers[0], FIRST_ROUTER_FIELDS[k]) : S.cfg[k]);
+
 export function fillForm() {
   for (const f of fields()) {
-    const v = S.cfg[f.dataset.key];
+    const v = savedValue(f.dataset.key);
     if (f.dataset.type === 'bool') f.checked = !!v;
     else if (f.dataset.type === 'list') f.value = (v || []).join(', ');
     else f.value = v ?? '';
   }
   fillBrandColors(S.cfg.brandBorder);
-  $(`cfg-lvlnum-${S.cfg.levelNumbering || '1'}`).checked = true;
+  $(`cfg-lvlnum-${savedValue('levelNumbering') || '1'}`).checked = true;
   shownMode = formMode();
-  $('cfg-default').value = levelInput(parseLevelsAs(S.cfg.defaultLevels, '1', S.cfg.levels) || [], shownMode);
+  $('cfg-default').value = levelInput(parseLevelsAs(savedValue('defaultLevels'), '1', savedValue('levels')) || [], shownMode);
   renderNumbering();
   renderBrandPreview();
   renderColors(S.cfg.levelColors || []);
@@ -236,7 +240,7 @@ export function renderHiddenNote() {
   if (p.error) text = `${p.error}.`;
   else if (p.rules.length) {
     const fn = compileFilter(p.rules);
-    const n = routerData('').dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
+    const n = routerData('').dsts.filter((d) => fn(d.n + routerData('').off, d.name)).length;
     text = `${n} of ${routerData('').dsts.length} destinations`;
   }
   $('cfg-hidden-note').textContent = text;

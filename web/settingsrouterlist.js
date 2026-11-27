@@ -268,7 +268,8 @@ const prefixOf = (key) => (first && keyRouter(key) === first.uid ? first.prefix 
 const nameOf = (key) => routerDisplay(S.routers.find((r) => r.uid === keyRouter(key)) || { prefix: prefixOf(key) });
 
 addSaveSource({
-  owns: (key) => LIST_KEY.test(key),
+  // The first router's title, address and matrix are in its own block of the form (settingssave.js).
+  owns: (key) => LIST_KEY.test(key) && (keyRouter(key) !== S.routers[0]?.uid || keyAttr(key) === 'prefix'),
   base: () => base,
   now,
   version: (key) => vers[key],

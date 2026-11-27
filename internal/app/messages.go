@@ -50,10 +50,7 @@ type deltaMsg struct {
 
 // helloMsg: every key always sent (none omitempty).
 type helloMsg struct {
-	T       string          `json:"t"`         // "hello"
-	Protect json.RawMessage `json:"protected"` // protectRows of the first router: [dst, level, device, kind]
-	// ProtectBy: the Protects in Sode's own record, with who set each (protect.go).
-	ProtectBy     []protectBy   `json:"protectBy"`
+	T             string        `json:"t"` // "hello"
 	Recent        []Entry       `json:"history"`
 	More          bool          `json:"more"`
 	LevelDefaults []string      `json:"levelDefaults"`
@@ -75,8 +72,8 @@ type helloMsg struct {
 	NotSaved bool `json:"notSaved,omitempty"`
 	// Setup opens the setup wizard (setup.go): only while setup is pending.
 	Setup *setupHello `json:"setup,omitempty"`
-	// Routers: every router, the first one first. The page reads the names, tally, levels and link of each router only
-	// from this list.
+	// Routers: every router, the first one first (the default router). The page reads the settings, names, tally,
+	// levels, link and Protects of each router only from this list.
 	Routers []helloRouter `json:"routers"`
 }
 
@@ -88,27 +85,33 @@ type helloRouter struct {
 	UID    string `json:"uid"`
 	Prefix string `json:"prefix"`
 	Title  string `json:"title"`
-	// Address and Matrix fill the router's row in Settings > Routers.
-	Address      string         `json:"address"`
-	Matrix       int            `json:"matrix"`
-	NumberOffset int            `json:"numberOffset"`
-	Levels       []config.Level `json:"levels"`
-	// LevelNumbering and DefaultLevels are this router's: typed levels of a route are levels of its router.
-	LevelNumbering string          `json:"levelNumbering"`
-	DefaultLevels  string          `json:"defaultLevels"`
-	Srcs           [][2]any        `json:"srcs"`
-	Dsts           [][2]any        `json:"dsts"`
-	At             time.Time       `json:"at"`
-	SavedAt        time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
-	Tally          json.RawMessage `json:"tally"`            // routeTriples
-	Status         statusMsg       `json:"status"`
+	// The settings of the router, each by the JSON name of its `router/<uid>/<attribute>` key. Levels is the level list;
+	// its length is the levels setting.
+	Address            string          `json:"address"`
+	Matrix             int             `json:"matrix"`
+	NumberOffset       int             `json:"numberOffset"`
+	Levels             []config.Level  `json:"levels"`
+	LevelWireOffset    int             `json:"levelWireOffset"`
+	LevelNumbering     string          `json:"levelNumbering"`
+	DefaultLevels      string          `json:"defaultLevels"`
+	NameRereadSeconds  int             `json:"nameRereadSeconds"`
+	NameLength         int             `json:"nameLength"`
+	NameRequests       string          `json:"nameRequests"`
+	TallyResyncSeconds int             `json:"tallyResyncSeconds"`
+	FireMode           string          `json:"fireMode"`
+	SalvoGroup         int             `json:"salvoGroup"`
+	Srcs               [][2]any        `json:"srcs"`
+	Dsts               [][2]any        `json:"dsts"`
+	At                 time.Time       `json:"at"`
+	SavedAt            time.Time       `json:"savedAt,omitzero"` // the names are the saved names table from then; zero after the first read
+	Tally              json.RawMessage `json:"tally"`            // routeTriples
+	Status             statusMsg       `json:"status"`
 	// Via: the rows of the tally whose source a tie line feeds, with their Via (pagevia.go). A `viaRows` message
 	// replaces them.
 	Via []apiRouteRow `json:"via"`
-	// Protected and ProtectBy are the holds and Sode's record of a router after the first (protectRows,
-	// protectByListOf). The first router's are the hello's own protected and protectBy.
-	Protected json.RawMessage `json:"protected,omitempty"`
-	ProtectBy []protectBy     `json:"protectBy,omitempty"`
+	// Protected and ProtectBy are the holds and Sode's record of the router (protectRows, protectByListOf).
+	Protected json.RawMessage `json:"protected"`
+	ProtectBy []protectBy     `json:"protectBy"`
 	// ProtectDevice is Sode's device number on this router (0: Protect is off), so the page offers Protect there.
 	ProtectDevice int `json:"protectDevice"`
 	// ProtectAt: while the link is not up, when it went down, so the page can say how old its Protect rows are. Zero

@@ -60,6 +60,9 @@ var attrLabels = map[string]string{
 var routerAttrLabels = map[string]string{
 	"levels": "Levels", "levelWireOffset": "Level offset", "levelNumbering": "Level numbering", "defaultLevels": "Default levels",
 	"prefix": "Prefix", "title": "Title", "address": "Address", "matrix": "Matrix", "remove": "Remove",
+	"numberOffset": "Source and destination numbers", "nameRereadSeconds": "Re-read every (s)",
+	"nameLength": "Name character limit", "nameRequests": "Name requests", "tallyResyncSeconds": "Re-read routes every (s)",
+	"fireMode": "Multi destination", "salvoGroup": "Router salvo group", "protectDevice": "Sode's device number",
 }
 
 // itemLabel: "User Ana: Role", "API client Bot: Scopes" or "Router B: Levels". The name is the one before the save,

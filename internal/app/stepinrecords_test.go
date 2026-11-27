@@ -218,7 +218,7 @@ func TestStepInApprovalCardsFollowTheSteppedInRole(t *testing.T) {
 	desk.cardsOn()
 	bo := dialPeer(t, a)
 	bo.signIn("Bo", "567890")
-	asked(t, bo.askSave(7, map[string]any{"router": "127.0.0.1:9"}))
+	asked(t, bo.askSave(7, map[string]any{aKey(a, "address"): "127.0.0.1:9"}))
 	if m := desk.within("approvalCard", 50*time.Millisecond); m != nil {
 		t.Fatalf("a Standard user got a card: %v", m)
 	}

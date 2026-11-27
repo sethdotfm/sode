@@ -16,8 +16,7 @@ on('access', (a) => {
 
 // The first router's heading: its Router title, or "Router" with none. With two or more routers its prefix comes first,
 // as every other router's does ("A Studio A", "Router A").
-export const routerTitle = () =>
-  S.routers.length > 1 ? routerDisplay({ prefix: S.routers[0].prefix, title: S.cfg?.routerName }) : S.cfg?.routerName?.trim() || 'Router';
+export const routerTitle = () => (S.routers.length > 1 ? routerDisplay(S.routers[0]) : S.routers[0]?.title?.trim() || 'Router');
 
 // onPick(id): a row's button goes to that router's block.
 export function fillRouters(onPick) {
@@ -41,5 +40,5 @@ export function fillRouters(onPick) {
   // The link state, in words (settingsrouterlist.js paints it).
   const link = el('span', 'sode__routers-link');
   link.dataset.link = S.routers[0]?.uid || '';
-  showRouterList(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), link, swap, broken));
+  showRouterList(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.routers[0]?.address || 'No address'), link, swap, broken));
 }

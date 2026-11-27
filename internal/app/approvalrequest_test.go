@@ -268,7 +268,7 @@ func TestRequestApprovalCardsReachOnlyQualified(t *testing.T) {
 	late.signIn("Ada", "2468")
 	approver(t, a, "Ada", "2468") // someone must qualify when the request is sent
 
-	asked(t, ana.askSave(7, map[string]any{"router": "127.0.0.1:9"}))
+	asked(t, ana.askSave(7, map[string]any{aKey(a, "address"): "127.0.0.1:9"}))
 	time.Sleep(50 * time.Millisecond)
 	late.send(map[string]any{"t": "approvalCards", "on": true})
 	card := late.until("approvalCard")

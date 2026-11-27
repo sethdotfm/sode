@@ -11,7 +11,8 @@ globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v
 const setup = async () => {
   const m = await import('./all.mjs');
   const { S, routerData } = m;
-  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.cfg = { filterSets: [] };
+  Object.assign((await import('./all.mjs')).routerData(''), { off: 1 });
   routerData('').levelBy = new Map([[1, {}]]);
   routerData('').srcBy = new Map();
   routerData('').dstBy = new Map();

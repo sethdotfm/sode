@@ -126,24 +126,47 @@ func lookupField(key string) (fieldSpec, bool) {
 			return addRouterSpec(key), true
 		case attr == "remove":
 			return removeRouterSpec(uid), true
-		case routerListField(&config.Router{}, attr) != nil:
-			return routerListSpec(uid, attr)
 		}
 		return routerSpec(uid, attr)
 	}
 	return fieldSpec{}, false
 }
 
-// routerLevelsSection: Settings > Routers > Router levels, the level settings of each router after the first. The
-// first router's are the plain keys of its own block (levels, levelWireOffset, levelNumbering, defaultLevels).
+// routerLevelsSection: Settings > Routers > Router levels, the level settings of each router.
 const routerLevelsSection = "router-levels"
 
-// routerAttrs: the `router/<uid>/<attribute>` keys, by the JSON key of the config.Router field.
-var routerAttrs = []string{"levels", "levelWireOffset", "levelNumbering", "defaultLevels"}
+// routerAttrs: the `router/<uid>/<attribute>` keys of every router, the first router too, by the JSON name Sode sends,
+// each with its Settings section. Keep in step with ROUTER_ATTRS in web/savereviewrules.js.
+var routerAttrs = []struct{ name, section string }{
+	{"prefix", routersSection}, {"title", routersSection}, {"address", routersSection}, {"matrix", routersSection},
+	{"levels", routerLevelsSection}, {"levelWireOffset", routerLevelsSection}, {"levelNumbering", routerLevelsSection},
+	{"defaultLevels", routerLevelsSection},
+	{"numberOffset", "router-matrix"},
+	{"nameRereadSeconds", "router-names"}, {"nameLength", "router-names"}, {"nameRequests", "router-names"},
+	{"tallyResyncSeconds", "takes"}, {"fireMode", "takes"}, {"salvoGroup", "takes"},
+	{"protectDevice", "protects"},
+}
 
-// routerField gives the field of r that a routerAttrs key names.
+// routerAttrNames: the names of routerAttrs, in order.
+func routerAttrNames() []string {
+	out := make([]string, len(routerAttrs))
+	for i, a := range routerAttrs {
+		out[i] = a.name
+	}
+	return out
+}
+
+// routerField gives the field of r that a routerAttrs name names, or nil.
 func routerField(r *config.Router, attr string) any {
 	switch attr {
+	case "prefix":
+		return &r.Prefix
+	case "title":
+		return &r.Title
+	case "address":
+		return &r.Address
+	case "matrix":
+		return &r.Matrix
 	case "levels":
 		return &r.Levels
 	case "levelWireOffset":
@@ -152,34 +175,56 @@ func routerField(r *config.Router, attr string) any {
 		return &r.LevelNumbering
 	case "defaultLevels":
 		return &r.DefaultLevels
+	case "numberOffset":
+		return &r.NumberOffset
+	case "nameRereadSeconds":
+		return &r.NameRefreshSeconds
+	case "nameLength":
+		return &r.NameLength
+	case "nameRequests":
+		return &r.NameRequests
+	case "tallyResyncSeconds":
+		return &r.TallyResyncSeconds
+	case "fireMode":
+		return &r.FireMode
+	case "salvoGroup":
+		return &r.SalvoGroup
+	case "protectDevice":
+		return &r.ProtectDevice
 	}
 	return nil
 }
 
+// routerIndex gives the index in c.Routers of router uid, else -1.
+func routerIndex(c *config.Config, uid string) int {
+	return slices.IndexFunc(c.Routers, func(r config.Router) bool { return r.UID == uid })
+}
+
 // moreRouterIndex gives the index in c.Routers of router uid when it is after the default router, else -1.
 func moreRouterIndex(c *config.Config, uid string) int {
-	if i := slices.IndexFunc(c.Routers, func(r config.Router) bool { return r.UID == uid }); i > 0 {
+	if i := routerIndex(c, uid); i > 0 {
 		return i
 	}
 	return -1
 }
 
-// routerSpec: one level setting of a router after the first. The fields of one router validate together, so a new
-// level count and new default levels save as one.
+// routerSpec: one setting of one router. The fields of one router validate together, so a new level count and new
+// default levels save as one.
 func routerSpec(uid, attr string) (fieldSpec, bool) {
-	if routerField(&config.Router{}, attr) == nil {
+	i := slices.IndexFunc(routerAttrs, func(a struct{ name, section string }) bool { return a.name == attr })
+	if i < 0 {
 		return fieldSpec{}, false
 	}
-	s := fieldSpec{section: routerLevelsSection, item: "router/" + uid}
+	s := fieldSpec{section: routerAttrs[i].section, item: "router/" + uid}
 	s.get = func(c config.Config) any {
-		i := moreRouterIndex(&c, uid)
+		i := routerIndex(&c, uid)
 		if i < 0 {
 			return nil
 		}
 		return routerField(&c.Routers[i], attr)
 	}
 	s.set = func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
-		i := moreRouterIndex(c, uid)
+		i := routerIndex(c, uid)
 		if i < 0 {
 			return errors.New("this router was removed meanwhile: reload the page")
 		}
@@ -189,15 +234,15 @@ func routerSpec(uid, attr string) (fieldSpec, bool) {
 	return s, true
 }
 
-// routerVersions: the versions of the router keys, which every hello carries.
+// routerVersions: the versions of the router keys of every router, which every hello carries. Remove is for a
+// router after the first.
 func routerVersions(cfg config.Config, out map[string]string) {
-	// The first router's prefix shows only with two or more routers.
-	if len(cfg.Routers) > 1 {
-		k := "router/" + cfg.DefaultRouter().UID + "/prefix"
-		out[k] = fieldVersion(cfg, k)
-	}
-	for _, r := range cfg.Routers[1:] {
-		for _, at := range append(slices.Concat(routerAttrs, routerListAttrs), "remove") {
+	for i, r := range cfg.Routers {
+		attrs := routerAttrNames()
+		if i > 0 {
+			attrs = append(attrs, "remove")
+		}
+		for _, at := range attrs {
 			k := "router/" + r.UID + "/" + at
 			out[k] = fieldVersion(cfg, k)
 		}
@@ -475,7 +520,7 @@ func addedResult(cfg config.Config, key string, x *saveCtx) json.RawMessage {
 		out["id"] = id
 		kind, attrs := "user/", userAttrs
 		if strings.HasPrefix(key, "router/") {
-			kind, attrs = "router/", append(slices.Concat(routerAttrs, routerListAttrs), "remove")
+			kind, attrs = "router/", append(routerAttrNames(), "remove")
 		}
 		for _, at := range attrs {
 			k := kind + id + "/" + at

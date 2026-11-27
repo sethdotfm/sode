@@ -48,12 +48,12 @@ func savedUnknownKeys(t *testing.T, a *App) []string {
 
 func TestSettingsSaveKeepsUnknownKeys(t *testing.T) {
 	a := futureApp(t, "futureKey: 1\nlocks:\n  futureLock: true\n")
-	if err := decodeAndSave(a, adminClient(t, a), []byte(`{"routerName":"Studio X"}`)); err != nil {
+	if err := decodeAndSave(a, adminClient(t, a), []byte(`{"brandText":"Studio X"}`)); err != nil {
 		t.Fatal(err)
 	}
 	c, _, err := config.Load(a.cfgPath)
-	if err != nil || c.Routers[0].Title != "Studio X" {
-		t.Fatalf("save not written: %v %q", err, c.Routers[0].Title)
+	if err != nil || c.BrandText != "Studio X" {
+		t.Fatalf("save not written: %v %q", err, c.BrandText)
 	}
 	if k, want := c.UnknownKeys(), []string{"futureKey", "locks.futureLock"}; !slices.Equal(k, want) {
 		t.Fatalf("UnknownKeys = %q, want %q", k, want)

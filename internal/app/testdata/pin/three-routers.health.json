@@ -1,6 +1,5 @@
 {
   "browsers": 0,
-  "router": "up",
   "routers": [
     {
       "prefix": "A",
@@ -26,7 +25,6 @@
   ],
   "server": "up",
   "state": "healthy",
-  "targetAddress": "10.0.0.50:8910",
   "uptimeSeconds": "*",
   "version": "*"
 }

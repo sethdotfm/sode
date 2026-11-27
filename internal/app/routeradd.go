@@ -13,61 +13,11 @@ import (
 )
 
 // Add router and Remove router (Settings > Routers, docs/agents/settings-saves.md). The one Save keys are
-// `router/new:<tmp>/add` and `router/<uid>/remove`, and `router/<uid>/{prefix,title,address,matrix}` edit a router
-// after the first. The first router stays: its own block edits it, and only its prefix has a key here.
+// `router/new:<tmp>/add` and `router/<uid>/remove`. The other router keys are in onesavefields.go (routerAttrs). The
+// first router stays.
 
 // routersSection: Settings > Routers, the list of routers.
 const routersSection = "routers"
-
-// routerListAttrs: the `router/<uid>/<attribute>` keys of the Routers list, by the JSON key of the config.Router field.
-var routerListAttrs = []string{"prefix", "title", "address", "matrix"}
-
-// routerListField gives the field of r that a routerListAttrs key names.
-func routerListField(r *config.Router, attr string) any {
-	switch attr {
-	case "prefix":
-		return &r.Prefix
-	case "title":
-		return &r.Title
-	case "address":
-		return &r.Address
-	case "matrix":
-		return &r.Matrix
-	}
-	return nil
-}
-
-// routerListSpec: the prefix, title, address or matrix of a router after the first, or the prefix of the first router.
-func routerListSpec(uid, attr string) (fieldSpec, bool) {
-	s := fieldSpec{section: routersSection, item: "router/" + uid}
-	at := func(c *config.Config) *config.Router {
-		if c.DefaultRouter().UID == uid {
-			if attr != "prefix" {
-				return nil // the first router's block has its own keys
-			}
-			return &c.Routers[0]
-		}
-		if i := moreRouterIndex(c, uid); i >= 0 {
-			return &c.Routers[i]
-		}
-		return nil
-	}
-	s.get = func(c config.Config) any {
-		if r := at(&c); r != nil {
-			return routerListField(r, attr)
-		}
-		return nil
-	}
-	s.set = func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
-		c.Routers = slices.Clone(c.Routers)
-		r := at(c)
-		if r == nil {
-			return errors.New("this router was removed meanwhile: reload the page")
-		}
-		return json.Unmarshal(v, routerListField(r, attr))
-	}
-	return s, true
-}
 
 // newRouter is the value of `router/new:<tmp>/add`. Levels 0 is the default level count.
 type newRouter struct {

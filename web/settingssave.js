@@ -11,7 +11,18 @@ import { requesting, cancelRequest } from './approvalcards.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { askInterruptions, initInterruptions } from './interruptions.js';
-import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, reconnectTargets, reconnectQuestion, critical, sectionOfKey } from './savereviewrules.js';
+import {
+  SAVE_FIELDS,
+  FIRST_ROUTER_FIELDS,
+  diffRows,
+  showValue,
+  refusalNote,
+  reconnects,
+  reconnectTargets,
+  reconnectQuestion,
+  critical,
+  sectionOfKey,
+} from './savereviewrules.js';
 import { routerDisplay, listKey } from './routerlistrules.js';
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
@@ -34,8 +45,24 @@ let seq = 0;
 let requested = null; // { id, sent, keys }: a save the server holds for Request approval.
 let pending = null; // { id, sent, retried, answer }; sent: key -> the value sent; answer: the Approval popup's
 
+// The first router's fields keep their form keys in the form (FIRST_ROUTER_FIELDS); the one Save names them
+// router/<uid>/<attribute>. wireKey and formKey turn one into the other.
+const firstUid = () => S.routers[0]?.uid || '';
+const wireKey = (k) => (k in FIRST_ROUTER_FIELDS ? `router/${firstUid()}/${FIRST_ROUTER_FIELDS[k]}` : k);
+const FORM_KEY = Object.fromEntries(Object.entries(FIRST_ROUTER_FIELDS).map(([k, attr]) => [attr, k]));
+function formKey(key) {
+  const [head, uid, attr] = key.split('/');
+  return head === 'router' && uid === firstUid() && attr in FORM_KEY ? FORM_KEY[attr] : key;
+}
+const formOwns = (key) => key in SAVE_FIELDS || formKey(key) in FIRST_ROUTER_FIELDS;
+
 // A data-apart input with a data-key saves on its own, so it is never a change here.
-const saveFields = () => Object.fromEntries(Object.entries(readSettings()).filter(([k]) => k in SAVE_FIELDS));
+const saveFields = () =>
+  Object.fromEntries(
+    Object.entries(readSettings())
+      .filter(([k]) => k in SAVE_FIELDS || k in FIRST_ROUTER_FIELDS)
+      .map(([k, v]) => [wireKey(k), v]),
+  );
 
 // The form first: the review and the sent fields keep that order.
 const sources = () => [formSource, ...saveSources()];
@@ -76,8 +103,17 @@ const SPECIAL = {
   locks: 'cfg-lock-main',
   newUserDefaults: 'cfg-new-persistent',
 };
+// key is a form key.
 const keyNode = (key) => (SPECIAL[key] ? $(SPECIAL[key]) : form.querySelector(`[data-key="${key}"]`));
-const fieldset = (key) => form.querySelector(`:scope > fieldset[data-section="${sectionOfKey(key)}"]`);
+// The form's own section of a node: the top fieldset around it.
+const topFieldset = (node) => {
+  let fs = node?.closest('fieldset[data-section]');
+  while (fs && fs.parentElement !== form) fs = fs.parentElement.closest('fieldset[data-section]');
+  return fs || null;
+};
+// The section where a key's field is: its node's, else the section of the key.
+const fieldset = (key) =>
+  topFieldset(srcOf(key).node?.(key)) || topFieldset(keyNode(key)) || form.querySelector(`:scope > fieldset[data-section="${sectionOfKey(key)}"]`);
 const sections = () => [...form.querySelectorAll(':scope > fieldset[data-section]')];
 const sectionName = (fs) => fs.querySelector(':scope > legend').firstChild.textContent.trim();
 const checkText = (node) => node?.closest('.pb-check')?.querySelector('.pb-check__label')?.textContent;
@@ -93,8 +129,9 @@ const show = (r, v) => srcOf(r.key).show(r, v);
 
 // With two or more routers a field of the first router's own block carries the router's name, as the other routers'
 // rows do (settingsrouterlist.js).
-function formLabel(r) {
-  const own = fieldset(r.key)?.dataset.router && S.routers.length > 1;
+function formLabel(row) {
+  const r = { ...row, key: formKey(row.key) };
+  const own = topFieldset(keyNode(r.key))?.dataset.router && S.routers.length > 1;
   const text = plainLabel(r);
   return own ? `${routerDisplay(S.routers[0])}: ${text}` : text;
 }
@@ -109,7 +146,8 @@ function plainLabel(r) {
   return (forText(node) || checkText(node) || r.key).trim();
 }
 
-function formShow(r, v) {
+function formShow(row, v) {
+  const r = { ...row, key: formKey(row.key) };
   if (r.key === 'levelColors' && r.sub != null) return v || 'Default';
   if (v && typeof v === 'object' && !Array.isArray(v)) {
     return Object.entries(v)
@@ -128,13 +166,13 @@ function formShow(r, v) {
 
 // The form as a save source (savesources.js). node(key) places its marks; a source without one marks its section.
 const formSource = {
-  owns: (key) => key in SAVE_FIELDS,
+  owns: formOwns,
   base: () => base,
   now: saveFields,
   version: (key) => versions[key],
   label: formLabel,
   show: formShow,
-  node: keyNode,
+  node: (key) => keyNode(formKey(key)),
   saved(key, value, r) {
     base[key] = value;
     if (r.version) versions[key] = r.version;
@@ -185,7 +223,7 @@ function paintPresetMarks() {
 
 function unsavedText() {
   const { shown, unseen } = splitSeen(changes(), seen);
-  const slugs = new Set(shown.map((r) => sectionOfKey(r.key)));
+  const slugs = new Set(shown.map((r) => fieldset(r.key)?.dataset.section || sectionOfKey(r.key)));
   const names = sections()
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
@@ -359,12 +397,11 @@ function stillDiffers(gaps) {
   return el('div', null, el('p', null, `Still different from ${applied.name}:`), el('ul', null, ...items));
 }
 
-// addressAfter(form)(uid): the address a router has after the save. The first router's is the form's Address; the
+// addressAfter()(uid): the address a router has after the save. The first router's is the form's Address; the
 // others are in the Routers list (settingsrouterlist.js).
-function addressAfter(form) {
-  const list = Object.assign({}, ...saveSources().map((src) => src.now()));
-  const first = S.routers[0]?.uid || '';
-  return (uid) => (uid === first ? form.router : (list[listKey(uid, 'address')] ?? S.routers.find((r) => r.uid === uid)?.address ?? ''));
+function addressAfter() {
+  const list = Object.assign({}, ...sources().map((src) => src.now()));
+  return (uid) => list[listKey(uid, 'address')] ?? S.routers.find((r) => r.uid === uid)?.address ?? '';
 }
 
 async function review({ focusField }) {
@@ -410,7 +447,7 @@ async function review({ focusField }) {
           saves.map((r) => r.key),
           S.routers,
           routerDisplay,
-          addressAfter(now),
+          addressAfter(),
         ),
         S.routers.length > 1,
       ),

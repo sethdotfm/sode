@@ -1,15 +1,20 @@
 {
-  "nameLength": {
-    "err": "A Studio One: name length must be 4, 8, 12 or 16",
+  "router/a1a1a1a1a1a1a1a1/nameLength": {
+    "err": "A Studio: name length must be 4, 8, 12 or 16",
     "reason": "invalid",
     "status": "refused"
+  },
+  "router/a1a1a1a1a1a1a1a1/title": {
+    "status": "saved",
+    "version": "*"
   },
   "router/b2b2b2b2b2b2b2b2/levels": {
     "status": "saved",
     "version": "*"
   },
   "routerName": {
-    "status": "saved",
-    "version": "*"
+    "err": "routerName is not saved here",
+    "reason": "Role",
+    "status": "refused"
   }
 }

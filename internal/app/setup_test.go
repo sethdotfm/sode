@@ -177,7 +177,7 @@ func TestSetupWizardFinishRecordsOneSavesRow(t *testing.T) {
 		}
 		by[f.Key] = f
 	}
-	for key, want := range map[string]string{"brandText": `"Studio B"`, "router": `"127.0.0.1:2"`, "levels": "4", "fireMode": `"native"`, "pinWaits": "true"} {
+	for key, want := range map[string]string{"brandText": `"Studio B"`, aKey(a, "address"): `"127.0.0.1:2"`, aKey(a, "levels"): "4", aKey(a, "fireMode"): `"native"`, "pinWaits": "true"} {
 		if got := string(by[key].New); got != want {
 			t.Errorf("%s: new %s, want %s", key, got, want)
 		}

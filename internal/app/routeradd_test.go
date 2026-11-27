@@ -66,7 +66,7 @@ func TestRouterListFields(t *testing.T) {
 	passed(t, "recheck", p.recheck("2468"))
 	k := func(attr string) string { return "router/" + uid + "/" + attr }
 	r := p.saveFields(1, map[string]any{k("prefix"): "BA", k("title"): "Stage 2", k("address"): "10.0.0.8:8910", k("matrix"): 1})
-	for _, at := range routerListAttrs {
+	for _, at := range []string{"prefix", "title", "address", "matrix"} {
 		wantSaved(t, r, k(at))
 	}
 	b := a.r().cfg.Routers[1]
@@ -76,14 +76,14 @@ func TestRouterListFields(t *testing.T) {
 	if u, _ := a.unit(uid); u.status.Addr != "10.0.0.8:8910" || a.first.status.Addr == "10.0.0.8:8910" {
 		t.Errorf("router B's unit at %q, the first router's at %q", u.status.Addr, a.first.status.Addr)
 	}
-	// The first router's prefix has a key; its other fields are its own block's.
+	// The first router's fields have the same keys.
 	first := a.r().cfg.Routers[0].UID
 	wantSaved(t, p.saveFields(2, map[string]any{"router/" + first + "/prefix": "S"}), "router/"+first+"/prefix")
 	if a.r().cfg.Routers[0].Prefix != "S" {
 		t.Errorf("first prefix %q", a.r().cfg.Routers[0].Prefix)
 	}
-	if spec, _ := lookupField("router/" + first + "/address"); spec.get(a.r().cfg) != nil {
-		t.Error("the first router's address is a router list key")
+	if spec, _ := lookupField("router/" + first + "/address"); spec.get(a.r().cfg) == nil {
+		t.Error("the first router's address has no key")
 	}
 }
 

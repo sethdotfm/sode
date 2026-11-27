@@ -1,9 +1,4 @@
 {
-  "address": "10.0.0.50:8910",
-  "err": "",
-  "error": false,
-  "router": "up",
-  "routerUp": true,
   "routers": [
     {
       "address": "10.0.0.50:8910",

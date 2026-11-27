@@ -377,7 +377,7 @@ function state() {
     entries: rightsPanel.read(),
     users: users.map((u) => ({ rid: u.rid, name: u.name.trim() })),
     clients: clientsTab.read(),
-    off: S.cfg?.numberOffset ?? 0,
+    off: routerData('').off,
     levels: routerData('').levels.length,
   });
   if (acc.error) return { error: `Manage users: ${acc.error}` };

@@ -144,8 +144,8 @@ type protectMsg struct {
 	T  string       `json:"t"`  // "protected"
 	U  []protChange `json:"u"`  // [dst, level, device, kind]; device -1 when freed
 	By []protectBy  `json:"by"` // every Protect in Sode's record of this router
-	// RouterUID names a router after the first.
-	RouterUID string `json:"routerUid,omitempty"`
+	// RouterUID names the router, the first router too.
+	RouterUID string `json:"routerUid"`
 }
 
 type protChange struct {
@@ -168,12 +168,8 @@ func protectRows(m map[int]map[int]protHold) json.RawMessage {
 	return b
 }
 
-// protectByList: the live name of a user who set one, else the name when set.
-func (a *App) protectByList(r *runtime) []protectBy {
-	return a.protectByListOf(r, r.cfg.DefaultRouter().UID)
-}
-
-// protectByListOf is protectByList for the router with this settings UID.
+// protectByListOf: the Protects in Sode's record of the router with this settings UID. Each has the live name of the
+// user who set it, else the name from then.
 func (a *App) protectByListOf(r *runtime, uid string) []protectBy {
 	out := []protectBy{}
 	for _, rec := range a.protects.list(uid) {
@@ -219,9 +215,6 @@ func (a *App) broadcastProtectsMu(uid string) {
 // protectMsgOf is the protected message of router u with the hold changes ch. Caller holds mu.
 func (a *App) protectMsgOf(u *routerUnit, ch []protChange) protectMsg {
 	r := a.r()
-	if u == a.firstUnit() {
-		return protectMsg{T: "protected", U: ch, By: a.protectByList(r)}
-	}
 	return protectMsg{T: "protected", U: ch, By: a.protectByListOf(r, r.routerOf(u.uid()).UID), RouterUID: u.uid()}
 }
 
