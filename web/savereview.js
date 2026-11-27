@@ -1,5 +1,5 @@
-// Steps: review, PIN recheck, Save and reconnect confirm. Nothing is sent before the last step
-// (docs/agents/settings-saves.md).
+// Steps: review, Save and reconnect confirm, PIN recheck. Nothing is sent before the last step
+// (docs/agents/settings-saves.md). The confirm comes before the PIN, so nothing asks again after the PIN.
 
 import { $, el } from './core.js';
 import { btn } from './formbits.js';
@@ -103,7 +103,8 @@ function backupBlock(toExport) {
 }
 
 // unseen: counts the Role cannot see (stagedrules.js), not in rows. interruptions: null when the server did not
-// answer. Resolves false when the person goes back.
+// answer. question(saves): the Save and reconnect question {title, lines} for the rows that save
+// (savereviewrules.js reconnectQuestion). Resolves false when the person goes back.
 export function reviewSave({
   rows,
   kept,
@@ -112,7 +113,7 @@ export function reviewSave({
   show,
   critical,
   reconnects,
-  address,
+  question,
   recheckNeeded,
   by = null,
   unseen = [],
@@ -130,7 +131,7 @@ export function reviewSave({
       kept(r) && badge('warn', `Stays unsaved: ${kept(r)}`),
       reconnects(r) && badge('warn', 'Reconnects the router'),
     ].filter(Boolean);
-  let rechecked = false;
+  let confirmed = false;
   const back = document.activeElement;
   return new Promise((resolve) => {
     const end = (send) => {
@@ -142,6 +143,7 @@ export function reviewSave({
 
     function review() {
       step = { esc: () => end(false) };
+      confirmed = false;
       const n = rows.length + unseen.length;
       ui.title.textContent = `Review ${n} ${n === 1 ? 'change' : 'changes'}`;
       const counts = unseen.map((t) => el('div', 'pb-note pb-note--warn', `${t}. They stay unsaved.`));
@@ -166,21 +168,27 @@ export function reviewSave({
     }
 
     async function next() {
-      if (!rechecked && recheckNeeded && saves.some(critical)) {
+      if (!confirmed && saves.some(reconnects)) return confirmReconnect();
+      if (recheckNeeded && saves.some(critical)) {
         ui.dlg.hide();
         if (!(await askRecheck('Saving these changes'))) return review();
-        rechecked = true;
       }
-      if (saves.some(reconnects)) return confirmReconnect();
       end(true);
     }
 
     function confirmReconnect() {
       step = { esc: review };
-      ui.title.textContent = `Save and reconnect${address ? ` to ${address}` : ''}?`;
-      ui.body.replaceChildren(el('div', 'pb-note pb-note--warn', 'Takes stop until the router answers. A take in progress fails.'));
+      const q = question(saves);
+      const many = q.lines.length > 1;
+      ui.title.textContent = q.title;
+      const list = q.lines.length ? [el('ul', 'sode__review-stops', ...q.lines.map((t) => el('li', null, t)))] : [];
+      const note = many ? 'Takes on these routers stop until each router answers.' : 'Takes stop until the router answers.';
+      ui.body.replaceChildren(...list, el('div', 'pb-note pb-note--warn', `${note} A take in progress fails.`));
       relabel(ui.back, 'Back', review);
-      relabel(ui.go, 'Save and reconnect', () => end(true));
+      relabel(ui.go, 'Save and reconnect', () => {
+        confirmed = true;
+        next();
+      });
       ui.go.className = 'pb-btn pb-btn--commit';
       ui.go.disabled = false;
       ui.dlg.show();

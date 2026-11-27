@@ -2,7 +2,16 @@
 // (Node-tested). Keep the keys in step with internal/app/routeradd.go.
 
 export const LIST_ATTRS = ['prefix', 'title', 'address', 'matrix'];
-export const ATTR_LABELS = { prefix: 'Prefix', title: 'Title', address: 'Address', matrix: 'Matrix' };
+export const ATTR_LABELS = { prefix: 'Prefix', title: 'Router title', address: 'Address', matrix: 'Matrix' };
+
+// routerDisplay: the one shown form of a router, the Router prefix and then the Router title ("B Studio B"). A router
+// with no title, or with a title that only repeats the default ("Router B"), shows "Router B". With one router Sode
+// hides the prefix (GLOSSARY.md), so callers use it only when there are two or more.
+export function routerDisplay(r) {
+  const title = String(r?.title || '').trim();
+  const prefix = r?.prefix || '';
+  return !title || title === `Router ${prefix}` ? `Router ${prefix}`.trim() : `${prefix} ${title}`.trim();
+}
 
 export const listKey = (uid, attr) => `router/${uid}/${attr}`;
 export const addKey = (n) => `router/new:${n}/add`;
@@ -45,7 +54,7 @@ export function routerListProblem(rows) {
     if (!/^[A-Z]{1,2}$/.test(r.prefix)) return `${r.name}: the prefix must be one or two letters, A to Z.`;
     if (seen.has(r.prefix)) return `Two routers have the prefix ${r.prefix}. Give each router its own prefix.`;
     seen.add(r.prefix);
-    if ([...r.title].length > 32) return `${r.name}: the title must be at most 32 characters.`;
+    if ([...r.title].length > 32) return `${r.name}: the Router title must be at most 32 characters.`;
     if (!whole(r.matrix, 0, 255)) return `${r.name}: the matrix must be a number from 0 to 255.`;
     if (r.levels !== undefined && r.levels !== 0 && !whole(r.levels, 1, 256)) return `${r.name}: the levels must be a number from 1 to 256.`;
   }
@@ -82,4 +91,23 @@ export function usesNote(prefix, items) {
   });
   const parts = [broken.length ? `makes ${joinAnd(broken)} Broken` : '', ties.length ? `removes ${ties[0]}` : ''].filter(Boolean);
   return { head: `Remove router ${prefix} ${parts.join(' and ')}:`, lines };
+}
+
+// The link state of a router in the Routers list, in words. A healthy link shows no color (docs/color-roles.md):
+// Connected is plain text. Connecting is caution. Down and Never connected are failure.
+const LINK_STATES = {
+  connected: { word: 'Connected', cls: '' },
+  connecting: { word: 'Connecting', cls: 'pb-badge pb-badge--warn' },
+  down: { word: 'Down', cls: 'pb-badge pb-badge--error' },
+  never: { word: 'Never connected', cls: 'pb-badge pb-badge--error' },
+};
+
+// linkState: r is one entry of routerLinks (routerlinkrules.js), {link, err}. link is '' while the server link is down,
+// so nothing is known and nothing shows (null). everUp: the router was connected at some time (this page saw it up, or
+// Sode has its names). A link that connects for the first time is Connecting; one that failed is Down, or Never
+// connected when it was never up.
+export function linkState(r, everUp) {
+  if (!r?.link) return null;
+  const key = r.link === 'up' ? 'connected' : r.link === 'connecting' && !r.err ? 'connecting' : everUp ? 'down' : 'never';
+  return { key, ...LINK_STATES[key] };
 }

@@ -48,9 +48,8 @@ export function readRouterLevels(input) {
 // The one Save fields of router uid: {key: value}.
 export const routerFields = (uid, v) => Object.fromEntries(Object.entries(v).map(([attr, x]) => [routerKey(uid, attr), x]));
 
-// The first text that stops a save of router prefix's values v, or ''.
-export function routerLevelsProblem(prefix, v) {
-  const name = `Router ${prefix}`;
+// The first text that stops a save of values v of the router called name (routerDisplay), or ''.
+export function routerLevelsProblem(name, v) {
   if (!Number.isInteger(v.levels) || v.levels < 1 || v.levels > 256) return `${name}: Levels must be a whole number from 1 to 256.`;
   if (!Number.isInteger(v.levelWireOffset)) return `${name}: Level offset must be a whole number.`;
   if (v.defaultLevels === null) return `${name}: Default levels is not a level or range of this router.`;

@@ -196,7 +196,7 @@ window.addEventListener('popstate', showView);
 on('swapAt', (m) => {
   if (!isOpen()) openSettings();
   toc.goRouter('1');
-  emit('openSwap', { mine: false, side: m.side, from: m.from });
+  emit('openSwap', { mine: false, side: m.side, from: m.from, router: m.router || '' });
 });
 
 on('hello', () => {

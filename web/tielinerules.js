@@ -77,3 +77,12 @@ export function movedLines(t, shown) {
   const marks = Array.isArray(t?.moved) ? t.moved : [];
   return marks.map((m) => `${shown(m.ref || {})} was ${m.ref?.name || 'no name'}, now ${m.now || 'no name'}`);
 }
+
+// removeQuestion: the Confirm's words for Remove of tie line t, whose ends read as ends ("A.5 MV 1 feeds B.7 CAM 1").
+// presets: Everyone's presets on the page. The ones whose items store t's id are named. A user's own presets are not on
+// the page, so the Confirm always says what happens to a preset that stores it (docs/tielines-design.md, Presets).
+export function removeQuestion(t, ends, presets = []) {
+  const uses = presets.filter((p) => (p?.items || []).some((it) => (it?.ties || []).includes(t.id))).map((p) => p.name);
+  const named = uses.length ? ` Everyone's presets that store it: ${uses.join(', ')}.` : '';
+  return `Remove tie line ${t.name}? ${ends}. A preset that stores this tie line becomes Broken.${named}`;
+}

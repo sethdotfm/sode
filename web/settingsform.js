@@ -11,6 +11,7 @@ import { brandCaution, pickerColors, CAUTION_NOTE } from './accent.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { intProblem, namesTimeText } from './settingsrules.js';
 import { rereadNames } from './rereadnames.js';
+import { routerDisplay } from './routerlistrules.js';
 
 const root = document.documentElement;
 export const form = $('settings-view');
@@ -115,14 +116,19 @@ export function readSettings() {
 }
 
 // The first field readSettings' result cannot be saved with: {text, node}, or null. The PIN fields are the save path's.
+// With two or more routers a field of the first router's own block names that router, as the other routers' do.
+const routerOf = (node) => (node.closest('fieldset')?.dataset.router && S.routers.length > 1 ? `${routerDisplay(S.routers[0])}: ` : '');
+
 export function formProblem(c) {
   const badColor = [...$('cfg-colors').querySelectorAll('input.pb-input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) return { text: `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`, node: badColor };
-  if (c.defaultLevels === null) return { text: `Default levels: "${$('cfg-default').value.trim()}" is not a level or range here.`, node: $('cfg-default') };
+  if (c.defaultLevels === null)
+    return { text: `${routerOf($('cfg-default'))}Default levels: "${$('cfg-default').value.trim()}" is not a level or range here.`, node: $('cfg-default') };
   const hidden = parseFilter(c.hiddenDsts);
   if (hidden.error) return { text: `Globally hidden destinations: ${hidden.error}.`, node: $('cfg-hidden') };
   const bad = [...fields()].find((f) => intProblem([{ key: f.dataset.key, type: f.dataset.type, value: f.value }]));
-  if (bad) return { text: `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`, node: bad };
+  if (bad)
+    return { text: `${routerOf(bad)}${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`, node: bad };
   return null;
 }
 

@@ -9,7 +9,7 @@ import (
 
 // Settings > Routers > Tie lines: an Administrator adds a tie line by its two numbers. Sode fills the name from the source
 // name, and the Administrator can change it. A Name moved mark shows on the row, and Save tie line in the edit form
-// clears it. Remove takes the tie line away. Each change saves at once.
+// clears it. Remove asks a Confirm, then takes the tie line away. Each change saves at once.
 func TestChromeSettingsTieLines(t *testing.T) {
 	b := startBrowser(t)
 	simA := startSim(t)
@@ -67,8 +67,22 @@ func TestChromeSettingsTieLines(t *testing.T) {
 	}
 
 	b.waitFor("the row shows the new name", `document.querySelector('#tielines-list [data-id] strong').textContent === 'TIE 4' && !document.querySelector('#tielines-list [data-id] .pb-badge')`)
-	b.eval(`document.querySelector('#tielines-list [data-id] button:last-child').click(); true`)
-	b.waitFor("removed", `document.getElementById('tielines-status').textContent === 'Removed TIE 4.' && !document.querySelector('#tielines-list [data-id]')`)
+	// Remove asks the churning-letter Confirm under the row first. Cancel keeps the tie line.
+	remove := `document.querySelector('#tielines-list [data-id] button:last-child').click(); true`
+	confirm := `document.querySelector('#tielines-list .sode__tielines-confirm .sode-ov__keyconfirm')`
+	b.eval(remove)
+	b.waitFor("the Confirm asks, locked out at first", `(() => { const c = `+confirm+`; return !!c && !c.hidden && c.textContent.startsWith('Remove tie line TIE 4? A.3 DSM1 feeds B.5 From Stage 1.')
+		&& c.previousElementSibling === null && c.closest('li').previousElementSibling?.dataset.id !== undefined && c.querySelector('.sode__confirm-ok').disabled; })()`)
+	b.eval(`[...` + confirm + `.querySelectorAll('button')].find((x) => x.textContent === 'Cancel').click(); true`)
+	b.waitFor("Cancel keeps it", `!document.querySelector('#tielines-list .sode__tielines-confirm') && !!document.querySelector('#tielines-list [data-id]')`)
+	if n := len(a.r().cfg.TieLines); n != 1 {
+		t.Fatalf("the Confirm or Cancel removed the tie line: %d left", n)
+	}
+	b.eval(remove)
+	b.waitFor("the Confirm unlocks", `(() => { const c = `+confirm+`; return !!c && !c.querySelector('.sode__confirm-ok').disabled; })()`)
+	b.eval(confirm + `.querySelector('.sode__confirm-ok').click(); true`)
+	b.waitFor("removed, with the result where the row was", `document.getElementById('tielines-status').textContent === 'Removed TIE 4.' && !document.querySelector('#tielines-list [data-id]')
+		&& document.querySelector('#tielines-list .sode__tielines-removed')?.textContent === 'Removed TIE 4.'`)
 	for deadline := time.Now().Add(5 * time.Second); len(a.r().cfg.TieLines) != 0; time.Sleep(20 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatalf("still saved: %+v", a.r().cfg.TieLines)

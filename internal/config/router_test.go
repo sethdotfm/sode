@@ -163,9 +163,38 @@ func TestValidateRouters(t *testing.T) {
 	c.Normalize()
 	c.MoreRouters[1].UID = c.UID
 	err := c.Validate()
-	for _, want := range []string{"router B: levels must be 1-256", "router A: two routers have the UID", "router A: two routers have the prefix A"} {
+	for _, want := range []string{"Router B: levels must be 1-256", "Router A: two routers have the UID", "Router A: two routers have the prefix A"} {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("want %q in %v", want, err)
+		}
+	}
+}
+
+// With two or more routers every problem names its router by prefix and Router title, the first router too. With one
+// router nothing names it. The address problem says address.
+func TestValidateRoutersNamesEveryRouter(t *testing.T) {
+	c := Defaults()
+	c.Title, c.Address = "Studio A", "nohost"
+	c.MoreRouters = []Router{{Levels: 1, Prefix: "B", Title: "Stage 2", Address: "nohost2"}, {Levels: 1, Prefix: "C", Title: strings.Repeat("x", 33)}}
+	c.Normalize()
+	err := c.Validate()
+	for _, want := range []string{
+		"A Studio A: address must be host:port",
+		"B Stage 2: address must be host:port",
+		"C " + strings.Repeat("x", 33) + ": router title must be at most 32 characters",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("want %q in %v", want, err)
+		}
+	}
+	one := Defaults()
+	one.Address = "nohost"
+	if err := one.Validate(); err == nil || !strings.HasPrefix(err.Error(), "address must be host:port") {
+		t.Errorf("one router: %v", err)
+	}
+	for _, tc := range []struct{ title, want string }{{"", "Router B"}, {"Router B", "Router B"}, {" Stage 2 ", "B Stage 2"}} {
+		if got := (Router{Prefix: "B", Title: tc.title}).Display(); got != tc.want {
+			t.Errorf("Display(%q) = %q, want %q", tc.title, got, tc.want)
 		}
 	}
 }

@@ -1,9 +1,10 @@
 // Settings > Routers: a row for each router after the first, with its Prefix, Title, Address and Matrix, plus Add
 // router and Remove router. A save source of the one Save (savesources.js), keys of routerlistrules.js. The first
 // router's row comes from settingsrouters.js; with two or more routers it gets a Prefix field from here. Remove
-// router asks the server what it breaks before the router is staged; the save is Critical.
+// router asks the server what it breaks before the router is staged; the save is Critical. Each row shows the link
+// state of its router in words (linkState), live on each `conn` event.
 
-import { $, S, el, emit, on, request } from './core.js';
+import { $, S, el, emit, on, request, linkList, routerData } from './core.js';
 import { addSaveSource } from './savesources.js';
 import { diffRows, showValue } from './savereviewrules.js';
 import {
@@ -13,10 +14,12 @@ import {
   addKey,
   freePrefix,
   keyAttr,
+  linkState,
   keyRouter,
   listKey,
   readRouter,
   removeKey,
+  routerDisplay,
   routerListProblem,
   usesNote,
 } from './routerlistrules.js';
@@ -75,7 +78,7 @@ function fields(id, withLevels) {
   inputs.prefix.classList.add('sode__routers-prefix');
   const kids = [
     field(idOf(id, 'prefix'), 'Prefix', inputs.prefix),
-    field(idOf(id, 'title'), 'Title', inputs.title),
+    field(idOf(id, 'title'), ATTR_LABELS.title, inputs.title),
     field(idOf(id, 'address'), 'Address', inputs.address),
     field(idOf(id, 'matrix'), 'Matrix', inputs.matrix, el('span', 'pb-number-wrap', inputs.matrix)),
   ];
@@ -93,13 +96,17 @@ function block(r) {
   let b = blocks.find((x) => x.uid === r.uid);
   if (!b) {
     const { inputs, node } = fields(r.uid, false);
-    b = { uid: r.uid, inputs, note: el('div', 'sode__routers-note'), title: el('span', 'sode__label') };
+    b = { uid: r.uid, inputs, note: el('div', 'sode__routers-note'), title: el('span', 'sode__label'), link: el('span', 'sode__routers-link') };
+    b.link.dataset.link = r.uid;
     b.remove = button('Remove…', 'pb-btn--outline', () => askRemove(b));
-    b.node = el('li', 'sode__routers-item', el('div', 'sode__routers-head', b.title, b.remove), node, b.note);
+    // Swap stages into the one Save, so it is offered where the Routers section is editable (Administrator).
+    b.swap = button('Swap…', 'pb-btn--outline', () => emit('openSwap', { mine: false, router: b.uid }));
+    b.swap.setAttribute('aria-haspopup', 'dialog');
+    b.node = el('li', 'sode__routers-item', el('div', 'sode__routers-head', b.title, b.link, b.swap, b.remove), node, b.note);
     b.node.dataset.router = r.uid;
   }
   b.prefix = r.prefix;
-  b.title.textContent = `Router ${r.prefix}`;
+  b.title.textContent = routerDisplay(r);
   b.inputs.prefix.value = r.prefix;
   b.inputs.title.value = r.title || '';
   b.inputs.address.value = r.address || '';
@@ -187,10 +194,33 @@ function paint() {
     b.node.classList.toggle('sode__routers-item--removed', gone);
     for (const f of Object.values(b.inputs)) f.disabled = gone;
     b.remove.hidden = !admin || gone;
+    b.swap.hidden = !admin || gone;
   }
   for (const x of adds) x.node.querySelector('.sode__routers-head .pb-btn').hidden = !admin;
   $('routers-list').replaceChildren(firstRow, ...blocks.map((b) => b.node), ...adds.map((x) => x.node));
   $('router-add').hidden = !admin;
+  paintLinks();
+}
+
+// The routers this page saw connected. With Sode's names of a router, they tell Down from Never connected.
+const seenUp = new Set();
+
+// paintLinks writes the link state into each row's [data-link] (a router UID) of the Routers list.
+function paintLinks() {
+  const links = new Map(linkList().map((r) => [r.uid, r]));
+  const firstUid = routerData('').uid;
+  for (const node of $('routers-list').querySelectorAll('[data-link]')) {
+    const r = links.get(node.dataset.link);
+    if (r?.link === 'up') seenUp.add(r.uid);
+    const d = routerData(node.dataset.link === firstUid ? '' : node.dataset.link);
+    // A names time is a zero time ("0001-01-01…") until a read, so only a time after 1970 counts.
+    const s = linkState(r, seenUp.has(node.dataset.link) || Date.parse(d.namesAt) > 0 || Date.parse(d.namesSavedAt) > 0);
+    node.hidden = !s;
+    node.className = `sode__routers-link ${s?.cls || ''}`.trim();
+    node.textContent = s?.word || '';
+    if (s && s.key !== 'connected' && r.err) node.dataset.pbTip = r.err;
+    else delete node.dataset.pbTip;
+  }
 }
 
 // A hello moves only a baseline with no edits on it, so another person's save shows as a conflict.
@@ -231,6 +261,7 @@ export function showRouterList(row) {
 }
 
 on('hello', () => load());
+on('conn', () => firstRow && paintLinks());
 on('access', (a) => {
   admin = a.role === 'administrator';
   paint();
@@ -239,6 +270,8 @@ $('router-add').addEventListener('click', addRow);
 
 const blockOf = (key) => blocks.find((b) => b.uid === keyRouter(key));
 const prefixOf = (key) => (first && keyRouter(key) === first.uid ? first.prefix : blockOf(key)?.prefix || '');
+// The shown name of a key's router as loaded: its prefix and Router title (routerDisplay).
+const nameOf = (key) => routerDisplay(S.routers.find((r) => r.uid === keyRouter(key)) || { prefix: prefixOf(key) });
 
 addSaveSource({
   owns: (key) => LIST_KEY.test(key),
@@ -248,8 +281,8 @@ addSaveSource({
   label(r) {
     const attr = keyAttr(r.key);
     if (attr === 'add') return `New router ${now()[r.key]?.prefix || ''}`.trim();
-    if (attr === 'remove') return `Remove router ${prefixOf(r.key)}`;
-    return `Router ${prefixOf(r.key)}: ${ATTR_LABELS[attr]}`;
+    if (attr === 'remove') return `Remove ${nameOf(r.key)}`;
+    return `${nameOf(r.key)}: ${ATTR_LABELS[attr]}`;
   },
   show(r, v) {
     const attr = keyAttr(r.key);
@@ -266,8 +299,8 @@ addSaveSource({
   problem() {
     const rows = [];
     const r0 = S.routers[0];
-    if (r0) rows.push({ name: `Router ${r0.prefix}`, prefix: first ? readRouter({ prefix: first.input.value }).prefix : r0.prefix, title: '', matrix: 0 });
-    for (const b of blocks) if (!removed.has(b.uid)) rows.push({ name: `Router ${b.prefix}`, ...values(b) });
+    if (r0) rows.push({ name: routerDisplay(r0), prefix: first ? readRouter({ prefix: first.input.value }).prefix : r0.prefix, title: '', matrix: 0 });
+    for (const b of blocks) if (!removed.has(b.uid)) rows.push({ name: nameOf(listKey(b.uid, 'prefix')), ...values(b) });
     for (const x of adds) rows.push({ name: 'The new router', ...values(x) });
     return routerListProblem(rows);
   },

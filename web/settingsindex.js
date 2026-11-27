@@ -328,7 +328,7 @@ export const DICT = {
 
   // ---- Router
   'cfg-router': ['router', 'ip', 'address', 'host', 'hostname', 'port', 'tcp', 'connect', 'ultrix', 'host:port'],
-  'cfg-routername': ['router name', 'name', 'label', 'title', 'call it'],
+  'cfg-routername': ['router title', 'router name', 'name', 'label', 'title', 'call it'],
   'cfg-routershow': ['status', 'show', 'header', 'display', 'address', 'name', 'connected'],
 
   // ---- Matrix

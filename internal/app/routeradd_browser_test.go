@@ -27,15 +27,14 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 		t.Helper()
 		b.eval(`document.getElementById('settings-save').click(); true`)
 		b.waitFor("the review lists "+want, `(() => { const d = document.getElementById('review'); return !!d?.offsetParent && d.textContent.includes('`+want+`'); })()`)
-		b.eval(`document.getElementById('review-save').click(); true`)
-		b.waitFor("PIN recheck asked", `!!document.getElementById('recheck-pin')?.offsetParent`)
-		b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
-		// A save that changes the router connections can ask one more time.
-		b.waitFor("the save goes", `(() => {
+		// A save that changes the router connections asks Save and reconnect before the PIN recheck.
+		b.waitFor("PIN recheck asked", `(() => {
 			const d = document.getElementById('review');
-			if (d?.offsetParent && document.getElementById('review-save').textContent !== 'Save 1 change') document.getElementById('review-save').click();
-			return !d?.offsetParent;
+			if (d?.offsetParent) document.getElementById('review-save').click();
+			return !!document.getElementById('recheck-pin')?.offsetParent;
 		})()`)
+		b.eval(`document.getElementById('recheck-pin').value = '1234'; document.getElementById('recheck-go').click(); true`)
+		b.waitFor("the save goes", `!document.getElementById('review')?.offsetParent && !document.getElementById('recheck-pin')?.offsetParent`)
 	}
 	save("New router B")
 
@@ -72,12 +71,12 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.eval(`document.querySelector('[data-router="` + uid + `"] .sode__routers-head .pb-btn').click(); true`)
+	b.eval(`[...document.querySelectorAll('[data-router="` + uid + `"] .sode__routers-head .pb-btn')].find((x) => x.textContent === 'Remove…').click(); true`)
 	b.waitFor("the note lists the preset", `(() => { const n = document.querySelector('[data-router="`+uid+`"] .sode__routers-note'); return !!n && n.textContent.includes('1 preset') && n.textContent.includes('Preset Stage (Everyone)')
 		&& n.textContent.includes('removes 1 tie line') && n.textContent.includes('Tie line TIE 3'); })()`)
 	b.eval(`[...document.querySelectorAll('[data-router="` + uid + `"] .sode__routers-acts .pb-btn')].find((x) => x.textContent === 'Remove router B').click(); true`)
 	b.waitFor("router B staged", `document.querySelector('[data-router="`+uid+`"]').classList.contains('sode__routers-item--removed')`)
-	save("Remove router B")
+	save("Remove B Stage 2")
 	for deadline := time.Now().Add(10 * time.Second); len(a.r().cfg.MoreRouters) > 0; time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("router B was not removed")

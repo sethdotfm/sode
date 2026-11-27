@@ -3,6 +3,7 @@
 
 import { $, S, el, emit, on } from './core.js';
 import { showRouterList } from './settingsrouterlist.js';
+import { routerDisplay } from './routerlistrules.js';
 
 let admin = false;
 on('access', (a) => {
@@ -13,7 +14,10 @@ on('access', (a) => {
   }
 });
 
-export const routerTitle = () => S.cfg?.routerName?.trim() || 'Router';
+// The first router's heading: its Router title, or "Router" with none. With two or more routers its prefix comes first,
+// as every other router's does ("A Studio A", "Router A").
+export const routerTitle = () =>
+  S.routers.length > 1 ? routerDisplay({ prefix: S.routers[0].prefix, title: S.cfg?.routerName }) : S.cfg?.routerName?.trim() || 'Router';
 
 // onPick(id): a row's button goes to that router's block.
 export function fillRouters(onPick) {
@@ -29,10 +33,13 @@ export function fillRouters(onPick) {
   swap.id = 'router-1-swap';
   swap.setAttribute('aria-haspopup', 'dialog');
   swap.hidden = !admin;
-  swap.addEventListener('click', () => emit('openSwap', { mine: false }));
+  swap.addEventListener('click', () => emit('openSwap', { mine: false, router: S.routers[0]?.uid || '' }));
   // The Broken and Name moved count (brokencount.js), Administrator only since it covers everyone's items.
   const broken = el('div', 'sode__broken-count');
   broken.id = 'router-1-broken';
   broken.hidden = !admin;
-  showRouterList(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), swap, broken));
+  // The link state, in words (settingsrouterlist.js paints it).
+  const link = el('span', 'sode__routers-link');
+  link.dataset.link = S.routers[0]?.uid || '';
+  showRouterList(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), link, swap, broken));
 }

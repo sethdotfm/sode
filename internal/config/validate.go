@@ -108,15 +108,16 @@ func ParseLevels(s string, max int) ([]int, error) {
 	return out, nil
 }
 
-// validateRouters checks each router and that no two share a UID or a prefix. A problem of a router after the first
-// names its prefix.
+// validateRouters checks each router and that no two share a UID or a prefix. With two or more routers, each problem
+// names its router by prefix and Router title, the first router too.
 func (c Config) validateRouters() []error {
 	var errs []error
 	uids, prefixes := map[string]bool{}, map[string]bool{}
-	for i, r := range c.Routers() {
+	routers := c.Routers()
+	for _, r := range routers {
 		name := ""
-		if i > 0 {
-			name = fmt.Sprintf("router %s: ", r.Prefix)
+		if len(routers) > 1 {
+			name = r.Display() + ": "
 		}
 		for _, err := range r.problems() {
 			errs = append(errs, fmt.Errorf("%s%w", name, err))
@@ -138,7 +139,7 @@ func (r Router) problems() []error {
 	if r.Address != "" {
 		host, port, err := net.SplitHostPort(r.Address)
 		if p, perr := strconv.Atoi(port); err != nil || host == "" || perr != nil || p < 1 || p > 65535 {
-			bad("router must be host:port, for example 10.0.0.50:8910")
+			bad("address must be host:port, for example 10.0.0.50:8910")
 		}
 	}
 	switch r.NameRequests {
@@ -206,9 +207,20 @@ func (r Router) problems() []error {
 		bad("router prefix must be one or two letters, A to Z")
 	}
 	if n := len([]rune(r.Title)); n > 32 {
-		bad("router name must be at most 32 characters")
+		bad("router title must be at most 32 characters")
 	}
 	return errs
+}
+
+// Display is the one shown form of a router: the Router prefix and then the Router title ("B Studio B"). A router with
+// no title, or one that only repeats the default ("Router B"), is "Router B". Keep in step with routerDisplay in
+// web/routerlistrules.js.
+func (r Router) Display() string {
+	title := strings.TrimSpace(r.Title)
+	if title == "" || title == "Router "+r.Prefix {
+		return "Router " + r.Prefix
+	}
+	return r.Prefix + " " + title
 }
 
 // validPrefix: a router prefix is one or two letters A to Z (A, B, BA).
