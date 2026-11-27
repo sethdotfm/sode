@@ -140,7 +140,7 @@ func TestSeveralRouters(t *testing.T) {
 		t.Fatalf("routers %+v", c.Routers)
 	}
 	b := c.Routers[1]
-	if b.UID != "b2" || b.Prefix != "B" || b.Levels != 2 || b.Address != "" || b.NameLength != Defaults().Routers[0].NameLength || b.DefaultLevels != "1-2" {
+	if b.UID != "b2" || b.Prefix != "B" || b.Levels != 2 || b.Address != "" || b.NameLength != Defaults().Routers[0].NameLength || b.DefaultLevels != "" || len(b.DefaultLevelList()) != 2 {
 		t.Errorf("second router %+v", b)
 	}
 	if err := c.Validate(); err != nil {
@@ -234,7 +234,7 @@ func TestRoutersListsTheFirstRouterFirst(t *testing.T) {
 	if len(rs) != 2 || rs[0].UID != c.Routers[0].UID || rs[1].Address != "10.0.0.9:8910" || rs[1].Prefix != "B" {
 		t.Fatalf("routers %+v", rs)
 	}
-	if rs[1].UID == "" || rs[1].UID == c.Routers[0].UID || rs[1].DefaultLevels != "1-1" || rs[1].FireMode != "sequential" {
+	if rs[1].UID == "" || rs[1].UID == c.Routers[0].UID || rs[1].DefaultLevels != "" || rs[1].FireMode != "sequential" {
 		t.Errorf("second router not normalized: %+v", rs[1])
 	}
 	for uid, want := range map[string]string{"": c.Routers[0].UID, c.Routers[0].UID: c.Routers[0].UID, rs[1].UID: rs[1].UID} {
@@ -290,5 +290,85 @@ func TestRefShowsNoPrefixWithOneRouter(t *testing.T) {
 	}
 	if err != nil || back["router"] != c.Routers[0].UID || back["n"] != 22 || back["shown"] != "23" || back["name"] != "CAM 1" {
 		t.Errorf("ref yaml %q %v", b, err)
+	}
+}
+
+// One router hides the prefix; two or more show "<prefix> <title>". No title is "Router <prefix>" either way.
+func TestRouterDisplayName(t *testing.T) {
+	for _, c := range []struct {
+		r         Router
+		one, many string
+	}{
+		{Router{Prefix: "A", Title: "Main"}, "Main", "A Main"},
+		{Router{Prefix: "B", Title: "Studio B"}, "Studio B", "B Studio B"},
+		{Router{Prefix: "B"}, "Router B", "Router B"},
+		{Router{Prefix: "A", Title: "Router A"}, "Router A", "Router A"},
+	} {
+		if got := c.r.DisplayName(false); got != c.one {
+			t.Errorf("%+v one router: %q, want %q", c.r, got, c.one)
+		}
+		if got := c.r.DisplayName(true); got != c.many {
+			t.Errorf("%+v many routers: %q, want %q", c.r, got, c.many)
+		}
+	}
+	cfg := Defaults()
+	cfg.Routers[0].Title = "Main"
+	if got := cfg.RouterName(cfg.Routers[0]); got != "Main" {
+		t.Errorf("one router %q", got)
+	}
+	cfg.Routers = append(cfg.Routers, Router{Prefix: "B", Title: "Studio B"})
+	if got := cfg.RouterName(cfg.Routers[1]); got != "B Studio B" {
+		t.Errorf("second router %q", got)
+	}
+}
+
+// Blank Default levels stay blank through Normalize and a save, and mean every level of the current count. An old
+// file's explicit list keeps its value.
+func TestBlankDefaultLevelsStayBlank(t *testing.T) {
+	c, err := Parse([]byte("format: 2\nrouters:\n  - uid: a1\n    levels: 4\n    defaultLevels: \"\"\n  - uid: b2\n    prefix: B\n    levels: 17\n    defaultLevels: 1-17\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	a, b := c.Routers[0], c.Routers[1]
+	if a.DefaultLevels != "" || !reflect.DeepEqual(a.DefaultLevelList(), []int{1, 2, 3, 4}) {
+		t.Errorf("router A %q %v", a.DefaultLevels, a.DefaultLevelList())
+	}
+	if b.DefaultLevels != "1-17" {
+		t.Errorf("router B %q", b.DefaultLevels)
+	}
+	c.Routers[0].Levels = 8
+	c.Normalize()
+	if a := c.Routers[0]; a.DefaultLevels != "" || len(a.DefaultLevelList()) != 8 {
+		t.Errorf("after 8 levels: %q %v", a.DefaultLevels, a.DefaultLevelList())
+	}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := Save(path, c); err != nil {
+		t.Fatal(err)
+	}
+	back, _, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Routers[0].DefaultLevels != "" || back.Routers[1].DefaultLevels != "1-17" {
+		t.Errorf("loaded %q %q", back.Routers[0].DefaultLevels, back.Routers[1].DefaultLevels)
+	}
+}
+
+func TestLevelsText(t *testing.T) {
+	for _, c := range []struct{ numbering, in, want string }{
+		{"1", "1-3,5", "1-3, 5"},
+		{"0", "1-3,5", "0-2, 4"},
+		{"va", "1-3,5", "V, 1-2, 4"},
+		{"va", "1", "V"},
+		{"va", "", ""},
+		{"1", "nope", "nope"},
+	} {
+		r := Router{Levels: 8, LevelNumbering: c.numbering}
+		if got := r.LevelsText(c.in); got != c.want {
+			t.Errorf("%s %q: %q, want %q", c.numbering, c.in, got, c.want)
+		}
 	}
 }

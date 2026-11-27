@@ -429,3 +429,28 @@ func (r Router) LevelLabel(ui int) string {
 	}
 	return strconv.Itoa(ui)
 }
+
+// LevelsText gives a list of UI levels ("1-3,5", as the file keeps it) in the router's Level numbering. For example,
+// "0-2, 4" for 0 numbering and "V, 1-2, 4" for V + A, where V never starts a range. Blank, or a list that does not
+// parse, stays as it is.
+func (r Router) LevelsText(s string) string {
+	ls, err := ParseLevels(s, r.Levels)
+	if s == "" || err != nil {
+		return s
+	}
+	slices.Sort(ls)
+	var parts []string
+	for i := 0; i < len(ls); {
+		j := i
+		for j+1 < len(ls) && ls[j+1] == ls[j]+1 && !(r.LevelNumbering == "va" && ls[i] == 1) {
+			j++
+		}
+		if i == j {
+			parts = append(parts, r.LevelLabel(ls[i]))
+		} else {
+			parts = append(parts, r.LevelLabel(ls[i])+"-"+r.LevelLabel(ls[j]))
+		}
+		i = j + 1
+	}
+	return strings.Join(parts, ", ")
+}

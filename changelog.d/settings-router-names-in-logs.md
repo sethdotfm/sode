@@ -1,0 +1,4 @@
+- Server log lines about one router name it: for example `names: B Studio B: 200 sources, 120 destinations` and `swp08: B Studio B: connected to 10.0.0.9:8910`. With one router the line shows only the Router title, or "Router A" when there is no title. The start line names each router, and `config: applied` names the routers that connect again.
+- Blank Default levels now mean every level of the router and stay blank in `config.yaml`, in the hello and in `defaultLevels` of `GET /api/v1/tally`. Thus they stay true when the level count changes. A file with a list such as `1-17` keeps it.
+- The Settings saves record shows Default levels in the Level numbering of the router, for example "V, 1-2". With two or more routers, it names a router as "B Studio B".
+- A 409 `no_path` message of a panel names each router in the same form.

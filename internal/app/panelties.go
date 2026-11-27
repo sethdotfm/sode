@@ -202,11 +202,7 @@ func (a *App) panelTieRule(rt *runtime, cl *apiCtx, routes []tieRoute) (*panelTi
 // 10). reasons are the reasons of the first route with no usable path.
 func panelNoPath(rt *runtime, panel string, reasons []tieplan.Reason) string {
 	router := func(uid string) string {
-		rc := rt.routerOf(uid)
-		if rc.Title != "" {
-			return rc.Title
-		}
-		return "router " + rc.Prefix
+		return rt.cfg.RouterName(rt.routerOf(uid))
 	}
 	for _, why := range reasons {
 		switch why.Why {

@@ -80,11 +80,34 @@ func newRouterUnit(r config.Router) *routerUnit {
 // uid gives the router UID of the unit.
 func (u *routerUnit) uid() string { return *u.id.Load() }
 
+// name is the router of u in log lines (App.routerName), or its UID before link gives it a name.
+func (u *routerUnit) name() string {
+	if u.sw != nil && u.sw.Name != nil {
+		return u.sw.Name()
+	}
+	return u.uid()
+}
+
+// routerName is the router of u in log lines: "B Studio B", or the Router title alone while Sode has one router
+// (config.Router.DisplayName). The first router's unit is the first router of the settings, also before
+// renameFirstMu gives it a new UID. A unit that a commit took out is "removed router".
+func (a *App) routerName(u *routerUnit) string {
+	cfg := a.r().cfg
+	if u == a.first {
+		return cfg.RouterName(cfg.DefaultRouter())
+	}
+	if rc, ok := cfg.RouterByUID(u.uid()); ok {
+		return cfg.RouterName(rc)
+	}
+	return "removed router"
+}
+
 // link makes the unit's Router link. Its callbacks name the unit, so a message changes only this router's state.
 func (a *App) link(u *routerUnit, r *runtime, debug bool) {
 	rc := r.routerOf(u.uid())
 	u.sw = swp08.NewClient(rc.Address, probe(rc))
 	u.sw.Debug = debug
+	u.sw.Name = func() string { return a.routerName(u) }
 	u.sw.OnUp = func() { a.onUnitUp(u) }
 	u.sw.OnMsg = func(m []byte) { a.onUnitMsg(u, m) }
 	u.sw.OnState = func(s swp08.State, err error) { a.onUnitState(u, s, err) }

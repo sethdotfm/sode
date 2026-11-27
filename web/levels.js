@@ -58,13 +58,14 @@ export function levelLabelOf(levels, numbering, ui, mode) {
 // The most levels a router can have (config levels 1-256).
 const MAX_LEVELS = 256;
 
-// none: picker cleared to no levels, so blank means none. Blank otherwise means the default levels, typed in 1 numbering.
+// none: picker cleared to no levels, so blank means none. Blank otherwise means the default levels, typed in 1 numbering;
+// blank default levels are every level.
 // The levels are those of one router. A router with one level cannot break away: any typed levels mean its one level,
 // the whole signal (docs/tielines-design.md, Levels).
 export function parseLevelsIn(text, { levels, numbering, defaultLevels }, none = false) {
   if (none && !text.trim()) return null;
   if (levels.length === 1) return parseLevelsAs(text.trim() ? text : '1', numbering, MAX_LEVELS) && [1];
-  if (!text.trim()) return parseLevelsAs(defaultLevels, '1', levels.length);
+  if (!text.trim()) return defaultLevels?.trim() ? parseLevelsAs(defaultLevels, '1', levels.length) : levels.map(uiOf);
   return parseLevelsAs(text, numbering, levels.length);
 }
 

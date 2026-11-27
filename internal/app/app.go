@@ -465,7 +465,7 @@ func (a *App) requestDumps(u *routerUnit) {
 // send is for the background reads: a refusal is only logged.
 func (u *routerUnit) send(m []byte, reason swp08.Reason) {
 	if err := u.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
-		log.Printf("send cmd 0x%02X: %v", m[0], err)
+		log.Printf("send: %s: cmd 0x%02X: %v", u.name(), m[0], err)
 	}
 }
 
@@ -528,7 +528,7 @@ func (a *App) logLink(u *routerUnit, s swp08.State, err error) {
 func (a *App) onUnitMsg(u *routerUnit, msg []byte) {
 	ev, err := swp08.Parse(msg)
 	if err != nil {
-		log.Printf("parse: %v (% X)", err, msg)
+		log.Printf("parse: %s: %v (% X)", a.routerName(u), err, msg)
 	}
 	r := a.r()
 	a.mu.Lock()
@@ -831,12 +831,13 @@ func (a *App) reply(c *client, v any) {
 
 // record writes e. A take's entry names its router in Router; any other entry gets the first router.
 func (a *App) record(e *Entry) {
-	rc := a.r().routerOf(e.Router)
+	r := a.r()
+	rc := r.routerOf(e.Router)
 	e.Router, e.RouterTitle = rc.UID, rc.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	log.Print(e.logLine(rc.NumberOffset))
+	log.Printf("%s: %s", r.cfg.RouterName(rc), e.logLine(rc.NumberOffset))
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "entry", E: e})
 	a.mu.Unlock()

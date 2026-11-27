@@ -64,7 +64,7 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
 	id := func(attr string) string { return `document.getElementById('cfg-rl-` + uid + `-` + attr + `')` }
-	b.waitFor("router B's block", id("levels")+`?.value === '17' && `+id("defaultLevels")+`.value === '1-17' && document.getElementById('router-levels-list').textContent.includes('Router B')`)
+	b.waitFor("router B's block", id("levels")+`?.value === '17' && `+id("defaultLevels")+`.value === '' && document.getElementById('router-levels-list').textContent.includes('Router B')`)
 	b.eval(`(() => { const n = ` + id("levelNumbering") + `; n.value = 'va'; n.dispatchEvent(new Event('change', {bubbles: true}));
 		const d = ` + id("defaultLevels") + `; d.value = 'V-2'; d.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	b.eval(`document.getElementById('settings-save').click(); true`)

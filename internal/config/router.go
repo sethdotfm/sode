@@ -61,9 +61,20 @@ func (r *Router) normalize() {
 	if r.LevelNumbering == "" {
 		r.LevelNumbering = "1"
 	}
-	if r.DefaultLevels == "" && r.Levels > 0 {
-		r.DefaultLevels = fmt.Sprintf("1-%d", r.Levels)
+}
+
+// DefaultLevelList gives the Default levels as UI levels. Blank is every level: it stays blank in the file and on the
+// wire, so it stays true when the level count changes. A value that does not parse gives nil (Validate refuses it).
+func (r Router) DefaultLevelList() []int {
+	if r.DefaultLevels == "" {
+		out := make([]int, r.Levels)
+		for i := range out {
+			out[i] = i + 1
+		}
+		return out
 	}
+	ls, _ := ParseLevels(r.DefaultLevels, r.Levels)
+	return ls
 }
 
 // DefaultRouter is the first router of the list. A Config with no routers (not normalized) gives the zero Router.

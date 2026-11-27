@@ -210,8 +210,7 @@ func (a *App) apiTakeRoutes(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			}
 			ls := ro.Levels
 			if len(ls) == 0 {
-				rc := rt.routerOf(u.uid())
-				ls, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
+				ls = rt.routerOf(u.uid()).DefaultLevelList()
 			}
 			r := tieRoute{index: i, src: tieplan.End{Router: su.uid(), N: ro.Src.N}, dst: tieplan.End{Router: u.uid(), N: ro.Dst.N}, levels: ls}
 			switch {

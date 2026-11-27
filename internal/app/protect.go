@@ -623,7 +623,8 @@ func (a *App) clearSodeProtects(c *client, only []string) (cleared int, still []
 // first, so the entry's row draws with its Undo right.
 func (a *App) protectDone(rec protectRec, e *Entry) {
 	if err := a.protects.put(rec); err != nil {
-		log.Printf("protects: %v", err)
+		r := a.r()
+		log.Printf("protects: %s: %v", r.cfg.RouterName(r.routerOf(rec.Router)), err)
 	}
 	a.mu.Lock()
 	a.broadcastProtectsMu(rec.Router)

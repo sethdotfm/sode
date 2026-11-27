@@ -229,7 +229,7 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 		r := cfg.EditDefaultRouter()
 		r.Address = strings.TrimSpace(s.Router)
 		if r.Levels != s.Levels {
-			r.DefaultLevels = "" // Normalize fills it for the new count
+			r.DefaultLevels = "" // blank: every level of the new count
 		}
 		r.Levels, r.LevelNumbering, r.NumberOffset = s.Levels, s.LevelNumbering, s.NumberOffset
 		r.FireMode, r.SalvoGroup = s.FireMode, s.SalvoGroup
