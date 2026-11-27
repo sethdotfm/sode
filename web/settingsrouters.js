@@ -3,6 +3,7 @@
 
 import { $, S, el, emit, on } from './core.js';
 import { showRouterList } from './settingsrouterlist.js';
+import { routerDisplay } from './routerlistrules.js';
 
 let admin = false;
 on('access', (a) => {
@@ -13,7 +14,10 @@ on('access', (a) => {
   }
 });
 
-export const routerTitle = () => S.cfg?.routerName?.trim() || 'Router';
+// The first router's heading: its Router title, or "Router" with none. With two or more routers its prefix comes first,
+// as every other router's does ("A Studio A", "Router A").
+export const routerTitle = () =>
+  S.routers.length > 1 ? routerDisplay({ prefix: S.routers[0].prefix, title: S.cfg?.routerName }) : S.cfg?.routerName?.trim() || 'Router';
 
 // onPick(id): a row's button goes to that router's block.
 export function fillRouters(onPick) {

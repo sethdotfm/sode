@@ -138,3 +138,21 @@ func TestChromeSwapOnSecondRouter(t *testing.T) {
 	})()`)
 	b.check()
 }
+
+// Every router's title field is labelled Router title, and the first router's heading names it as the others are
+// named.
+func TestChromeRouterTitleLabel(t *testing.T) {
+	b := startBrowser(t)
+	_, uid := twoNamedRouters(t, b)
+	b.waitFor("one label for the title field", `(() => {
+		const label = (id) => document.querySelector('label[for="' + id + '"]')?.textContent;
+		return label('cfg-routername') === 'Router title' && label('cfg-rt-`+uid+`-title') === 'Router title'
+			&& document.querySelector('#cfg-routershow option[value="name"]').textContent === 'Router title'
+			&& document.getElementById('router-1-title').textContent === 'A Studio A'
+			&& document.querySelector('[data-router="`+uid+`"] .sode__routers-head .sode__label').textContent === 'B Stage 2';
+	})()`)
+	typeField(b, "cfg-routername", "Studio 1")
+	b.eval(`document.getElementById('settings-save').click(); true`)
+	b.waitFor("the review row", `[...document.querySelectorAll('#review tbody tr')].some((r) => r.cells[0]?.textContent === 'A Studio A: Router title')`)
+	b.check()
+}

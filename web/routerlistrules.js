@@ -2,7 +2,7 @@
 // (Node-tested). Keep the keys in step with internal/app/routeradd.go.
 
 export const LIST_ATTRS = ['prefix', 'title', 'address', 'matrix'];
-export const ATTR_LABELS = { prefix: 'Prefix', title: 'Title', address: 'Address', matrix: 'Matrix' };
+export const ATTR_LABELS = { prefix: 'Prefix', title: 'Router title', address: 'Address', matrix: 'Matrix' };
 
 // routerDisplay: the one shown form of a router, the Router prefix and then the Router title ("B Studio B"). A router
 // with no title, or with a title that only repeats the default ("Router B"), shows "Router B". With one router Sode
@@ -54,7 +54,7 @@ export function routerListProblem(rows) {
     if (!/^[A-Z]{1,2}$/.test(r.prefix)) return `${r.name}: the prefix must be one or two letters, A to Z.`;
     if (seen.has(r.prefix)) return `Two routers have the prefix ${r.prefix}. Give each router its own prefix.`;
     seen.add(r.prefix);
-    if ([...r.title].length > 32) return `${r.name}: the title must be at most 32 characters.`;
+    if ([...r.title].length > 32) return `${r.name}: the Router title must be at most 32 characters.`;
     if (!whole(r.matrix, 0, 255)) return `${r.name}: the matrix must be a number from 0 to 255.`;
     if (r.levels !== undefined && r.levels !== 0 && !whole(r.levels, 1, 256)) return `${r.name}: the levels must be a number from 1 to 256.`;
   }

@@ -71,7 +71,7 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.eval(`document.querySelector('[data-router="` + uid + `"] .sode__routers-head .pb-btn').click(); true`)
+	b.eval(`[...document.querySelectorAll('[data-router="` + uid + `"] .sode__routers-head .pb-btn')].find((x) => x.textContent === 'Remove…').click(); true`)
 	b.waitFor("the note lists the preset", `(() => { const n = document.querySelector('[data-router="`+uid+`"] .sode__routers-note'); return !!n && n.textContent.includes('1 preset') && n.textContent.includes('Preset Stage (Everyone)')
 		&& n.textContent.includes('removes 1 tie line') && n.textContent.includes('Tie line TIE 3'); })()`)
 	b.eval(`[...document.querySelectorAll('[data-router="` + uid + `"] .sode__routers-acts .pb-btn')].find((x) => x.textContent === 'Remove router B').click(); true`)

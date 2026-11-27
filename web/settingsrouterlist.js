@@ -76,7 +76,7 @@ function fields(id, withLevels) {
   inputs.prefix.classList.add('sode__routers-prefix');
   const kids = [
     field(idOf(id, 'prefix'), 'Prefix', inputs.prefix),
-    field(idOf(id, 'title'), 'Title', inputs.title),
+    field(idOf(id, 'title'), ATTR_LABELS.title, inputs.title),
     field(idOf(id, 'address'), 'Address', inputs.address),
     field(idOf(id, 'matrix'), 'Matrix', inputs.matrix, el('span', 'pb-number-wrap', inputs.matrix)),
   ];
@@ -103,7 +103,7 @@ function block(r) {
     b.node.dataset.router = r.uid;
   }
   b.prefix = r.prefix;
-  b.title.textContent = `Router ${r.prefix}`;
+  b.title.textContent = routerDisplay(r);
   b.inputs.prefix.value = r.prefix;
   b.inputs.title.value = r.title || '';
   b.inputs.address.value = r.address || '';

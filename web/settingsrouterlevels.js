@@ -50,11 +50,10 @@ function block(r) {
   const def = el('input', 'pb-input');
   def.spellcheck = false;
   const inputs = { levels, levelWireOffset: offset, levelNumbering: numbering, defaultText: def };
-  const title = r.title ? `Router ${r.prefix}: ${r.title}` : `Router ${r.prefix}`;
   const node = el(
     'div',
     'sode__router-levels-item',
-    el('div', 'sode__label', title),
+    el('div', 'sode__label', routerDisplay(r)),
     el(
       'div',
       'sode__fields',
