@@ -156,3 +156,31 @@ func TestChromeRouterTitleLabel(t *testing.T) {
 	b.waitFor("the review row", `[...document.querySelectorAll('#review tbody tr')].some((r) => r.cells[0]?.textContent === 'A Studio A: Router title')`)
 	b.check()
 }
+
+// Each row of Settings > Routers shows its router's link state in words, live. Connected has no color. A router that
+// was never up is Never connected, and one that was up and stops is Down; both are red.
+func TestChromeRoutersListLinkState(t *testing.T) {
+	b := startBrowser(t)
+	simA, simB := startSim(t), startSim(t)
+	simC, stopC := startSimStoppable(t)
+	a := simRoutersApp(t, []string{simA, simB, simC}, func(c *config.Config) {
+		c.Users[0].Role = config.RoleAdministrator
+		c.MoreRouters[0].Address = "127.0.0.1:1"
+	})
+	srv := seamServer(t, a)
+	uids := routerUIDs(a)
+	b.open(srv.URL + "/#settings")
+	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
+	signInSettings(b)
+	link := func(uid string) string {
+		return `document.querySelector('#routers-list [data-link="` + uid + `"]')`
+	}
+	b.waitFor("A and C Connected with no color, B Never connected in red", `(() => {
+		const a = `+link(uids[0])+`, b = `+link(uids[1])+`, c = `+link(uids[2])+`;
+		return a?.textContent === 'Connected' && a.className === 'sode__routers-link' && c?.textContent === 'Connected'
+			&& b?.textContent === 'Never connected' && b.classList.contains('pb-badge--error') && !!b.dataset.pbTip;
+	})()`)
+	stopC()
+	b.waitFor("C goes Down, live", `(() => { const c = `+link(uids[2])+`; return c.textContent === 'Down' && c.classList.contains('pb-badge--error'); })()`)
+	b.check()
+}

@@ -38,5 +38,8 @@ export function fillRouters(onPick) {
   const broken = el('div', 'sode__broken-count');
   broken.id = 'router-1-broken';
   broken.hidden = !admin;
-  showRouterList(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), swap, broken));
+  // The link state, in words (settingsrouterlist.js paints it).
+  const link = el('span', 'sode__routers-link');
+  link.dataset.link = S.routers[0]?.uid || '';
+  showRouterList(el('li', 'sode__routers-row', go, el('span', 'sode__hint sode__code', S.cfg.router || 'No address'), link, swap, broken));
 }
