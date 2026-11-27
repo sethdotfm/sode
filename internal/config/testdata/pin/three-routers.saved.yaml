@@ -27,7 +27,7 @@ routers:
       levelOffset: -1
       levelNumbering: "0"
       numberOffset: 0
-      defaultLevels: 1-2
+      defaultLevels: ""
       nameLength: 12
       nameRequests: std
       nameRereadSeconds: 60
@@ -45,7 +45,7 @@ routers:
       levelOffset: -1
       levelNumbering: "1"
       numberOffset: 1
-      defaultLevels: 1-17
+      defaultLevels: ""
       nameLength: 12
       nameRequests: std
       nameRereadSeconds: 60

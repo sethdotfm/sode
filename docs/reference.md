@@ -108,7 +108,7 @@ statusLabel: address
 | `SODE_MATRIX` | `matrix` (router) | `0` | SW-P-08 matrix (0-15 with standard name requests) |
 | `SODE_LEVEL_COUNT` | `levels` (router) | `17` | Number of levels. Level 1 gets the video swatch, the rest audio |
 | `SODE_LEVEL_WIRE_OFFSET` | `levelOffset` (router) | `-1` | The router's level number = level + offset. `-1` puts level 1 on the router's level 0 |
-| `SODE_DEFAULT_LEVELS` | `defaultLevels` (router) | `1-<levels>` | Used when the levels box is blank. Always 1-based in the file |
+| `SODE_DEFAULT_LEVELS` | `defaultLevels` (router) | blank (every level) | Used when the levels box is blank. Always 1-based in the file. Blank stays blank, so it stays every level when the level count changes |
 | `SODE_LEVEL_NUMBERING` | `levelNumbering` (router) | `1` | How levels are shown and typed: `1` (1-17), `0` (0-16) or `va` (V, 1-16) |
 | `SODE_NAME_LEN` | `nameLength` (router) | `12` | Name length to request: 4, 8, 12 or 16 |
 | `SODE_NAMES` | `nameRequests` (router) | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |

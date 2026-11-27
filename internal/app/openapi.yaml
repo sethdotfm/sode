@@ -16,7 +16,7 @@ info:
     (from /names) to show the number a person sees; with an offset of 1, send `src: 0` for the
     source a person calls 1. Levels are UI levels from 1, never offset, the same numbers the
     rights lists use. A source of -1 means nothing is routed. If a route omits `levels` or sends `[]`, Sode uses
-    the server's Default levels setting. `GET /tally` reports it as `defaultLevels`, but send `levels` anyway.
+    the server's Default levels setting. `GET /tally` reports it as `defaultLevels` (blank: every level), but send `levels` anyway.
 
     Routers. Any call can carry the query parameter `router`, a router UID from `GET /routers`.
     It is optional while Sode has one router. With two or more routers, a read about one router
@@ -180,7 +180,7 @@ paths:
                         swatch: { type: string, description: "Name of the theme color: `video` or `01` to `16`" }
                         color: { type: string, description: "A #rrggbb color. When present it replaces the swatch" }
                   levelNumbering: { type: string, enum: ["1", "0", "va"], description: "Level numbering: `1` is 1 to 17, `0` is 0 to 16, `va` is V, then 1 to 16" }
-                  defaultLevels: { type: string, description: "The Default levels setting of the router, typed in its Level numbering" }
+                  defaultLevels: { type: string, description: "The Default levels setting of the router, as UI levels from 1 (for example 1-17). Blank means every level of the router" }
                   routes: { type: array, items: { $ref: "#/components/schemas/Route" } }
               example:
                 router: "3f9c0a7d"

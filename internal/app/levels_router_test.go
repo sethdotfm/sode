@@ -114,7 +114,7 @@ func TestHelloRoutersCarryTheirLevels(t *testing.T) {
 		t.Fatalf("routers %+v", m.Routers)
 	}
 	one, many := m.Routers[1], m.Routers[0]
-	if one.UID != u.uid() || len(one.Levels) != 1 || one.Levels[0].Wire != 5 || one.LevelNumbering != "va" || one.DefaultLevels != "1-1" {
+	if one.UID != u.uid() || len(one.Levels) != 1 || one.Levels[0].Wire != 5 || one.LevelNumbering != "va" || one.DefaultLevels != "" {
 		t.Errorf("router B %+v", one)
 	}
 	if len(many.Levels) != 17 || many.LevelNumbering != "1" || many.DefaultLevels != "1-17" {

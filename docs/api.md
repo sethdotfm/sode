@@ -70,7 +70,7 @@ Hidden applies to API callers only, because the browser connection already broad
 
 ## Numbers
 
-Sources and destinations are the router's own numbers, 0-based. `/names` carries `numberOffset`; add it to show the number a person sees. Levels are UI levels, from 1, the same numbers the rights lists use. A source of -1 means nothing is routed. If a route omits `levels` or sends `[]`, Sode uses the *Default levels* setting (`defaultLevels` in `GET /tally`, as typed in Settings), so always send `levels`.
+Sources and destinations are the router's own numbers, 0-based. `/names` carries `numberOffset`; add it to show the number a person sees. Levels are UI levels, from 1, the same numbers the rights lists use. A source of -1 means nothing is routed. If a route omits `levels` or sends `[]`, Sode uses the *Default levels* setting (`defaultLevels` in `GET /tally`), so always send `levels`. `defaultLevels` holds UI levels from 1, and blank means every level.
 
 ## Routers
 

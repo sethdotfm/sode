@@ -135,7 +135,7 @@ func (a *App) unitNamesTickMu(r *runtime, u *routerUnit) (save, check func()) {
 			}
 			rs.namesGen++
 			if changed {
-				log.Printf("names: %d sources, %d destinations", len(rs.srcNames), len(rs.dstNames))
+				log.Printf("names: %s: %d sources, %d destinations", a.routerName(u), len(rs.srcNames), len(rs.dstNames))
 				u.namesDirt = true
 			} else {
 				a.broadcast(namesCheckedMsg{T: "namesChecked", At: rs.namesAt, RouterUID: u.uid()})

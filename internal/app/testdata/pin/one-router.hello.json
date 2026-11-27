@@ -124,7 +124,7 @@
     {
       "address": "10.0.0.50:8910",
       "at": "*",
-      "defaultLevels": "1-3",
+      "defaultLevels": "",
       "dsts": [],
       "fireMode": "sequential",
       "levelNumbering": "1",
@@ -207,7 +207,7 @@
     "requireHttps": "b5fae2c14238b978",
     "resultDismissSeconds": "af63b54c8601aa47",
     "router/a1a1a1a1a1a1a1a1/address": "d8f6e06ee5d6a1b1",
-    "router/a1a1a1a1a1a1a1a1/defaultLevels": "53dfeb4fe91d1656",
+    "router/a1a1a1a1a1a1a1a1/defaultLevels": "07cc7607b4949e25",
     "router/a1a1a1a1a1a1a1a1/fireMode": "504b88a54c117944",
     "router/a1a1a1a1a1a1a1a1/levelNumbering": "d536c417d8ae0efa",
     "router/a1a1a1a1a1a1a1a1/levelWireOffset": "07d00b07b497d12b",

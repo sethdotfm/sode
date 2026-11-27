@@ -29,6 +29,7 @@ test('parseLevelsIn: blank means the default levels, typed in 1 numbering', () =
   assert.deepEqual(parseLevelsIn('', ctx), [1, 2, 3]);
   assert.deepEqual(parseLevelsIn('v,1', ctx), [1, 2]);
   assert.equal(parseLevelsIn('', ctx, true), null);
+  assert.deepEqual(parseLevelsIn('', { ...ctx, levels: apiLevels(4), defaultLevels: '' }), [1, 2, 3, 4], 'blank default levels are every level');
   assert.equal(parseLevelsIn('18', { ...ctx, numbering: '1' }), null);
 });
 

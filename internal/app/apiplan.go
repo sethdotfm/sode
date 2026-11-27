@@ -215,7 +215,7 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 			rc := r.routerOf(dst.cfg)
 			want := it.Levels
 			if len(want) == 0 {
-				want, _ = config.ParseLevels(rc.DefaultLevels, rc.Levels)
+				want = rc.DefaultLevelList()
 			}
 			lv := r.levelsOf(dst.cfg)
 			var have []int

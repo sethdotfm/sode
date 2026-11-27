@@ -181,7 +181,7 @@ func (r Router) problems() []error {
 		bad("levels must be 1-256")
 	} else if lo, hi := 1+r.LevelWireOffset, r.Levels+r.LevelWireOffset; lo < 0 || hi > 255 {
 		bad("level wire offset puts levels at wire %d-%d; they must fall within 0-255", lo, hi)
-	} else if _, err := ParseLevels(r.DefaultLevels, r.Levels); err != nil {
+	} else if _, err := ParseLevels(r.DefaultLevels, r.Levels); r.DefaultLevels != "" && err != nil {
 		bad("default levels: %v", err)
 	}
 	switch r.NameLength {
@@ -222,6 +222,21 @@ func (r Router) Display() string {
 	}
 	return r.Prefix + " " + title
 }
+
+// DisplayName is the router in log lines and error texts. With two or more routers (many) it is Display. With one, the
+// prefix is hidden: the Router title, or "Router A" when there is no title.
+func (r Router) DisplayName(many bool) string {
+	if many {
+		return r.Display()
+	}
+	if title := strings.TrimSpace(r.Title); title != "" {
+		return title
+	}
+	return "Router " + r.Prefix
+}
+
+// RouterName is DisplayName for a router of c.
+func (c Config) RouterName(r Router) string { return r.DisplayName(len(c.Routers) > 1) }
 
 // validPrefix: a router prefix is one or two letters A to Z (A, B, BA).
 func validPrefix(p string) bool {

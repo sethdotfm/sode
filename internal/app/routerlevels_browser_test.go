@@ -66,7 +66,7 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 	id := func(attr string) string { return `document.getElementById('cfg-rt-` + attr + `')` }
 	b.waitFor("router B in the list", `!!document.querySelector('#routers-list [data-router="`+uid+`"]')`)
 	b.eval(`document.querySelector('#routers-list [data-router="` + uid + `"]').click(); true`)
-	b.waitFor("router B's detail view", id("levels")+`?.value === '17' && document.getElementById('router-detail-name').textContent === 'Router B'
+	b.waitFor("router B's detail view", id("levels")+`?.value === '17' && `+id("defaultLevels")+`.value === '' && document.getElementById('router-detail-name').textContent === 'Router B'
 		&& document.querySelector('label[for="cfg-rt-lvlnum-va"]').textContent === 'V, 1–16'`)
 	b.eval(`(() => { const n = document.getElementById('cfg-rt-lvlnum-va'); n.checked = true; n.dispatchEvent(new Event('change', {bubbles: true}));
 		const d = ` + id("defaultLevels") + `; d.value = 'V-2'; d.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)

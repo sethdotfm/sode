@@ -36,7 +36,7 @@ func (u *routerUnit) onSalvoAck(x swp08.SalvoAck) {
 	select {
 	case u.fire.acks <- x:
 	default:
-		log.Printf("salvo: acknowledge dropped, collector full (cmd %d)", x.Cmd)
+		log.Printf("salvo: %s: acknowledge dropped, collector full (cmd %d)", u.name(), x.Cmd)
 	}
 }
 
@@ -114,10 +114,10 @@ func (a *App) takeNative(r *runtime, u *routerUnit, c *client, items []routeReq,
 		}
 		switch {
 		case !sent:
-			log.Printf("salvo: not fired (%v); sending %d takes one after another", err, len(live))
+			log.Printf("salvo: %s: not fired (%v); sending %d takes one after another", a.routerName(u), err, len(live))
 			a.command(c, "salvo", "fallback", fmt.Sprintf("%d crosspoints; sent one after another", n), err)
 		case err != nil:
-			log.Printf("salvo: Go sent for %d crosspoints, %v; the takes' interrogates will tell", n, err)
+			log.Printf("salvo: %s: Go sent for %d crosspoints, %v; the takes' interrogates will tell", a.routerName(u), n, err)
 			a.command(c, "salvo", "error", fmt.Sprintf("%d crosspoints", n), err)
 		default:
 			a.command(c, "salvo", "ok", fmt.Sprintf("%d crosspoints set in %d ms", n, time.Since(got).Milliseconds()), nil)
@@ -133,10 +133,10 @@ func (a *App) takeNative(r *runtime, u *routerUnit, c *client, items []routeReq,
 		}
 	}
 	runLimited(routeLimit, len(live), func(i int) { a.complete(r, live[i], a.sendRoute(r, live[i].w)) })
-	a.logSalvoTiming(c, staged)
+	a.logSalvoTiming(u, c, staged)
 }
 
-func (a *App) logSalvoTiming(c *client, staged []*routeRun) {
+func (a *App) logSalvoTiming(u *routerUnit, c *client, staged []*routeRun) {
 	a.mu.Lock()
 	var goAt, last time.Time
 	n, byConn, byTally := 0, 0, 0
@@ -175,7 +175,7 @@ func (a *App) logSalvoTiming(c *client, staged []*routeRun) {
 	if byConn+byTally < n {
 		result = "error"
 	}
-	log.Printf("salvo: %s", note)
+	log.Printf("salvo: %s: %s", a.routerName(u), note)
 	a.command(c, "salvo", result, note, nil)
 }
 
@@ -280,7 +280,7 @@ func (a *App) fireLocked(r *runtime, u *routerUnit, staged []*routeRun) (sent bo
 	// Cleared after every fire; on failure, it is possible that the router still holds some of ours.
 	defer func() {
 		if err := a.clearSalvo(u, ext, fs, g, why); err != nil {
-			log.Printf("salvo: clearing group %d after the fire: %v", g, err)
+			log.Printf("salvo: %s: clearing group %d after the fire: %v", a.routerName(u), g, err)
 		}
 	}()
 
@@ -397,7 +397,7 @@ func (a *App) clearStaleSalvo(u *routerUnit) {
 	a.mu.Unlock()
 	defer a.setFire(u, nil)
 	if err := a.clearSalvo(u, ext, fs, rc.SalvoGroup, swp08.Why{Reason: swp08.ReasonResync}); err != nil {
-		log.Printf("salvo: clearing group %d on connect: %v", rc.SalvoGroup, err)
+		log.Printf("salvo: %s: clearing group %d on connect: %v", a.routerName(u), rc.SalvoGroup, err)
 	}
 }
 
