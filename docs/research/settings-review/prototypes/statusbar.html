@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sode prototype: Status bar with many routers</title>
+<!-- Prototype for docs/research/settings-review/RECOMMENDATIONS.md. This was written by an LLM.
+     Fake data, no app code, no outside requests.
+     Tokens: web/vendor/patchbay/css/patchbay.tokens.css and web/base.css.
+     Icons: web/vendor/patchbay/icons/lucide.svg (Lucide, ISC license). -->
+<style>
+/* Tokens copied from web/vendor/patchbay/css/patchbay.tokens.css (v2.4.0) and web/base.css. */
+:root {
+  color-scheme: light dark;
+  --pb-surface-sunken: light-dark(#ffffff, #000000);
+  --pb-surface-base: light-dark(#e4e4e4, #080808);
+  --pb-surface-raised: light-dark(#f5f5f5, #0f0f0f);
+  --pb-surface-overlay: light-dark(#ffffff, #141414);
+  --pb-surface-high: light-dark(#ebebeb, #121212);
+  --pb-surface-control: light-dark(#dcdcdc, #1e1e1e);
+  --pb-surface-hover: light-dark(#cdcdcd, #2c2c2c);
+  --pb-edge: light-dark(#767676, #6e6e6e);
+  --pb-edge-soft: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.12));
+  --pb-edge-light: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.24));
+  --pb-overlay-hover: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
+  --pb-overlay-scrim: light-dark(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82));
+  --pb-shadow-rim: light-dark(#000000, #4a4a4a);
+  --pb-shadow-block: light-dark(#000000, #444444);
+  --pb-shadow-overlay: 0 0 0 1px var(--pb-shadow-rim), 6px 6px 0 0 var(--pb-shadow-block);
+  --pb-accent: light-dark(#3a44c4, #8b93ff);
+  --pb-accent-hover: light-dark(#2d36a8, #a3a9ff);
+  --pb-accent-wash: light-dark(rgba(58, 68, 196, 0.12), rgba(139, 147, 255, 0.14));
+  --pb-commit: light-dark(#8a4a00, #f2b84b);
+  --pb-commit-hover: light-dark(#733d00, #f6c96f);
+  --pb-protect: light-dark(#b02a78, #d0559b);
+  --pb-status-warn: light-dark(#8a4a00, #f2b84b);
+  --pb-status-warn-fill: light-dark(#c27a00, #f2b84b);
+  --pb-status-error: light-dark(#ad1f27, #f0605a);
+  --pb-status-idle: light-dark(#575757, #9b958c);
+  --pb-source: light-dark(#c4dbd1, #3f5d52);
+  --pb-dest: light-dark(#e2d7c0, #5c5340);
+  --pb-level: light-dark(#d8cfeb, #594f6d);
+  --pb-tieline: light-dark(#d4e8be, #586647);
+  --pb-text: light-dark(#141414, #e6e6e6);
+  --pb-text-strong: light-dark(#000000, #ffffff);
+  --pb-text-muted: light-dark(rgba(0, 0, 0, 0.66), rgba(230, 230, 230, 0.64));
+  --pb-text-disabled: light-dark(rgba(0, 0, 0, 0.38), rgba(230, 230, 230, 0.36));
+  --pb-text-on-accent: light-dark(#ffffff, #14131f);
+  --pb-font: "IBM Plex Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --pb-font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --pb-font-num: var(--pb-font);
+  --pb-text-2xs: 0.625rem;
+  --pb-text-xs: 0.6875rem;
+  --pb-text-sm: 0.8125rem;
+  --pb-text-md: 0.875rem;
+  --pb-text-lg: 1.0625rem;
+  --pb-text-xl: 1.375rem;
+  --pb-border-w: 2px;
+  --pb-accent-bar-w: 4px;
+  --sode-h-action: 2.5rem;
+  --sode-h-compact: 2rem;
+  --sode-bigscroll-w: 1.4rem;
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { font-size: 100%; }
+body {
+  background: var(--pb-surface-base);
+  color: var(--pb-text);
+  font-family: var(--pb-font);
+  font-size: var(--pb-text-sm);
+  line-height: 1.45;
+  margin: 0;
+}
+h1, h2, h3, p { margin: 0; }
+.num { font-family: var(--pb-font-num); font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--pb-font-mono); font-size: var(--pb-text-xs); }
+.muted { color: var(--pb-text-muted); }
+.caps { color: var(--pb-text-muted); font-size: var(--pb-text-xs); letter-spacing: 0.08em; text-transform: uppercase; }
+.pb-icon { fill: none; flex: none; height: 1rem; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 1rem; }
+.pb-icon--sm { height: 0.75rem; width: 0.75rem; }
+.pb-btn {
+  align-items: center;
+  background: var(--pb-surface-control);
+  border: 0;
+  color: var(--pb-text);
+  cursor: pointer;
+  display: inline-flex;
+  font: 600 var(--pb-text-xs) / 1 var(--pb-font);
+  gap: 0.375rem;
+  height: var(--sode-h-compact);
+  letter-spacing: 0.04em;
+  padding: 0 0.625rem;
+  white-space: nowrap;
+}
+.pb-btn:hover { background: var(--pb-surface-hover); }
+.pb-btn:focus-visible, .pb-input:focus-visible, [tabindex]:focus-visible, a:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 1px; }
+.pb-btn:disabled { color: var(--pb-text-disabled); cursor: not-allowed; }
+.pb-btn:disabled:hover { background: var(--pb-surface-control); }
+.pb-btn--ghost { background: transparent; }
+.pb-btn--icon { justify-content: center; padding: 0; width: var(--sode-h-compact); }
+.pb-btn--outline { background: transparent; box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-edge); }
+.pb-btn--selected { background: var(--pb-accent); color: var(--pb-text-on-accent); }
+.pb-btn--selected:hover { background: var(--pb-accent-hover); }
+.pb-btn.sode-btn--primary { background: var(--pb-accent); color: var(--pb-text-on-accent); }
+.pb-btn.sode-btn--primary:hover { background: var(--pb-accent-hover); }
+.pb-btn.sode-btn--primary:disabled { background: var(--pb-surface-control); color: var(--pb-text-disabled); }
+.pb-btn--commit { background: var(--pb-commit); color: var(--pb-surface-sunken); }
+.pb-btn--commit:hover { background: var(--pb-commit-hover); }
+.pb-btn--lg { font-size: var(--pb-text-md); height: var(--sode-h-action); padding: 0 1rem; }
+.pb-input {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text);
+  font: var(--pb-text-sm) var(--pb-font);
+  height: var(--sode-h-compact);
+  min-width: 0;
+  padding: 0 0.4rem;
+  width: 100%;
+}
+.pb-input[aria-invalid="true"] { border-color: var(--pb-status-error); }
+.pb-label { display: block; font-size: var(--pb-text-sm); font-weight: 600; margin-bottom: 0.25rem; }
+.pb-hint { color: var(--pb-text-muted); font-size: var(--pb-text-xs); margin-top: 0.25rem; }
+.pb-hint--error { color: var(--pb-status-error); }
+.pb-hint--warn { color: var(--pb-status-warn); }
+.pb-badge {
+  --c: var(--pb-status-idle);
+  align-items: center;
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  border: var(--pb-border-w) solid color-mix(in srgb, var(--c) 45%, transparent);
+  color: var(--c);
+  display: inline-flex;
+  font-size: var(--pb-text-xs);
+  font-weight: 500;
+  gap: 0.3rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  white-space: nowrap;
+}
+.pb-badge--warn { --c: var(--pb-status-warn); }
+.pb-badge--error { --c: var(--pb-status-error); }
+/* Link state: an icon with a corner glyph, and always words. A healthy state has no color (docs/color-roles.md). */
+.state { align-items: center; display: inline-flex; gap: 0.3rem; white-space: nowrap; }
+.state[data-state="error"] { color: var(--pb-status-error); }
+.state[data-state="warn"] { color: var(--pb-status-warn); }
+.pb-note--warn { color: var(--pb-status-warn); }
+a { color: var(--pb-accent); }
+.scroll { overflow-y: scroll; scrollbar-color: var(--pb-edge) var(--pb-surface-control); scrollbar-width: auto; }
+.scroll::-webkit-scrollbar { width: var(--sode-bigscroll-w); }
+.scroll::-webkit-scrollbar-track { background: var(--pb-surface-control); }
+.scroll::-webkit-scrollbar-thumb { background: var(--pb-edge); }
+/* The prototype's own bar. It is not part of the design. */
+.proto {
+  align-items: center;
+  background: var(--pb-surface-high);
+  border-bottom: var(--pb-border-w) dashed var(--pb-edge);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.4rem 1rem;
+}
+.proto strong { letter-spacing: 0.04em; }
+.proto__group { align-items: center; display: inline-flex; gap: 0.25rem; }
+.proto__spacer { flex: 1; }
+/* Settings shell, as web/index.html draws it. */
+.shell { display: grid; gap: 1.25rem; grid-template-columns: 12.5rem minmax(0, 1fr); margin: 0 auto; max-width: 78rem; padding: 2rem 1rem 5rem; }
+.toc { align-self: start; background: var(--pb-surface-overlay); padding: 0.25rem; position: sticky; top: 1rem; }
+.toc__topic { font-weight: 700; padding: 0.4rem 1rem; }
+.toc__item { color: var(--pb-text-muted); font-weight: 500; padding: 0.4rem 0.9rem; }
+.toc__item[aria-current] { background: var(--pb-surface-control); border-top: var(--pb-border-w) solid var(--pb-accent); color: var(--pb-accent); }
+.topic { background: var(--pb-surface-raised); border-top: 0.5rem solid var(--pb-accent); font-size: var(--pb-text-xl); font-weight: 600; padding: 0.5rem 0.75rem; }
+.section__head { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.5rem 0 0.75rem; }
+.section__head h2 { font-size: var(--pb-text-md); }
+.footer { align-items: center; background: var(--pb-surface-base); border-top: var(--pb-border-w) solid var(--pb-edge); bottom: 0; display: flex; gap: 0.75rem; margin-top: 1.5rem; padding: 0.75rem 0; position: sticky; }
+.modal-scrim { align-items: center; background: var(--pb-overlay-scrim); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 20; }
+.modal-scrim[hidden] { display: none; }
+.modal { background: var(--pb-surface-overlay); box-shadow: var(--pb-shadow-overlay); max-height: 85vh; max-width: calc(100vw - 2rem); overflow: auto; width: 38rem; }
+.modal__head { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); font-size: var(--pb-text-md); font-weight: 600; padding: 0.75rem; }
+.modal__body { padding: 0.75rem; }
+.modal__foot { display: flex; gap: 0.5rem; justify-content: space-between; padding: 0.75rem; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><symbol id="server-nas"><path d="M10 16V8" /><path d="M14 16V8" /><path d="M18 16V8" /><path d="M6 12h.01" /><path d="M6 16h.01" /><rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="server"><rect width="20" height="8" x="2" y="2" rx="2" ry="2" /><rect width="20" height="8" x="2" y="14" rx="2" ry="2" /><line x1="6" x2="6.01" y1="6" y2="6" /><line x1="6" x2="6.01" y1="18" y2="18" /></symbol><symbol id="circle-check"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></symbol><symbol id="circle-x"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></symbol><symbol id="loader-circle"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></symbol><symbol id="shield"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></symbol><symbol id="shield-off"><path d="m2 2 20 20" /><path d="M5 5a1 1 0 0 0-1 1v7c0 5 3.5 7.5 7.67 8.94a1 1 0 0 0 .67.01c2.35-.82 4.48-1.97 5.9-3.71" /><path d="M9.309 3.652A12.252 12.252 0 0 0 11.24 2.28a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1v7a9.784 9.784 0 0 1-.08 1.264" /></symbol><symbol id="chevron-right"><path d="m9 18 6-6-6-6" /></symbol><symbol id="chevron-down"><path d="m6 9 6 6 6-6" /></symbol><symbol id="grip-vertical"><circle cx="9" cy="12" r="1" /><circle cx="9" cy="5" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="19" r="1" /></symbol><symbol id="triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol><symbol id="x"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol><symbol id="settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="external-link"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></symbol><symbol id="arrow-up"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></symbol><symbol id="arrow-down"><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></symbol><symbol id="undo-2"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></symbol><symbol id="cable"><path d="M17 21v-2a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1" /><path d="M19 15V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V9" /><path d="M21 21v-2h-4" /><path d="M3 5h4V3" /><path d="M7 5a1 1 0 0 1 1 1v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1V3" /></symbol></defs></svg>
+<script>
+// Shared prototype helpers. Fake data only.
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const icon = (name, sm) => `<svg class="pb-icon${sm ? ' pb-icon--sm' : ''}" viewBox="0 0 24 24" aria-hidden="true"><use href="#${name}"/></svg>`;
+
+const TITLES = [
+  'MCR Production Ultrix', 'Studio 4 Gallery Audio', 'Transmission Backup Matrix', 'Edit Suites North Wing', 'OB Truck Unit 7',
+  'Stage 1 Small', 'Master Control Monitor Wall', 'Studio C', 'Truck Dock', 'Flypack', 'Audio Desk Bridge', 'Edit Suites South Wing',
+  'Ingest', 'Playout Chain A', 'Playout Chain B', 'QC Room', 'Newsroom', 'Studio 4 Gallery Video', 'Graphics', 'Radio 1', 'Radio 2',
+  'Archive', 'Playout Chain A Distribution', 'Lines Room',
+];
+const LEVELS = [17, 16, 17, 4, 8, 2, 17, 8, 2, 1, 16, 4, 17, 17, 17, 4, 8, 17, 4, 2, 2, 1, 17, 32];
+const prefixOf = (i) => String.fromCharCode(65 + i);
+
+// The routers that are not up, for each count. Every prototype uses this, so a link between two of them agrees.
+const LOST = { 1: {}, 2: { B: 'down' }, 3: { B: 'down', C: 'connecting' }, 4: { B: 'down' }, 12: { C: 'down', G: 'never', K: 'connecting' }, 24: { B: 'down', E: 'down', L: 'down', R: 'never', W: 'down' } };
+
+function makeRouters(n, lost = LOST[n] || {}) {
+  return Array.from({ length: n }, (_, i) => {
+    const p = prefixOf(i);
+    const link = lost[p] || 'up';
+    return {
+      uid: 'a' + (0x51c3 + i * 7919).toString(16) + 'e2',
+      prefix: p,
+      title: TITLES[i],
+      address: `10.20.${4 + (i >> 3)}.${11 + i}:8910`,
+      matrix: i === 2 ? 1 : 0,
+      levels: LEVELS[i],
+      levelOffset: i % 5 === 1 ? 0 : -1,
+      levelNumbering: i === 3 ? '0' : i === 5 ? 'va' : '1',
+      defaultLevels: i === 1 ? '1-4' : '',
+      numberOffset: 1,
+      nameLength: 12,
+      nameRequests: 'std',
+      nameRereadSeconds: 60,
+      routeRereadSeconds: 300,
+      fireMode: 'sequential',
+      salvoGroup: 127,
+      protectDevice: i === 3 ? 0 : 200 + i,
+      statusLabel: 'name',
+      link,
+      since: link === 'up' ? `${2 + (i % 5)} h ${7 + i} min` : `${4 + i} min`,
+      err: link === 'down' ? 'read tcp: connection reset by peer' : link === 'never' ? `dial tcp 10.20.${4 + (i >> 3)}.${11 + i}:8910: connect: connection refused` : '',
+      srcs: 120 + i * 16,
+      dsts: 80 + i * 8,
+    };
+  });
+}
+
+// The one display form of a router: prefix, then Router title. With one router Sode hides the prefix.
+const routerName = (r, alone) => (alone ? r.title || 'Router' : `${r.prefix} ${r.title || 'Router ' + r.prefix}`);
+const LINK = {
+  up: { state: 'ok', glyph: 'circle-check', word: 'Connected' },
+  connecting: { state: 'warn', glyph: 'loader-circle', word: 'Connecting' },
+  down: { state: 'error', glyph: 'circle-x', word: 'Down' },
+  never: { state: 'error', glyph: 'circle-x', word: 'Never connected' },
+};
+const linkState = (r, long) => {
+  const l = LINK[r.link];
+  const tail = !long ? '' : r.link === 'up' ? ` for ${r.since}` : r.link === 'down' ? ` for ${r.since}` : '';
+  return `<span class="state" data-state="${l.state}">${icon(l.glyph)}<span>${l.word}${tail}</span></span>`;
+};
+
+function hashParams() {
+  return Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+}
+
+// The prototype bar: a link back and the theme switch.
+function protoBar(title, extra = '') {
+  const bar = document.createElement('div');
+  bar.className = 'proto';
+  bar.innerHTML = `<a href="index.html">Prototypes</a><strong>${title}</strong><span class="muted">Fake data. Not app code.</span>${extra}
+    <span class="proto__spacer"></span>
+    <span class="proto__group" role="group" aria-label="Theme"><span class="caps">Theme</span>
+      <button class="pb-btn" data-theme-btn="">Auto</button><button class="pb-btn" data-theme-btn="light">Light</button><button class="pb-btn" data-theme-btn="dark">Dark</button></span>`;
+  document.body.prepend(bar);
+  const set = (t) => {
+    if (t) document.documentElement.dataset.theme = t;
+    else delete document.documentElement.dataset.theme;
+    for (const b of $$('[data-theme-btn]', bar)) b.classList.toggle('pb-btn--selected', b.dataset.themeBtn === t);
+    try { sessionStorage.setItem('proto-theme', t); } catch {}
+  };
+  bar.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-theme-btn]');
+    if (b) set(b.dataset.themeBtn);
+  });
+  let saved = '';
+  try { saved = sessionStorage.getItem('proto-theme') || ''; } catch {}
+  set(saved);
+  return bar;
+}
+</script>
+<style>
+.stage { padding: 1rem; }
+.page { background: var(--pb-surface-base); border: 1px dashed var(--pb-edge-light); margin: 0 auto; max-width: 80rem; min-height: 40rem; padding: 0 3rem; position: relative; }
+.page[data-layout="phone"] { max-width: 390px; padding: 0 0.75rem; }
+.head { align-items: center; border-bottom: var(--pb-border-w) solid var(--pb-edge-light); display: flex; gap: 0.5rem; min-height: 3.2rem; }
+.head__title { font-size: var(--pb-text-lg); font-weight: 700; letter-spacing: 0.1em; }
+.conn { align-items: center; display: flex; gap: 0.25rem; margin-left: auto; min-width: 0; position: relative; }
+.st { align-items: center; background: none; border: 0; color: var(--pb-text); cursor: pointer; display: inline-flex; font: 500 var(--pb-text-sm) var(--pb-font); gap: 0.45rem; height: var(--sode-h-compact); padding: 0 0.4rem; white-space: nowrap; }
+.st:hover, .st[aria-expanded="true"] { background: var(--pb-overlay-hover); }
+.st__icon { display: inline-flex; position: relative; }
+.st__icon > .pb-icon { height: 1.25rem; width: 1.25rem; }
+.st__badge { background: var(--pb-surface-base); bottom: -0.3rem; display: inline-flex; padding: 1px; position: absolute; right: -0.4rem; }
+.st__badge .pb-icon { height: 0.6875rem; width: 0.6875rem; }
+.st[data-state="error"] .st__icon, .st[data-state="error"] .st__count { color: var(--pb-status-error); }
+.st[data-state="warn"] .st__icon { color: var(--pb-status-warn); }
+.st__count { font-weight: 700; }
+.st__label { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; }
+.lost { align-items: center; background: color-mix(in srgb, var(--c) 12%, transparent); border: 0; box-shadow: inset 0 0 0 var(--pb-border-w) color-mix(in srgb, var(--c) 55%, transparent); color: var(--c); cursor: pointer; display: inline-flex; font: 700 var(--pb-text-sm) var(--pb-font-num); gap: 0.2rem; height: 1.6rem; padding: 0 0.35rem; }
+.lost[data-state="error"] { --c: var(--pb-status-error); }
+.lost[data-state="warn"] { --c: var(--pb-status-warn); }
+.lost--more { --c: var(--pb-text-muted); font-weight: 500; }
+.lost:hover { background: color-mix(in srgb, var(--c) 24%, transparent); }
+.lost .pb-icon { height: 0.75rem; width: 0.75rem; }
+.note { align-items: start; color: var(--pb-status-warn); display: flex; gap: 0.5rem; justify-content: center; padding: 0.6rem 0 0; }
+.note .pb-btn { height: 1.5rem; }
+.logo { font-size: 3.2rem; font-weight: 700; letter-spacing: 0.12em; padding: 1.5rem 0; text-align: center; }
+.boxes { align-items: end; display: grid; gap: 1rem; grid-template-columns: 1fr 1fr 12rem; }
+.page[data-layout="phone"] .boxes { grid-template-columns: 1fr; }
+.page[data-layout="phone"] .logo { font-size: 1.6rem; padding: 0.75rem 0; }
+.box__well { background: var(--pb-surface-sunken); border: var(--pb-border-w) solid var(--pb-edge); height: 4rem; }
+.box__well--src { border-left: 0.4rem solid var(--pb-source); }
+.box__well--dst { border-left: 0.4rem solid var(--pb-dest); }
+.pop { background: var(--pb-surface-overlay); box-shadow: var(--pb-shadow-overlay); display: flex; flex-direction: column; max-height: min(34rem, calc(100vh - 8rem)); position: absolute; right: 0; top: calc(100% + 0.5rem); width: 27rem; z-index: 10; }
+.pop[hidden] { display: none; }
+.page[data-layout="phone"] .conn { position: static; }
+.page[data-layout="phone"] .pop { left: 0; right: 0; top: 3.6rem; width: auto; }
+.pop__head { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); display: grid; gap: 0.4rem; padding: 0.6rem 0.75rem; }
+.pop__line { align-items: center; display: flex; gap: 0.5rem; justify-content: space-between; }
+.pop__list { flex: 1; min-height: 0; }
+.pop__foot { border-top: var(--pb-border-w) solid var(--pb-edge-soft); display: flex; gap: 1rem; padding: 0.5rem 0.75rem; }
+.pr { border-bottom: 1px solid var(--pb-edge-soft); }
+.pr__row { align-items: center; background: none; border: 0; color: inherit; cursor: pointer; display: grid; font: inherit; gap: 0.5rem; grid-template-columns: 0.9rem 2rem minmax(0, 1fr) auto; min-height: 2.25rem; padding: 0 0.75rem 0 0.5rem; text-align: left; width: 100%; }
+.pr__row:hover { background: var(--pb-overlay-hover); }
+.pr__prefix { font-weight: 700; }
+.pr__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr__more { display: grid; gap: 0.35rem; padding: 0.1rem 0.75rem 0.7rem 3.9rem; }
+.pr__more dl { display: grid; gap: 0.15rem 0.75rem; grid-template-columns: 4.5rem minmax(0, 1fr); margin: 0; }
+.pr__more dt { color: var(--pb-text-muted); }
+.pr__more dd { margin: 0; overflow-wrap: anywhere; }
+.strip { display: flex; gap: 1px; height: 0.5rem; }
+.strip i { background: var(--pb-text-muted); flex: 1; opacity: 0.35; }
+.strip i[data-s="down"] { background: var(--pb-status-error); opacity: 1; }
+.pop__group { background: var(--pb-surface-high); padding: 0.2rem 0.75rem; position: sticky; top: 0; z-index: 1; }
+.rules { margin: 1.5rem auto 0; max-width: 60rem; }
+.rules li { margin: 0.25rem 0; }
+</style>
+
+<div class="stage">
+  <div class="page" id="page" data-layout="desktop">
+    <header class="head">
+      <span class="head__title" id="head-title" hidden>Sode</span>
+      <button class="pb-btn" id="sign-in">Sign in</button>
+      <a class="pb-btn pb-btn--ghost pb-btn--icon" href="routers.html" title="Settings" aria-label="Settings" id="gear"></a>
+      <div class="conn" id="conn">
+        <span id="conn-items" style="display: contents"></span>
+        <div class="pop" id="pop" hidden role="dialog" aria-label="Server and Router links"></div>
+      </div>
+    </header>
+    <div id="note"></div>
+    <div class="logo">Sode</div>
+    <div class="boxes">
+      <div><div class="caps">Source <span id="src-router"></span></div><div class="box__well box__well--src"></div></div>
+      <div><div class="caps">Destination <span id="dst-router"></span></div><div class="box__well box__well--dst"></div></div>
+      <div><button class="pb-btn pb-btn--commit pb-btn--lg" style="height: 4rem; width: 100%; justify-content: center">Take</button></div>
+    </div>
+  </div>
+  <div class="rules">
+    <p class="caps">The rules this prototype shows</p>
+    <ul>
+      <li>One router: its icon, and the text that its Status label setting picks.</li>
+      <li>Two or three routers: one icon for each router, with its prefix and the text that its Status label setting picks.</li>
+      <li>Four or more routers: one Routers icon with a count. A healthy bar shows no color.</li>
+      <li>Each router that is not connected shows by its prefix beside the count: red for down, amber while it connects. The bar shows five, then a count of the rest.</li>
+      <li>Click a prefix, or the Routers icon, to open the list. Lost routers come first. Each row has a link to that router in Settings and to the Communication Log.</li>
+      <li>With three or more lost routers, the Degraded note is one sentence that lists the prefixes.</li>
+      <li>The phone uses the count from two routers. It shows how many routers are lost, for example "5 of 24 lost", and the note under the bar lists their prefixes. A press opens the same list.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+$('#gear').innerHTML = icon('settings');
+const V = { n: 24, scenario: 'some', layout: 'desktop', open: false, expanded: new Set(), q: '' };
+let R = [];
+const isLost = (r) => r.link !== 'up';
+function build() {
+  let lost = LOST[V.n] || {};
+  if (V.scenario === 'up') lost = {};
+  if (V.scenario === 'many') {
+    lost = {};
+    for (let i = 0; i < V.n; i++) if (i % 3 === 1 || i === V.n - 1) lost[prefixOf(i)] = i % 9 === 4 ? 'connecting' : i % 6 === 1 ? 'never' : 'down';
+  }
+  R = makeRouters(V.n, lost);
+  V.expanded = new Set();
+  V.q = '';
+}
+const lostParam = () => R.filter(isLost).map((r) => `${r.prefix}:${r.link}`).join(',');
+const settingsLink = (r) => `routers.html#n=${V.n}&router=${r.prefix}&lost=${lostParam()}`;
+const stIcon = (base, glyph) => `<span class="st__icon">${icon(base)}<span class="st__badge">${icon(glyph)}</span></span>`;
+const worst = (list) => (list.some((r) => r.link === 'down' || r.link === 'never') ? 'error' : list.some((r) => r.link === 'connecting') ? 'warn' : 'ok');
+const GLYPH = { ok: 'circle-check', warn: 'loader-circle', error: 'circle-x' };
+const statusText = (r) => (r.statusLabel === 'name' ? r.title : r.statusLabel === 'address' ? r.address : '');
+
+function renderBar() {
+  const phone = V.layout === 'phone';
+  const parts = [`<button class="st" data-open="" data-state="ok" aria-label="Server link connected">${stIcon('server', 'circle-check')}${phone ? '' : '<span>Server</span>'}</button>`];
+  const each = phone ? 1 : 3;
+  if (R.length <= each) {
+    for (const r of R) {
+      const l = LINK[r.link];
+      const text = R.length === 1 ? statusText(r) || 'Router' : `<strong class="num">${r.prefix}</strong> ${esc(statusText(r))}`;
+      parts.push(`<button class="st" data-open="${r.prefix}" data-state="${l.state}" aria-label="Router ${r.prefix} ${esc(r.title)}: ${l.word}">${stIcon('server-nas', l.glyph)}${phone ? '' : `<span class="st__label">${text}</span>`}</button>`);
+    }
+  } else {
+    const lost = R.filter(isLost);
+    const state = worst(R);
+    const words = lost.length ? (phone ? `<span class="st__count num">${lost.length} of ${R.length}</span><span>lost</span>` : `<span class="st__count num">${R.length - lost.length} of ${R.length}</span><span>up</span>`) : `<span class="st__count num">${R.length}</span><span>Routers</span>`;
+    parts.push(`<button class="st" data-open="" data-state="${state}" aria-expanded="${V.open}" aria-label="${R.length - lost.length} of ${R.length} Router links are up">${stIcon('server-nas', GLYPH[state])}${words}</button>`);
+    const max = 5;
+    // The phone has no room for prefixes: the count says how many are lost, and the note below lists them.
+    for (const r of phone ? [] : lost.slice(0, max)) {
+      const l = LINK[r.link];
+      parts.push(`<button class="lost" data-open="${r.prefix}" data-state="${l.state}" title="${esc(routerName(r))}: ${l.word}" aria-label="Router ${esc(routerName(r))}: ${l.word}">${icon(l.glyph)}${r.prefix}</button>`);
+    }
+    if (!phone && lost.length > max) parts.push(`<button class="lost lost--more" data-open="" aria-label="${lost.length - max} more routers are not connected">+${lost.length - max}</button>`);
+  }
+  $('#conn-items').innerHTML = parts.join('');
+}
+function renderNote() {
+  const lost = R.filter(isLost);
+  let html = '';
+  if (lost.length && lost.length < R.length) {
+    const list = lost.map((r) => r.prefix).join(', ');
+    html =
+      lost.length <= 2
+        ? `<span>${lost.map((r) => `${R.length === 1 ? 'The router' : esc(routerName(r))} is ${r.link === 'connecting' ? 'not connected yet' : 'down'}. You cannot patch its destinations now.`).join('<br>')}</span>`
+        : `<span><strong>${lost.length} routers are not connected:</strong> <span class="num">${list}</span>. You cannot patch their destinations now.</span><button class="pb-btn" data-open="">Show routers</button>`;
+    html = `<div class="note" role="status">${icon('triangle-alert')}${html}</div>`;
+  }
+  if (lost.length && lost.length === R.length) html = `<div class="note" role="status" style="color: var(--pb-status-error)">${icon('circle-x')}<span>Every Router link is down. The Lost link banner replaces this bar. That banner is not part of this prototype.</span></div>`;
+  $('#note').innerHTML = html;
+}
+function strip(r) {
+  const cells = Array.from({ length: 48 }, (_, i) => (r.link === 'never' ? 'down' : isLost(r) && i > 44 ? 'down' : r.link === 'down' && i === 30 ? 'down' : ''));
+  return `<div class="strip" aria-hidden="true">${cells.map((s) => `<i data-s="${s}"></i>`).join('')}</div>`;
+}
+function renderPop() {
+  const pop = $('#pop');
+  pop.hidden = !V.open;
+  if (!V.open) return;
+  const lost = R.filter(isLost);
+  const q = V.q.trim().toLowerCase();
+  const hit = (r) => !q || `${r.prefix} ${r.title} ${r.address}`.toLowerCase().includes(q);
+  const rowHtml = (r) => {
+    const open = V.expanded.has(r.prefix);
+    return `<div class="pr" data-p="${r.prefix}">
+      <button class="pr__row" data-expand="${r.prefix}" aria-expanded="${open}">${icon(open ? 'chevron-down' : 'chevron-right', true)}<span class="pr__prefix num">${R.length === 1 ? '' : r.prefix}</span><span class="pr__title">${esc(r.title)}</span>${linkState(r, true)}</button>
+      ${open ? `<div class="pr__more"><dl>
+        <dt>Address</dt><dd class="num">${r.address}</dd>
+        ${r.err ? `<dt>Error</dt><dd class="mono">${esc(r.err)}</dd>` : ''}
+        ${r.link === 'never' ? '<dt>Note</dt><dd>This router did not answer since Sode started. Check the address.</dd>' : ''}
+        <dt>24 hours</dt><dd>${strip(r)}<span class="muted">${r.link === 'never' ? '0.0% up' : isLost(r) ? '96.2% up, 2 drops' : '100% up, 0 drops'}</span></dd></dl>
+        <span><a href="${settingsLink(r)}">Router settings</a> &nbsp; <a href="#" data-noop>Communication Log</a></span></div>` : ''}
+    </div>`;
+  };
+  const up = R.filter((r) => !isLost(r) && hit(r));
+  const down = lost.filter(hit);
+  pop.innerHTML = `<div class="pop__head">
+      <div class="pop__line"><span>${icon('server')} Server link: Connected. Run time <span class="num">4 h 12 min</span>.</span><button class="pb-btn pb-btn--ghost pb-btn--icon" data-close aria-label="Close">${icon('x')}</button></div>
+      <div class="pop__line"><strong>${lost.length ? `${R.length - lost.length} of ${R.length} Router links are up.` : R.length === 1 ? 'The Router link is up.' : `All ${R.length} Router links are up.`}</strong></div>
+      ${R.length >= 8 ? `<input class="pb-input" id="pop-find" placeholder="Find a router" aria-label="Find a router" value="${esc(V.q)}" />` : ''}
+    </div>
+    <div class="pop__list scroll">
+      ${down.length ? `<div class="pop__group caps">Not connected, ${down.length}</div>${down.map(rowHtml).join('')}` : ''}
+      ${up.length ? `<div class="pop__group caps">Connected, ${up.length}</div>${up.map(rowHtml).join('')}` : ''}
+      ${!up.length && !down.length ? '<p class="muted" style="padding: 1rem">No router matches.</p>' : ''}
+    </div>
+    <div class="pop__foot"><a href="routers.html#n=${V.n}&lost=${lostParam()}">Settings &gt; Routers</a><a href="#" data-noop>Communication Log</a></div>`;
+}
+function render() {
+  $('#page').dataset.layout = V.layout;
+  $('#head-title').hidden = V.layout !== 'phone';
+  $('#sign-in').hidden = V.layout === 'phone';
+  $('#src-router').textContent = $('#dst-router').textContent = R.length > 1 ? `Router ${R[0].prefix}` : '';
+  renderBar();
+  renderNote();
+  renderPop();
+  for (const b of $$('[data-set]')) {
+    const [k, v] = b.dataset.set.split('=');
+    b.classList.toggle('pb-btn--selected', String(V[k]) === v);
+  }
+}
+function openPop(prefix) {
+  V.open = true;
+  const lost = R.filter(isLost);
+  if (prefix) V.expanded = new Set([prefix]);
+  else if (!V.expanded.size && lost.length && lost.length <= 3) V.expanded = new Set(lost.map((r) => r.prefix));
+  render();
+  if (prefix) $(`.pr[data-p="${prefix}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+document.addEventListener('click', (e) => {
+  const set = e.target.closest('[data-set]');
+  if (set) {
+    const [k, v] = set.dataset.set.split('=');
+    V[k] = k === 'n' ? Number(v) : v;
+    V.open = false;
+    build();
+    return render();
+  }
+  if (e.target.closest('[data-noop]')) e.preventDefault();
+  if (e.target.closest('[data-close]')) {
+    V.open = false;
+    return render();
+  }
+  const ex = e.target.closest('[data-expand]');
+  if (ex) {
+    const p = ex.dataset.expand;
+    V.expanded.has(p) ? V.expanded.delete(p) : V.expanded.add(p);
+    const top = $('.pop__list').scrollTop;
+    renderPop();
+    $('.pop__list').scrollTop = top;
+    return;
+  }
+  const op = e.target.closest('[data-open]');
+  if (op) {
+    if (V.open && !op.dataset.open) V.open = false;
+    else return openPop(op.dataset.open);
+    return render();
+  }
+  if (V.open && !e.target.closest('#pop')) {
+    V.open = false;
+    render();
+  }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'pop-find') return;
+  V.q = e.target.value;
+  renderPop();
+  const f = $('#pop-find');
+  f.focus();
+  f.setSelectionRange(f.value.length, f.value.length);
+});
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && V.open) {
+    V.open = false;
+    render();
+  }
+});
+const btns = (k, list) => list.map(([v, w]) => `<button class="pb-btn" data-set="${k}=${v}">${w}</button>`).join('');
+protoBar(
+  'Status bar with many routers',
+  `<span class="proto__group"><span class="caps">Routers</span>${btns('n', [1, 2, 3, 4, 12, 24].map((n) => [n, n]))}</span>
+   <span class="proto__group"><span class="caps">State</span>${btns('scenario', [['up', 'All up'], ['some', 'Some lost'], ['many', 'Many lost']])}</span>
+   <span class="proto__group"><span class="caps">Layout</span>${btns('layout', [['desktop', 'Desktop'], ['phone', 'Phone']])}</span>`,
+);
+build();
+render();
+</script>
+</body>
+</html>

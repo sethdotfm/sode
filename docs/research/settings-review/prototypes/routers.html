@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sode prototype: Routers list and detail</title>
+<!-- Prototype for docs/research/settings-review/RECOMMENDATIONS.md. This was written by an LLM.
+     Fake data, no app code, no outside requests.
+     Tokens: web/vendor/patchbay/css/patchbay.tokens.css and web/base.css.
+     Icons: web/vendor/patchbay/icons/lucide.svg (Lucide, ISC license). -->
+<style>
+/* Tokens copied from web/vendor/patchbay/css/patchbay.tokens.css (v2.4.0) and web/base.css. */
+:root {
+  color-scheme: light dark;
+  --pb-surface-sunken: light-dark(#ffffff, #000000);
+  --pb-surface-base: light-dark(#e4e4e4, #080808);
+  --pb-surface-raised: light-dark(#f5f5f5, #0f0f0f);
+  --pb-surface-overlay: light-dark(#ffffff, #141414);
+  --pb-surface-high: light-dark(#ebebeb, #121212);
+  --pb-surface-control: light-dark(#dcdcdc, #1e1e1e);
+  --pb-surface-hover: light-dark(#cdcdcd, #2c2c2c);
+  --pb-edge: light-dark(#767676, #6e6e6e);
+  --pb-edge-soft: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.12));
+  --pb-edge-light: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.24));
+  --pb-overlay-hover: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
+  --pb-overlay-scrim: light-dark(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82));
+  --pb-shadow-rim: light-dark(#000000, #4a4a4a);
+  --pb-shadow-block: light-dark(#000000, #444444);
+  --pb-shadow-overlay: 0 0 0 1px var(--pb-shadow-rim), 6px 6px 0 0 var(--pb-shadow-block);
+  --pb-accent: light-dark(#3a44c4, #8b93ff);
+  --pb-accent-hover: light-dark(#2d36a8, #a3a9ff);
+  --pb-accent-wash: light-dark(rgba(58, 68, 196, 0.12), rgba(139, 147, 255, 0.14));
+  --pb-commit: light-dark(#8a4a00, #f2b84b);
+  --pb-commit-hover: light-dark(#733d00, #f6c96f);
+  --pb-protect: light-dark(#b02a78, #d0559b);
+  --pb-status-warn: light-dark(#8a4a00, #f2b84b);
+  --pb-status-warn-fill: light-dark(#c27a00, #f2b84b);
+  --pb-status-error: light-dark(#ad1f27, #f0605a);
+  --pb-status-idle: light-dark(#575757, #9b958c);
+  --pb-source: light-dark(#c4dbd1, #3f5d52);
+  --pb-dest: light-dark(#e2d7c0, #5c5340);
+  --pb-level: light-dark(#d8cfeb, #594f6d);
+  --pb-tieline: light-dark(#d4e8be, #586647);
+  --pb-text: light-dark(#141414, #e6e6e6);
+  --pb-text-strong: light-dark(#000000, #ffffff);
+  --pb-text-muted: light-dark(rgba(0, 0, 0, 0.66), rgba(230, 230, 230, 0.64));
+  --pb-text-disabled: light-dark(rgba(0, 0, 0, 0.38), rgba(230, 230, 230, 0.36));
+  --pb-text-on-accent: light-dark(#ffffff, #14131f);
+  --pb-font: "IBM Plex Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --pb-font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --pb-font-num: var(--pb-font);
+  --pb-text-2xs: 0.625rem;
+  --pb-text-xs: 0.6875rem;
+  --pb-text-sm: 0.8125rem;
+  --pb-text-md: 0.875rem;
+  --pb-text-lg: 1.0625rem;
+  --pb-text-xl: 1.375rem;
+  --pb-border-w: 2px;
+  --pb-accent-bar-w: 4px;
+  --sode-h-action: 2.5rem;
+  --sode-h-compact: 2rem;
+  --sode-bigscroll-w: 1.4rem;
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { font-size: 100%; }
+body {
+  background: var(--pb-surface-base);
+  color: var(--pb-text);
+  font-family: var(--pb-font);
+  font-size: var(--pb-text-sm);
+  line-height: 1.45;
+  margin: 0;
+}
+h1, h2, h3, p { margin: 0; }
+.num { font-family: var(--pb-font-num); font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--pb-font-mono); font-size: var(--pb-text-xs); }
+.muted { color: var(--pb-text-muted); }
+.caps { color: var(--pb-text-muted); font-size: var(--pb-text-xs); letter-spacing: 0.08em; text-transform: uppercase; }
+.pb-icon { fill: none; flex: none; height: 1rem; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 1rem; }
+.pb-icon--sm { height: 0.75rem; width: 0.75rem; }
+.pb-btn {
+  align-items: center;
+  background: var(--pb-surface-control);
+  border: 0;
+  color: var(--pb-text);
+  cursor: pointer;
+  display: inline-flex;
+  font: 600 var(--pb-text-xs) / 1 var(--pb-font);
+  gap: 0.375rem;
+  height: var(--sode-h-compact);
+  letter-spacing: 0.04em;
+  padding: 0 0.625rem;
+  white-space: nowrap;
+}
+.pb-btn:hover { background: var(--pb-surface-hover); }
+.pb-btn:focus-visible, .pb-input:focus-visible, [tabindex]:focus-visible, a:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 1px; }
+.pb-btn:disabled { color: var(--pb-text-disabled); cursor: not-allowed; }
+.pb-btn:disabled:hover { background: var(--pb-surface-control); }
+.pb-btn--ghost { background: transparent; }
+.pb-btn--icon { justify-content: center; padding: 0; width: var(--sode-h-compact); }
+.pb-btn--outline { background: transparent; box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-edge); }
+.pb-btn--selected { background: var(--pb-accent); color: var(--pb-text-on-accent); }
+.pb-btn--selected:hover { background: var(--pb-accent-hover); }
+.pb-btn.sode-btn--primary { background: var(--pb-accent); color: var(--pb-text-on-accent); }
+.pb-btn.sode-btn--primary:hover { background: var(--pb-accent-hover); }
+.pb-btn.sode-btn--primary:disabled { background: var(--pb-surface-control); color: var(--pb-text-disabled); }
+.pb-btn--commit { background: var(--pb-commit); color: var(--pb-surface-sunken); }
+.pb-btn--commit:hover { background: var(--pb-commit-hover); }
+.pb-btn--lg { font-size: var(--pb-text-md); height: var(--sode-h-action); padding: 0 1rem; }
+.pb-input {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text);
+  font: var(--pb-text-sm) var(--pb-font);
+  height: var(--sode-h-compact);
+  min-width: 0;
+  padding: 0 0.4rem;
+  width: 100%;
+}
+.pb-input[aria-invalid="true"] { border-color: var(--pb-status-error); }
+.pb-label { display: block; font-size: var(--pb-text-sm); font-weight: 600; margin-bottom: 0.25rem; }
+.pb-hint { color: var(--pb-text-muted); font-size: var(--pb-text-xs); margin-top: 0.25rem; }
+.pb-hint--error { color: var(--pb-status-error); }
+.pb-hint--warn { color: var(--pb-status-warn); }
+.pb-badge {
+  --c: var(--pb-status-idle);
+  align-items: center;
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  border: var(--pb-border-w) solid color-mix(in srgb, var(--c) 45%, transparent);
+  color: var(--c);
+  display: inline-flex;
+  font-size: var(--pb-text-xs);
+  font-weight: 500;
+  gap: 0.3rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  white-space: nowrap;
+}
+.pb-badge--warn { --c: var(--pb-status-warn); }
+.pb-badge--error { --c: var(--pb-status-error); }
+/* Link state: an icon with a corner glyph, and always words. A healthy state has no color (docs/color-roles.md). */
+.state { align-items: center; display: inline-flex; gap: 0.3rem; white-space: nowrap; }
+.state[data-state="error"] { color: var(--pb-status-error); }
+.state[data-state="warn"] { color: var(--pb-status-warn); }
+.pb-note--warn { color: var(--pb-status-warn); }
+a { color: var(--pb-accent); }
+.scroll { overflow-y: scroll; scrollbar-color: var(--pb-edge) var(--pb-surface-control); scrollbar-width: auto; }
+.scroll::-webkit-scrollbar { width: var(--sode-bigscroll-w); }
+.scroll::-webkit-scrollbar-track { background: var(--pb-surface-control); }
+.scroll::-webkit-scrollbar-thumb { background: var(--pb-edge); }
+/* The prototype's own bar. It is not part of the design. */
+.proto {
+  align-items: center;
+  background: var(--pb-surface-high);
+  border-bottom: var(--pb-border-w) dashed var(--pb-edge);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.4rem 1rem;
+}
+.proto strong { letter-spacing: 0.04em; }
+.proto__group { align-items: center; display: inline-flex; gap: 0.25rem; }
+.proto__spacer { flex: 1; }
+/* Settings shell, as web/index.html draws it. */
+.shell { display: grid; gap: 1.25rem; grid-template-columns: 12.5rem minmax(0, 1fr); margin: 0 auto; max-width: 78rem; padding: 2rem 1rem 5rem; }
+.toc { align-self: start; background: var(--pb-surface-overlay); padding: 0.25rem; position: sticky; top: 1rem; }
+.toc__topic { font-weight: 700; padding: 0.4rem 1rem; }
+.toc__item { color: var(--pb-text-muted); font-weight: 500; padding: 0.4rem 0.9rem; }
+.toc__item[aria-current] { background: var(--pb-surface-control); border-top: var(--pb-border-w) solid var(--pb-accent); color: var(--pb-accent); }
+.topic { background: var(--pb-surface-raised); border-top: 0.5rem solid var(--pb-accent); font-size: var(--pb-text-xl); font-weight: 600; padding: 0.5rem 0.75rem; }
+.section__head { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.5rem 0 0.75rem; }
+.section__head h2 { font-size: var(--pb-text-md); }
+.footer { align-items: center; background: var(--pb-surface-base); border-top: var(--pb-border-w) solid var(--pb-edge); bottom: 0; display: flex; gap: 0.75rem; margin-top: 1.5rem; padding: 0.75rem 0; position: sticky; }
+.modal-scrim { align-items: center; background: var(--pb-overlay-scrim); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 20; }
+.modal-scrim[hidden] { display: none; }
+.modal { background: var(--pb-surface-overlay); box-shadow: var(--pb-shadow-overlay); max-height: 85vh; max-width: calc(100vw - 2rem); overflow: auto; width: 38rem; }
+.modal__head { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); font-size: var(--pb-text-md); font-weight: 600; padding: 0.75rem; }
+.modal__body { padding: 0.75rem; }
+.modal__foot { display: flex; gap: 0.5rem; justify-content: space-between; padding: 0.75rem; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><symbol id="server-nas"><path d="M10 16V8" /><path d="M14 16V8" /><path d="M18 16V8" /><path d="M6 12h.01" /><path d="M6 16h.01" /><rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="server"><rect width="20" height="8" x="2" y="2" rx="2" ry="2" /><rect width="20" height="8" x="2" y="14" rx="2" ry="2" /><line x1="6" x2="6.01" y1="6" y2="6" /><line x1="6" x2="6.01" y1="18" y2="18" /></symbol><symbol id="circle-check"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></symbol><symbol id="circle-x"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></symbol><symbol id="loader-circle"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></symbol><symbol id="shield"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></symbol><symbol id="shield-off"><path d="m2 2 20 20" /><path d="M5 5a1 1 0 0 0-1 1v7c0 5 3.5 7.5 7.67 8.94a1 1 0 0 0 .67.01c2.35-.82 4.48-1.97 5.9-3.71" /><path d="M9.309 3.652A12.252 12.252 0 0 0 11.24 2.28a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1v7a9.784 9.784 0 0 1-.08 1.264" /></symbol><symbol id="chevron-right"><path d="m9 18 6-6-6-6" /></symbol><symbol id="chevron-down"><path d="m6 9 6 6 6-6" /></symbol><symbol id="grip-vertical"><circle cx="9" cy="12" r="1" /><circle cx="9" cy="5" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="19" r="1" /></symbol><symbol id="triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol><symbol id="x"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol><symbol id="settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="external-link"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></symbol><symbol id="arrow-up"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></symbol><symbol id="arrow-down"><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></symbol><symbol id="undo-2"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></symbol><symbol id="cable"><path d="M17 21v-2a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1" /><path d="M19 15V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V9" /><path d="M21 21v-2h-4" /><path d="M3 5h4V3" /><path d="M7 5a1 1 0 0 1 1 1v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1V3" /></symbol></defs></svg>
+<script>
+// Shared prototype helpers. Fake data only.
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const icon = (name, sm) => `<svg class="pb-icon${sm ? ' pb-icon--sm' : ''}" viewBox="0 0 24 24" aria-hidden="true"><use href="#${name}"/></svg>`;
+
+const TITLES = [
+  'MCR Production Ultrix', 'Studio 4 Gallery Audio', 'Transmission Backup Matrix', 'Edit Suites North Wing', 'OB Truck Unit 7',
+  'Stage 1 Small', 'Master Control Monitor Wall', 'Studio C', 'Truck Dock', 'Flypack', 'Audio Desk Bridge', 'Edit Suites South Wing',
+  'Ingest', 'Playout Chain A', 'Playout Chain B', 'QC Room', 'Newsroom', 'Studio 4 Gallery Video', 'Graphics', 'Radio 1', 'Radio 2',
+  'Archive', 'Playout Chain A Distribution', 'Lines Room',
+];
+const LEVELS = [17, 16, 17, 4, 8, 2, 17, 8, 2, 1, 16, 4, 17, 17, 17, 4, 8, 17, 4, 2, 2, 1, 17, 32];
+const prefixOf = (i) => String.fromCharCode(65 + i);
+
+// The routers that are not up, for each count. Every prototype uses this, so a link between two of them agrees.
+const LOST = { 1: {}, 2: { B: 'down' }, 3: { B: 'down', C: 'connecting' }, 4: { B: 'down' }, 12: { C: 'down', G: 'never', K: 'connecting' }, 24: { B: 'down', E: 'down', L: 'down', R: 'never', W: 'down' } };
+
+function makeRouters(n, lost = LOST[n] || {}) {
+  return Array.from({ length: n }, (_, i) => {
+    const p = prefixOf(i);
+    const link = lost[p] || 'up';
+    return {
+      uid: 'a' + (0x51c3 + i * 7919).toString(16) + 'e2',
+      prefix: p,
+      title: TITLES[i],
+      address: `10.20.${4 + (i >> 3)}.${11 + i}:8910`,
+      matrix: i === 2 ? 1 : 0,
+      levels: LEVELS[i],
+      levelOffset: i % 5 === 1 ? 0 : -1,
+      levelNumbering: i === 3 ? '0' : i === 5 ? 'va' : '1',
+      defaultLevels: i === 1 ? '1-4' : '',
+      numberOffset: 1,
+      nameLength: 12,
+      nameRequests: 'std',
+      nameRereadSeconds: 60,
+      routeRereadSeconds: 300,
+      fireMode: 'sequential',
+      salvoGroup: 127,
+      protectDevice: i === 3 ? 0 : 200 + i,
+      statusLabel: 'name',
+      link,
+      since: link === 'up' ? `${2 + (i % 5)} h ${7 + i} min` : `${4 + i} min`,
+      err: link === 'down' ? 'read tcp: connection reset by peer' : link === 'never' ? `dial tcp 10.20.${4 + (i >> 3)}.${11 + i}:8910: connect: connection refused` : '',
+      srcs: 120 + i * 16,
+      dsts: 80 + i * 8,
+    };
+  });
+}
+
+// The one display form of a router: prefix, then Router title. With one router Sode hides the prefix.
+const routerName = (r, alone) => (alone ? r.title || 'Router' : `${r.prefix} ${r.title || 'Router ' + r.prefix}`);
+const LINK = {
+  up: { state: 'ok', glyph: 'circle-check', word: 'Connected' },
+  connecting: { state: 'warn', glyph: 'loader-circle', word: 'Connecting' },
+  down: { state: 'error', glyph: 'circle-x', word: 'Down' },
+  never: { state: 'error', glyph: 'circle-x', word: 'Never connected' },
+};
+const linkState = (r, long) => {
+  const l = LINK[r.link];
+  const tail = !long ? '' : r.link === 'up' ? ` for ${r.since}` : r.link === 'down' ? ` for ${r.since}` : '';
+  return `<span class="state" data-state="${l.state}">${icon(l.glyph)}<span>${l.word}${tail}</span></span>`;
+};
+
+function hashParams() {
+  return Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+}
+
+// The prototype bar: a link back and the theme switch.
+function protoBar(title, extra = '') {
+  const bar = document.createElement('div');
+  bar.className = 'proto';
+  bar.innerHTML = `<a href="index.html">Prototypes</a><strong>${title}</strong><span class="muted">Fake data. Not app code.</span>${extra}
+    <span class="proto__spacer"></span>
+    <span class="proto__group" role="group" aria-label="Theme"><span class="caps">Theme</span>
+      <button class="pb-btn" data-theme-btn="">Auto</button><button class="pb-btn" data-theme-btn="light">Light</button><button class="pb-btn" data-theme-btn="dark">Dark</button></span>`;
+  document.body.prepend(bar);
+  const set = (t) => {
+    if (t) document.documentElement.dataset.theme = t;
+    else delete document.documentElement.dataset.theme;
+    for (const b of $$('[data-theme-btn]', bar)) b.classList.toggle('pb-btn--selected', b.dataset.themeBtn === t);
+    try { sessionStorage.setItem('proto-theme', t); } catch {}
+  };
+  bar.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-theme-btn]');
+    if (b) set(b.dataset.themeBtn);
+  });
+  let saved = '';
+  try { saved = sessionStorage.getItem('proto-theme') || ''; } catch {}
+  set(saved);
+  return bar;
+}
+</script>
+<style>
+.bar { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; margin-bottom: 0.75rem; }
+.bar .pb-input { width: 14rem; }
+.bar label { align-items: center; display: inline-flex; gap: 0.35rem; }
+.rt { align-items: start; display: grid; gap: 1rem; grid-template-columns: 19rem minmax(0, 1fr); }
+.rt[data-one] { grid-template-columns: minmax(0, 1fr); }
+.rt[data-one] .rlist { display: none; }
+.rlist { background: var(--pb-surface-raised); border: var(--pb-border-w) solid var(--pb-edge); max-height: calc(100vh - 9rem); min-height: 9rem; position: sticky; top: 1rem; }
+.rrow { align-items: center; border-bottom: 1px solid var(--pb-edge-soft); border-left: var(--pb-accent-bar-w) solid transparent; cursor: pointer; display: grid; gap: 0 0.5rem; grid-template-columns: 1rem 2rem minmax(0, 1fr); min-height: 3.25rem; padding: 0.3rem 0.5rem 0.3rem 0.25rem; }
+.rrow:hover { background: var(--pb-overlay-hover); }
+.rrow[aria-current="true"] { background: var(--pb-accent-wash); border-left-color: var(--pb-accent); }
+.rrow[data-removed] .rrow__title { text-decoration: line-through; }
+.rrow[data-drop="before"] { box-shadow: inset 0 3px 0 var(--pb-accent); }
+.rrow[data-drop="after"] { box-shadow: inset 0 -3px 0 var(--pb-accent); }
+.rrow__grip { color: var(--pb-text-disabled); cursor: grab; display: inline-flex; }
+.rrow__prefix { font-size: var(--pb-text-lg); font-weight: 700; }
+.rrow__line { align-items: center; display: flex; gap: 0.4rem; min-width: 0; }
+.rrow__title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rrow__sub { color: var(--pb-text-muted); font-size: var(--pb-text-xs); }
+.rrow__sub .state { font-size: var(--pb-text-xs); }
+.rrow__sub .pb-icon { height: 0.8rem; width: 0.8rem; }
+.rlist__empty { color: var(--pb-text-muted); padding: 1rem; }
+.detail { background: var(--pb-surface-raised); border: var(--pb-border-w) solid var(--pb-edge); padding: 0.9rem 1rem 1.1rem; }
+.detail__head { align-items: start; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+.detail__name { font-size: var(--pb-text-lg); font-weight: 700; }
+.detail__acts { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-left: auto; }
+.detail__link { margin-top: 0.2rem; }
+.group { border-top: var(--pb-border-w) solid var(--pb-edge-soft); margin-top: 1rem; padding-top: 0.75rem; }
+.group__head { align-items: baseline; display: flex; gap: 0.75rem; margin-bottom: 0.6rem; }
+.fields { display: grid; gap: 0.75rem 1rem; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); }
+.field--short .pb-input { width: 6rem; }
+.field--wide { grid-column: span 2; }
+.seg { display: inline-flex; gap: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 0.5rem; }
+.chip { font: 700 var(--pb-text-xs) / 1.375rem var(--pb-font-num); height: 1.375rem; min-width: 1.375rem; padding: 0 0.2rem; text-align: center; }
+.chip[data-off] { opacity: 0.3; }
+.facts { align-items: center; display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; margin-top: 0.6rem; }
+.review li { margin: 0.3rem 0; }
+.review ul { margin: 0.25rem 0 0.75rem; padding-left: 1.1rem; }
+.review h3 { font-size: var(--pb-text-sm); }
+.toast { background: var(--pb-surface-overlay); border-left: var(--pb-accent-bar-w) solid var(--pb-text-muted); bottom: 4.5rem; box-shadow: var(--pb-shadow-overlay); padding: 0.6rem 0.9rem; position: fixed; right: 1.5rem; z-index: 30; }
+@media (max-width: 62rem) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .toc { display: none; }
+  .rt { grid-template-columns: minmax(0, 1fr); }
+  .rlist { max-height: 40vh; position: static; }
+  .field--wide { grid-column: auto; }
+}
+</style>
+
+<div class="shell">
+  <nav class="toc" aria-label="Settings">
+    <input class="pb-input" placeholder="Search settings" aria-label="Search settings" />
+    <div class="toc__topic">Preferences</div>
+    <div class="toc__topic">Look and feel</div>
+    <div class="toc__topic">Routers</div>
+    <div class="toc__item" aria-current="true">Routers</div>
+    <div class="toc__item">Tie lines</div>
+    <div class="toc__item"><a href="protects.html" style="color: inherit; text-decoration: none">Protects</a></div>
+    <div class="toc__topic">Access</div>
+    <div class="toc__topic">Server</div>
+  </nav>
+  <main>
+    <h1 class="topic">Routers</h1>
+    <div class="section__head">
+      <h2>Routers</h2>
+      <span class="pb-badge">Administrator</span>
+    </div>
+    <div class="bar">
+      <span id="summary" role="status"></span>
+      <span class="proto__spacer"></span>
+      <input class="pb-input" id="find" placeholder="Find a router" aria-label="Find a router" />
+      <label id="problems-label"><input type="checkbox" id="problems" /> Only routers with a problem</label>
+      <button class="pb-btn" id="add">Add router</button>
+    </div>
+    <div class="rt" id="rt">
+      <div class="rlist scroll" id="rlist" role="listbox" aria-label="Routers"></div>
+      <section class="detail" id="detail" aria-live="polite"></section>
+    </div>
+    <div class="footer">
+      <button class="pb-btn pb-btn--lg">Exit</button>
+      <span class="muted" id="dirty">Saved to <span class="mono">/data/config.yaml</span></span>
+      <span class="proto__spacer"></span>
+      <button class="pb-btn pb-btn--lg sode-btn--primary" id="save" disabled>Save</button>
+    </div>
+  </main>
+</div>
+
+<div class="modal-scrim" id="review" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="review-title">
+    <div class="modal__head" id="review-title"></div>
+    <div class="modal__body review" id="review-body"></div>
+    <div class="modal__foot">
+      <button class="pb-btn pb-btn--lg" id="review-back">Back</button>
+      <button class="pb-btn pb-btn--lg" id="review-go"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PALETTE = ['#7ae85a', '#4c69fd', '#e5483b', '#f5e663', '#3f8a8c', '#d946ef', '#4a8639', '#67e8f9', '#a061a5', '#f0963e', '#b5efcb', '#e287e8', '#5b86f0', '#8a8a35', '#a5e3f7', '#4fa03a', '#f29bb0', '#d4462e', '#d9822b', '#b89a12', '#6f9e1f', '#1f9e6a', '#17948e', '#1f7fc4', '#4a5fd6', '#7a4fd6', '#b03fc4', '#c93f86', '#9a6440', '#5f7f61', '#5c7299', '#9a8559'];
+const RECONNECT = new Set(['address', 'matrix', 'levels', 'levelOffset', 'nameLength', 'nameRequests']);
+const LABELS = { prefix: 'Prefix', title: 'Router title', statusLabel: 'Status label', address: 'Address', matrix: 'Matrix', nameRequests: 'Name requests', nameLength: 'Name character limit', levels: 'Levels', levelOffset: 'Level offset', levelNumbering: 'Level numbering', defaultLevels: 'Default levels', numberOffset: 'Source and destination numbers', nameRereadSeconds: 'Re-read names every', routeRereadSeconds: 'Re-read routes every', fireMode: 'Multi destination', salvoGroup: 'Router salvo group', protectDevice: "Sode's device number" };
+const OPTION_WORDS = { statusLabel: { address: 'Address', name: 'Title', none: 'Nothing' }, nameRequests: { std: 'Standard', ext: 'Extended' }, numberOffset: { 1: 'Start at 1', 0: 'Start at 0' }, fireMode: { sequential: 'One after another', native: 'Router salvo' } };
+
+const params = hashParams();
+let S;
+function start(n, lost) {
+  const routers = makeRouters(n, lost);
+  S = { routers, orig: structuredClone(routers), order0: routers.map((r) => r.uid), def: routers[0].uid, def0: routers[0].uid, sel: routers[0].uid, removed: new Set(), added: new Set(), nextNew: n };
+  const want = routers.find((r) => r.prefix === params.router);
+  if (want) S.sel = want.uid;
+  $('#find').value = '';
+  $('#problems').checked = false;
+  render();
+}
+
+const byUid = (uid) => S.routers.find((r) => r.uid === uid);
+const one = () => S.routers.length === 1;
+const label = (r, i) => (r.levelNumbering === '0' ? i - 1 : r.levelNumbering === 'va' ? (i === 1 ? 'V' : i - 1) : i);
+const rangeText = (r, kind) => {
+  const n = Number(r.levels) || 0;
+  if (kind === '0') return `0–${n - 1}`;
+  if (kind === 'va') return n > 1 ? `V, 1–${n - 1}` : 'V';
+  return `1–${n}`;
+};
+// Default levels in the router's own numbering. Blank is every level. Gives [positions, error].
+function parseLevels(r) {
+  const n = Number(r.levels) || 0;
+  const pos = new Map();
+  for (let i = 1; i <= n; i++) pos.set(String(label(r, i)).toUpperCase(), i);
+  const text = String(r.defaultLevels).trim().toUpperCase();
+  const all = Array.from({ length: n }, (_, i) => i + 1);
+  if (!text) return [all, ''];
+  const out = new Set();
+  for (const part of text.split(/[\s,]+/).filter(Boolean)) {
+    const [a, b = a] = part.split(/[-–]/);
+    if (!pos.has(a) || !pos.has(b) || pos.get(b) < pos.get(a)) return [[], `"${r.defaultLevels}" is not in ${rangeText(r, r.levelNumbering)}. Use the level numbers of this router.`];
+    for (let i = pos.get(a); i <= pos.get(b); i++) out.add(i);
+  }
+  return [[...out], ''];
+}
+function changes(r) {
+  const o = S.orig.find((x) => x.uid === r.uid);
+  if (!o) return [];
+  return Object.keys(LABELS).filter((k) => String(r[k]) !== String(o[k])).map((k) => ({ k, was: o[k], now: r[k] }));
+}
+const orderChanged = () => S.routers.map((r) => r.uid).filter((u) => !S.added.has(u)).join() !== S.order0.join();
+function dirtyCount() {
+  let n = S.added.size + S.removed.size + (orderChanged() ? 1 : 0) + (S.def !== S.def0 ? 1 : 0);
+  for (const r of S.routers) if (!S.added.has(r.uid) && !S.removed.has(r.uid)) n += changes(r).length;
+  return n;
+}
+// Every field error of one router, as [field, text]. Save lists them all and does not go on.
+function fieldErrors(r) {
+  const out = [];
+  if (!/^[^\s:]+:\d+$/.test(r.address)) out.push(['address', 'Address must be host:port.']);
+  if (r.nameRequests === 'std' && Number(r.matrix) > 15) out.push(['matrix', 'Matrix must be 0 to 15 with standard name requests.']);
+  const e = parseLevels(r)[1];
+  if (e) out.push(['defaultLevels', 'Default levels ' + e]);
+  return out;
+}
+const hasProblem = (r) => (r.link !== 'up' && !S.added.has(r.uid)) || fieldErrors(r).length > 0;
+
+function render() {
+  renderList();
+  renderDetail();
+  renderChrome();
+}
+function renderChrome() {
+  const live = S.routers.filter((r) => !S.added.has(r.uid));
+  const count = (l) => live.filter((r) => r.link === l).length;
+  const parts = [`${count('up')} connected`];
+  if (count('down') + count('never')) parts.push(`${count('down') + count('never')} down`);
+  if (count('connecting')) parts.push(`${count('connecting')} connecting`);
+  $('#summary').textContent = one() ? '' : `${S.routers.length} routers. ${parts.join(', ')}.`;
+  $('#rt').toggleAttribute('data-one', one());
+  $('#find').hidden = S.routers.length < 8;
+  $('#problems-label').hidden = S.routers.length < 4;
+  const n = dirtyCount();
+  $('#save').disabled = !n;
+  $('#dirty').innerHTML = n ? '<span class="pb-note--warn">Unsaved changes</span>' : 'Saved to <span class="mono">/data/config.yaml</span>';
+}
+function shown() {
+  const q = $('#find').value.trim().toLowerCase();
+  const only = $('#problems').checked;
+  return S.routers.filter((r) => (!q || `${r.prefix} ${r.title} ${r.address}`.toLowerCase().includes(q)) && (!only || hasProblem(r)));
+}
+function renderList() {
+  const list = shown();
+  const canDrag = list.length === S.routers.length;
+  $('#rlist').innerHTML = list.length
+    ? list.map((r) => {
+        const marks = [];
+        if (r.uid === S.def && !one()) marks.push('<span class="pb-badge">Default</span>');
+        if (S.added.has(r.uid)) marks.push('<span class="pb-badge pb-badge--warn">New</span>');
+        else if (S.removed.has(r.uid)) marks.push('<span class="pb-badge pb-badge--warn">Remove on Save</span>');
+        else if (changes(r).length) marks.push('<span class="pb-badge pb-badge--warn">Edited</span>');
+        const state = S.added.has(r.uid) ? '<span>Not saved</span>' : linkState(r);
+        return `<div class="rrow" role="option" tabindex="0" data-uid="${r.uid}" aria-current="${r.uid === S.sel}" draggable="${canDrag}" ${S.removed.has(r.uid) ? 'data-removed' : ''}>
+          <span class="rrow__grip" title="${canDrag ? 'Drag to change the order' : 'Clear the filter to change the order'}">${icon('grip-vertical')}</span>
+          <span class="rrow__prefix num">${esc(r.prefix)}</span>
+          <span><span class="rrow__line"><span class="rrow__title">${esc(r.title || 'Router ' + r.prefix)}</span>${marks.join('')}</span>
+          <span class="rrow__line rrow__sub"><span class="num">${esc(r.address || 'No address')}</span>${state}</span></span>
+        </div>`;
+      }).join('')
+    : '<div class="rlist__empty">No router matches. <button class="pb-btn" id="clear-find">Show all routers</button></div>';
+}
+
+const input = (r, k, extra = '') => `<input class="pb-input" data-k="${k}" value="${esc(r[k])}" ${extra} />`;
+const select = (r, k) => `<select class="pb-input" data-k="${k}">${Object.entries(OPTION_WORDS[k]).map(([v, w]) => `<option value="${v}" ${String(r[k]) === v ? 'selected' : ''}>${w}</option>`).join('')}</select>`;
+const field = (r, k, control, hint = '', cls = '') => `<div class="field ${cls}"><label class="pb-label">${LABELS[k]}</label>${control}${hint}</div>`;
+const hint = (text, kind = '') => `<div class="pb-hint ${kind && 'pb-hint--' + kind}" ${kind === 'error' ? 'role="alert"' : ''}>${text}</div>`;
+
+function renderDetail() {
+  const r = byUid(S.sel);
+  const d = $('#detail');
+  if (!r) return void (d.innerHTML = '');
+  const isNew = S.added.has(r.uid);
+  const gone = S.removed.has(r.uid);
+  const idx = S.routers.indexOf(r);
+  const up = r.link === 'up';
+  const [defaults, levelErr] = parseLevels(r);
+  const wire = Number(r.levelOffset) || 0;
+  const heldSode = r.protectDevice > 0 ? 3 + ((idx * 7) % 40) : 0;
+  const heldOther = 2 + ((idx * 5) % 30);
+  const ties = one() ? 0 : 2 + (idx % 3) * 2;
+  const linkLine = isNew
+    ? '<span class="muted">Sode connects to a new router after you save.</span>'
+    : `${linkState(r, true)}${r.err ? ` <span class="mono muted">${esc(r.err)}</span>` : ''}`;
+  d.innerHTML = `
+    <div class="detail__head">
+      <div>
+        <div class="detail__name">${one() ? '' : `<span class="num">${esc(r.prefix)}</span> `}${esc(r.title || 'Router ' + r.prefix)}</div>
+        <div class="detail__link">${linkLine}</div>
+      </div>
+      <div class="detail__acts">
+        ${one() ? '' : `<button class="pb-btn" data-act="up" ${idx === 0 ? 'disabled' : ''}>${icon('arrow-up')}Move up</button>
+        <button class="pb-btn" data-act="down" ${idx === S.routers.length - 1 ? 'disabled' : ''}>${icon('arrow-down')}Move down</button>`}
+        <button class="pb-btn" ${isNew ? 'disabled' : ''} title="Swap a source or destination number on this router">Swap…</button>
+        <a class="pb-btn" href="statusbar.html" title="Communication Log, filtered to this router">Log${icon('external-link', true)}</a>
+        ${gone ? `<button class="pb-btn" data-act="restore">${icon('undo-2')}Keep this router</button>` : `<button class="pb-btn pb-btn--outline" data-act="remove" ${one() ? 'disabled title="Sode must have one router."' : ''}>Remove…</button>`}
+      </div>
+    </div>
+    ${gone ? hint('Sode removes this router when you save. Presets, filter sets and panels that name it become Broken. Its tie lines go.', 'warn') : ''}
+
+    <div class="group"><div class="group__head"><span class="caps">Router</span></div><div class="fields">
+      ${one() ? '' : field(r, 'prefix', input(r, 'prefix', 'maxlength="2" style="text-transform:uppercase"'), hint('One or two letters. B.69 is number 69 on this router.'), 'field--short')}
+      ${field(r, 'title', input(r, 'title', 'maxlength="32"'))}
+      ${field(r, 'statusLabel', select(r, 'statusLabel'), hint('What the status bar shows when it names this router.'))}
+      ${one() ? '' : `<div class="field field--wide"><label class="pb-label">Default router</label>
+        <label><input type="radio" name="def" data-act="default" ${r.uid === S.def ? 'checked' : ''} ${gone ? 'disabled' : ''}/> A new browser starts on this router</label>
+        ${hint(r.uid === S.def ? 'A bare number in a patch box means this router, until a person picks another.' : `The default router is now ${esc(routerName(byUid(S.def)))}.`)}</div>`}
+    </div></div>
+
+    <div class="group"><div class="group__head"><span class="caps">Connection</span><span class="pb-hint">A change here reconnects this router only.</span></div><div class="fields">
+      ${field(r, 'address', input(r, 'address', 'placeholder="host:port"'), /^[^\s:]+:\d+$/.test(r.address) ? '' : hint('Enter the address as host:port, for example 10.20.4.12:8910.', 'error'))}
+      ${field(r, 'matrix', input(r, 'matrix', 'type="number" min="0" max="255"'), r.nameRequests === 'std' && r.matrix > 15 ? hint('Standard name requests allow matrix 0 to 15. Set Name requests to Extended.', 'error') : '', 'field--short')}
+      ${field(r, 'nameRequests', select(r, 'nameRequests'))}
+      ${field(r, 'nameLength', input(r, 'nameLength', 'type="number" min="4" max="32"'), '', 'field--short')}
+    </div></div>
+
+    <div class="group"><div class="group__head"><span class="caps">Levels</span></div><div class="fields">
+      ${field(r, 'levels', input(r, 'levels', 'type="number" min="1" max="256"'), '', 'field--short')}
+      ${field(r, 'levelOffset', input(r, 'levelOffset', 'type="number"'), hint(`${label(r, 1) === 'V' ? 'Level V' : 'Level ' + label(r, 1)} = level ${1 + wire} on the router.`), 'field--short')}
+      <div class="field field--wide"><label class="pb-label">Level numbering</label><div class="seg" role="group">
+        ${['1', '0', 'va'].map((k) => `<button class="pb-btn ${r.levelNumbering === k ? 'pb-btn--selected' : ''}" data-numbering="${k}" aria-pressed="${r.levelNumbering === k}"><span class="num">${rangeText(r, k)}</span></button>`).join('')}
+      </div>${hint('This changes only how Sode shows and reads level numbers. V is the first level, for video.')}</div>
+      ${field(r, 'defaultLevels', input(r, 'defaultLevels', `placeholder="All levels" aria-invalid="${!!levelErr}"`), levelErr ? hint(levelErr, 'error') : hint(String(r.defaultLevels).trim() ? `${defaults.length} of ${r.levels} levels.` : 'Blank means every level, also after the level count changes.'))}
+    </div>
+    <div class="chips" aria-label="Levels of this router">${Array.from({ length: Math.min(Number(r.levels) || 0, 64) }, (_, i) => {
+      const c = PALETTE[i % 32];
+      const dark = parseInt(c.slice(1, 3), 16) * 0.3 + parseInt(c.slice(3, 5), 16) * 0.59 + parseInt(c.slice(5, 7), 16) * 0.11 < 140;
+      return `<span class="chip" style="background:${c};color:${dark ? '#fff' : '#000'}" ${levelErr || defaults.includes(i + 1) ? '' : 'data-off title="Not a default level"'}>${label(r, i + 1)}</span>`;
+    }).join('')}</div>
+    ${hint('Colors come from Look and feel > Level colors, by position. They are the same for every router.')}</div>
+
+    <div class="group"><div class="group__head"><span class="caps">Router names</span></div><div class="fields">
+      ${field(r, 'numberOffset', select(r, 'numberOffset'))}
+      ${field(r, 'nameRereadSeconds', input(r, 'nameRereadSeconds', 'type="number" min="0"'), hint('In seconds. 0 is off.'), 'field--short')}
+    </div><div class="facts">
+      ${isNew ? '<span class="muted">Sode reads the names after you save.</span>' : `<span><span class="num">${r.srcs}</span> sources, <span class="num">${r.dsts}</span> destinations. ${up ? 'Read at 14:02:10.' : 'Last read at 13:48:31, before the link went down.'}</span>
+      <button class="pb-btn" ${up ? '' : 'disabled'}>Re-read now</button>${up ? '' : '<span class="pb-hint">Sode cannot read the names while the Router link is down.</span>'}`}
+    </div></div>
+
+    <div class="group"><div class="group__head"><span class="caps">Takes</span></div><div class="fields">
+      ${field(r, 'fireMode', select(r, 'fireMode'))}
+      ${field(r, 'salvoGroup', input(r, 'salvoGroup', 'type="number" min="0" max="127"'), r.fireMode === 'native' ? hint('Pick a group that only Sode uses.') : hint('Used only with Router salvo.'), 'field--short')}
+      ${field(r, 'routeRereadSeconds', input(r, 'routeRereadSeconds', 'type="number" min="0"'), hint('In seconds. 0 is off.'), 'field--short')}
+    </div></div>
+
+    <div class="group"><div class="group__head"><span class="caps">Protects</span></div><div class="fields">
+      ${field(r, 'protectDevice', input(r, 'protectDevice', 'type="number" min="0" max="4095"'), hint('0 is off. Panels use the same numbers. Pick a number that no panel uses.'), 'field--short')}
+    </div><div class="facts">
+      ${Number(r.protectDevice) > 0
+        ? `<span>${icon('shield')} Sode has <span class="num">${heldSode}</span> Protects on this router. Other devices have <span class="num">${heldOther}</span>.</span>`
+        : `<span class="state" data-state="warn">${icon('shield-off')}<span>Protect is off for this router. Sode cannot set a Protect here.</span></span>`}
+      <a href="protects.html">Show in Protects</a>
+    </div></div>
+
+    ${one() ? '' : `<div class="group"><div class="group__head"><span class="caps">Tie lines</span></div><div class="facts">
+      <span>${icon('cable')} <span class="num">${ties}</span> tie lines: <span class="num">${ties / 2}</span> from this router, <span class="num">${ties / 2}</span> to this router.</span>
+      <a href="#" data-act="noop">Show in Tie lines</a>
+    </div></div>`}`;
+}
+
+function toast(text) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.setAttribute('role', 'status');
+  t.textContent = text;
+  document.body.append(t);
+  setTimeout(() => t.remove(), 3500);
+}
+function move(uid, to) {
+  const from = S.routers.findIndex((r) => r.uid === uid);
+  if (from < 0 || to < 0 || to >= S.routers.length || from === to) return;
+  const [r] = S.routers.splice(from, 1);
+  S.routers.splice(to, 0, r);
+  render();
+}
+
+$('#rlist').addEventListener('click', (e) => {
+  if (e.target.id === 'clear-find') {
+    $('#find').value = '';
+    $('#problems').checked = false;
+    return render();
+  }
+  const row = e.target.closest('.rrow');
+  if (row) {
+    S.sel = row.dataset.uid;
+    render();
+  }
+});
+$('#rlist').addEventListener('keydown', (e) => {
+  const row = e.target.closest('.rrow');
+  if (!row) return;
+  const rows = $$('.rrow');
+  const i = rows.indexOf(row);
+  const focusRow = (uid) => $(`.rrow[data-uid="${uid}"]`)?.focus();
+  if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    const uid = row.dataset.uid;
+    S.sel = uid;
+    move(uid, S.routers.findIndex((r) => r.uid === uid) + (e.key === 'ArrowUp' ? -1 : 1));
+    focusRow(uid);
+  } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = rows[i + (e.key === 'ArrowUp' ? -1 : 1)];
+    if (next) {
+      S.sel = next.dataset.uid;
+      render();
+      focusRow(S.sel);
+    }
+  } else if (e.key === 'Enter') {
+    S.sel = row.dataset.uid;
+    render();
+    $('#detail .pb-input')?.focus();
+  }
+});
+let dragUid = '';
+$('#rlist').addEventListener('dragstart', (e) => {
+  dragUid = e.target.closest('.rrow')?.dataset.uid || '';
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragUid);
+});
+$('#rlist').addEventListener('dragover', (e) => {
+  const row = e.target.closest('.rrow');
+  if (!row || !dragUid) return;
+  e.preventDefault();
+  for (const x of $$('.rrow[data-drop]')) delete x.dataset.drop;
+  const box = row.getBoundingClientRect();
+  row.dataset.drop = e.clientY < box.top + box.height / 2 ? 'before' : 'after';
+});
+$('#rlist').addEventListener('drop', (e) => {
+  const row = e.target.closest('.rrow');
+  if (!row || !dragUid) return;
+  e.preventDefault();
+  const after = row.dataset.drop === 'after';
+  const moved = S.routers.splice(S.routers.findIndex((r) => r.uid === dragUid), 1)[0];
+  S.routers.splice(S.routers.findIndex((r) => r.uid === row.dataset.uid) + (after ? 1 : 0), 0, moved);
+  dragUid = '';
+  render();
+});
+$('#rlist').addEventListener('dragend', () => {
+  dragUid = '';
+  for (const x of $$('.rrow[data-drop]')) delete x.dataset.drop;
+});
+
+$('#detail').addEventListener('input', (e) => {
+  const k = e.target.dataset.k;
+  if (!k) return;
+  const r = byUid(S.sel);
+  r[k] = k === 'prefix' ? e.target.value.toUpperCase() : e.target.value;
+  renderList();
+  renderChrome();
+});
+// Hints and the level chips depend on the values, so draw the detail again when a field is left.
+$('#detail').addEventListener('change', (e) => {
+  if (!e.target.dataset.k) return;
+  const k = e.target.dataset.k;
+  renderDetail();
+  $(`#detail [data-k="${k}"]`)?.focus();
+});
+$('#detail').addEventListener('click', (e) => {
+  const r = byUid(S.sel);
+  const nb = e.target.closest('[data-numbering]');
+  if (nb) {
+    r.levelNumbering = nb.dataset.numbering;
+    return render();
+  }
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (!act) return;
+  const idx = S.routers.indexOf(r);
+  if (act === 'noop') e.preventDefault();
+  if (act === 'up') move(r.uid, idx - 1);
+  if (act === 'down') move(r.uid, idx + 1);
+  if (act === 'default') {
+    S.def = r.uid;
+    render();
+  }
+  if (act === 'remove') {
+    if (S.added.has(r.uid)) {
+      S.added.delete(r.uid);
+      S.routers.splice(idx, 1);
+      S.sel = S.routers[Math.max(0, idx - 1)].uid;
+    } else {
+      S.removed.add(r.uid);
+      if (S.def === r.uid) S.def = S.routers.find((x) => !S.removed.has(x.uid)).uid;
+    }
+    render();
+  }
+  if (act === 'restore') {
+    S.removed.delete(r.uid);
+    render();
+  }
+});
+$('#find').addEventListener('input', renderList);
+$('#problems').addEventListener('change', renderList);
+$('#add').addEventListener('click', () => {
+  const used = new Set(S.routers.map((r) => r.prefix));
+  let p = '';
+  for (let i = 0; i < 26 && !p; i++) if (!used.has(prefixOf(i))) p = prefixOf(i);
+  for (let i = 0; i < 26 && !p; i++) if (!used.has('A' + prefixOf(i))) p = 'A' + prefixOf(i);
+  const r = { ...makeRouters(1)[0], uid: 'new' + S.nextNew++, prefix: p, title: 'Router ' + p, address: '', protectDevice: 0, defaultLevels: '', link: 'up', err: '' };
+  S.routers.push(r);
+  S.added.add(r.uid);
+  S.sel = r.uid;
+  $('#find').value = '';
+  $('#problems').checked = false;
+  render();
+  $(`.rrow[data-uid="${r.uid}"]`)?.scrollIntoView({ block: 'nearest' });
+  $('#detail [data-k="address"]')?.focus();
+});
+
+// The review names each router by prefix and title, and each router that reconnects with its new address.
+$('#save').addEventListener('click', () => {
+  const bad = S.routers.filter((r) => !S.removed.has(r.uid)).flatMap((r) => fieldErrors(r).map(([k, text]) => ({ r, k, text })));
+  if (bad.length) {
+    $('#review-title').textContent = `Not saved. ${bad.length} field${bad.length === 1 ? ' has' : 's have'} an error.`;
+    $('#review-body').innerHTML = `<ul>${bad.map((b) => `<li><a href="#" data-goto="${b.r.uid}" data-field="${b.k}"><strong>${esc(routerName(b.r))}</strong></a>: <span class="pb-hint--error">${esc(b.text)}</span></li>`).join('')}</ul><p class="pb-hint">Select a line to go to the field.</p>`;
+    const go = $('#review-go');
+    go.className = 'pb-btn pb-btn--lg sode-btn--primary';
+    go.textContent = 'Save';
+    go.disabled = true;
+    $('#review').hidden = false;
+    return;
+  }
+  $('#review-go').disabled = false;
+  const groups = [];
+  const reconnect = [];
+  const top = [];
+  if (S.def !== S.def0) top.push(`Default router: was ${esc(routerName(S.orig.find((r) => r.uid === S.def0)))}, now <strong>${esc(routerName(byUid(S.def)))}</strong>`);
+  if (orderChanged()) top.push(`Router order: now <span class="num">${S.routers.filter((r) => !S.removed.has(r.uid)).map((r) => esc(r.prefix)).join(', ')}</span>`);
+  if (top.length) groups.push(['All routers', top]);
+  for (const r of S.routers) {
+    const o = S.orig.find((x) => x.uid === r.uid);
+    if (S.added.has(r.uid)) {
+      groups.push([`${routerName(r)} (new)`, [`Add at <span class="num">${esc(r.address || 'no address')}</span>, matrix ${esc(r.matrix)}, ${esc(r.levels)} levels, numbering ${rangeText(r, r.levelNumbering)}`, `Sode's device number: ${esc(r.protectDevice)}${Number(r.protectDevice) ? '' : ' (Protect is off)'}`]]);
+    } else if (S.removed.has(r.uid)) {
+      groups.push([routerName(o), ['Remove this router. Items that name it become Broken.']]);
+    } else {
+      const ch = changes(r);
+      if (!ch.length) continue;
+      const word = (k, v) => OPTION_WORDS[k]?.[v] ?? (k === 'levelNumbering' ? rangeText(r, v) : v === '' ? (k === 'defaultLevels' ? 'All levels' : 'blank') : v);
+      groups.push([routerName(o), ch.map((c) => `${LABELS[c.k]}: was <span class="num">${esc(word(c.k, c.was))}</span>, now <strong class="num">${esc(word(c.k, c.now))}</strong>`)]);
+      if (ch.some((c) => RECONNECT.has(c.k))) reconnect.push(r);
+    }
+  }
+  const n = dirtyCount();
+  $('#review-title').textContent = `Save ${n} change${n === 1 ? '' : 's'}?`;
+  $('#review-body').innerHTML =
+    groups.map(([name, rows]) => `<h3>${esc(name)}</h3><ul>${rows.map((x) => `<li>${x}</li>`).join('')}</ul>`).join('') +
+    (reconnect.length
+      ? `<p class="pb-note--warn">${icon('triangle-alert')} Sode reconnects ${reconnect.map((r) => `<strong>${esc(routerName(r))}</strong> at <span class="num">${esc(r.address)}</span>`).join(', ')}. Takes on ${reconnect.length === 1 ? 'that router' : 'those routers'} stop until the router answers. Other routers keep their links.</p>`
+      : '') +
+    '<p class="pb-hint">The PIN recheck comes after this step, and nothing asks again after the PIN.</p>';
+  const go = $('#review-go');
+  go.className = `pb-btn pb-btn--lg ${reconnect.length ? 'pb-btn--commit' : 'sode-btn--primary'}`;
+  go.textContent = reconnect.length ? 'Save and reconnect' : 'Save';
+  $('#review').hidden = false;
+  go.focus();
+});
+$('#review-back').addEventListener('click', () => ($('#review').hidden = true));
+$('#review-body').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-goto]');
+  if (!a) return;
+  e.preventDefault();
+  S.sel = a.dataset.goto;
+  $('#find').value = '';
+  $('#problems').checked = false;
+  $('#review').hidden = true;
+  render();
+  const f = $(`#detail [data-k="${a.dataset.field}"]`);
+  f?.scrollIntoView({ block: 'center' });
+  f?.focus();
+});
+$('#review-go').addEventListener('click', () => {
+  for (const r of S.routers) {
+    const ch = S.added.has(r.uid) ? [{ k: 'address' }] : changes(r);
+    if (ch.some((c) => RECONNECT.has(c.k))) Object.assign(r, { link: 'connecting', err: '' });
+  }
+  S.routers = S.routers.filter((r) => !S.removed.has(r.uid));
+  if (!byUid(S.sel)) S.sel = S.routers[0].uid;
+  Object.assign(S, { orig: structuredClone(S.routers), order0: S.routers.map((r) => r.uid), def0: S.def, removed: new Set(), added: new Set() });
+  $('#review').hidden = true;
+  render();
+  toast('Settings saved.');
+});
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') $('#review').hidden = true;
+});
+
+const counts = [1, 2, 12, 24];
+const bar = protoBar('Routers: list and detail', `<span class="proto__group" role="group" aria-label="Routers"><span class="caps">Routers</span>${counts.map((n) => `<button class="pb-btn" data-n="${n}">${n}</button>`).join('')}</span>`);
+function pick(n, lost) {
+  for (const b of $$('[data-n]', bar)) b.classList.toggle('pb-btn--selected', Number(b.dataset.n) === n);
+  start(n, lost);
+}
+bar.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-n]');
+  if (b) pick(Number(b.dataset.n));
+});
+// A link from the status bar prototype carries the count, the router and the lost routers, so the two pages agree.
+const lostFromHash = params.lost !== undefined ? Object.fromEntries(params.lost.split(',').filter(Boolean).map((x) => x.split(':'))) : undefined;
+pick(Math.min(24, Math.max(1, Number(params.n) || 12)), lostFromHash);
+</script>
+</body>
+</html>
