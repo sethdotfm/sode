@@ -255,8 +255,8 @@ func (a *App) newSwapper(cfg config.Config, req swapReq) (*swapper, error) {
 	if req.From < 0 || req.To < 0 || req.From > dstNumberMax || req.To > dstNumberMax {
 		return nil, fmt.Errorf("swap: numbers run from %d to %d", rc.NumberOffset, dstNumberMax+rc.NumberOffset)
 	}
-	sw := &swapper{uid: rc.UID, first: rc.UID == cfg.UID, dst: req.Side == config.MissingDestination, from: req.From, to: req.To, off: rc.NumberOffset}
-	if len(cfg.Routers()) > 1 {
+	sw := &swapper{uid: rc.UID, first: rc.UID == cfg.DefaultRouter().UID, dst: req.Side == config.MissingDestination, from: req.From, to: req.To, off: rc.NumberOffset}
+	if len(cfg.Routers) > 1 {
 		sw.name = rc.Display()
 	}
 	a.mu.Lock()

@@ -140,8 +140,8 @@ func nativeApp(t *testing.T, n int) (*App, *fakeRouter) {
 	t.Helper()
 	h, _ := OpenHistory("")
 	cfg := config.Defaults()
-	cfg.Levels = n
-	cfg.FireMode = "native"
+	cfg.Routers[0].Levels = n
+	cfg.Routers[0].FireMode = "native"
 	cfg.Normalize()
 	a, err := New(cfg, "", h, nil, false)
 	if err != nil {
@@ -598,7 +598,7 @@ func TestNativeFireLockRows(t *testing.T) {
 func TestNativeFireRowsWithSimulator(t *testing.T) {
 	slowTest(t)
 	sim, _ := simServer(t)
-	a := simApp(t, sim, func(c *config.Config) { c.FireMode = "native" })
+	a := simApp(t, sim, func(c *config.Config) { c.Routers[0].FireMode = "native" })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()

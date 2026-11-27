@@ -184,7 +184,7 @@ func planPreset(a *App, r *runtime, p config.Preset) (*takePlan, *apiProblem) {
 	_, tieName := a.tieLinesNow(r)
 	// A reference to a router that Sode does not have, or one the Broken check marked, is left out like a gone number.
 	has := func(f config.Ref, kind string) (end, bool) {
-		uid := cmp.Or(f.Router, r.cfg.UID)
+		uid := cmp.Or(f.Router, r.cfg.DefaultRouter().UID)
 		u, ok := a.unitOfRouter(r.cfg, uid)
 		if !ok || hasMissing(p.Broken, kind, f) {
 			return end{}, false

@@ -16,7 +16,7 @@ func namePages(a *App, dest bool, names []string) {
 	r := a.r()
 	for first := 0; first < len(names); first += 2 {
 		end := min(first+2, len(names))
-		a.onUnitMsg(a.first, swp08.NamesResp(dest, r.cfg.NameRequests == "ext", r.cfg.Matrix, 0, r.levelsOf("").lenCode, first, names[first:end]))
+		a.onUnitMsg(a.first, swp08.NamesResp(dest, r.cfg.Routers[0].NameRequests == "ext", r.cfg.Routers[0].Matrix, 0, r.levelsOf("").lenCode, first, names[first:end]))
 	}
 }
 
@@ -89,7 +89,7 @@ func TestProtectDumpRefusesTake(t *testing.T) {
 // One DashBoard press on a Ross Ultrix protects all 17 levels with 17 0x8D frames, one for each level. The
 // next press clears them with 17 0x8F frames. Real frames: dst 27, device 10.
 func TestDashBoardProtectAndClearAllLevels(t *testing.T) {
-	a := newTestApp(t, func(c *config.Config) { c.Levels = 17 })
+	a := newTestApp(t, func(c *config.Config) { c.Routers[0].Levels = 17 })
 	protect := func() map[int]protHold {
 		a.mu.Lock()
 		defer a.mu.Unlock()
@@ -221,7 +221,7 @@ func newRecorder(a *App) *recorder {
 }
 
 func nameReqCmds(a *App) (src, dst byte) {
-	if a.r().cfg.NameRequests == "ext" {
+	if a.r().cfg.Routers[0].NameRequests == "ext" {
 		return swp08.CmdExtSrcNamesReq, swp08.CmdExtDstNamesReq
 	}
 	return swp08.CmdSrcNamesReq, swp08.CmdDstNamesReq

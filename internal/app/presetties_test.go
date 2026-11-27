@@ -15,8 +15,8 @@ func presetTieApp(t *testing.T) (*App, *fakeRouter, *fakeRouter, string) {
 	t.Helper()
 	a, fa, fb, key := tieApp(t, func(c *config.Config) {
 		c.Presets = []config.Preset{{ID: "show", Name: "Show", Items: []config.PresetItem{
-			{Src: config.Ref{Router: c.UID, N: 4}, Dsts: []config.Ref{{Router: "b2b2b2b2", N: 2}}, Levels: []int{1}, Ties: []string{"t1"}},
-			{Src: config.Ref{Router: c.UID, N: 4}, Dsts: []config.Ref{{Router: c.UID, N: 1}}, Levels: []int{1}},
+			{Src: config.Ref{Router: c.Routers[0].UID, N: 4}, Dsts: []config.Ref{{Router: "b2b2b2b2", N: 2}}, Levels: []int{1}, Ties: []string{"t1"}},
+			{Src: config.Ref{Router: c.Routers[0].UID, N: 4}, Dsts: []config.Ref{{Router: c.Routers[0].UID, N: 1}}, Levels: []int{1}},
 		}}}
 	})
 	a.mu.Lock()
@@ -29,7 +29,7 @@ func presetTieApp(t *testing.T) (*App, *fakeRouter, *fakeRouter, string) {
 // nothing. A request that names each tie line with its expected source goes through as one take.
 func TestAPIPresetTieConfirm(t *testing.T) {
 	a, fa, fb, key := presetTieApp(t)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	sentA, sentB := fa.sends(), fb.sends()
 	rec := apiPost(a, "/api/v1/presets/everyone/Show", key, "", nil)
 	wantErr(t, rec, http.StatusConflict, "tie_confirm_needed")

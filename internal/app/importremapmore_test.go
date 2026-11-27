@@ -15,7 +15,7 @@ func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 	a.mu.Lock()
 	a.first.router.srcNames[23] = "CAM 3"
 	a.mu.Unlock()
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	lifeCommit(t, a, func(cfg *config.Config) {
 		cfg.FilterSets = []config.FilterSet{{ID: "cams1", Name: "Cams", Router: uid, Src: "23, 2", Sode: true}}
 	})
@@ -33,7 +33,7 @@ func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 	if r.Names == nil || !slices.ContainsFunc(r.Names.Sources, func(x namedItem) bool { return x.N == 23 && x.Name == "CAM 3" }) {
 		t.Fatalf("file names: %+v", r.Names)
 	}
-	if r.Offset != a.r().cfg.NumberOffset {
+	if r.Offset != a.r().cfg.Routers[0].NumberOffset {
 		t.Errorf("offset %d", r.Offset)
 	}
 
@@ -48,7 +48,7 @@ func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 // Sode refuses text that does not parse: the set keeps the file's text.
 func TestImportRemapFilterSetRefusesBadText(t *testing.T) {
 	a, _, tok := importApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	lifeCommit(t, a, func(cfg *config.Config) {
 		cfg.FilterSets = []config.FilterSet{{ID: "cams1", Name: "Cams", Router: uid, Src: "2", Sode: true}}
 	})
@@ -149,7 +149,7 @@ func TestAddImportWaitsForNamesPerItem(t *testing.T) {
 // Checkpoint sets, Default artwork, the History filter's router and This browser's presets.
 func TestImportRemapMovesEveryReferenceKind(t *testing.T) {
 	a, c, tok := importApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.mu.Lock()
 	a.first.router.srcNames[23] = "CAM 3"
 	a.mu.Unlock()

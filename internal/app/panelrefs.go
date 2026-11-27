@@ -65,8 +65,8 @@ func (n refNames) pages(pages []PanelPage, userID string) []PanelPage {
 		pages = []PanelPage{}
 	}
 	out := panelLayout{Pages: pages}.walkRefs(func(_ refSlot, kind string, r config.Ref) []config.Ref {
-		r = withRouter(r, n.cfg.UID)
-		if name := strings.TrimSpace(sideNames(kind, n.src, n.dst)[r.N]); r.Router == n.cfg.UID && name != "" {
+		r = withRouter(r, n.cfg.DefaultRouter().UID)
+		if name := strings.TrimSpace(sideNames(kind, n.src, n.dst)[r.N]); r.Router == n.cfg.DefaultRouter().UID && name != "" {
 			r.Name = name
 		}
 		return []config.Ref{r}
@@ -77,7 +77,7 @@ func (n refNames) pages(pages []PanelPage, userID string) []PanelPage {
 			// A cell's levels are levels of its router. A request can leave it out on a cell with no source or
 			// destination, which names the one router.
 			if r, _ := c["router"].(string); r == "" && c[panelLevelsKey] != nil {
-				g.Cells[j]["router"] = n.cfg.UID
+				g.Cells[j]["router"] = n.cfg.DefaultRouter().UID
 			}
 			if c["kind"] != "preset" {
 				continue
@@ -94,7 +94,7 @@ func (n refNames) pages(pages []PanelPage, userID string) []PanelPage {
 
 // edge is a copy, since a stored panel can share its slices. A reference to another router stays.
 func (n refNames) edge(e, old *GridEdge, live map[int]string) *GridEdge {
-	uid := n.cfg.UID
+	uid := n.cfg.DefaultRouter().UID
 	known := map[refKey]string{}
 	for _, edge := range []*GridEdge{old, e} {
 		edge.walkRefs("", func(_ refSlot, _ string, r config.Ref) []config.Ref {

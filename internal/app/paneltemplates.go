@@ -303,7 +303,7 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 	t.ID, t.Owner = "", cl.Actor.User
 	err := t.clean()
 	if err == nil {
-		t.Settings, err = levelsByRouter(t.Settings, a.r().cfg.UID)
+		t.Settings, err = levelsByRouter(t.Settings, a.r().cfg.DefaultRouter().UID)
 	}
 	if err == nil {
 		err = a.nameFixed(t.Settings)

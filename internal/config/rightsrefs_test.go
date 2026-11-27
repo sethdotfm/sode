@@ -12,7 +12,7 @@ import (
 
 func TestDefaultLevelsStoredPerRouterUID(t *testing.T) {
 	c := Defaults()
-	c.Levels, c.DefaultLevels = 4, "1-2"
+	c.Routers[0].Levels, c.Routers[0].DefaultLevels = 4, "1-2"
 	c.Normalize()
 	path := filepath.Join(t.TempDir(), "c.yaml")
 	if err := Save(path, c); err != nil {
@@ -26,7 +26,7 @@ func TestDefaultLevelsStoredPerRouterUID(t *testing.T) {
 	if err := yaml.Unmarshal(b, &file); err != nil {
 		t.Fatal(err)
 	}
-	if len(file.Routers) != 1 || file.Routers[0]["uid"] != c.UID || file.Routers[0]["defaultLevels"] != "1-2" {
+	if len(file.Routers) != 1 || file.Routers[0]["uid"] != c.Routers[0].UID || file.Routers[0]["defaultLevels"] != "1-2" {
 		t.Fatalf("routers %v", file.Routers)
 	}
 	if _, top := file.Rest["defaultLevels"]; top {
@@ -36,7 +36,7 @@ func TestDefaultLevelsStoredPerRouterUID(t *testing.T) {
 
 func TestRightsStoreRouterReferences(t *testing.T) {
 	c := Defaults()
-	c.Address = "127.0.0.1:1"
+	c.Routers[0].Address = "127.0.0.1:1"
 	c.Normalize()
 	c.GuestRights = Rights{Sources: &[]Ref{{N: 4, Name: "CAM 5"}}, Dsts: nums(), Presets: &[]string{"8b8db20da8d1c1f6"}}
 	c.APIClients = []APIClient{{Name: "Bot", Scopes: []string{ScopeTake}, Rights: Rights{Dsts: nums(2)}}}
@@ -48,8 +48,8 @@ func TestRightsStoreRouterReferences(t *testing.T) {
 	b, _ := os.ReadFile(path)
 	file := string(b)
 	// A UID such as 4080680479828e54 reads as a number, so YAML quotes it.
-	file = strings.ReplaceAll(file, `router: "`+c.UID+`"`, "router: "+c.UID)
-	for _, want := range []string{"router: " + c.UID, `"n": 4`, "name: CAM 5", "8b8db20da8d1c1f6"} {
+	file = strings.ReplaceAll(file, `router: "`+c.Routers[0].UID+`"`, "router: "+c.Routers[0].UID)
+	for _, want := range []string{"router: " + c.Routers[0].UID, `"n": 4`, "name: CAM 5", "8b8db20da8d1c1f6"} {
 		if !strings.Contains(file, want) {
 			t.Errorf("file has no %q:\n%s", want, file)
 		}
@@ -59,7 +59,7 @@ func TestRightsStoreRouterReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := (*got.GuestRights.Sources)[0]
-	if src.Router != c.UID || src.N != 4 || src.Name != "CAM 5" {
+	if src.Router != c.Routers[0].UID || src.N != 4 || src.Name != "CAM 5" {
 		t.Errorf("source came back %+v", src)
 	}
 	if got.GuestRights.Dsts == nil || len(*got.GuestRights.Dsts) != 0 {
@@ -68,7 +68,7 @@ func TestRightsStoreRouterReferences(t *testing.T) {
 	if !got.GuestRights.AllowsSource(Ref{N: 4}) || got.GuestRights.AllowsSource(Ref{N: 5}) || got.GuestRights.AllowsDst(Ref{N: 0}) {
 		t.Error("allow checks wrong after load")
 	}
-	if d := (*got.APIClients[0].Rights.Dsts)[0]; d.Router != c.UID || d.N != 2 {
+	if d := (*got.APIClients[0].Rights.Dsts)[0]; d.Router != c.Routers[0].UID || d.N != 2 {
 		t.Errorf("client destination %+v", d)
 	}
 }
@@ -119,12 +119,12 @@ func nums(ns ...int) *[]Ref {
 // A right names its router: a right for A.5 allows A.5 and refuses B.5. Rights can name any router of the settings.
 func TestRightsMatchRouterAndNumber(t *testing.T) {
 	c := Defaults()
-	c.Address = "127.0.0.1:1"
-	b := c.Router
+	c.Routers[0].Address = "127.0.0.1:1"
+	b := c.Routers[0]
 	b.UID, b.Prefix, b.Address = "b2b2b2b2", "B", "127.0.0.1:2"
-	c.MoreRouters = []Router{b}
+	c.Routers = append(c.Routers[:1:1], []Router{b}...)
 	c.Normalize()
-	a5, b5 := Ref{Router: c.UID, N: 5}, Ref{Router: b.UID, N: 5}
+	a5, b5 := Ref{Router: c.Routers[0].UID, N: 5}, Ref{Router: b.UID, N: 5}
 	r := Rights{Sources: &[]Ref{a5}, Dsts: &[]Ref{a5}}
 	if !r.AllowsSource(a5) || !r.AllowsDst(a5) {
 		t.Error("a right for A.5 refuses A.5")

@@ -166,7 +166,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		}
 	}
 	want := func(c string) bool { return slices.Contains(req.Categories, c) }
-	routers := cfg.Routers()
+	routers := cfg.Routers
 	prefix := map[string]string{}
 	for _, r := range routers {
 		prefix[r.UID] = r.Prefix
@@ -290,7 +290,7 @@ func (a *App) buildExport(req exportReq) ([]byte, error) {
 		var out exportArtwork
 		images := map[string]bool{}
 		for _, d := range a.artDefaults.list() {
-			if !want(catArtwork) || !pickedDefault(req.Pick, d, a.r().cfg.UID) {
+			if !want(catArtwork) || !pickedDefault(req.Pick, d, a.r().cfg.DefaultRouter().UID) {
 				continue
 			}
 			for _, id := range d.libIcons() {

@@ -169,7 +169,9 @@ func protectRows(m map[int]map[int]protHold) json.RawMessage {
 }
 
 // protectByList: the live name of a user who set one, else the name when set.
-func (a *App) protectByList(r *runtime) []protectBy { return a.protectByListOf(r, r.cfg.UID) }
+func (a *App) protectByList(r *runtime) []protectBy {
+	return a.protectByListOf(r, r.cfg.DefaultRouter().UID)
+}
 
 // protectByListOf is protectByList for the router with this settings UID.
 func (a *App) protectByListOf(r *runtime, uid string) []protectBy {

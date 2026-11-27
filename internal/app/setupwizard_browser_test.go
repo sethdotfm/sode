@@ -17,7 +17,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	sim := startSim(t)
 	t.Setenv("SODE_ROUTER", sim) // cmd/sode puts it in the config, as the edit below does
 
-	a := setupApp(t, func(c *config.Config) { c.Address = sim })
+	a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = sim })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -82,7 +82,7 @@ func TestChromeSetupWizard(t *testing.T) {
 		return t.includes('signed in as Ada') && t.includes('connected to the router at `+sim+`') && t.includes('Standard access'); })()`)
 	b.waitFor("earlier steps lock", `!document.querySelector('#setup-steps [data-go]')`)
 	c := loadFile(t, a.cfgPath)
-	if ada, ok := c.FindUserByName("Ada"); !ok || ada.Role != config.RoleAdministrator || c.Address != sim || !c.PinWaits || c.BrandBorder != "teal" {
+	if ada, ok := c.FindUserByName("Ada"); !ok || ada.Role != config.RoleAdministrator || c.Routers[0].Address != sim || !c.PinWaits || c.BrandBorder != "teal" {
 		t.Fatalf("after Finish: %+v", c)
 	}
 	b.waitFor("signed in", `!!localStorage.getItem('sode-session')`)

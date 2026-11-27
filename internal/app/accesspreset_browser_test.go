@@ -17,7 +17,7 @@ func TestChromeApplyAccessPreset(t *testing.T) {
 		bo := mkUser(t, "Bo", "5678")
 		bo.Persistent = true
 		c.Users = append(c.Users, bo)
-		c.GuestRights = config.Rights{Levels: config.RouterLevels{c.UID: {1}}}
+		c.GuestRights = config.Rights{Levels: config.RouterLevels{c.Routers[0].UID: {1}}}
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

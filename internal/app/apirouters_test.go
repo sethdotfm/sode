@@ -17,14 +17,14 @@ func TestAPIRoutersListsUIDPrefixAndTitle(t *testing.T) {
 		t.Fatalf("routers %v", list)
 	}
 	r := list[0].(map[string]any)
-	if r["uid"] != cfg.UID || r["prefix"] != "A" || r["title"] != cfg.Title || len(r) != 3 {
-		t.Errorf("router %v, want uid %q prefix A title %q", r, cfg.UID, cfg.Title)
+	if r["uid"] != cfg.Routers[0].UID || r["prefix"] != "A" || r["title"] != cfg.Routers[0].Title || len(r) != 3 {
+		t.Errorf("router %v, want uid %q prefix A title %q", r, cfg.Routers[0].UID, cfg.Routers[0].Title)
 	}
 }
 
 func TestAPIRouterParameter(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
-	key, uid := botKey(t, a), a.r().cfg.UID
+	key, uid := botKey(t, a), a.r().cfg.Routers[0].UID
 	for _, path := range []string{"/api/v1/names", "/api/v1/tally"} {
 		if rec := apiDo(a, "GET", path+"?router="+uid, key, nil); rec.Code != http.StatusOK {
 			t.Errorf("%s with the right UID: %d %s", path, rec.Code, rec.Body)

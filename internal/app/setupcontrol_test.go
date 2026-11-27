@@ -10,7 +10,7 @@ import (
 // is refused.
 func TestSetupTakeControlMovesSetup(t *testing.T) {
 	a := setupApp(t)
-	before := a.r().cfg.Address
+	before := a.r().cfg.Routers[0].Address
 	p := dialPeer(t, a)
 	q := dialPeer(t, a)
 
@@ -31,7 +31,7 @@ func TestSetupTakeControlMovesSetup(t *testing.T) {
 		t.Fatalf("Take control: %v", r)
 	}
 	p.until("setupTaken")
-	if got := a.r().cfg.Address; got != before {
+	if got := a.r().cfg.Routers[0].Address; got != before {
 		t.Fatalf("the first browser's router address stayed: %q, want %q", got, before)
 	}
 	if r := p.ask("setupFinish", 6, map[string]any{"setup": wizardAnswers()}); r["ok"] == true || !strings.Contains(r["err"].(string), "another browser") {

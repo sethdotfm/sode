@@ -309,7 +309,7 @@ func TestInboxAcceptOfOnlyRefusedItemsKeepsCard(t *testing.T) {
 
 func TestInboxSendsPanel(t *testing.T) {
 	a, ana, bo := inboxApp(t)
-	uid, anaID, boID := a.r().cfg.UID, userID(t, a, "Ana"), userID(t, a, "Bo")
+	uid, anaID, boID := a.r().cfg.Routers[0].UID, userID(t, a, "Ana"), userID(t, a, "Bo")
 	lifeCommit(t, a, func(cfg *config.Config) {
 		for i := range cfg.Users {
 			if cfg.Users[i].Name == "Bo" {

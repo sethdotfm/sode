@@ -20,7 +20,7 @@ func defaultOf(t *testing.T, list []any, kind string) map[string]any {
 func TestArtDefaultSurvivesPresetAndUserRename(t *testing.T) {
 	a := panelsApp(t)
 	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
-	uid, pid := a.r().cfg.UID, a.r().cfg.Presets[0].ID
+	uid, pid := a.r().cfg.Routers[0].UID, a.r().cfg.Presets[0].ID
 
 	rec := apiSend(a, "PUT", "/api/v1/default-artwork", cy, `{"kind":"preset","scope":"everyone","name":"studio a","artB":"A"}`)
 	if d := apiBody(t, rec); rec.Code != 200 || d["id"] != pid || d["name"] != "Studio A" {

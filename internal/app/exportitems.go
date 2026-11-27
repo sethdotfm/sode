@@ -73,7 +73,7 @@ func (d ArtDefault) libIcons() []string {
 
 func (a *App) exportList() (exportList, error) {
 	cfg := a.r().cfg
-	routers := cfg.Routers()
+	routers := cfg.Routers
 	prefix := map[string]string{}
 	for _, r := range routers {
 		prefix[r.UID] = r.Prefix

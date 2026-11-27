@@ -158,7 +158,7 @@ const panelSaveFail = "the panel could not be saved"
 func (a *App) checkPanel(w http.ResponseWriter, p *Panel) bool {
 	err := validatePanel(p)
 	if err == nil {
-		p.Settings, err = levelsByRouter(p.Settings, a.r().cfg.UID)
+		p.Settings, err = levelsByRouter(p.Settings, a.r().cfg.DefaultRouter().UID)
 	}
 	if err == nil {
 		err = a.nameFixed(p.Settings)

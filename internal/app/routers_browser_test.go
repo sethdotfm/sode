@@ -30,10 +30,10 @@ func simRoutersApp(t *testing.T, addrs []string, edit ...func(*config.Config)) *
 	t.Helper()
 	more := func(c *config.Config) {
 		for i, addr := range addrs[1:] {
-			rc := c.Router
+			rc := c.DefaultRouter()
 			p := string(rune('B' + i))
 			rc.UID, rc.Prefix, rc.Title, rc.Address = "", p, "Router "+p, addr
-			c.MoreRouters = append(c.MoreRouters, rc)
+			c.Routers = append(c.Routers, rc)
 		}
 	}
 	return simApp(t, addrs[0], append([]func(*config.Config){more}, edit...)...)
@@ -42,7 +42,7 @@ func simRoutersApp(t *testing.T, addrs []string, edit ...func(*config.Config)) *
 // routerUIDs gives the UID of each router of a, the first router first.
 func routerUIDs(a *App) []string {
 	var out []string
-	for _, rc := range a.r().cfg.Routers() {
+	for _, rc := range a.r().cfg.Routers {
 		out = append(out, rc.UID)
 	}
 	return out

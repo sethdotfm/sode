@@ -39,7 +39,7 @@ func readNames(a *App, srcs, dsts []string) {
 }
 
 func namesTablePath(a *App) string {
-	return filepath.Join(filepath.Dir(a.cfgPath), "names", a.r().cfg.UID+".yaml")
+	return filepath.Join(filepath.Dir(a.cfgPath), "names", a.r().cfg.Routers[0].UID+".yaml")
 }
 
 func TestNamesTableWrittenOnlyWhenNamesChange(t *testing.T) {
@@ -50,7 +50,7 @@ func TestNamesTableWrittenOnlyWhenNamesChange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("no names table after the first read: %v", err)
 	}
-	for _, want := range []string{"router: " + a.r().cfg.UID, "CAM 2", "MON 1"} {
+	for _, want := range []string{"router: " + a.r().cfg.Routers[0].UID, "CAM 2", "MON 1"} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("names table has no %q:\n%s", want, b)
 		}
@@ -155,13 +155,13 @@ func TestRemoveNamesTable(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.names.remove(a.r().cfg.UID); err != nil {
+	if err := a.names.remove(a.r().cfg.Routers[0].UID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("names table still there: %v", err)
 	}
-	if err := a.names.remove(a.r().cfg.UID); err != nil {
+	if err := a.names.remove(a.r().cfg.Routers[0].UID); err != nil {
 		t.Fatalf("second remove: %v", err)
 	}
 }

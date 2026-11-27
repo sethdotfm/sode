@@ -30,7 +30,7 @@ func backupOf(t *testing.T, pins bool) (*App, []byte) {
 	a, tok := exportApp(t)
 	seedEverything(t, a)
 	seedPanelExtras(t, a)
-	lifeCommit(t, a, func(c *config.Config) { c.BrandText, c.Title, c.Prefix = "Truck A", "Main", "B" })
+	lifeCommit(t, a, func(c *config.Config) { c.BrandText, c.Routers[0].Title, c.Routers[0].Prefix = "Truck A", "Main", "B" })
 	a.mu.Lock()
 	a.first.router.namesAt = time.Date(2026, 11, 18, 9, 30, 0, 0, time.UTC)
 	a.mu.Unlock()
@@ -141,11 +141,11 @@ func TestRestoreRouterOfflineImportsNothingBroken(t *testing.T) {
 		}
 	}
 	want, cfg := src.r().cfg, b.r().cfg
-	if cfg.UID != want.UID || cfg.Prefix != want.Prefix || cfg.Title != want.Title || cfg.InstallUID != want.InstallUID {
-		t.Fatalf("router %s %s %q install %s, want %s %s %q install %s", cfg.UID, cfg.Prefix, cfg.Title, cfg.InstallUID,
-			want.UID, want.Prefix, want.Title, want.InstallUID)
+	if cfg.Routers[0].UID != want.Routers[0].UID || cfg.Routers[0].Prefix != want.Routers[0].Prefix || cfg.Routers[0].Title != want.Routers[0].Title || cfg.InstallUID != want.InstallUID {
+		t.Fatalf("router %s %s %q install %s, want %s %s %q install %s", cfg.Routers[0].UID, cfg.Routers[0].Prefix, cfg.Routers[0].Title, cfg.InstallUID,
+			want.Routers[0].UID, want.Routers[0].Prefix, want.Routers[0].Title, want.InstallUID)
 	}
-	raw, err := os.ReadFile(filepath.Join(filepath.Dir(b.cfgPath), namesDir, want.UID+".yaml"))
+	raw, err := os.ReadFile(filepath.Join(filepath.Dir(b.cfgPath), namesDir, want.Routers[0].UID+".yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestRestoreFirstRouterUIDReachesItsUnit(t *testing.T) {
 	was := b.first.uid()
 	_, key := restoreKey(t, b)
 	restored(t, postRestore(t, b, key, file, ""))
-	uid := b.r().cfg.UID
+	uid := b.r().cfg.Routers[0].UID
 	if uid == was {
 		t.Fatalf("the file's first router has the start-up UID %s: the test checks nothing", uid)
 	}

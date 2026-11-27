@@ -18,7 +18,7 @@ import (
 // the preset fires what the numbers name.
 func TestPresetSavedAsReferencesFiresSameRoutes(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) { c.Presets = nil })
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	srv := httptest.NewServer(a.Handler(fstest.MapFS{}))
 	defer srv.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

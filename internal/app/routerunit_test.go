@@ -12,7 +12,7 @@ import (
 
 func TestAppHoldsOneRouterUnitByUID(t *testing.T) {
 	a := newTestApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	if len(a.units()) != 1 || a.units()[uid] != a.first || a.first.uid() != uid {
 		t.Fatalf("routers %v, first %p, uid %q", a.units(), a.first, uid)
 	}
@@ -30,13 +30,13 @@ func TestAppHoldsOneRouterUnitByUID(t *testing.T) {
 func threeRouters(t *testing.T) (*App, []*fakeRouter) {
 	t.Helper()
 	a := newTestApp(t, func(c *config.Config) {
-		c.MoreRouters = []config.Router{
+		c.Routers = append(c.Routers[:1:1], []config.Router{
 			moreRouter("B", "Second", "10.0.0.8:8910", 3),
 			moreRouter("C", "Third", "10.0.0.9:8910", 3),
-		}
+		}...)
 	})
 	fs := []*fakeRouter{newFakeRouter(t, a)}
-	for _, rc := range a.r().cfg.MoreRouters {
+	for _, rc := range a.r().cfg.Routers[1:] {
 		f, _ := addFakeUnit(t, a, rc)
 		fs = append(fs, f)
 	}
@@ -132,7 +132,7 @@ func TestBlankFilterSetIsFirstRouters(t *testing.T) {
 // A message on one router's link changes only that router's state.
 func TestRouterMessageStaysInItsUnit(t *testing.T) {
 	a := newTestApp(t)
-	other := newRouterUnit(a.r().cfg.Router)
+	other := newRouterUnit(a.r().cfg.DefaultRouter())
 	a.onUnitMsg(other, swp08.ExtTally(0, 0, 5, 7))
 	if other.router.tally[5][1] != 7 {
 		t.Errorf("other unit tally %v", other.router.tally)

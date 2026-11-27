@@ -15,7 +15,7 @@ func TestChromeSwap(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.cfgMu.Lock()
 	err := a.commit(func(c *config.Config) error {
 		c.Presets = []config.Preset{{ID: "p1", Name: "Studio", Items: []config.PresetItem{{

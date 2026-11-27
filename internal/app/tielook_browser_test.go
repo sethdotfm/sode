@@ -18,7 +18,7 @@ func TestChromeTiePickerChoiceStates(t *testing.T) {
 	simB := startSim(t, simNames(t, "src 12 From A2", "dst 3 Mon Four", "dst 20 Rec Two"))
 	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126 // router A only
+		c.Routers[0].ProtectDevice = 126 // router A only
 	})
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")

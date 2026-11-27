@@ -163,12 +163,12 @@ func (a *App) commitWith(mutate func(*config.Config) error, after func(old, nr *
 
 // prefixMoved: a router that both settings have has a new prefix.
 func prefixMoved(old, next config.Config) bool {
-	for _, r := range old.Routers() {
+	for _, r := range old.Routers {
 		if n, ok := next.RouterByUID(r.UID); ok && n.Prefix != r.Prefix {
 			return true
 		}
 	}
-	return old.Prefix != next.Prefix
+	return old.DefaultRouter().Prefix != next.DefaultRouter().Prefix
 }
 
 // syncAccessAllMu: every connection gets its lock state again. Caller holds mu.

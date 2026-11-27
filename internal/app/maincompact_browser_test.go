@@ -187,7 +187,10 @@ func TestChromeMainCompact(t *testing.T) {
 	// The level picks in Compact view: up to 17 levels in two rows with no scroll at 1440 and 1600 px, 24 levels scroll
 	// sideways. The boxes stay at the centre.
 	for _, n := range []int{4, 5, 11, 12, 17, 24} {
-		if err := a.applyConfig(func(c *config.Config) error { c.Levels, c.DefaultLevels = n, "1-"+strconv.Itoa(n); return nil }); err != nil {
+		if err := a.applyConfig(func(c *config.Config) error {
+			c.Routers[0].Levels, c.Routers[0].DefaultLevels = n, "1-"+strconv.Itoa(n)
+			return nil
+		}); err != nil {
 			t.Fatal(err)
 		}
 		b.waitFor(strconv.Itoa(n)+" level picks", `document.querySelectorAll('#lvl-pick > button').length === `+strconv.Itoa(n))

@@ -25,7 +25,7 @@ type routerCheck struct {
 
 func newRefCheck(live config.Config, names liveNameSet) *refCheck {
 	k := &refCheck{routers: map[string]*routerCheck{}}
-	for _, r := range live.Routers() {
+	for _, r := range live.Routers {
 		n := names[r.UID]
 		k.routers[r.UID] = &routerCheck{levels: r.Levels, src: n.src, dst: n.dst, unknown: len(n.src) == 0 && len(n.dst) == 0}
 	}
@@ -34,7 +34,7 @@ func newRefCheck(live config.Config, names liveNameSet) *refCheck {
 
 // setLevels takes the level counts of c, after a category that can change a router.
 func (k *refCheck) setLevels(c config.Config) {
-	for _, r := range c.Routers() {
+	for _, r := range c.Routers {
 		if rc := k.routers[r.UID]; rc != nil {
 			rc.levels = r.Levels
 		}

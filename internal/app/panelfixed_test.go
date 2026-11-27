@@ -22,7 +22,7 @@ func fixedOf(p map[string]any) any {
 
 func TestFixedDestsStoredAsReferences(t *testing.T) {
 	a := panelsApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","settings":{"fixedDests":[{"n":2},{"router":"`+uid+`","n":40}]}}`)
 	b, err := os.ReadFile(filepath.Join(filepath.Dir(a.cfgPath), "panels", id+".yaml"))

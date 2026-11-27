@@ -66,9 +66,9 @@ func protectApp(t *testing.T) (*App, *fakeRouter) {
 	shortTimers(a)
 	f.prot = fakeProtect{holds: map[[2]int]protHold{}, deafSet: map[int]bool{}, deafClear: map[int]bool{}}
 	cfg := a.r().cfg.Clone()
-	cfg.Levels = 3
-	cfg.ProtectDevice = 126
-	cfg.DefaultLevels = "1-3"
+	cfg.Routers[0].Levels = 3
+	cfg.Routers[0].ProtectDevice = 126
+	cfg.Routers[0].DefaultLevels = "1-3"
 	for i := range cfg.Users {
 		if cfg.Users[i].Name == "Ana" {
 			cfg.Users[i].Role = config.RoleTrusted
@@ -174,7 +174,7 @@ func TestProtectRollsBackAFailedLevel(t *testing.T) {
 	if got := f.holdsOn(4); len(got) != 0 {
 		t.Fatalf("rollback left %v", got)
 	}
-	if _, ok := a.protects.get(a.r().cfg.UID, 4); ok {
+	if _, ok := a.protects.get(a.r().cfg.Routers[0].UID, 4); ok {
 		t.Fatal("a rolled back Protect stays in the record")
 	}
 }
@@ -186,7 +186,7 @@ func TestProtectFailedRollbackKeepsWhatIsStillProtected(t *testing.T) {
 	if e.OK || !slices.Equal(e.Still, []int{3}) || !strings.Contains(e.Err, "levels 3 are still Protected") {
 		t.Fatalf("entry %+v", e)
 	}
-	rec, ok := a.protects.get(a.r().cfg.UID, 4)
+	rec, ok := a.protects.get(a.r().cfg.Routers[0].UID, 4)
 	if !ok || !slices.Equal(rec.Levels, []int{3}) {
 		t.Fatalf("record %+v %v", rec, ok)
 	}
@@ -223,7 +223,7 @@ func TestProtectRefusals(t *testing.T) {
 	}
 
 	cfg = a.r().cfg.Clone()
-	cfg.ProtectDevice = 0
+	cfg.Routers[0].ProtectDevice = 0
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestClearSodeProtectsNeedsRecheck(t *testing.T) {
 		defer a.mu.Unlock()
 		return len(a.first.router.protect[5]) == 3 && len(a.first.router.protect[6]) == 3
 	})
-	if err := a.protects.put(protectRec{Router: a.r().cfg.UID, Dst: 4}); err != nil {
+	if err := a.protects.put(protectRec{Router: a.r().cfg.Routers[0].UID, Dst: 4}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -411,10 +411,10 @@ func TestProtectByKindTellsOwnersApart(t *testing.T) {
 	r := a.r()
 	ana, _ := r.cfg.FindUserByName("Ana")
 	recs := []protectRec{
-		{Router: r.cfg.UID, Dst: 1, Device: 126, Levels: []int{1}, By: "Ana old", User: ana.ID},
-		{Router: r.cfg.UID, Dst: 2, Device: 126, Levels: []int{1}, By: "Desk", Client: "Desk"},
-		{Router: r.cfg.UID, Dst: 3, Device: 126, Levels: []int{1}, By: "10.0.0.9"},
-		{Router: r.cfg.UID, Dst: 5, Device: 126, Levels: []int{1}, By: "Cy", User: "u-gone"},
+		{Router: r.cfg.Routers[0].UID, Dst: 1, Device: 126, Levels: []int{1}, By: "Ana old", User: ana.ID},
+		{Router: r.cfg.Routers[0].UID, Dst: 2, Device: 126, Levels: []int{1}, By: "Desk", Client: "Desk"},
+		{Router: r.cfg.Routers[0].UID, Dst: 3, Device: 126, Levels: []int{1}, By: "10.0.0.9"},
+		{Router: r.cfg.Routers[0].UID, Dst: 5, Device: 126, Levels: []int{1}, By: "Cy", User: "u-gone"},
 	}
 	for _, rec := range recs {
 		if err := a.protects.put(rec); err != nil {

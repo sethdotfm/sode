@@ -24,7 +24,7 @@ func presetID(t *testing.T, a *App, name string) string {
 // Rights saved as bare numbers are stored as {router, n, name} references and admit the same takes.
 func TestRightsSavedAsReferencesAdmitSameTakes(t *testing.T) {
 	a, f, key := takerApp(t, nil)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	mustSave(t, a, adminClient(t, a), map[string]any{
 		"client/PanelsBot/rights": config.Rights{Sources: nums(1), Dsts: nums(2)},
 		"guestRights":             config.Rights{Dsts: nums(2)},
@@ -57,7 +57,7 @@ func TestRightsKeepStoredNamesWithoutRouterNames(t *testing.T) {
 	})
 	mustSave(t, a, adminClient(t, a), map[string]any{"guestRights": config.Rights{Sources: nums(40, 41)}})
 	got := *a.r().cfg.GuestRights.Sources
-	if len(got) != 2 || got[0].Name != "OLD 41" || got[1].Name != "" || got[1].Router != a.r().cfg.UID {
+	if len(got) != 2 || got[0].Name != "OLD 41" || got[1].Name != "" || got[1].Router != a.r().cfg.Routers[0].UID {
 		t.Fatalf("stored %+v", got)
 	}
 }

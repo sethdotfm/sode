@@ -14,8 +14,8 @@ import (
 func setupApp(t *testing.T, edit ...func(*config.Config)) *App {
 	t.Helper()
 	cfg := config.Defaults()
-	cfg.Address = "127.0.0.1:1"
-	cfg.Levels = 3
+	cfg.Routers[0].Address = "127.0.0.1:1"
+	cfg.Routers[0].Levels = 3
 	for _, fn := range edit {
 		fn(&cfg)
 	}
@@ -116,8 +116,8 @@ func TestSetupWizardFinishMakesASignedInAdministrator(t *testing.T) {
 	if r := p.ask("setupRouter", 2, map[string]any{"router": "127.0.0.1:2"}); r["ok"] != true {
 		t.Fatalf("router step: %v", r)
 	}
-	if a.r().cfg.Address != "127.0.0.1:2" {
-		t.Fatalf("the router step did not move the link: %q", a.r().cfg.Address)
+	if a.r().cfg.Routers[0].Address != "127.0.0.1:2" {
+		t.Fatalf("the router step did not move the link: %q", a.r().cfg.Routers[0].Address)
 	}
 	readNames(a, []string{"CAM 1"}, []string{"MON 1"})
 	if f := dirFiles(t, dir); len(f) > 0 {
@@ -133,9 +133,9 @@ func TestSetupWizardFinishMakesASignedInAdministrator(t *testing.T) {
 	if !ok || ada.Role != config.RoleAdministrator || !config.CheckPin(ada.Pin, "2468") || ada.Len != 4 {
 		t.Fatalf("first user: %+v", ada)
 	}
-	if c.BrandText != "Studio B" || c.BrandBorder != "teal" || c.Address != "127.0.0.1:2" || c.Levels != 4 ||
-		c.LevelNumbering != "0" || c.NumberOffset != 0 || c.FireMode != "native" || c.SalvoGroup != 120 {
-		t.Fatalf("wizard values not saved: %+v", c.Router)
+	if c.BrandText != "Studio B" || c.BrandBorder != "teal" || c.Routers[0].Address != "127.0.0.1:2" || c.Routers[0].Levels != 4 ||
+		c.Routers[0].LevelNumbering != "0" || c.Routers[0].NumberOffset != 0 || c.Routers[0].FireMode != "native" || c.Routers[0].SalvoGroup != 120 {
+		t.Fatalf("wizard values not saved: %+v", c.DefaultRouter())
 	}
 	// Secured access: both page locks on, no keyless API, PIN waits on.
 	if !c.Locks.Main || !c.Locks.Panel || c.API.GuestEnabled || !c.PinWaits || c.NewPanelActs != "session" {

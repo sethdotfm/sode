@@ -13,7 +13,7 @@ func TestChromeReconnectConfirmNamesEachRouter(t *testing.T) {
 	simA, simB := startSim(t), startSim(t)
 	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.Title, c.MoreRouters[0].Title = "Studio A", "Stage 2"
+		c.Routers[0].Title, c.Routers[1].Title = "Studio A", "Stage 2"
 	})
 	srv := seamServer(t, a)
 	uid := routerUIDs(a)[1]
@@ -52,8 +52,8 @@ func TestChromeReconnectConfirmNamesEachRouter(t *testing.T) {
 	})()`)
 	b.eval(`document.getElementById('review-save').click(); true`)
 	b.waitFor("then the PIN recheck", `!!document.getElementById('recheck-pin')?.offsetParent`)
-	if c := a.r().cfg; c.Address != simA || c.MoreRouters[0].Address != simB {
-		t.Fatalf("nothing is sent before the PIN: %q %q", c.Address, c.MoreRouters[0].Address)
+	if c := a.r().cfg; c.Routers[0].Address != simA || c.Routers[1].Address != simB {
+		t.Fatalf("nothing is sent before the PIN: %q %q", c.Routers[0].Address, c.Routers[1].Address)
 	}
 	b.check()
 }
@@ -65,7 +65,7 @@ func twoNamedRouters(t *testing.T, b *tab, edit ...func(*config.Config)) (*App, 
 	simA, simB := startSim(t), startSim(t)
 	a := simRoutersApp(t, []string{simA, simB}, append([]func(*config.Config){func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.Title, c.MoreRouters[0].Title = "Studio A", "Stage 2"
+		c.Routers[0].Title, c.Routers[1].Title = "Studio A", "Stage 2"
 	}}, edit...)...)
 	srv := seamServer(t, a)
 	uid := routerUIDs(a)[1]
@@ -115,7 +115,7 @@ func TestChromeSwapOnSecondRouter(t *testing.T) {
 	b := startBrowser(t)
 	const ub = "00000000000000bb"
 	_, uid := twoNamedRouters(t, b, func(c *config.Config) {
-		c.MoreRouters[0].UID = ub
+		c.Routers[1].UID = ub
 		ref := func(router string, n int) config.Ref { return config.Ref{Router: router, N: n} }
 		c.Presets = []config.Preset{{ID: "pb", Name: "On B", Items: []config.PresetItem{{Src: ref(ub, 0), Dsts: []config.Ref{ref(ub, 4)}}}}}
 	})
@@ -165,7 +165,7 @@ func TestChromeRoutersListLinkState(t *testing.T) {
 	simC, stopC := startSimStoppable(t)
 	a := simRoutersApp(t, []string{simA, simB, simC}, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.MoreRouters[0].Address = "127.0.0.1:1"
+		c.Routers[1].Address = "127.0.0.1:1"
 	})
 	srv := seamServer(t, a)
 	uids := routerUIDs(a)

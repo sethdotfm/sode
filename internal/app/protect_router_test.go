@@ -16,11 +16,11 @@ func protectTwoRouters(t *testing.T) (a *App, first, second *fakeRouter, u *rout
 	cfg := a.r().cfg.Clone()
 	b := moreRouter("B", "Second", "10.0.0.9:8910", 3)
 	b.ProtectDevice = 127
-	cfg.MoreRouters = []config.Router{b}
+	cfg.Routers = append(cfg.Routers[:1:1], []config.Router{b}...)
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	second, u = addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	second, u = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	a.mu.Lock()
 	a.first.status.Router = string(swp08.StateUp)
 	u.status.Router = string(swp08.StateUp)
@@ -49,7 +49,7 @@ func TestProtectUsesItsRouter(t *testing.T) {
 		t.Fatalf("holds on B %+v", hs)
 	}
 	onA := protEntry(t, a.protectSet(ana, 4, nil))
-	if !onA.OK || onA.Router != a.r().cfg.UID || onA.DstName != "A MON 4" {
+	if !onA.OK || onA.Router != a.r().cfg.Routers[0].UID || onA.DstName != "A MON 4" {
 		t.Fatalf("entry on A %+v", onA)
 	}
 	if hs := first.holdsOn(4); len(hs) != 3 || hs[0].dev != 126 {
@@ -64,7 +64,7 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	if rec := byRouter[u.uid()]; rec.Dst != 4 || rec.Device != 127 || len(rec.Levels) != 3 || rec.By != "Ana" {
 		t.Fatalf("record of B %+v", rec)
 	}
-	if rec := byRouter[a.r().cfg.UID]; rec.Dst != 4 || rec.Device != 126 {
+	if rec := byRouter[a.r().cfg.Routers[0].UID]; rec.Dst != 4 || rec.Device != 126 {
 		t.Fatalf("record of A %+v", rec)
 	}
 	loaded := loadProtects(a.cfgPath)
@@ -93,7 +93,7 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	if _, ok := a.protects.get(u.uid(), 4); ok {
 		t.Error("the record of B stays")
 	}
-	if _, ok := a.protects.get(a.r().cfg.UID, 4); !ok {
+	if _, ok := a.protects.get(a.r().cfg.Routers[0].UID, 4); !ok {
 		t.Error("the record of A went")
 	}
 
@@ -239,7 +239,7 @@ func TestExtUsesItsRouter(t *testing.T) {
 	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 9, 7))
 	endBurst(a)
 	es, _ = a.hist.Page(-1, 1)
-	if len(es) != 1 || es[0].Router != a.r().cfg.UID || es[0].Follow == nil || *es[0].Follow != 42 {
+	if len(es) != 1 || es[0].Router != a.r().cfg.Routers[0].UID || es[0].Follow == nil || *es[0].Follow != 42 {
 		t.Fatalf("entry on A %+v", es)
 	}
 }

@@ -193,7 +193,7 @@ func TestArtDefaultHiddenFromHiddenKey(t *testing.T) {
 		}
 
 		dst := 7
-		if _, err := a.artDefaults.set(ArtDefault{Kind: artKindDst, Router: cfg.UID, N: &dst, Name: "SECRET DST"}, &artImage{b64(t, tinyPNG), "image/png"}); err != nil {
+		if _, err := a.artDefaults.set(ArtDefault{Kind: artKindDst, Router: cfg.Routers[0].UID, N: &dst, Name: "SECRET DST"}, &artImage{b64(t, tinyPNG), "image/png"}); err != nil {
 			t.Fatal(err)
 		}
 		img := a.artDefaults.list()[2].Art

@@ -12,9 +12,9 @@ import (
 func uptimeRouters(t *testing.T) (*App, *routerUnit) {
 	t.Helper()
 	a := newTestApp(t, func(c *config.Config) {
-		c.MoreRouters = []config.Router{moreRouter("B", "Truck", "10.0.0.9:8910", 3)}
+		c.Routers = append(c.Routers[:1:1], []config.Router{moreRouter("B", "Truck", "10.0.0.9:8910", 3)}...)
 	})
-	_, b := addFakeUnit(t, a, a.r().cfg.MoreRouters[0])
+	_, b := addFakeUnit(t, a, a.r().cfg.Routers[1])
 	a.first.up.State(true)
 	b.up.State(true)
 	b.up.State(false)

@@ -404,7 +404,7 @@ func (k *pollCheck) config(c *config.Config) bool {
 		}
 		for i := range fs {
 			fs[i].Broken = slices.Clone(fs[i].Broken)
-			chF = k.filterSet(&fs[i], c.NumberOffset, who) || chF
+			chF = k.filterSet(&fs[i], c.DefaultRouter().NumberOffset, who) || chF
 		}
 		if s.Profile == nil {
 			if chP && fits("Everyone presets", ps, config.MaxPresetsBytes) {
@@ -538,7 +538,7 @@ func itemScopes(c *config.Config, mine string) []itemScope {
 // No Settings saves row: the Router names row says what changed.
 func (a *App) recheckRefs(u *routerUnit, prev, cur namePoll, hints [2]map[string]string) {
 	rc := a.r().routerOf(u.uid())
-	k := &pollCheck{uid: rc.UID, routers: a.r().cfg.RouterUIDs(), first: a.r().cfg.UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
+	k := &pollCheck{uid: rc.UID, routers: a.r().cfg.RouterUIDs(), first: a.r().cfg.DefaultRouter().UID, levels: rc.Levels, off: rc.NumberOffset, prev: prev, cur: cur, hints: hints}
 	a.cfgMu.Lock()
 	if !a.setupPending() {
 		err := a.applyConfigWith(func(c *config.Config) error {

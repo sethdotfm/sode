@@ -67,7 +67,7 @@ func tieTakeAnswer(t *testing.T, rec interface{ Bytes() []byte }) tieTakeBody {
 // and the Via chain from before.
 func TestAPITieTakeSendsUpstreamFirst(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	levelsA := a.r().routerOf(uidA).Levels
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}), nil)
@@ -118,7 +118,7 @@ func TestAPITieTakeSendsUpstreamFirst(t *testing.T) {
 // Two routes that share the hop on A send it one time, and both keep the same hop record.
 func TestAPITieTakeSharesHop(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	levelsA := a.r().routerOf(uidA).Levels
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}, [2]int{4, 21}), nil)
@@ -145,7 +145,7 @@ func TestAPITieTakeSharesHop(t *testing.T) {
 // A tie line that already carries the source on every level sends nothing on A. Its hop is already, with no entry.
 func TestAPITieTakeCarriedTieLine(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	for l := 1; l <= a.r().routerOf(uidA).Levels; l++ {
 		fa.seed(10, 4, a.r().byUI[l].Wire)
 	}
@@ -170,7 +170,7 @@ func TestAPITieTakeCarriedTieLine(t *testing.T) {
 // A hop that fails stops the route: B gets nothing, and the destination's entry fails as not sent.
 func TestAPITieTakeStopsAtFailedHop(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	fa.mu.Lock()
 	fa.deaf[[2]int{10, a.r().byUI[1].Wire}] = true // A ignores the hop's connect on level 1
 	fa.mu.Unlock()
@@ -196,7 +196,7 @@ func TestAPITieTakeStopsAtFailedHop(t *testing.T) {
 // Ties that make no path are refused before anything goes to a router.
 func TestAPITieTakeRefusesBadTies(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	route := func(src, dst string, ties string) string {
 		return fmt.Sprintf(`{"src":{"router":%q,"n":4},"dst":{"router":%q,"n":2},"levels":[1],"ties":%s}`, src, dst, ties)
@@ -228,10 +228,10 @@ func TestAPITieTakeRefusesBadTies(t *testing.T) {
 // The last hop switches the typed levels of B. No map goes between the routers.
 func TestAPITieTakeLevelsFollowEachRouter(t *testing.T) {
 	a, fa, fb, key := tieApp(t, func(c *config.Config) {
-		c.Levels, c.DefaultLevels = 2, "1-2"
-		c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 4, "1-4"
+		c.Routers[0].Levels, c.Routers[0].DefaultLevels = 2, "1-2"
+		c.Routers[1].Levels, c.Routers[1].DefaultLevels = 4, "1-4"
 	})
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	body := `{"routes":[{"src":{"router":"` + uidA + `","n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[3,4],"ties":[{"id":"t1","expect":{"router":"` + uidA + `","n":3}}]}]}`
 	rec := apiPost(a, "/api/v1/takes", key, body, nil)
@@ -259,10 +259,10 @@ func TestAPITieTakeLevelsFollowEachRouter(t *testing.T) {
 // No hop goes out, even if the router upstream has that level.
 func TestAPITieTakeRefusesLevelPastDestination(t *testing.T) {
 	a, fa, fb, key := tieApp(t, func(c *config.Config) {
-		c.Levels, c.DefaultLevels = 4, "1-4"
-		c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 2, "1-2"
+		c.Routers[0].Levels, c.Routers[0].DefaultLevels = 4, "1-4"
+		c.Routers[1].Levels, c.Routers[1].DefaultLevels = 2, "1-2"
 	})
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	body := `{"routes":[{"src":{"router":"` + uidA + `","n":4},"dst":{"router":"b2b2b2b2","n":2},"levels":[3],"ties":[{"id":"t1"}]}]}`
 	rec := apiPost(a, "/api/v1/takes", key, body, nil)

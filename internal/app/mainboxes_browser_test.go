@@ -190,7 +190,7 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 
 	// One level on every router: no Levels box, Tab skips it, f in keyboard mode does nothing, and a take is level 1.
 	setLevels := func(n int, def string) {
-		if err := a.applyConfig(func(c *config.Config) error { c.Levels, c.DefaultLevels = n, def; return nil }); err != nil {
+		if err := a.applyConfig(func(c *config.Config) error { c.Routers[0].Levels, c.Routers[0].DefaultLevels = n, def; return nil }); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -257,9 +257,9 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 
 	// A second router shows the router button in the Source and Destination heads, which is an action high.
 	if err := a.applyConfig(func(c *config.Config) error {
-		rc := c.Router
+		rc := c.DefaultRouter()
 		rc.UID, rc.Prefix, rc.Title, rc.Address = "", "B", "Router B", simB
-		c.MoreRouters = append(c.MoreRouters, rc)
+		c.Routers = append(c.Routers, rc)
 		return nil
 	}); err != nil {
 		t.Fatal(err)

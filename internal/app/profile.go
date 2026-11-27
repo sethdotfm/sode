@@ -131,7 +131,7 @@ func (a *App) applyProfileReq(cfg *config.Config, u *config.User, req profileReq
 	}
 	if req.Presets != nil {
 		was := u.Profile.Presets
-		u.Profile.Presets = a.namePresets(cfg.UID, config.WithPresetExtras(req.Presets, u.Profile.Presets))
+		u.Profile.Presets = a.namePresets(cfg.DefaultRouter().UID, config.WithPresetExtras(req.Presets, u.Profile.Presets))
 		u.Profile.Bookmarks = config.RenamedPresetBookmarks(u.Profile.Bookmarks, "user", was, u.Profile.Presets)
 	}
 	if req.PalettePicks != nil {

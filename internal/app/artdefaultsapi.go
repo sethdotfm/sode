@@ -88,7 +88,7 @@ func (a *App) artDefaultsFor(cl *apiCtx, keep func(ArtDefault) bool) []ArtDefaul
 func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
 	cfg := a.r().cfg
 	shown := map[string]bool{}
-	uid := cfg.UID
+	uid := cfg.DefaultRouter().UID
 	// A cell or default with no router names the first router.
 	onRouter := func(d ArtDefault) ArtDefault {
 		if d.Kind != artKindPreset {
@@ -170,7 +170,7 @@ func (a *App) readArtDefault(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return in, false
 		}
 	} else if in.Router == "" {
-		in.Router = a.r().cfg.UID
+		in.Router = a.r().cfg.DefaultRouter().UID
 	}
 	if err := a.mayEveryone(cl, "only a Trusted user can change Default artwork"); err != nil {
 		failWith(w, err)

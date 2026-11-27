@@ -68,7 +68,7 @@ func TestAddImportMissingReferenceIsBroken(t *testing.T) {
 
 	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
 	p, ok := presetNamed(t, a, "Show")
-	want := []config.Missing{{Kind: config.MissingDestination, Ref: config.Ref{Router: a.r().cfg.UID, N: 4, Name: "MON 4"}}}
+	want := []config.Missing{{Kind: config.MissingDestination, Ref: config.Ref{Router: a.r().cfg.Routers[0].UID, N: 4, Name: "MON 4"}}}
 	if !ok || !reflect.DeepEqual(p.Broken, want) {
 		t.Fatalf("preset: %+v", p)
 	}

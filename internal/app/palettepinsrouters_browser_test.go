@@ -51,9 +51,9 @@ func TestChromePalettePinsSecondRouter(t *testing.T) {
 
 	// Add router B as a save does, then a preset on it.
 	if err := a.applyConfig(func(c *config.Config) error {
-		rc := c.Router
+		rc := c.DefaultRouter()
 		rc.UID, rc.Prefix, rc.Title, rc.Address = "", "B", "Router B", simB
-		c.MoreRouters = append(c.MoreRouters, rc)
+		c.Routers = append(c.Routers, rc)
 		return nil
 	}); err != nil {
 		t.Fatal(err)

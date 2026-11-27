@@ -118,7 +118,8 @@ func (a *App) brokenCount(c *client, mine bool) ([]brokenRouter, error) {
 		return nil, err
 	}
 	cfg := a.r().cfg
-	r := brokenRouter{Router: cfg.UID, Title: cfg.Title, Items: brokenItems(cfg, a.panels.list(), who)}
+	def := cfg.DefaultRouter()
+	r := brokenRouter{Router: def.UID, Title: def.Title, Items: brokenItems(cfg, a.panels.list(), who)}
 	for _, e := range r.Items {
 		if e.Status == statusBroken {
 			r.Broken++

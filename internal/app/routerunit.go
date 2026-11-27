@@ -110,7 +110,7 @@ func (r *runtime) routerOf(uid string) config.Router {
 	if rc, ok := r.cfg.RouterByUID(uid); ok {
 		return rc
 	}
-	return r.cfg.Router
+	return r.cfg.DefaultRouter()
 }
 
 // unit gives the router unit for a router UID; blank is the first router.
@@ -136,7 +136,7 @@ func (a *App) startUnitMu(u *routerUnit) {
 // The caller ends the gone units' links (endUnit) after it releases mu. Caller holds mu.
 func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
 	old := a.units()
-	if uid := r.cfg.UID; uid != "" && uid != a.first.uid() {
+	if uid := r.cfg.DefaultRouter().UID; uid != "" && uid != a.first.uid() {
 		// A unit after the first that has the new UID leaves; a router of the settings with that UID gets a new unit.
 		if u, ok := old[uid]; ok {
 			u.cutRoutes()
@@ -145,7 +145,7 @@ func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
 		old = a.renameFirstMu(old, uid)
 	}
 	next := map[string]*routerUnit{a.first.uid(): a.first}
-	for _, rc := range r.cfg.MoreRouters {
+	for _, rc := range r.cfg.Routers[1:] {
 		if u, ok := old[rc.UID]; ok {
 			next[rc.UID] = u
 			continue
@@ -219,7 +219,7 @@ func (a *App) unitOrFirst(uid string) *routerUnit {
 // unitOfRouter gives the unit of a router in cfg. The first router of cfg is the first unit, also while a commit has
 // not yet given that unit a new UID (renameFirstMu).
 func (a *App) unitOfRouter(cfg config.Config, uid string) (*routerUnit, bool) {
-	if uid == cfg.UID {
+	if uid == cfg.DefaultRouter().UID {
 		return a.first, a.first != nil
 	}
 	return a.unit(uid)
@@ -228,7 +228,7 @@ func (a *App) unitOfRouter(cfg config.Config, uid string) (*routerUnit, bool) {
 // knownRouter: uid is blank, the first router's UID in the settings, or the UID of a router unit.
 func (a *App) knownRouter(uid string) bool {
 	_, ok := a.unit(uid)
-	return ok || uid == a.r().cfg.UID
+	return ok || uid == a.r().cfg.DefaultRouter().UID
 }
 
 // apiUnit gives the unit of the router parameter of an API read; routerOK has refused an unknown one. Blank, or the
@@ -266,7 +266,7 @@ func (a *App) unitsInOrder(r *runtime) []*routerUnit {
 		}
 	}
 	add(a.unit(""))
-	for _, rc := range r.cfg.Routers() {
+	for _, rc := range r.cfg.Routers {
 		add(a.unit(rc.UID))
 	}
 	return out

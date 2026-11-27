@@ -33,7 +33,7 @@ func (t *PanelTies) reserving() bool { return t != nil && t.Mode == panelTiesRes
 func linkKey(cfg config.Config, t config.TieLine) [2]string {
 	uid := func(r string) string {
 		if r == "" {
-			return cfg.UID
+			return cfg.DefaultRouter().UID
 		}
 		return r
 	}

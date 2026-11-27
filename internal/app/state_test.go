@@ -81,9 +81,9 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	a.pendSent = []Sent{{}}
 	a.mu.Unlock()
 
-	cur := a.r().cfg
+	cur := a.r().cfg.Clone()
 	cur.DeviceDefaults.Theme = "dark"
-	cur.NameRefreshSeconds++
+	cur.Routers[0].NameRefreshSeconds++
 	rs, ext := a.first.router, a.first.ext
 	if err := a.ApplyConfig(cur); err != nil {
 		t.Fatal(err)
@@ -93,13 +93,13 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	a.mu.Lock()
 	if len(a.first.router.tally) != 1 || len(a.first.router.srcNames) != 1 || len(a.first.ext.pending) != 1 || len(a.first.ext.own) != 1 ||
-		len(a.first.ext.lateRoute) != 1 || len(a.first.ext.late) != 1 || len(a.first.waiters) != 1 || len(a.first.checks) != 1 || a.first.router.newSrc == nil || a.first.status.Addr != cur.Address {
+		len(a.first.ext.lateRoute) != 1 || len(a.first.ext.late) != 1 || len(a.first.waiters) != 1 || len(a.first.checks) != 1 || a.first.router.newSrc == nil || a.first.status.Addr != cur.Routers[0].Address {
 		a.mu.Unlock()
 		t.Fatal("a settings change that is not router-side cleared state")
 	}
 	a.mu.Unlock()
 
-	cur.Address = "127.0.0.1:1"
+	cur.Routers[0].Address = "127.0.0.1:1"
 	if err := a.ApplyConfig(cur); err != nil {
 		t.Fatal(err)
 	}

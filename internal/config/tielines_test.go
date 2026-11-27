@@ -11,10 +11,10 @@ import (
 
 func twoRouters() Config {
 	c := Defaults()
-	c.UID = "a1"
-	b := c.Router
+	c.Routers[0].UID = "a1"
+	b := c.Routers[0]
 	b.UID, b.Prefix, b.Levels = "b2", "B", 1
-	c.MoreRouters = []Router{b}
+	c.Routers = append(c.Routers[:1:1], []Router{b}...)
 	c.Normalize()
 	return c
 }
@@ -69,7 +69,7 @@ func TestTieLineCases(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := twoRouters()
-	if got := []string{c.UID, c.MoreRouters[0].UID}; !slices.Equal(got, doc.Routers) {
+	if got := []string{c.Routers[0].UID, c.Routers[1].UID}; !slices.Equal(got, doc.Routers) {
 		t.Fatalf("routers %v, cases name %v", got, doc.Routers)
 	}
 	for _, tc := range doc.Cases {

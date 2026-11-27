@@ -518,7 +518,7 @@ func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
 			cat.Items = append(cat.Items, it)
 			continue
 		}
-		lr := cand.Routers()[i]
+		lr := cand.Routers[i]
 		r.UID, r.Extra = lr.UID, lr.Extra
 		it.Clash = cmp.Or(lr.Title, lr.Prefix)
 		if sameYAML(r, lr) {
@@ -530,12 +530,8 @@ func (p *importPlanner) planRouters(cand *config.Config, cat *importCat) error {
 		if it.Same || it.Choice != useNew {
 			continue
 		}
-		if i == 0 {
-			cand.Router = r
-		} else {
-			cand.MoreRouters = slices.Clone(cand.MoreRouters)
-			cand.MoreRouters[i-1] = r
-		}
+		cand.Routers = slices.Clone(cand.Routers)
+		cand.Routers[i] = r
 		if !slices.Contains(p.pending, "router") {
 			p.pending = append(p.pending, "router")
 		}

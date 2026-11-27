@@ -196,8 +196,9 @@ func main() {
 		defer cancel()
 		srv.Shutdown(sctx)
 	}()
+	def := cfg.DefaultRouter()
 	log.Printf("sode: http on %s, router %q matrix %d, %d levels (UI 1 → wire %d)",
-		listen, cfg.Address, cfg.Matrix, cfg.Levels, 1+cfg.LevelWireOffset)
+		listen, def.Address, def.Matrix, def.Levels, 1+def.LevelWireOffset)
 	ln, err := net.Listen("tcp", listen)
 	if err != nil {
 		log.Fatal(err)

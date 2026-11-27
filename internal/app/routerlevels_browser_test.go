@@ -13,7 +13,7 @@ func TestChromeMainOneLevelRouter(t *testing.T) {
 	simA := startSim(t)
 	simB := startSim(t, simNames(t, "src 11 Stage Cam", "dst 3 Stage Mon"))
 	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
-		c.MoreRouters[0].Levels, c.MoreRouters[0].DefaultLevels = 1, ""
+		c.Routers[1].Levels, c.Routers[1].DefaultLevels = 1, ""
 	})
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")
@@ -78,7 +78,7 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 	b.eval(`document.getElementById('review-save').click(); true`)
 	b.waitFor("the review closes", `!document.getElementById('review')?.offsetParent`)
 	for i := 0; ; i++ {
-		rc := a.r().cfg.MoreRouters[0]
+		rc := a.r().cfg.Routers[1]
 		if rc.LevelNumbering == "va" && rc.DefaultLevels == "1-3" {
 			break
 		}
@@ -87,8 +87,8 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 		}
 		b.waitFor("a moment", `new Promise((r) => setTimeout(() => r(true), 50))`)
 	}
-	if a.r().cfg.LevelNumbering != "1" {
-		t.Errorf("the first router's numbering is %q", a.r().cfg.LevelNumbering)
+	if a.r().cfg.Routers[0].LevelNumbering != "1" {
+		t.Errorf("the first router's numbering is %q", a.r().cfg.Routers[0].LevelNumbering)
 	}
 	b.waitFor("nothing left unsaved", `document.getElementById('settings-unsaved').hidden && `+id("defaultLevels")+`.value === 'V-2'`)
 	b.check()
@@ -99,7 +99,7 @@ func TestChromeSettingsRouterLevels(t *testing.T) {
 func TestChromePhoneOneLevelRouter(t *testing.T) {
 	b := startBrowser(t)
 	simA, simB := startSim(t), startSim(t)
-	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) { c.Levels, c.DefaultLevels = 1, "" })
+	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) { c.Routers[0].Levels, c.Routers[0].DefaultLevels = 1, "" })
 	srv := seamServer(t, a)
 	waitRouterRead(t, a, userKey(t, a, "Ana"), routerUIDs(a)[0], "DSM1")
 

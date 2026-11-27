@@ -14,10 +14,10 @@ func TestAPIHistoryHopsHidden(t *testing.T) {
 	a, _, _, key := tieApp(t, func(c *config.Config) {
 		c.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden,
 			// B.2 had B.7 before. An entry with a Before source that the caller cannot see loses that level.
-			Sources: &[]config.Ref{{Router: c.UID, N: 4}, {Router: "b2b2b2b2", N: 7}},
+			Sources: &[]config.Ref{{Router: c.Routers[0].UID, N: 4}, {Router: "b2b2b2b2", N: 7}},
 			Dsts:    &[]config.Ref{{Router: "b2b2b2b2", N: 2}}}
 	})
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}), nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("%d %s", rec.Code, rec.Body)

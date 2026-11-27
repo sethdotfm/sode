@@ -18,7 +18,7 @@ import (
 // sent. A hop entry has no Redo of its own.
 func TestAPIRedoUsesRouterOfEntry(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(uidA, [2]int{4, 2}), nil)
 	r := tieTakeAnswer(t, rec.Body).Results[0]
 	if rec.Code != http.StatusOK || !r.OK || r.Entry == nil || r.Hops[0].Entry == nil {
@@ -57,7 +57,7 @@ func TestAPIRedoUsesRouterOfEntry(t *testing.T) {
 func TestAPITieTakePlansAgainAfterLock(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	fa.u.routeTimeout = 5 * time.Second
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	levelsA := a.r().routerOf(uidA).Levels
 	seedAll(a, fa, 10, 4)
 	log := connectLog(fa, fb)
@@ -152,7 +152,7 @@ func TestPageRetryOfTieTakeAfterTieMoved(t *testing.T) {
 // on level 2 of A, and then someone routed A.9 there. A put-back item with every level leaves level 2 alone.
 func TestPagePutBackOnlyChangedLevels(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	levelsA := a.r().routerOf(uidA).Levels
 	wire2 := a.r().byUI[2].Wire
 	fa.mu.Lock()
@@ -196,7 +196,7 @@ func TestPagePutBackOnlyChangedLevels(t *testing.T) {
 // line. The two would fight for it. Sode refuses the take before it sends anything, in either order.
 func TestAPITieTakeRefusesPlainRouteOnItsTieLine(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	log := connectLog(fa, fb)
 	tie := strings.TrimSuffix(strings.TrimPrefix(tieRoutes(uidA, [2]int{4, 2}), `{"routes":[`), `]}`)
 	plain := fmt.Sprintf(`{"src":{"router":%q,"n":6},"dst":{"router":%q,"n":10},"levels":[1]}`, uidA, uidA)
@@ -219,10 +219,10 @@ func TestAPITieTakeDownstreamOfMixedTieLine(t *testing.T) {
 	a, fa, fb, key := tieApp(t, func(c *config.Config) {
 		r := moreRouter("C", "Third", "10.0.0.10:8910", 1)
 		r.UID = "c3c3c3c3"
-		c.MoreRouters = append(c.MoreRouters, r)
+		c.Routers = append(c.Routers, r)
 		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 5", From: config.Ref{Router: "b2b2b2b2", N: 11}, To: config.Ref{Router: r.UID, N: 6}})
 	})
-	fc, uc := addFakeUnit(t, a, a.r().cfg.MoreRouters[1])
+	fc, uc := addFakeUnit(t, a, a.r().cfg.Routers[2])
 	a.onUnitState(uc, swp08.StateUp, nil)
 	wire := a.r().byUI[1].Wire
 	fa.seed(10, 6, a.r().byUI[2].Wire) // TIE 3: A.3 on level 1, A.6 on level 2

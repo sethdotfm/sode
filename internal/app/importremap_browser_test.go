@@ -65,7 +65,7 @@ func TestChromeImportRemap(t *testing.T) {
 	}
 	file := otherRouter(t, a, zip)
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = nil })
-	off := a.r().cfg.NumberOffset
+	off := a.r().cfg.Routers[0].NumberOffset
 
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)

@@ -5,6 +5,7 @@ import (
 	"log"
 	"maps"
 	"net/http"
+	"slices"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -142,17 +143,18 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	// The file's routers and install go in before the plan, so the remap keeps every reference and the file's names
 	// tables check them.
-	live.Router, live.MoreRouters = b.Routers[0], nil
-	live.Router.Extra = was.Router.Extra
+	def := b.Routers[0]
+	def.Extra = was.DefaultRouter().Extra
+	live.Routers = []config.Router{def}
 	for _, r := range b.Routers[1:] {
 		r.Extra = nil
-		live.MoreRouters = append(live.MoreRouters, r)
+		live.Routers = append(live.Routers, r)
 	}
 	if b.Manifest.Install != "" {
 		live.InstallUID = b.Manifest.Install
 	}
 	names := liveNameSet{}
-	for _, r := range live.Routers() {
+	for _, r := range live.Routers {
 		t := b.Names[r.UID]
 		names[r.UID] = routerNames{src: tableMap(t.Sources), dst: tableMap(t.Destinations)}
 	}
@@ -167,7 +169,7 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	act := Actor{Kind: actorUser, Name: "Administrator"}
 	res, err := a.writeImport(p, act, importReplace, was, func(cur *config.Config) {
-		cur.Router, cur.MoreRouters, cur.InstallUID = live.Router, live.MoreRouters, live.InstallUID
+		cur.Routers, cur.InstallUID = slices.Clone(live.Routers), live.InstallUID
 	})
 	if err != nil {
 		apiFail(w, http.StatusConflict, "refused", err.Error())
@@ -176,7 +178,7 @@ func (a *App) serveSetupRestore(w http.ResponseWriter, r *http.Request) {
 	a.setup = setupHold{}
 	// Each router's table becomes its saved names table and its live names, as at start, until the router answers.
 	cfg := a.r().cfg
-	for _, rc := range cfg.Routers() {
+	for _, rc := range cfg.Routers {
 		table := b.Names[rc.UID]
 		src, dst := names[rc.UID].src, names[rc.UID].dst
 		a.names.save(rc.UID, table.At, src, dst)

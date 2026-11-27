@@ -21,7 +21,7 @@ func TestChromeProtectFromRouteView(t *testing.T) {
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126
+		c.Routers[0].ProtectDevice = 126
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -131,7 +131,7 @@ func TestChromePaletteProtectPick(t *testing.T) {
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126
+		c.Routers[0].ProtectDevice = 126
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

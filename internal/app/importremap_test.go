@@ -14,7 +14,7 @@ const otherRouterUID = "0123456789abcdef"
 // otherRouter makes a file look like another install's, made on another router.
 func otherRouter(t *testing.T, a *App, file []byte) []byte {
 	t.Helper()
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	files := map[string]string{}
 	for name, b := range unzipAll(t, foreign(t, file)) {
 		files[strings.ReplaceAll(name, uid, otherRouterUID)] = strings.ReplaceAll(string(b), uid, otherRouterUID)
@@ -51,10 +51,10 @@ func TestImportRemapMovesPresetToTargetNumber(t *testing.T) {
 		t.Fatalf("no preset: %+v %+v", res.Plan.Categories[catPresets], res.Plan.Remap)
 	}
 	src := p.Items[0].Src
-	if src.Router != a.r().cfg.UID || src.N != 40 || src.Name != "CAM 3" || len(p.Broken) != 0 {
+	if src.Router != a.r().cfg.Routers[0].UID || src.N != 40 || src.Name != "CAM 3" || len(p.Broken) != 0 {
 		t.Fatalf("preset: %+v", p)
 	}
-	if d := p.Items[0].Dsts[0]; d.Router != a.r().cfg.UID || d.N != 4 {
+	if d := p.Items[0].Dsts[0]; d.Router != a.r().cfg.Routers[0].UID || d.N != 4 {
 		t.Errorf("destination: %+v", d)
 	}
 }
@@ -64,7 +64,7 @@ func TestImportRemapUnmatchedDefaultsToSkip(t *testing.T) {
 	a, tok, file := cam3File(t)
 	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
 	p, _ := presetNamed(t, a, "Show")
-	want := []config.Missing{{Kind: config.MissingSource, Ref: config.Ref{Router: a.r().cfg.UID, N: 23, Name: "CAM 3"}}}
+	want := []config.Missing{{Kind: config.MissingSource, Ref: config.Ref{Router: a.r().cfg.Routers[0].UID, N: 23, Name: "CAM 3"}}}
 	if p.Items[0].Src.N != 23 || len(p.Broken) != 1 || p.Broken[0].Kind != want[0].Kind || p.Broken[0].Ref.N != 23 {
 		t.Fatalf("preset: %+v", p)
 	}
@@ -83,7 +83,7 @@ func TestImportCheckAnswersRemapRows(t *testing.T) {
 		t.Fatalf("remap: %+v", rm)
 	}
 	r := rm.Routers[0]
-	if r.UID != otherRouterUID || r.Target != a.r().cfg.UID || len(r.Candidates) != 1 || r.Candidates[0].UID != a.r().cfg.UID {
+	if r.UID != otherRouterUID || r.Target != a.r().cfg.Routers[0].UID || len(r.Candidates) != 1 || r.Candidates[0].UID != a.r().cfg.Routers[0].UID {
 		t.Fatalf("router: %+v", r)
 	}
 	if c := r.Candidates[0]; c.Total == 0 || c.Found == 0 || c.Found > c.Total {
@@ -111,8 +111,7 @@ func TestImportRemapNoTargetDropsItsItems(t *testing.T) {
 }
 
 func TestImportRemapRefusesBadTargets(t *testing.T) {
-	live := config.Config{}
-	live.UID = "live"
+	live := config.Config{Routers: []config.Router{{UID: "live"}}}
 	for _, bad := range []map[string]string{{"a": "nope"}, {"a": "live", "b": "live"}} {
 		if err := checkRouterTargets(importReq{Routers: bad}, live); err == nil {
 			t.Errorf("%v: no error", bad)
@@ -126,7 +125,7 @@ func TestImportRemapRefusesBadTargets(t *testing.T) {
 // A panel cell follows its row too, and Add both gives a preset both destinations.
 func TestImportRemapMovesPanelCellsAndAddsBoth(t *testing.T) {
 	a, _, tok := importApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.mu.Lock()
 	a.first.router.srcNames[23] = "CAM 3"
 	a.mu.Unlock()

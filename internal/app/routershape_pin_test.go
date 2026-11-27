@@ -79,20 +79,21 @@ func shapeApp(t *testing.T, routers int) (*App, string) {
 	t.Helper()
 	a := newTestApp(t, func(c *config.Config) {
 		c.InstallUID = "c0ffee0000000001"
-		c.UID, c.Title, c.Address, c.ProtectDevice = pinUIDA, "Studio", "10.0.0.50:8910", 9
+		r := c.EditDefaultRouter()
+		r.UID, r.Title, r.Address, r.ProtectDevice = pinUIDA, "Studio", "10.0.0.50:8910", 9
 		if routers == 3 {
 			b := moreRouter("B", "Second", "10.0.0.9:8910", 2)
 			b.UID, b.NumberOffset, b.ProtectDevice = pinUIDB, 0, 11
 			cc := moreRouter("C", "", "10.0.0.10:8910", 4)
 			cc.UID, cc.LevelNumbering, cc.SalvoGroup = pinUIDC, "va", 3
-			c.MoreRouters = []config.Router{b, cc}
+			c.Routers = append(c.Routers[:1:1], []config.Router{b, cc}...)
 		}
 		c.APIClients = []config.APIClient{{Name: "PanelsBot", Scopes: []string{config.ScopeStatus, config.ScopeLog}}}
 	})
 	key := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: "PanelsBot"}, "Panel 43", time.Time{})
 	fa := newFakeRouter(t, a)
 	fa.restore()
-	for _, rc := range a.r().cfg.MoreRouters {
+	for _, rc := range a.r().cfg.Routers[1:] {
 		f, _ := addFakeUnit(t, a, rc)
 		f.restore()
 	}

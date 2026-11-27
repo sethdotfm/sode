@@ -119,14 +119,14 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 	live := a.r().cfg
 
 	in := maxOwned(t)
-	in.Address = "9.9.9.9:9"
+	in.Routers[0].Address = "9.9.9.9:9"
 	in.Users = []config.User{{Name: "intruder"}}
 	in.Presets[0].Name = "" // would fail validation if it were applied
 	if err := a.SaveSettings(c, in); err != nil {
 		t.Fatalf("owned fields were validated or applied: %v", err)
 	}
 	got := a.r().cfg
-	if got.Address != "9.9.9.9:9" {
+	if got.Routers[0].Address != "9.9.9.9:9" {
 		t.Error("form field not applied")
 	}
 	if len(got.FilterSets) != 1 || got.FilterSets[0].Name != "keep" || len(got.Presets) != 1 ||

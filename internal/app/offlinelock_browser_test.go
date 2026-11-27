@@ -55,7 +55,7 @@ func TestChromeOfflineLocked(t *testing.T) {
 	stop1()
 	b.waitFor("offline", `document.documentElement.dataset.conn === 'down'`)
 	offlineLook("main page, Lock then offline")
-	if err := a.applyConfig(func(c *config.Config) error { c.Address = sim2; return nil }); err != nil {
+	if err := a.applyConfig(func(c *config.Config) error { c.Routers[0].Address = sim2; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	b.waitFor("online again", `document.documentElement.dataset.conn === 'up'`)
@@ -75,7 +75,7 @@ func TestChromeOfflineLocked(t *testing.T) {
 	b.call("Emulation.setTouchEmulationEnabled", map[string]any{"enabled": false})
 
 	// A panel page, signed in: offline, then the Lock.
-	if err := a.applyConfig(func(c *config.Config) error { c.Address = sim3; return nil }); err != nil {
+	if err := a.applyConfig(func(c *config.Config) error { c.Routers[0].Address = sim3; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	waitNamesAndTally(t, a, ana)

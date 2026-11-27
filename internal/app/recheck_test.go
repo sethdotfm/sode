@@ -158,7 +158,7 @@ func TestNoRecheckWithoutUsers(t *testing.T) {
 	p := dialPeer(t, a)
 	passed(t, "Revoke all keys with no users", p.ask("keyRevokeAll", 1, map[string]any{"owner": map[string]any{"user": "x"}}))
 	cfg := a.r().cfg.Clone()
-	cfg.Address = "127.0.0.1:9"
+	cfg.Routers[0].Address = "127.0.0.1:9"
 	p.send(map[string]any{"t": "config", "config": cfg})
 	passed(t, "router address with no users", p.until("configResult"))
 }
@@ -181,7 +181,7 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 		return p.until("configResult")
 	}
 	passed(t, "brand text", saveForm(func(c *config.Config) { c.BrandText = "Studio" }))
-	needsRecheck(t, "router address", saveForm(func(c *config.Config) { c.Address = "127.0.0.1:9" }))
+	needsRecheck(t, "router address", saveForm(func(c *config.Config) { c.Routers[0].Address = "127.0.0.1:9" }))
 	needsRecheck(t, "a page lock", saveForm(func(c *config.Config) { c.Locks.Log = true }))
 	needsRecheck(t, "Wait after wrong PINs", saveForm(func(c *config.Config) { c.PinWaits = !c.PinWaits }))
 	needsRecheck(t, "Guest role", saveForm(func(c *config.Config) { c.GuestRole = config.RoleTrusted }))
@@ -195,7 +195,7 @@ func TestSavePathsAskRecheckForCriticalFields(t *testing.T) {
 	wantRefused(t, p.saveLive(a, 4, addBob), "user/new:0/add", reasonRecheck)
 
 	passed(t, "recheck", p.recheck("2468"))
-	passed(t, "router address after a recheck", saveForm(func(c *config.Config) { c.Address = "127.0.0.1:9" }))
+	passed(t, "router address after a recheck", saveForm(func(c *config.Config) { c.Routers[0].Address = "127.0.0.1:9" }))
 	wantSaved(t, p.saveLive(a, 6, api(keyless)), "api")
 	wantSaved(t, p.saveLive(a, 7, addBob), "user/new:0/add")
 	if _, ok := a.r().cfg.FindUserByName("Bob"); !ok {

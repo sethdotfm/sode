@@ -40,7 +40,7 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 
 	var uid string
 	for deadline := time.Now().Add(15 * time.Second); ; time.Sleep(50 * time.Millisecond) {
-		if more := a.r().cfg.MoreRouters; len(more) == 1 {
+		if more := a.r().cfg.Routers[1:]; len(more) == 1 {
 			uid = more[0].UID
 			a.mu.Lock()
 			u, ok := a.units()[uid]
@@ -51,20 +51,20 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 			}
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("router B was not added and up: %+v", a.r().cfg.MoreRouters)
+			t.Fatalf("router B was not added and up: %+v", a.r().cfg.Routers)
 		}
 	}
-	if rc := a.r().cfg.MoreRouters[0]; rc.Prefix != "B" || rc.Title != "Stage 2" || rc.Address != simB {
+	if rc := a.r().cfg.Routers[1]; rc.Prefix != "B" || rc.Title != "Stage 2" || rc.Address != simB {
 		t.Fatalf("router B %+v", rc)
 	}
-	b.waitFor("every prefix shows", `document.getElementById('cfg-rt-`+a.r().cfg.UID+`-prefix')?.value === 'A' && document.getElementById('cfg-rt-`+uid+`-prefix')?.value === 'B'
+	b.waitFor("every prefix shows", `document.getElementById('cfg-rt-`+a.r().cfg.Routers[0].UID+`-prefix')?.value === 'A' && document.getElementById('cfg-rt-`+uid+`-prefix')?.value === 'B'
 		&& !!document.getElementById('cfg-rl-`+uid+`-levels')`)
 
 	a.cfgMu.Lock()
 	err := a.applyConfig(func(c *config.Config) error {
 		on := config.Ref{Router: uid, N: 1, Name: "CAM"}
 		c.Presets = []config.Preset{{ID: "p1", Name: "Stage", Items: []config.PresetItem{{Src: on, Dsts: []config.Ref{on}}}}}
-		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.UID, N: 1}, To: on}}
+		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.Routers[0].UID, N: 1}, To: on}}
 		return nil
 	})
 	a.cfgMu.Unlock()
@@ -77,7 +77,7 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 	b.eval(`[...document.querySelectorAll('[data-router="` + uid + `"] .sode__routers-acts .pb-btn')].find((x) => x.textContent === 'Remove router B').click(); true`)
 	b.waitFor("router B staged", `document.querySelector('[data-router="`+uid+`"]').classList.contains('sode__routers-item--removed')`)
 	save("Remove B Stage 2")
-	for deadline := time.Now().Add(10 * time.Second); len(a.r().cfg.MoreRouters) > 0; time.Sleep(50 * time.Millisecond) {
+	for deadline := time.Now().Add(10 * time.Second); (len(a.r().cfg.Routers) - 1) > 0; time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("router B was not removed")
 		}

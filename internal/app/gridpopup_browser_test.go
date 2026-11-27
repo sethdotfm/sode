@@ -236,7 +236,7 @@ func TestChromeMainGridPopupShield(t *testing.T) {
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126
+		c.Routers[0].ProtectDevice = 126
 	})
 	srv := seamServer(t, a)
 	key := userKey(t, a, "Ana")

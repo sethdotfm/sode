@@ -113,7 +113,7 @@ func ParseLevels(s string, max int) ([]int, error) {
 func (c Config) validateRouters() []error {
 	var errs []error
 	uids, prefixes := map[string]bool{}, map[string]bool{}
-	routers := c.Routers()
+	routers := c.Routers
 	for _, r := range routers {
 		name := ""
 		if len(routers) > 1 {

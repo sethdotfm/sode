@@ -25,7 +25,7 @@ func brokenApp(t *testing.T) *App {
 	a := futureApp(t, "routers: [{address: 127.0.0.1:1}]\n")
 	readNames(a, checkSrcs, checkDsts)
 	readNames(a, checkSrcs, checkDsts)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.cfgMu.Lock()
 	err := a.commit(func(c *config.Config) error {
 		c.Presets = []config.Preset{{Name: "Studio", Items: []config.PresetItem{{
@@ -162,7 +162,7 @@ func TestNameMovedKeepsNumber(t *testing.T) {
 
 func TestBrokenPresetFiresWhatExists(t *testing.T) {
 	a := brokenApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.cfgMu.Lock()
 	a.commit(func(c *config.Config) error {
 		c.Presets[0].Items = append(c.Presets[0].Items, config.PresetItem{
@@ -211,7 +211,7 @@ func events(a *App) []Sent {
 
 func TestBrokenPanelCellsAndQuietFixedDests(t *testing.T) {
 	a := brokenApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	p, err := a.panels.create(Panel{Name: "Desk", Rows: 1, Cols: 2,
 		Settings: map[string]any{panelFixedKey: []config.Ref{{Router: uid, N: 1, Name: "MON 2"}}},
 		Pages: []PanelPage{{ID: "pg-1", Enabled: true, Cells: []map[string]any{
@@ -269,7 +269,7 @@ func TestBrokenFilterSetTerms(t *testing.T) {
 
 func TestQuietRenameInRightsAndMePresets(t *testing.T) {
 	a := brokenApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.cfgMu.Lock()
 	a.commit(func(c *config.Config) error {
 		c.Users[0].Rights.Sources = &[]config.Ref{{Router: uid, N: 2, Name: "CAM 3"}}
@@ -292,7 +292,7 @@ func TestQuietRenameInRightsAndMePresets(t *testing.T) {
 
 func TestImportBrokenStaysOnRename(t *testing.T) {
 	a := brokenApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.cfgMu.Lock()
 	a.commit(func(c *config.Config) error {
 		c.Presets[0].Broken = []config.Missing{{Kind: config.MissingSource, Ref: config.Ref{Router: uid, N: 2, Name: "CAM 3"}}}
@@ -315,7 +315,7 @@ func TestImportBrokenStaysOnRename(t *testing.T) {
 // A rename that lengthens names must not push a list past its byte cap, or the next Load refuses the file.
 func TestRenameKeepsListUnderByteCap(t *testing.T) {
 	a := brokenApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	var ps []config.Preset
 	for p := 0; p < config.MaxPresets; p++ {
 		it := config.PresetItem{Src: config.Ref{Router: uid, N: 0, Name: "CAM 1"}}
@@ -411,7 +411,7 @@ func TestBrokenWithSimulator(t *testing.T) {
 			t.Fatal("the app never read names from swp08sim")
 		}
 	}
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.cfgMu.Lock()
 	err := a.commit(func(c *config.Config) error {
 		c.Presets = []config.Preset{{Name: "Studio", Items: []config.PresetItem{{
@@ -470,7 +470,7 @@ func TestMarksSurviveASave(t *testing.T) {
 
 func TestImportBrokenSurvivesASave(t *testing.T) {
 	a := brokenApp(t)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	a.cfgMu.Lock()
 	a.commit(func(c *config.Config) error {
 		c.Presets[0].Items[0].Src.Name = "VTR 9" // the file's name; this router has CAM 3 at 2

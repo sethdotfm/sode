@@ -111,7 +111,7 @@ func (a *App) SaveOwnClient(c *client, req myClientReq) error {
 		if i >= 0 {
 			stored = &cur.APIClients[i].Rights
 		}
-		rights, err := ownClientRights(u, req.Rights, stored, cur.UID)
+		rights, err := ownClientRights(u, req.Rights, stored, cur.DefaultRouter().UID)
 		if err != nil {
 			return err
 		}

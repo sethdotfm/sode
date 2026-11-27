@@ -123,12 +123,12 @@ func TestLinkLoggedOncePerOutage(t *testing.T) {
 	if got := results(rows, kindLink); got != "down,down,up" {
 		t.Fatalf("link rows = %s, want down (once), down (new error), up", got)
 	}
-	if rows[0].Err != "connection refused" || rows[0].Note != a.r().cfg.Address {
+	if rows[0].Err != "connection refused" || rows[0].Note != a.r().cfg.Routers[0].Address {
 		t.Fatalf("down row = %+v", rows[0])
 	}
 
-	cfg := a.r().cfg
-	cfg.Address = "10.9.9.9:8910"
+	cfg := a.r().cfg.Clone()
+	cfg.Routers[0].Address = "10.9.9.9:8910"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}

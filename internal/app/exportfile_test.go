@@ -119,7 +119,7 @@ var everyCategory = []string{catSettings, catRouters, catTieLines, catUsers, cat
 func seedEverything(t *testing.T, a *App) {
 	t.Helper()
 	cfg := a.r().cfg
-	uid, ana := cfg.UID, userID(t, a, "Ana")
+	uid, ana := cfg.Routers[0].UID, userID(t, a, "Ana")
 	a.mu.Lock()
 	a.first.router.srcNames[2] = "CAM 2"
 	a.first.router.dstNames[4] = "MON 4"
@@ -164,7 +164,7 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 	}
 	files := unzipAll(t, rec.Body.Bytes())
 	for _, want := range []string{"manifest.yaml", "settings.yaml", "routers.yaml", "users.yaml", "presets.yaml", "filtersets.yaml",
-		"bookmarks.yaml", "panels.yaml", "artwork.yaml", "apiclients.yaml", "browser.yaml", "names/" + cfg.UID + ".yaml"} {
+		"bookmarks.yaml", "panels.yaml", "artwork.yaml", "apiclients.yaml", "browser.yaml", "names/" + cfg.Routers[0].UID + ".yaml"} {
 		if _, ok := files[want]; !ok {
 			t.Errorf("no %s in %v", want, slices.Sorted(maps.Keys(files)))
 		}
@@ -178,7 +178,7 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 			art = append(art, name)
 		}
 		// Items name the router by prefix; only the router's own files name its UID.
-		if name != "manifest.yaml" && name != "routers.yaml" && !strings.HasPrefix(name, "names/") && bytes.Contains(files[name], []byte(cfg.UID)) {
+		if name != "manifest.yaml" && name != "routers.yaml" && !strings.HasPrefix(name, "names/") && bytes.Contains(files[name], []byte(cfg.Routers[0].UID)) {
 			t.Errorf("%s holds the router UID:\n%s", name, files[name])
 		}
 	}
@@ -195,7 +195,7 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 		t.Errorf("manifest: %+v", man)
 	}
 	r := man.Routers
-	if len(r) != 1 || r[0].UID != cfg.UID || r[0].Prefix != cfg.Prefix || r[0].Matrix != cfg.Matrix || r[0].Levels != cfg.Levels || r[0].NamesHash == "" {
+	if len(r) != 1 || r[0].UID != cfg.Routers[0].UID || r[0].Prefix != cfg.Routers[0].Prefix || r[0].Matrix != cfg.Routers[0].Matrix || r[0].Levels != cfg.Routers[0].Levels || r[0].NamesHash == "" {
 		t.Errorf("manifest routers: %+v", r)
 	}
 	if !slices.Equal(man.Categories, everyCategory) {
@@ -220,10 +220,10 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := b.Presets[0].Items[0]; got.Src.Router != cfg.UID || got.Src.N != 2 || got.Src.Name != "CAM 2" || got.Dsts[0].Router != cfg.UID {
+	if got := b.Presets[0].Items[0]; got.Src.Router != cfg.Routers[0].UID || got.Src.N != 2 || got.Src.Name != "CAM 2" || got.Dsts[0].Router != cfg.Routers[0].UID {
 		t.Errorf("preset reference: %+v", got)
 	}
-	if got := b.Panels.Panels[0].Pages[0].Cells[0]["router"]; got != cfg.UID {
+	if got := b.Panels.Panels[0].Pages[0].Cells[0]["router"]; got != cfg.Routers[0].UID {
 		t.Errorf("panel cell router: %v", got)
 	}
 	if len(b.Panels.Checkpoints[b.Panels.Panels[0].ID]) != 1 {
@@ -232,16 +232,16 @@ func TestExportEveryCategoryReadsBack(t *testing.T) {
 	if b.APIClients[0].Owner != userID(t, a, "Ana") {
 		t.Errorf("API client owner: %q", b.APIClients[0].Owner)
 	}
-	if b.Settings == nil || b.Settings.HiddenDsts != "9" || b.Settings.HiddenDstsRouter != cfg.UID || b.FilterSets[0].Router != cfg.UID {
+	if b.Settings == nil || b.Settings.HiddenDsts != "9" || b.Settings.HiddenDstsRouter != cfg.Routers[0].UID || b.FilterSets[0].Router != cfg.Routers[0].UID {
 		t.Errorf("settings: %+v", b.Settings)
 	}
-	if b.Browser["theme"] != "dark" || len(b.Names[cfg.UID].Sources) != 1 || len(b.Art) != 3 {
+	if b.Browser["theme"] != "dark" || len(b.Names[cfg.Routers[0].UID].Sources) != 1 || len(b.Art) != 3 {
 		t.Errorf("browser %v, names %+v, art %v", b.Browser, b.Names, b.Art)
 	}
 	if !sameBookmarks(b.Bookmarks, cfg.Bookmarks) || len(b.Bookmarks) != 2 {
 		t.Errorf("bookmarks: %+v", b.Bookmarks)
 	}
-	if b.Routers[0].UID != cfg.UID || b.Routers[0].Address != cfg.Address {
+	if b.Routers[0].UID != cfg.Routers[0].UID || b.Routers[0].Address != cfg.Routers[0].Address {
 		t.Errorf("routers: %+v", b.Routers)
 	}
 }

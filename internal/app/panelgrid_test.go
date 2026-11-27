@@ -104,7 +104,7 @@ type: grid
 sources:
   members: all
 destinations:
-  members: [{router: ` + a.r().cfg.UID + `, n: 3}, {router: ` + a.r().cfg.UID + `, n: 1}]
+  members: [{router: ` + a.r().cfg.Routers[0].UID + `, n: 3}, {router: ` + a.r().cfg.Routers[0].UID + `, n: 1}]
 settings:
   mode: take
 rev: 2

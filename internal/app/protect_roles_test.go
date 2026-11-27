@@ -163,7 +163,7 @@ func TestProtectByRole(t *testing.T) {
 
 // With no users every browser acts as an Administrator, so it can Protect (protectRight in web/protectrules.js).
 func TestProtectWithNoUsers(t *testing.T) {
-	a := newTestApp(t, func(cfg *config.Config) { cfg.ProtectDevice = 126; cfg.DefaultLevels = "1-3" })
+	a := newTestApp(t, func(cfg *config.Config) { cfg.Routers[0].ProtectDevice = 126; cfg.Routers[0].DefaultLevels = "1-3" })
 	f := newFakeRouter(t, a)
 	f.prot = fakeProtect{holds: map[[2]int]protHold{}, deafSet: map[int]bool{}, deafClear: map[int]bool{}}
 	routerUp(a)

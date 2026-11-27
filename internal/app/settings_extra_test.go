@@ -52,8 +52,8 @@ func TestSettingsSaveKeepsUnknownKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, _, err := config.Load(a.cfgPath)
-	if err != nil || c.Title != "Studio X" {
-		t.Fatalf("save not written: %v %q", err, c.Title)
+	if err != nil || c.Routers[0].Title != "Studio X" {
+		t.Fatalf("save not written: %v %q", err, c.Routers[0].Title)
 	}
 	if k, want := c.UnknownKeys(), []string{"futureKey", "locks.futureLock"}; !slices.Equal(k, want) {
 		t.Fatalf("UnknownKeys = %q, want %q", k, want)

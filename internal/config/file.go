@@ -34,7 +34,7 @@ func Load(path string) (c Config, exists bool, err error) {
 	if err := c.Validate(); err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
-	if !bytes.Contains(b, []byte(c.UID)) || !bytes.Contains(b, []byte(c.InstallUID)) || c.idsFilled || !hasPresetIDs(b, c) {
+	if !bytes.Contains(b, []byte(c.DefaultRouter().UID)) || !bytes.Contains(b, []byte(c.InstallUID)) || c.idsFilled || !hasPresetIDs(b, c) {
 		if err := Save(path, c); err != nil {
 			return c, true, fmt.Errorf("%s: keeping the new install UID, router UID, user ids, preset ids, filter set ids or tie line ids: %w", path, err)
 		}

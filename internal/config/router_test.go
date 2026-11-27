@@ -48,7 +48,7 @@ func TestRoutersListLoads(t *testing.T) {
 		DefaultLevels: "1-3", NameLength: 8, NameRequests: "ext", NameRefreshSeconds: 120,
 		TallyResyncSeconds: 600, FireMode: "native", SalvoGroup: 9,
 	}
-	got := c.Router
+	got := c.Routers[0]
 	got.Extra = nil
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("router\n got %+v\nwant %+v", got, want)
@@ -60,7 +60,7 @@ func TestRoutersListLoads(t *testing.T) {
 
 func TestSaveWritesOneRouterWithUIDAndPrefixA(t *testing.T) {
 	c := Defaults()
-	c.Address = "10.0.0.50:8910"
+	c.Routers[0].Address = "10.0.0.50:8910"
 	c.Normalize()
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	if err := Save(path, c); err != nil {
@@ -89,8 +89,8 @@ func TestSaveWritesOneRouterWithUIDAndPrefixA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.UID != c.UID {
-		t.Errorf("UID after Load %q, want %q", got.UID, c.UID)
+	if got.Routers[0].UID != c.Routers[0].UID {
+		t.Errorf("UID after Load %q, want %q", got.Routers[0].UID, c.Routers[0].UID)
 	}
 }
 
@@ -98,14 +98,14 @@ func TestNormalizeMakesUIDOnce(t *testing.T) {
 	a, b := Defaults(), Defaults()
 	a.Normalize()
 	b.Normalize()
-	if a.UID == "" || a.UID == b.UID || a.Prefix != "A" {
-		t.Fatalf("UIDs %q %q, prefix %q", a.UID, b.UID, a.Prefix)
+	if a.Routers[0].UID == "" || a.Routers[0].UID == b.Routers[0].UID || a.Routers[0].Prefix != "A" {
+		t.Fatalf("UIDs %q %q, prefix %q", a.Routers[0].UID, b.Routers[0].UID, a.Routers[0].Prefix)
 	}
-	uid := a.UID
-	a.Address = "10.0.0.9:8910"
+	uid := a.Routers[0].UID
+	a.Routers[0].Address = "10.0.0.9:8910"
 	a.Normalize()
-	if a.UID != uid {
-		t.Errorf("UID changed with the address: %q to %q", uid, a.UID)
+	if a.Routers[0].UID != uid {
+		t.Errorf("UID changed with the address: %q to %q", uid, a.Routers[0].UID)
 	}
 }
 
@@ -122,8 +122,8 @@ func TestLoadKeepsAMadeUID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.UID == "" || a.UID != b.UID {
-		t.Errorf("UIDs %q then %q", a.UID, b.UID)
+	if a.Routers[0].UID == "" || a.Routers[0].UID != b.Routers[0].UID {
+		t.Errorf("UIDs %q then %q", a.Routers[0].UID, b.Routers[0].UID)
 	}
 }
 
@@ -133,11 +133,11 @@ func TestSeveralRouters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.UID != "a1" || c.Address != "10.0.0.8:8910" || len(c.MoreRouters) != 1 {
-		t.Fatalf("routers %+v", c.Routers())
+	if c.Routers[0].UID != "a1" || c.Routers[0].Address != "10.0.0.8:8910" || len(c.Routers) != 2 {
+		t.Fatalf("routers %+v", c.Routers)
 	}
-	b := c.MoreRouters[0]
-	if b.UID != "b2" || b.Prefix != "B" || b.Levels != 2 || b.Address != "" || b.NameLength != Defaults().NameLength || b.DefaultLevels != "1-2" {
+	b := c.Routers[1]
+	if b.UID != "b2" || b.Prefix != "B" || b.Levels != 2 || b.Address != "" || b.NameLength != Defaults().Routers[0].NameLength || b.DefaultLevels != "1-2" {
 		t.Errorf("second router %+v", b)
 	}
 	if err := c.Validate(); err != nil {
@@ -151,7 +151,7 @@ func TestSeveralRouters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rs := back.Routers(); len(rs) != 2 || rs[0].UID != "a1" || rs[1].UID != "b2" || rs[1].Levels != 2 {
+	if rs := back.Routers; len(rs) != 2 || rs[0].UID != "a1" || rs[1].UID != "b2" || rs[1].Levels != 2 {
 		t.Errorf("after a save: %+v", rs)
 	}
 }
@@ -159,9 +159,9 @@ func TestSeveralRouters(t *testing.T) {
 // Two routers cannot share a UID or a prefix. A problem of a router after the first names its prefix.
 func TestValidateRouters(t *testing.T) {
 	c := Defaults()
-	c.MoreRouters = []Router{{Levels: 0, Prefix: "B"}, {Levels: 1, Prefix: "A"}}
+	c.Routers = append(c.Routers[:1:1], []Router{{Levels: 0, Prefix: "B"}, {Levels: 1, Prefix: "A"}}...)
 	c.Normalize()
-	c.MoreRouters[1].UID = c.UID
+	c.Routers[2].UID = c.Routers[0].UID
 	err := c.Validate()
 	for _, want := range []string{"Router B: levels must be 1-256", "Router A: two routers have the UID", "Router A: two routers have the prefix A"} {
 		if err == nil || !strings.Contains(err.Error(), want) {
@@ -174,8 +174,8 @@ func TestValidateRouters(t *testing.T) {
 // router nothing names it. The address problem says address.
 func TestValidateRoutersNamesEveryRouter(t *testing.T) {
 	c := Defaults()
-	c.Title, c.Address = "Studio A", "nohost"
-	c.MoreRouters = []Router{{Levels: 1, Prefix: "B", Title: "Stage 2", Address: "nohost2"}, {Levels: 1, Prefix: "C", Title: strings.Repeat("x", 33)}}
+	c.Routers[0].Title, c.Routers[0].Address = "Studio A", "nohost"
+	c.Routers = append(c.Routers[:1:1], []Router{{Levels: 1, Prefix: "B", Title: "Stage 2", Address: "nohost2"}, {Levels: 1, Prefix: "C", Title: strings.Repeat("x", 33)}}...)
 	c.Normalize()
 	err := c.Validate()
 	for _, want := range []string{
@@ -188,7 +188,7 @@ func TestValidateRoutersNamesEveryRouter(t *testing.T) {
 		}
 	}
 	one := Defaults()
-	one.Address = "nohost"
+	one.Routers[0].Address = "nohost"
 	if err := one.Validate(); err == nil || !strings.HasPrefix(err.Error(), "address must be host:port") {
 		t.Errorf("one router: %v", err)
 	}
@@ -202,22 +202,22 @@ func TestValidateRoutersNamesEveryRouter(t *testing.T) {
 // A change to the link fields of a router after the first is a reconnect; so is a router that comes or goes.
 func TestReconnectChangedSeesEveryRouter(t *testing.T) {
 	a := Defaults()
-	a.MoreRouters = []Router{{Address: "10.0.0.9:8910", Levels: 1, Prefix: "B"}}
+	a.Routers = append(a.Routers[:1:1], []Router{{Address: "10.0.0.9:8910", Levels: 1, Prefix: "B"}}...)
 	a.Normalize()
 	b := a.Clone()
-	b.MoreRouters[0].Title = "Second"
+	b.Routers[1].Title = "Second"
 	if ReconnectChanged(a, b) {
 		t.Error("a title change reconnects")
 	}
-	b.MoreRouters[0].Address = "10.0.0.10:8910"
-	if !ReconnectChanged(a, b) || !RouterReconnectChanged(a.MoreRouters[0], b.MoreRouters[0]) {
+	b.Routers[1].Address = "10.0.0.10:8910"
+	if !ReconnectChanged(a, b) || !RouterReconnectChanged(a.Routers[1], b.Routers[1]) {
 		t.Error("an address change on the second router does not reconnect")
 	}
-	if RouterReconnectChanged(a.Router, b.Router) {
+	if RouterReconnectChanged(a.Routers[0], b.Routers[0]) {
 		t.Error("the first router changed")
 	}
 	b = a.Clone()
-	b.MoreRouters = nil
+	b.Routers = b.Routers[:1]
 	if !ReconnectChanged(a, b) {
 		t.Error("a router that went does not reconnect")
 	}
@@ -225,16 +225,16 @@ func TestReconnectChangedSeesEveryRouter(t *testing.T) {
 
 func TestRoutersListsTheFirstRouterFirst(t *testing.T) {
 	c := Defaults()
-	c.MoreRouters = []Router{{Address: " 10.0.0.9:8910 ", Levels: 1, Prefix: "b"}}
+	c.Routers = append(c.Routers[:1:1], []Router{{Address: " 10.0.0.9:8910 ", Levels: 1, Prefix: "b"}}...)
 	c.Normalize()
-	rs := c.Routers()
-	if len(rs) != 2 || rs[0].UID != c.UID || rs[1].Address != "10.0.0.9:8910" || rs[1].Prefix != "B" {
+	rs := c.Routers
+	if len(rs) != 2 || rs[0].UID != c.Routers[0].UID || rs[1].Address != "10.0.0.9:8910" || rs[1].Prefix != "B" {
 		t.Fatalf("routers %+v", rs)
 	}
-	if rs[1].UID == "" || rs[1].UID == c.UID || rs[1].DefaultLevels != "1-1" || rs[1].FireMode != "sequential" {
+	if rs[1].UID == "" || rs[1].UID == c.Routers[0].UID || rs[1].DefaultLevels != "1-1" || rs[1].FireMode != "sequential" {
 		t.Errorf("second router not normalized: %+v", rs[1])
 	}
-	for uid, want := range map[string]string{"": c.UID, c.UID: c.UID, rs[1].UID: rs[1].UID} {
+	for uid, want := range map[string]string{"": c.Routers[0].UID, c.Routers[0].UID: c.Routers[0].UID, rs[1].UID: rs[1].UID} {
 		if r, ok := c.RouterByUID(uid); !ok || r.UID != want {
 			t.Errorf("RouterByUID(%q) = %q %v", uid, r.UID, ok)
 		}
@@ -243,9 +243,9 @@ func TestRoutersListsTheFirstRouterFirst(t *testing.T) {
 		t.Error("RouterByUID of an unknown UID")
 	}
 	d := c.Clone()
-	d.MoreRouters[0].Title = "X"
-	if c.MoreRouters[0].Title == "X" {
-		t.Error("Clone shares MoreRouters")
+	d.Routers[1].Title = "X"
+	if c.Routers[1].Title == "X" {
+		t.Error("Clone shares Routers")
 	}
 }
 
@@ -253,15 +253,15 @@ func TestRoutersListsTheFirstRouterFirst(t *testing.T) {
 func TestPrefixRules(t *testing.T) {
 	for _, p := range []string{"a", " B ", "ba", "ZZ"} {
 		c := Defaults()
-		c.Prefix = p
+		c.Routers[0].Prefix = p
 		c.Normalize()
-		if err := c.Validate(); err != nil || c.Prefix != strings.ToUpper(strings.TrimSpace(p)) {
-			t.Errorf("prefix %q: %q %v", p, c.Prefix, err)
+		if err := c.Validate(); err != nil || c.Routers[0].Prefix != strings.ToUpper(strings.TrimSpace(p)) {
+			t.Errorf("prefix %q: %q %v", p, c.Routers[0].Prefix, err)
 		}
 	}
 	for _, p := range []string{"ABC", "1", "A1", "Ä"} {
 		c := Defaults()
-		c.Prefix = p
+		c.Routers[0].Prefix = p
 		c.Normalize()
 		if c.Validate() == nil {
 			t.Errorf("prefix %q passed", p)
@@ -273,10 +273,10 @@ func TestRefShowsNoPrefixWithOneRouter(t *testing.T) {
 	c := Defaults()
 	c.Normalize()
 	src := c.SourceRef(22, "CAM 1")
-	if !reflect.DeepEqual(src, Ref{Router: c.UID, N: 22, Shown: "23", Name: "CAM 1"}) {
+	if !reflect.DeepEqual(src, Ref{Router: c.Routers[0].UID, N: 22, Shown: "23", Name: "CAM 1"}) {
 		t.Errorf("source ref %+v", src)
 	}
-	c.NumberOffset = 0
+	c.Routers[0].NumberOffset = 0
 	if d := c.DestinationRef(0, ""); d.Shown != "0" || d.N != 0 {
 		t.Errorf("destination ref %+v", d)
 	}
@@ -285,7 +285,7 @@ func TestRefShowsNoPrefixWithOneRouter(t *testing.T) {
 	if err == nil {
 		err = yaml.Unmarshal(b, &back)
 	}
-	if err != nil || back["router"] != c.UID || back["n"] != 22 || back["shown"] != "23" || back["name"] != "CAM 1" {
+	if err != nil || back["router"] != c.Routers[0].UID || back["n"] != 22 || back["shown"] != "23" || back["name"] != "CAM 1" {
 		t.Errorf("ref yaml %q %v", b, err)
 	}
 }

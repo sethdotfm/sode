@@ -11,7 +11,7 @@ import (
 func (a *App) SavePresets(c *client, presets []config.Preset) error {
 	return a.saveList(c, func(cur *config.Config) error {
 		was := cur.Presets
-		cur.Presets = a.namePresets(cur.UID, config.WithPresetExtras(presets, cur.Presets))
+		cur.Presets = a.namePresets(cur.DefaultRouter().UID, config.WithPresetExtras(presets, cur.Presets))
 		cur.Bookmarks = config.RenamedPresetBookmarks(cur.Bookmarks, "global", was, cur.Presets)
 		return nil
 	}, func(cfg config.Config) any {

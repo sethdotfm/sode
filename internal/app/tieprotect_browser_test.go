@@ -19,7 +19,7 @@ func TestChromeTiePickerProtect(t *testing.T) {
 	simB := startSim(t, simNames(t, "src 11 From A", "dst 3 Stage Mon", "dst 4 Desk Mon"))
 	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126 // router A only
+		c.Routers[0].ProtectDevice = 126 // router A only
 	})
 	srv := seamServer(t, a)
 	ana := userKey(t, a, "Ana")

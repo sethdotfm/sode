@@ -15,9 +15,9 @@ func addRouter(t *testing.T, a *App, uid, prefix string, src, dst map[int]string
 	t.Helper()
 	a.cfgMu.Lock()
 	err := a.applyConfig(func(c *config.Config) error {
-		rc := c.Router
-		rc.UID, rc.Prefix, rc.Title, rc.Address = uid, prefix, "Router "+prefix, "127.0.0.2:"+itoa(int64(len(c.MoreRouters)+2))
-		c.MoreRouters = append(c.MoreRouters, rc)
+		rc := c.DefaultRouter()
+		rc.UID, rc.Prefix, rc.Title, rc.Address = uid, prefix, "Router "+prefix, "127.0.0.2:"+itoa(int64(len(c.Routers)+1))
+		c.Routers = append(c.Routers, rc)
 		return nil
 	})
 	a.cfgMu.Unlock()
@@ -58,7 +58,7 @@ func twoRouterFile(t *testing.T) []byte {
 		Settings: map[string]any{panelLevelsKey: map[string]any{fileRouterB: []any{1}}},
 		Pages: []PanelPage{{ID: "pg-1", Enabled: true, Cells: []map[string]any{
 			{"kind": "source", "n": 7, "router": fileRouterB, "name": "VT 7"},
-			{"kind": "source", "n": 2, "router": a.r().cfg.UID, "name": "CAM 2"},
+			{"kind": "source", "n": 2, "router": a.r().cfg.Routers[0].UID, "name": "CAM 2"},
 		}}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestImportTwoRoutersMapsEveryReference(t *testing.T) {
 	if it := p.Items[0]; it.Src.Router != liveRouterB || it.Src.N != 7 || it.Dsts[0].Router != liveRouterB || len(p.Broken) != 0 {
 		t.Errorf("preset On B: %+v", p)
 	}
-	if p, _ := presetNamed(t, a, "On A"); p.Items[0].Src.Router != cfg.UID || len(p.Broken) != 0 {
+	if p, _ := presetNamed(t, a, "On A"); p.Items[0].Src.Router != cfg.Routers[0].UID || len(p.Broken) != 0 {
 		t.Errorf("preset On A: %+v", p)
 	}
 	if i := slices.IndexFunc(cfg.FilterSets, func(s config.FilterSet) bool { return s.Name == "B cams" }); i < 0 || cfg.FilterSets[i].Router != liveRouterB {
@@ -186,7 +186,7 @@ func TestImportUnmappedRouterDropsItsItems(t *testing.T) {
 		t.Error("preset On A was not imported")
 	}
 	c, ok := cfg.FindAPIClient("Bot")
-	if !ok || c.Rights.Levels != nil || slices.ContainsFunc(*c.Rights.Sources, func(r config.Ref) bool { return r.Router != cfg.UID }) {
+	if !ok || c.Rights.Levels != nil || slices.ContainsFunc(*c.Rights.Sources, func(r config.Ref) bool { return r.Router != cfg.Routers[0].UID }) {
 		t.Errorf("client Rights: %+v %v", c.Rights.Sources, c.Rights.Levels)
 	}
 	items := res.Plan.Categories[catAPIClients].Items
@@ -240,7 +240,7 @@ func TestRestoreTwoRoutersRoundTrip(t *testing.T) {
 		t.Errorf("preset On B: %+v", p)
 	}
 	if i := slices.IndexFunc(cfg.TieLines, func(x config.TieLine) bool { return x.ID == "tie-ab" }); i < 0 ||
-		cfg.TieLines[i].From.Router != cfg.UID || cfg.TieLines[i].To.Router != fileRouterB {
+		cfg.TieLines[i].From.Router != cfg.Routers[0].UID || cfg.TieLines[i].To.Router != fileRouterB {
 		t.Errorf("tie line to router B: %+v", cfg.TieLines)
 	}
 	u, ok := b.unit(fileRouterB)
@@ -294,7 +294,7 @@ func TestImportTieLineTwoRoutersRoundTrip(t *testing.T) {
 		t.Fatalf("A TO B: %+v", it)
 	}
 	cfg := a.r().cfg
-	if len(cfg.TieLines) != 1 || cfg.TieLines[0].From.Router != cfg.UID || cfg.TieLines[0].To.Router != liveRouterB || cfg.TieLines[0].To.N != 7 {
+	if len(cfg.TieLines) != 1 || cfg.TieLines[0].From.Router != cfg.Routers[0].UID || cfg.TieLines[0].To.Router != liveRouterB || cfg.TieLines[0].To.N != 7 {
 		t.Fatalf("tie lines: %+v", cfg.TieLines)
 	}
 }
@@ -318,7 +318,7 @@ func TestImportRefusesTwoFileRoutersOnOneTarget(t *testing.T) {
 	file := twoRouterFile(t)
 	a, tok := twoRouterLive(t)
 	before := len(a.r().cfg.Presets)
-	req := importReq{Mode: importAdd, Routers: map[string]string{fileRouterB: a.r().cfg.UID}}
+	req := importReq{Mode: importAdd, Routers: map[string]string{fileRouterB: a.r().cfg.Routers[0].UID}}
 	if rec := ownMultipart(t, a, tok, "/api/import", file, req); rec.Code != 400 || !strings.Contains(rec.Body.String(), "one router") {
 		t.Fatalf("check: %d %s", rec.Code, rec.Body)
 	}

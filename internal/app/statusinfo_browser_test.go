@@ -125,9 +125,9 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 	}
 	a := simRoutersApp(t, addrs, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.Router.Title = "Studio A"
-		for i := range c.MoreRouters {
-			c.MoreRouters[i].Title = "Studio " + c.MoreRouters[i].Prefix
+		c.Routers[0].Title = "Studio A"
+		for i := range c.Routers[1:] {
+			c.Routers[i+1].Title = "Studio " + c.Routers[i+1].Prefix
 		}
 	})
 	srv := seamServer(t, a)

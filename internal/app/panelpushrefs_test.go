@@ -34,7 +34,7 @@ func wantRef(t *testing.T, what string, c map[string]any, uid string, n int, nam
 
 func TestPushCheckpointsAndSetsStoreRouterReferences(t *testing.T) {
 	a, f, bot := takerApp(t, nil)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	ana := userKey(t, a, "Ana")
 	a.mu.Lock()
 	a.first.router.srcNames[3] = "CAM 3"

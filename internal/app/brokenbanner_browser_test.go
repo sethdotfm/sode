@@ -14,7 +14,7 @@ func TestChromeBrokenBanner(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	gone := config.Ref{Router: uid, N: 2, Name: "GONE 3"}
 	a.cfgMu.Lock()
 	err := a.commit(func(c *config.Config) error {

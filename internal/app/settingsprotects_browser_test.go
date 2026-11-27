@@ -27,9 +27,9 @@ func protectsRouters(t *testing.T, withC bool) (b *tab, a *App, uids []string, s
 	}
 	a = simRoutersApp(t, addrs, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126
-		for i := range c.MoreRouters {
-			c.MoreRouters[i].ProtectDevice = 127 + i
+		c.Routers[0].ProtectDevice = 126
+		for i := range c.Routers[1:] {
+			c.Routers[i+1].ProtectDevice = 127 + i
 		}
 	})
 	srv := seamServer(t, a)

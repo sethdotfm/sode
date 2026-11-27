@@ -134,13 +134,13 @@ func TestTieLineStampDropsWithTheTieLine(t *testing.T) {
 // The planner ranks the path whose newest tie line change is older first, and the order holds after a restart.
 func TestTieLineChangeRanksPaths(t *testing.T) {
 	a, fa, fb, _ := tieApp(t, func(c *config.Config) {
-		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: c.UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}})
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: c.Routers[0].UID, N: 11}, To: config.Ref{Router: "b2b2b2b2", N: 6}})
 	})
 	wire := a.r().byUI[1].Wire
 	fa.seed(11, 3, wire)
 	fb.seed(22, 6, wire)
 	fb.seed(23, 6, wire)
-	uidA := a.r().cfg.UID
+	uidA := a.r().cfg.Routers[0].UID
 	order := func(a *App) []string {
 		a.mu.Lock()
 		defer a.mu.Unlock()
@@ -182,8 +182,8 @@ func TestTieLineChangeRanksPaths(t *testing.T) {
 // cannot see. It keeps the id and the Tie line name, which a take names.
 func TestTieLinesHiddenView(t *testing.T) {
 	a, _, _, key := tieApp(t, func(c *config.Config) {
-		c.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]config.Ref{{Router: c.UID, N: 10}}, Sources: &[]config.Ref{{Router: c.UID, N: 3}}}
-		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: "b2b2b2b2", N: 40}, To: config.Ref{Router: c.UID, N: 6}})
+		c.APIClients[0].Rights = config.Rights{Visibility: config.VisHidden, Dsts: &[]config.Ref{{Router: c.Routers[0].UID, N: 10}}, Sources: &[]config.Ref{{Router: c.Routers[0].UID, N: 3}}}
+		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 4", From: config.Ref{Router: "b2b2b2b2", N: 40}, To: config.Ref{Router: c.Routers[0].UID, N: 6}})
 	})
 	at := time.Now().UTC().Truncate(time.Second)
 	a.tieChanges.set("t1", at, false)

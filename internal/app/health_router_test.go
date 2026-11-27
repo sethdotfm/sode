@@ -56,7 +56,7 @@ func TestHealthDegradedAndDown(t *testing.T) {
 	want(http.StatusOK, "healthy", "up", "up")
 	rec, _ := getHealth(t, a, http.MethodGet)
 	w := decodeWhole(t, rec.Body.Bytes())
-	if len(w.Routers) != 2 || w.Routers[0]["uid"] != a.r().cfg.UID || w.Routers[1]["uid"] != b.uid() ||
+	if len(w.Routers) != 2 || w.Routers[0]["uid"] != a.r().cfg.Routers[0].UID || w.Routers[1]["uid"] != b.uid() ||
 		w.Routers[1]["prefix"] != "B" || w.Routers[1]["title"] != "Second" || w.Routers[1]["targetAddress"] != "10.0.0.9:8910" {
 		t.Errorf("routers %s", rec.Body)
 	}

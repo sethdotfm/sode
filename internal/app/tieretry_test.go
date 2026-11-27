@@ -21,7 +21,7 @@ func lateHopTie(t *testing.T) (a *App, fa, fb *fakeRouter, key string, log func(
 	fa.ignore[10] = true
 	fa.mu.Unlock()
 	log = connectLog(fa, fb)
-	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(a.r().cfg.UID, [2]int{4, 2}), nil)
+	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(a.r().cfg.Routers[0].UID, [2]int{4, 2}), nil)
 	b := tieTakeAnswer(t, rec.Body)
 	if rec.Code != http.StatusOK || b.OK {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
@@ -38,7 +38,7 @@ func answerLate(a *App, fa *fakeRouter) {
 	fa.mu.Lock()
 	fa.ignore = map[int]bool{}
 	fa.mu.Unlock()
-	for l := 1; l <= a.r().routerOf(a.r().cfg.UID).Levels; l++ {
+	for l := 1; l <= a.r().routerOf(a.r().cfg.Routers[0].UID).Levels; l++ {
 		fa.mu.Lock()
 		fa.tally[[2]int{10, a.r().byUI[l].Wire}] = 4
 		fa.mu.Unlock()
@@ -102,12 +102,12 @@ func TestAPITieRetrySendsOnlyFailedHops(t *testing.T) {
 	a, fa, fb, key := tieApp(t, func(c *config.Config) {
 		r := moreRouter("C", "Third", "10.0.0.10:8910", 1)
 		r.UID = "c3c3c3c3"
-		c.MoreRouters = append(c.MoreRouters, r)
+		c.Routers = append(c.Routers, r)
 		c.TieLines = append(c.TieLines, config.TieLine{ID: "t2", Name: "TIE 5", From: config.Ref{Router: "b2b2b2b2", N: 11}, To: config.Ref{Router: r.UID, N: 6}})
 	})
-	fc, uc := addFakeUnit(t, a, a.r().cfg.MoreRouters[1])
+	fc, uc := addFakeUnit(t, a, a.r().cfg.Routers[2])
 	a.onUnitState(uc, swp08.StateUp, nil)
-	uidA, wire := a.r().cfg.UID, a.r().byUI[1].Wire
+	uidA, wire := a.r().cfg.Routers[0].UID, a.r().byUI[1].Wire
 	fb.seed(11, 9, wire)
 	fc.seed(2, 1, wire)
 	fb.mu.Lock()
@@ -184,7 +184,7 @@ func TestAPITieRetryRefusals(t *testing.T) {
 	a, _, _, key, hop := partialTie(t)
 	wantErr(t, apiPost(a, fmt.Sprintf("/api/v1/history/%d/retry", hop), key, "", nil), http.StatusConflict, "conflict")
 	a2, _, _, key2 := tieApp(t, nil)
-	rec := apiPost(a2, "/api/v1/takes", key2, tieRoutes(a2.r().cfg.UID, [2]int{4, 2}), nil)
+	rec := apiPost(a2, "/api/v1/takes", key2, tieRoutes(a2.r().cfg.Routers[0].UID, [2]int{4, 2}), nil)
 	r := tieTakeAnswer(t, rec.Body).Results[0]
 	wantErr(t, apiPost(a2, fmt.Sprintf("/api/v1/history/%d/retry", *r.Entry), key2, "", nil), http.StatusConflict, "conflict")
 }

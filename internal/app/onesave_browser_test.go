@@ -48,8 +48,8 @@ func TestChromeOneSaveReview(t *testing.T) {
 	b.waitFor("back on the review", `document.getElementById('review-back').textContent === 'Keep editing'`)
 	b.eval(`document.getElementById('review-back').click(); true`)
 	b.waitFor("review closed", `!document.getElementById('review').offsetParent`)
-	if cfg := a.r().cfg; cfg.BrandText == "Truck 4" || cfg.Address == "127.0.0.1:1" {
-		t.Fatalf("Back sent the save: brand %q, router %q", cfg.BrandText, cfg.Address)
+	if cfg := a.r().cfg; cfg.BrandText == "Truck 4" || cfg.Routers[0].Address == "127.0.0.1:1" {
+		t.Fatalf("Back sent the save: brand %q, router %q", cfg.BrandText, cfg.Routers[0].Address)
 	}
 
 	set("cfg-router", `f.value = '`+sim+`'`)

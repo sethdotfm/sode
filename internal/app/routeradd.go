@@ -41,14 +41,14 @@ func routerListField(r *config.Router, attr string) any {
 func routerListSpec(uid, attr string) (fieldSpec, bool) {
 	s := fieldSpec{section: routersSection, item: "router/" + uid}
 	at := func(c *config.Config) *config.Router {
-		if c.UID == uid {
+		if c.DefaultRouter().UID == uid {
 			if attr != "prefix" {
 				return nil // the first router's block has its own keys
 			}
-			return &c.Router
+			return &c.Routers[0]
 		}
 		if i := moreRouterIndex(c, uid); i >= 0 {
-			return &c.MoreRouters[i]
+			return &c.Routers[i]
 		}
 		return nil
 	}
@@ -59,7 +59,7 @@ func routerListSpec(uid, attr string) (fieldSpec, bool) {
 		return nil
 	}
 	s.set = func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
-		c.MoreRouters = slices.Clone(c.MoreRouters)
+		c.Routers = slices.Clone(c.Routers)
 		r := at(c)
 		if r == nil {
 			return errors.New("this router was removed meanwhile: reload the page")
@@ -89,14 +89,14 @@ func addRouterSpec(key string) fieldSpec {
 				return err
 			}
 			uid, _ := x.once(key, func() (string, error) { return config.NewRouterUID(), nil })
-			r := config.Defaults().Router
+			r := config.Defaults().DefaultRouter()
 			r.UID, r.Address, r.Matrix = uid, strings.TrimSpace(n.Address), n.Matrix
 			r.Prefix = cmp.Or(strings.ToUpper(strings.TrimSpace(n.Prefix)), c.FreePrefix())
 			r.Title = cmp.Or(strings.TrimSpace(n.Title), "Router "+r.Prefix)
 			if n.Levels > 0 {
 				r.Levels = n.Levels
 			}
-			c.MoreRouters = append(slices.Clone(c.MoreRouters), r)
+			c.Routers = append(slices.Clone(c.Routers), r)
 			return nil
 		}}
 }
@@ -106,7 +106,7 @@ func removeRouterSpec(uid string) fieldSpec {
 	return fieldSpec{section: routersSection, item: "router/" + uid,
 		get: func(c config.Config) any { _, ok := c.RouterByUID(uid); return !ok },
 		set: func(c *config.Config, _ json.RawMessage, _ *saveCtx) error {
-			if uid == c.UID {
+			if uid == c.DefaultRouter().UID {
 				return errors.New("the first router stays: change its address in its own block")
 			}
 			dropRouter(c, uid)
@@ -130,7 +130,7 @@ func dropRouter(c *config.Config, uid string) {
 	if i < 0 {
 		return
 	}
-	c.MoreRouters = slices.Delete(slices.Clone(c.MoreRouters), i, i+1)
+	c.Routers = slices.Delete(slices.Clone(c.Routers), i, i+1)
 	c.APIClients = slices.Clone(c.APIClients)
 	for _, s := range itemScopes(c, "") {
 		ps, fs := config.ClonePresets(*s.Presets), slices.Clone(*s.FilterSets)

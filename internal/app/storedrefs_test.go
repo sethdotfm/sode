@@ -159,7 +159,7 @@ func TestStoresHoldNoBareNumbers(t *testing.T) {
 	a.first.router.srcNames[1], a.first.router.srcNames[3] = "CAM 1", "CAM 3"
 	a.first.router.dstNames[2] = "MON 2"
 	a.mu.Unlock()
-	a.names.save(a.r().cfg.UID, time.Now(), map[int]string{1: "CAM 1"}, map[int]string{2: "MON 2"})
+	a.names.save(a.r().cfg.Routers[0].UID, time.Now(), map[int]string{1: "CAM 1"}, map[int]string{2: "MON 2"})
 
 	ana := userKey(t, a, "Ana")
 	cells := `[{"r":1,"c":1,"kind":"source","n":1},{"r":1,"c":2,"kind":"destination","n":2,"levels":[1]},` +

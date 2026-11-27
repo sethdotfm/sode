@@ -22,7 +22,7 @@ func swapApp(t *testing.T) (*App, string) {
 	}
 	readNames(a, srcs, dsts)
 	readNames(a, srcs, dsts)
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	ref := func(n int, name string) config.Ref { return config.Ref{Router: uid, N: n, Name: name} }
 	preset := func(id, name string, dsts ...config.Ref) config.Preset {
 		return config.Preset{ID: id, Name: name, Items: []config.PresetItem{{Src: ref(0, "CAM 1"), Dsts: dsts}}}

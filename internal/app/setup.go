@@ -113,7 +113,7 @@ func (a *App) setupDropLocked() {
 	addr := a.setup.addr
 	a.setup.moved = false
 	if err := a.applyConfigWith(func(cfg *config.Config) error {
-		cfg.Address = addr
+		cfg.EditDefaultRouter().Address = addr
 		return nil
 	}, false); err != nil {
 		log.Printf("setup: put back the router address: %v", err)
@@ -178,9 +178,9 @@ func (a *App) setupRouter(c *client, addr string) error {
 	if addr == "" {
 		return errors.New("enter the router's address")
 	}
-	was := a.r().cfg.Address
+	was := a.r().cfg.DefaultRouter().Address
 	err := a.applyConfigWith(func(c *config.Config) error {
-		c.Address = addr
+		c.EditDefaultRouter().Address = addr
 		return nil
 	}, false)
 	if err == nil && !a.setup.moved {
@@ -223,12 +223,14 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	u := config.User{ID: config.NewUserID(), Name: name, Role: config.RoleAdministrator, Pin: hash, Len: len(s.Pin)}
 	err = a.applyConfig(func(cfg *config.Config) error {
 		cfg.BrandText, cfg.BrandBorder = s.BrandText, s.BrandBorder
-		cfg.Address = strings.TrimSpace(s.Router)
-		if cfg.Levels != s.Levels {
-			cfg.DefaultLevels = "" // Normalize fills it for the new count
+		// The wizard sets up the default router, the only one while setup is pending.
+		r := cfg.EditDefaultRouter()
+		r.Address = strings.TrimSpace(s.Router)
+		if r.Levels != s.Levels {
+			r.DefaultLevels = "" // Normalize fills it for the new count
 		}
-		cfg.Levels, cfg.LevelNumbering, cfg.NumberOffset = s.Levels, s.LevelNumbering, s.NumberOffset
-		cfg.FireMode, cfg.SalvoGroup = s.FireMode, s.SalvoGroup
+		r.Levels, r.LevelNumbering, r.NumberOffset = s.Levels, s.LevelNumbering, s.NumberOffset
+		r.FireMode, r.SalvoGroup = s.FireMode, s.SalvoGroup
 		preset.Apply(cfg)
 		u.Persistent, u.NoAutoLock = cfg.NewUserDefaults.Persistent, cfg.NewUserDefaults.NoAutoLock
 		cfg.Users = []config.User{u}
@@ -251,7 +253,7 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 	a.mu.Unlock()
 	// flush writes no names table while setup is pending.
 	if len(src)+len(dst) > 0 {
-		a.names.save(after.UID, a.now(), src, dst)
+		a.names.save(after.DefaultRouter().UID, a.now(), src, dst)
 	}
 	log.Printf("setup: finished, %s is the first Administrator", name)
 	return signed, nil

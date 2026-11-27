@@ -59,7 +59,7 @@ func TestHelloListsEveryRouter(t *testing.T) {
 		t.Fatalf("routers: %+v", h.Routers)
 	}
 	f, b := h.Routers[0], h.Routers[1]
-	if f.UID != a.r().cfg.UID || f.Prefix != "A" || len(f.Srcs) != 1 || f.Srcs[0][1] != "A CAM 1" {
+	if f.UID != a.r().cfg.Routers[0].UID || f.Prefix != "A" || len(f.Srcs) != 1 || f.Srcs[0][1] != "A CAM 1" {
 		t.Errorf("first router: %+v", f)
 	}
 	if b.UID != u.uid() || b.Prefix != "B" || b.Title != "Second" || len(b.Levels) != 3 || b.Dsts[0][1] != "B MON 1" {

@@ -58,7 +58,7 @@ func (r *runtime) levelsOf(uid string) *routerLevels {
 	if l, ok := r.lv[uid]; ok {
 		return l
 	}
-	return r.lv[r.cfg.UID]
+	return r.lv[r.cfg.DefaultRouter().UID]
 }
 
 // label is the level's label in the router's Level numbering.
@@ -91,12 +91,12 @@ func newRuntime(c config.Config) (*runtime, error) {
 		return nil, err
 	}
 	r := &runtime{cfg: c, lv: map[string]*routerLevels{}, proxies: proxies}
-	for _, rc := range c.Routers() {
+	for _, rc := range c.Routers {
 		if r.lv[rc.UID], err = newRouterLevels(c, rc); err != nil {
 			return nil, err
 		}
 	}
-	first := r.levelsOf(c.UID)
+	first := r.levelsOf(c.DefaultRouter().UID)
 	r.levels, r.byWire, r.byUI = first.levels, first.byWire, first.byUI
 	return r, nil
 }
@@ -278,7 +278,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	if sent == nil {
 		sent, _ = OpenSentLog("", 0)
 	}
-	first := newRouterUnit(cfg.Router)
+	first := newRouterUnit(cfg.DefaultRouter())
 	a := &App{
 		first:      first,
 		hist:       hist,
@@ -306,7 +306,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.protects = loadProtects(cfgPath)
 	units := map[string]*routerUnit{first.uid(): first}
-	for _, rc := range cfg.MoreRouters {
+	for _, rc := range cfg.Routers[1:] {
 		u := newRouterUnit(rc)
 		units[u.uid()] = u
 	}

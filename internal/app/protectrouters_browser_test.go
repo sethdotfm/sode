@@ -15,8 +15,8 @@ func TestChromeProtectSecondRouter(t *testing.T) {
 	simB := startSim(t, simNames(t, "dst 3 Stage Mon"))
 	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
-		c.ProtectDevice = 126
-		c.MoreRouters[0].ProtectDevice = 127
+		c.Routers[0].ProtectDevice = 126
+		c.Routers[1].ProtectDevice = 127
 	})
 	srv := seamServer(t, a)
 	key := userKey(t, a, "Ana")

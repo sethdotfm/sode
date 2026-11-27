@@ -13,12 +13,12 @@ import (
 // twoRouterConfig: A (the first router, 4 levels) and B (2 levels).
 func twoRouterConfig() (Config, string, string) {
 	c := Defaults()
-	c.Address, c.Levels = "127.0.0.1:1", 4
-	b := c.Router
+	c.Routers[0].Address, c.Routers[0].Levels = "127.0.0.1:1", 4
+	b := c.Routers[0]
 	b.UID, b.Prefix, b.Address, b.Levels = "b2b2b2b2", "B", "127.0.0.1:2", 2
-	c.MoreRouters = []Router{b}
+	c.Routers = append(c.Routers[:1:1], []Router{b}...)
 	c.Normalize()
-	return c, c.UID, b.UID
+	return c, c.Routers[0].UID, b.UID
 }
 
 // Rights levels name their router: a limit on router A does not limit router B.

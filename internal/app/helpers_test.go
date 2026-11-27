@@ -26,7 +26,7 @@ func (a *App) SaveSettings(c *client, cfg config.Config) error {
 func (a *App) ApplyConfig(c config.Config) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	return a.applyConfig(func(cur *config.Config) error { *cur = c; return nil })
+	return a.applyConfig(func(cur *config.Config) error { *cur = c.Clone(); return nil })
 }
 
 func (a *App) UserLock(c *client) { a.setHeld(c, true) }

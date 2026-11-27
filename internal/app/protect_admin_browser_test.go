@@ -20,7 +20,7 @@ func TestChromeProtectAdminClearsWithoutTheRight(t *testing.T) {
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
 		c.Users[0].Rights = config.Rights{Protect: ptr(false)}
-		c.ProtectDevice = 126
+		c.Routers[0].ProtectDevice = 126
 		c.APIClients = []config.APIClient{{Name: "Desk", Scopes: []string{config.ScopeProtect, config.ScopeProtected},
 			Rights: config.Rights{Protect: ptr(true)}}}
 	})
@@ -64,7 +64,7 @@ func TestChromeProtectFreeAnotherAsksApproval(t *testing.T) {
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleTrusted
 		withAdministrator(c)
-		c.ProtectDevice = 126
+		c.Routers[0].ProtectDevice = 126
 		c.APIClients = []config.APIClient{{Name: "Desk", Scopes: []string{config.ScopeProtect, config.ScopeProtected},
 			Rights: config.Rights{Protect: ptr(true)}}}
 	})

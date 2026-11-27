@@ -70,7 +70,7 @@ func TestAPIProtectedUsesSodesHoldRule(t *testing.T) {
 	a.mu.Lock()
 	a.first.status.Router = string(swp08.StateUp)
 	a.mu.Unlock()
-	uid := a.r().cfg.UID
+	uid := a.r().cfg.Routers[0].UID
 	// dst 3: on Sode's device (126) with no record. dst 5: on 126, the record has an earlier device (120).
 	// dst 6: on the record's earlier device. dst 7: another device.
 	for _, rec := range []protectRec{

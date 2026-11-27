@@ -23,7 +23,7 @@ func everyRights(c *config.Config) []*config.Rights {
 func (a *App) nameRights(c *config.Config, old config.Config) {
 	was := map[string]string{}
 	note := config.RefWalk{Fn: func(kind string, f config.Ref) []config.Ref {
-		if f.Name != "" && (f.Router == "" || f.Router == old.UID) {
+		if f.Name != "" && (f.Router == "" || f.Router == old.DefaultRouter().UID) {
 			was[kind+strconv.Itoa(f.N)] = f.Name
 		}
 		return nil
@@ -35,7 +35,7 @@ func (a *App) nameRights(c *config.Config, old config.Config) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	fill := config.RefWalk{Fn: func(kind string, f config.Ref) []config.Ref {
-		if f.Name != "" || f.Router != "" && f.Router != c.UID {
+		if f.Name != "" || f.Router != "" && f.Router != c.DefaultRouter().UID {
 			return nil
 		}
 		if f.Name = sideNames(kind, first.router.srcNames, first.router.dstNames)[f.N]; strings.TrimSpace(f.Name) == "" {

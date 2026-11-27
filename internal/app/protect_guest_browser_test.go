@@ -14,7 +14,7 @@ func TestChromeProtectTrustedGuest(t *testing.T) {
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Locks = config.Locks{}
 		c.GuestRole = config.RoleTrusted
-		c.ProtectDevice = 127
+		c.Routers[0].ProtectDevice = 127
 	})
 	srv := seamServer(t, a)
 	waitNamesAndTally(t, a, userKey(t, a, "Ana"))
@@ -48,7 +48,7 @@ func TestChromeProtectSignedInKeepsTheGuests(t *testing.T) {
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Locks = config.Locks{}
 		c.GuestRole = config.RoleTrusted
-		c.ProtectDevice = 127
+		c.Routers[0].ProtectDevice = 127
 	})
 	srv := seamServer(t, a)
 	waitNamesAndTally(t, a, userKey(t, a, "Ana"))

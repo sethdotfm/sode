@@ -5,8 +5,8 @@ import "testing"
 func TestTallyCarriesLevelLook(t *testing.T) {
 	a, key := viewApp(t, "")
 	a.mu.Lock()
-	a.r().cfg.LevelNumbering = "va"
-	a.r().cfg.DefaultLevels = "V-3"
+	a.r().cfg.Routers[0].LevelNumbering = "va"
+	a.r().cfg.Routers[0].DefaultLevels = "V-3"
 	a.mu.Unlock()
 	res := viewGet(t, a, key, "/api/v1/tally")
 	lv := res["levels"].([]any)

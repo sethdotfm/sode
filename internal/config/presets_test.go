@@ -116,7 +116,7 @@ func TestPresetsMessageFits(t *testing.T) {
 	c := Defaults()
 	c.Normalize()
 	name := strings.Repeat("N", 16)
-	ref := func(n int) Ref { return Ref{Router: c.UID, N: n, Name: name} }
+	ref := func(n int) Ref { return Ref{Router: c.Routers[0].UID, N: n, Name: name} }
 	full := func(perPreset int) []Preset {
 		var out []Preset
 		for i := 0; i < MaxPresets; i++ {

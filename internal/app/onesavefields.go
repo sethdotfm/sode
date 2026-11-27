@@ -86,9 +86,9 @@ func lookupField(key string) (fieldSpec, bool) {
 			return s, true
 		}
 		return fieldSpec{section: sec,
-			get: func(c config.Config) any { return fieldOf(&c, key).Interface() },
+			get: func(c config.Config) any { return c.FieldOf(jsonFields()[key]).Interface() },
 			set: func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
-				return json.Unmarshal(v, fieldOf(c, key).Addr().Interface())
+				return json.Unmarshal(v, c.FieldToSet(jsonFields()[key]).Addr().Interface())
 			}}, true
 	}
 	if key == swapKey {
@@ -156,8 +156,12 @@ func routerField(r *config.Router, attr string) any {
 	return nil
 }
 
+// moreRouterIndex gives the index in c.Routers of router uid when it is after the default router, else -1.
 func moreRouterIndex(c *config.Config, uid string) int {
-	return slices.IndexFunc(c.MoreRouters, func(r config.Router) bool { return r.UID == uid })
+	if i := slices.IndexFunc(c.Routers, func(r config.Router) bool { return r.UID == uid }); i > 0 {
+		return i
+	}
+	return -1
 }
 
 // routerSpec: one level setting of a router after the first. The fields of one router validate together, so a new
@@ -172,15 +176,15 @@ func routerSpec(uid, attr string) (fieldSpec, bool) {
 		if i < 0 {
 			return nil
 		}
-		return routerField(&c.MoreRouters[i], attr)
+		return routerField(&c.Routers[i], attr)
 	}
 	s.set = func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
 		i := moreRouterIndex(c, uid)
 		if i < 0 {
 			return errors.New("this router was removed meanwhile: reload the page")
 		}
-		c.MoreRouters = slices.Clone(c.MoreRouters)
-		return json.Unmarshal(v, routerField(&c.MoreRouters[i], attr))
+		c.Routers = slices.Clone(c.Routers)
+		return json.Unmarshal(v, routerField(&c.Routers[i], attr))
 	}
 	return s, true
 }
@@ -188,11 +192,11 @@ func routerSpec(uid, attr string) (fieldSpec, bool) {
 // routerVersions: the versions of the router keys, which every hello carries.
 func routerVersions(cfg config.Config, out map[string]string) {
 	// The first router's prefix shows only with two or more routers.
-	if len(cfg.MoreRouters) > 0 {
-		k := "router/" + cfg.UID + "/prefix"
+	if len(cfg.Routers) > 1 {
+		k := "router/" + cfg.DefaultRouter().UID + "/prefix"
 		out[k] = fieldVersion(cfg, k)
 	}
-	for _, r := range cfg.MoreRouters {
+	for _, r := range cfg.Routers[1:] {
 		for _, at := range append(slices.Concat(routerAttrs, routerListAttrs), "remove") {
 			k := "router/" + r.UID + "/" + at
 			out[k] = fieldVersion(cfg, k)

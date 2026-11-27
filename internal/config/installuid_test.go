@@ -16,8 +16,8 @@ func TestInstallUIDMadeOnceAndKept(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.InstallUID == "" || c.InstallUID == c.UID {
-		t.Fatalf("install UID %q (router UID %q)", c.InstallUID, c.UID)
+	if c.InstallUID == "" || c.InstallUID == c.Routers[0].UID {
+		t.Fatalf("install UID %q (router UID %q)", c.InstallUID, c.Routers[0].UID)
 	}
 	again, _, err := Load(path)
 	if err != nil {

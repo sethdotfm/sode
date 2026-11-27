@@ -98,9 +98,9 @@ func TestAPITieLines(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) {
 		r := moreRouter("B", "Second", "", 1)
 		r.UID = "b2b2b2b2"
-		c.MoreRouters = []config.Router{r}
+		c.Routers = append(c.Routers[:1:1], []config.Router{r}...)
 		b = r.UID
-		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.UID, N: 40, Name: "TO B"}, To: config.Ref{Router: r.UID, N: 2, Name: "FROM A"}}}
+		c.TieLines = []config.TieLine{{ID: "t1", Name: "TIE 3", From: config.Ref{Router: c.Routers[0].UID, N: 40, Name: "TO B"}, To: config.Ref{Router: r.UID, N: 2, Name: "FROM A"}}}
 	})
 	rec := apiDo(a, "GET", "/api/v1/tielines", botKey(t, a), nil)
 	if rec.Code != http.StatusOK {
@@ -112,7 +112,7 @@ func TestAPITieLines(t *testing.T) {
 	}
 	got := list[0].(map[string]any)
 	from, to := got["from"].(map[string]any), got["to"].(map[string]any)
-	if got["id"] != "t1" || got["name"] != "TIE 3" || from["router"] != a.r().cfg.UID || from["n"] != 40.0 || to["router"] != b || to["n"] != 2.0 || len(from) != 2 {
+	if got["id"] != "t1" || got["name"] != "TIE 3" || from["router"] != a.r().cfg.Routers[0].UID || from["n"] != 40.0 || to["router"] != b || to["n"] != 2.0 || len(from) != 2 {
 		t.Errorf("tie line %v", got)
 	}
 }
