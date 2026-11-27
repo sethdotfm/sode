@@ -471,7 +471,7 @@ The chip in a patch box that fills it with the value after Last. That value is t
 The state where keys act on History entries instead of the patch boxes. Alt+Shift+k starts and ends it. Esc with empty boxes, or on a History button, also starts it. Any click ends it. Compact view has none.
 
 **Compact view**:
-The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever a link is not up. While Sode is Degraded, only the icon of each Router that is down shows, until the Lost link banner shows. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
+The desktop main page with History hidden and the title, patch boxes and a smaller Presets row centred in the window. The Settings and Sode Panels buttons, the Lock bar and the Server and Router status fade out until pointed at or focused. The status shows again whenever a link is not up. While Sode is Degraded, only the Routers icon shows, with the number of Router links that are down, until the Lost link banner shows. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
 
 **Home**:
 The main page, with the patch boxes, History and Presets. The Palette shows Home first on every other page. Alt+Shift+h opens Home from every page, and on Home it closes what is open and puts the focus in the Source box.
@@ -508,7 +508,7 @@ The connection between the Sode server and one router. Each router has its own.
 The state of Sode as a whole. Healthy means that every Router link is up. Degraded means that one or more Router links are down and one or more are up. Down means that every Router link is down. Keep Down apart from Offline, which is the page state when the Sode server cannot be reached.
 
 **Server run time**:
-How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The status details show it beside the Router link's uptime.
+How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The router list of the status bar shows it above the routers.
 _Avoid_: server uptime
 
 **Lost link**:
