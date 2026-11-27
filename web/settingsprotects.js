@@ -308,7 +308,7 @@ function draw() {
   }
 }
 
-// While the find box has focus, its row of tools stays; only the counts change.
+// While the find box has focus, its row of tools stays; only the counts and the pressed buttons change.
 function updateCounts(all, rts) {
   const kc = kindCounts(all, F);
   const rc = routerCounts(all, rts, F);
@@ -316,10 +316,22 @@ function updateCounts(all, rts) {
     const c = b.querySelector('.sode__pcount');
     if (!c) continue;
     const a = b.dataset.act;
-    if (a.startsWith('kind-')) c.textContent = String(kc[a.slice(5)]);
-    else if (a === 'router-all') c.textContent = String(rc[ALL_ROUTERS]);
-    else if (a.startsWith('router-')) c.textContent = String(rc[a.slice(7)]);
+    let on = false;
+    if (a.startsWith('kind-')) {
+      c.textContent = String(kc[a.slice(5)]);
+      on = F.kind === a.slice(5);
+    } else if (a === 'router-all') {
+      c.textContent = String(rc[ALL_ROUTERS]);
+      on = F.router === ALL_ROUTERS;
+    } else if (a.startsWith('router-')) {
+      c.textContent = String(rc[a.slice(7)]);
+      on = F.router === a.slice(7);
+    }
+    b.classList.toggle('pb-btn--selected', on);
+    b.setAttribute('aria-pressed', String(on));
   }
+  const sel = tools.querySelector('#protects-router');
+  if (sel) sel.value = F.router;
 }
 
 // One draw for a burst of changes. A timer, not a frame: a page out of sight gets no frames, and the list must be
