@@ -43,8 +43,8 @@ func (a *App) unitUID(rt *runtime, uid string) (string, bool) {
 	if u, ok := a.unit(uid); ok && uid != "" {
 		return u.uid(), true
 	}
-	if uid == rt.cfg.DefaultRouter().UID && a.first != nil {
-		return a.first.uid(), true
+	if uid == rt.cfg.DefaultRouter().UID && a.firstUnit() != nil {
+		return a.firstUnit().uid(), true
 	}
 	return "", false
 }

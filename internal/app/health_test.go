@@ -25,8 +25,8 @@ func getHealth(t *testing.T, a *App, method string) (*httptest.ResponseRecorder,
 func TestHealthRouterUp(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
-	a.first.status.Router = "up"
-	a.first.status.Addr = "10.0.0.1:8910"
+	a.firstUnit().status.Router = "up"
+	a.firstUnit().status.Addr = "10.0.0.1:8910"
 	a.mu.Unlock()
 	rec, b := getHealth(t, a, http.MethodGet)
 	if rec.Code != 200 {
@@ -59,8 +59,8 @@ func TestHealthRouterNotUp(t *testing.T) {
 	for _, st := range []string{"connecting", "down"} {
 		a := newTestApp(t)
 		a.mu.Lock()
-		a.first.status.Router = st
-		a.first.status.Err = "connection refused"
+		a.firstUnit().status.Router = st
+		a.firstUnit().status.Err = "connection refused"
 		a.mu.Unlock()
 		rec, b := getHealth(t, a, http.MethodGet)
 		if rec.Code != http.StatusServiceUnavailable {

@@ -121,8 +121,8 @@ func seedEverything(t *testing.T, a *App) {
 	cfg := a.r().cfg
 	uid, ana := cfg.Routers[0].UID, userID(t, a, "Ana")
 	a.mu.Lock()
-	a.first.router.srcNames[2] = "CAM 2"
-	a.first.router.dstNames[4] = "MON 4"
+	a.firstUnit().router.srcNames[2] = "CAM 2"
+	a.firstUnit().router.dstNames[4] = "MON 4"
 	a.mu.Unlock()
 	lifeCommit(t, a, func(c *config.Config) {
 		c.Presets = []config.Preset{{ID: "pr-1", Name: "Show", Items: []config.PresetItem{{Src: c.SourceRef(2, "CAM 2"), Dsts: []config.Ref{c.DestinationRef(4, "MON 4")}}}}}

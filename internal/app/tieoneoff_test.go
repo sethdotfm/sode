@@ -125,7 +125,7 @@ func TestAPIOneOffTieLineProtected(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	uidA := a.r().cfg.Routers[0].UID
 	a.mu.Lock()
-	a.first.router.protect[11] = map[int]protHold{1: {5, 1}}
+	a.firstUnit().router.protect[11] = map[int]protHold{1: {5, 1}}
 	a.mu.Unlock()
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, oneOffRoute(uidA, 4, 2, ""), nil)

@@ -73,8 +73,8 @@ func TestRouterListFields(t *testing.T) {
 	if b.Prefix != "BA" || b.Title != "Stage 2" || b.Address != "10.0.0.8:8910" || b.Matrix != 1 {
 		t.Fatalf("router %+v", b)
 	}
-	if u, _ := a.unit(uid); u.status.Addr != "10.0.0.8:8910" || a.first.status.Addr == "10.0.0.8:8910" {
-		t.Errorf("router B's unit at %q, the first router's at %q", u.status.Addr, a.first.status.Addr)
+	if u, _ := a.unit(uid); u.status.Addr != "10.0.0.8:8910" || a.firstUnit().status.Addr == "10.0.0.8:8910" {
+		t.Errorf("router B's unit at %q, the first router's at %q", u.status.Addr, a.firstUnit().status.Addr)
 	}
 	// The first router's fields have the same keys.
 	first := a.r().cfg.Routers[0].UID
@@ -184,7 +184,7 @@ func TestRemoveRouterInSettings(t *testing.T) {
 		t.Errorf("Default artwork %+v", l)
 	}
 
-	// The first router stays.
+	// The last router stays.
 	k := "router/" + first + "/remove"
 	wantRefused(t, p.saveFields(4, map[string]any{k: true}), k, "invalid")
 }

@@ -54,7 +54,9 @@ export const ROUTER_ATTRS = Object.freeze({
   protectDevice: 'routers',
 });
 const routerAttrOf = (key) => (key.startsWith('router/') ? key.slice(key.lastIndexOf('/') + 1) : '');
-export const sectionOfKey = (key) => SAVE_FIELDS[key] || ROUTER_ATTRS[routerAttrOf(key)] || ITEM_SECTIONS[key.split('/')[0]];
+// routers/order (the order of the routers) is in the Routers section too.
+export const sectionOfKey = (key) =>
+  SAVE_FIELDS[key] || ROUTER_ATTRS[routerAttrOf(key)] || ITEM_SECTIONS[key.split('/')[0]] || (key === 'routers/order' ? 'routers' : undefined);
 
 // The router connection fields of a router (reconnect:"true" in internal/config/router.go). A change reconnects that
 // router.

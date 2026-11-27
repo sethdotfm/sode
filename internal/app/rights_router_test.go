@@ -41,7 +41,7 @@ func rightsTwoRouters(t *testing.T, vis string) (a *App, fa, fb *fakeRouter, b *
 	})
 	fb, b = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	a.mu.Lock()
-	for _, u := range []*routerUnit{a.first, b} {
+	for _, u := range []*routerUnit{a.firstUnit(), b} {
 		u.router.srcNames[5], u.router.dstNames[5] = "CAM 5", "MON 5"
 		u.router.srcNames[6], u.router.dstNames[6] = "CAM 6", "MON 6"
 		u.router.tally[5] = map[int]int{1: 5}

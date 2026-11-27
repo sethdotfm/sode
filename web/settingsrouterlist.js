@@ -2,15 +2,30 @@
 // selection). Each row has two lines of fixed height: the prefix, the Router title and the marks, then the address and
 // the link state. A count line above the list gives the link states. With one router the list hides and the detail
 // view fills the section. From FIND_FROM routers a find box and "Only routers with a problem" show. The list has a
-// bounded height and a big scroll bar (.sode__rlist in SCROLLERS). Up and Down on the list move the selection.
+// bounded height and a big scroll bar (.sode__rlist in SCROLLERS). Up and Down on the list move the selection. A drag
+// of a row, or Alt+Up and Alt+Down, change the order; the first router is the default router. A filtered list does
+// not reorder, since a row would land next to rows that it does not show.
 
 import { $, el, on } from './core.js';
-import { routerItems, selectedRouter, selectRouter, addRouter, linkOfRouter, errorsOf, routerEdited, stateNode } from './settingsrouterdetail.js';
+import {
+  routerItems,
+  selectedRouter,
+  selectRouter,
+  addRouter,
+  linkOfRouter,
+  errorsOf,
+  routerEdited,
+  stateNode,
+  moveRouter,
+  moveRouterTo,
+} from './settingsrouterdetail.js';
 import { readValues, countLine, findMatch, hasProblem, rowMarks, FIND_FROM } from './routerdetailrules.js';
 
 const list = $('routers-list');
 const find = $('routers-find');
 const problems = $('routers-problems');
+
+let canDrag = false;
 
 function row(x, many) {
   const v = readValues(x.text);
@@ -29,6 +44,7 @@ function row(x, many) {
   );
   n.dataset.router = x.uid;
   n.setAttribute('aria-selected', String(on));
+  n.draggable = canDrag && !x.isNew;
   if (x.removed) n.dataset.removed = '';
   return n;
 }
@@ -55,6 +71,7 @@ function draw() {
   if (!many) return void list.replaceChildren();
   const had = list.contains(document.activeElement) ? document.activeElement.dataset?.router : '';
   const rows = shown(all);
+  canDrag = rows.length === all.length;
   if (!rows.length) {
     const clear = el('button', { class: 'pb-btn pb-btn--outline pb-btn--sm', type: 'button' }, 'Show all routers');
     clear.addEventListener('click', () => {
@@ -79,7 +96,16 @@ list.addEventListener('click', (e) => {
 });
 list.addEventListener('keydown', (e) => {
   const r = e.target.closest('.sode__rrow');
-  if (!r || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!r || e.ctrlKey || e.metaKey) return;
+  if (e.altKey) {
+    const step = { ArrowUp: -1, ArrowDown: 1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const uid = r.dataset.router;
+    if (canDrag) moveRouter(uid, step);
+    list.querySelector(`[data-router="${CSS.escape(uid)}"]`)?.focus({ preventScroll: true });
+    return;
+  }
   const rows = [...list.querySelectorAll('.sode__rrow')];
   const i = rows.indexOf(r);
   const to = { ArrowUp: i - 1, ArrowDown: i + 1, Home: 0, End: rows.length - 1 }[e.key];
@@ -91,6 +117,40 @@ list.addEventListener('keydown', (e) => {
     pick(r.dataset.router, false);
     $('cfg-rt-title').focus();
   }
+});
+
+// A drag of a row puts it before or after the row under the pointer.
+let dragUid = '';
+const clearDrop = () => {
+  for (const x of list.querySelectorAll('[data-drop]')) delete x.dataset.drop;
+};
+list.addEventListener('dragstart', (e) => {
+  dragUid = e.target.closest?.('.sode__rrow')?.dataset.router || '';
+  if (!dragUid) return;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragUid);
+});
+list.addEventListener('dragover', (e) => {
+  const r = e.target.closest('.sode__rrow');
+  if (!r || !dragUid || !r.draggable) return;
+  e.preventDefault();
+  clearDrop();
+  const box = r.getBoundingClientRect();
+  r.dataset.drop = e.clientY < box.top + box.height / 2 ? 'before' : 'after';
+});
+list.addEventListener('drop', (e) => {
+  const r = e.target.closest('.sode__rrow');
+  if (!r || !dragUid) return;
+  e.preventDefault();
+  const after = r.dataset.drop === 'after';
+  clearDrop();
+  const uid = dragUid;
+  dragUid = '';
+  moveRouterTo(uid, r.dataset.router, after);
+});
+list.addEventListener('dragend', () => {
+  dragUid = '';
+  clearDrop();
 });
 
 // The find box and the filter are not settings: the form must not see their events (it would drop the exit warning).

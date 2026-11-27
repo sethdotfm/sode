@@ -37,7 +37,7 @@ func newShutdownRig(t *testing.T, hold time.Duration) *shutdownRig {
 	t.Helper()
 	a := newTestApp(t)
 	r := &shutdownRig{a: a, f: newFakeRouter(t, a), ran: make(chan struct{})}
-	a.first.sendMsg = func(m []byte, why swp08.Why) error {
+	a.firstUnit().sendMsg = func(m []byte, why swp08.Why) error {
 		if m[0] == swp08.CmdExtConnect {
 			r.connects.Add(1)
 		}
@@ -169,7 +169,7 @@ func TestShutdownStopsAtTheLimit(t *testing.T) {
 	defer log.SetOutput(os.Stderr)
 	r := newShutdownRig(t, 0)
 	r.a.drainLimit = 100 * time.Millisecond
-	r.a.first.routeTimeout = 800 * time.Millisecond // the router never answers, so the take waits this long
+	r.a.firstUnit().routeTimeout = 800 * time.Millisecond // the router never answers, so the take waits this long
 	r.f.mu.Lock()
 	r.f.ignore[6] = true
 	r.f.mu.Unlock()

@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { diffRows, groupRows, saveLabel, refusalNote, showValue, reconnects, reconnectTargets, reconnectQuestion, sectionOfKey } from '../savereviewrules.js';
+import {
+  diffRows,
+  groupRows,
+  saveLabel,
+  refusalNote,
+  showValue,
+  reconnects,
+  reconnectTargets,
+  reconnectQuestion,
+  sectionOfKey,
+  critical,
+} from '../savereviewrules.js';
 import { routerDisplay } from '../routerlistrules.js';
 
 test('only changed fields make rows, with was and now', () => {
@@ -81,7 +92,9 @@ test('a refused field says why; a conflict shows the saved value', () => {
 
 test('router connection fields reconnect; others do not', () => {
   for (const a of ['address', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests']) assert.ok(reconnects(`router/ua/${a}`), a);
-  for (const k of ['router/ua/title', 'router/ua/fireMode', 'routerShow', 'brandText', 'locks']) assert.ok(!reconnects(k), k);
+  for (const k of ['router/ua/title', 'router/ua/fireMode', 'routerShow', 'brandText', 'locks', 'routers/order']) assert.ok(!reconnects(k), k);
+  // A new order reconnects no router and is not Critical.
+  assert.ok(!critical('routers/order'));
   // The flat keys of the first router are gone: router/<uid>/<attribute> names every router.
   for (const k of ['router', 'matrix', 'levels']) assert.ok(!reconnects(k), k);
 });

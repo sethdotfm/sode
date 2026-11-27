@@ -70,7 +70,7 @@ func TestAPITiePutBack(t *testing.T) {
 func TestAPITiePutBackRefusedAfterTieMoved(t *testing.T) {
 	a, fa, fb, key, hop := partialTie(t)
 	a.mu.Lock()
-	a.first.router.srcNames[8] = "CAM 9"
+	a.firstUnit().router.srcNames[8] = "CAM 9"
 	a.mu.Unlock()
 	fa.seed(10, 8, a.r().byUI[1].Wire)
 	log := connectLog(fa, fb)

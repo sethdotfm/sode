@@ -89,7 +89,7 @@ func TestRouteChangeWire(t *testing.T) {
 		t.Fatalf("hello tally/protected: %v %v", r["tally"], r["protected"])
 	}
 	a.mu.Lock()
-	a.first.router.tally, a.first.router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
+	a.firstUnit().router.tally, a.firstUnit().router.protect = map[int]map[int]int{}, map[int]map[int]protHold{}
 	h = asMap(t, a.hello(helloPage{}))
 	a.mu.Unlock()
 	if r := firstHelloRouter(t, h); !reflect.DeepEqual(r["tally"], []any{}) || !reflect.DeepEqual(r["protected"], []any{}) {

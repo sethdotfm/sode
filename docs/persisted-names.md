@@ -76,6 +76,8 @@ The owner approved these renames (docs/research/settings-review/RECOMMENDATIONS.
 | `router`, `targetAddress`, `err` at the top of `/api/health` | `routers[]` | HTTP |
 | `router`, `routerUp`, `error`, `address`, `err` at the top of `GET /api/v1/status` and its stream frames | `routers[]` | HTTP and the API stream |
 
+The order of the routers is the one Save key `routers/order` (section `routers`): a list of router UIDs. The first router of the list is the default router. The hello carries its version. A router that the list does not name (one that the same save adds) comes after the named ones. A new order is not Critical and reconnects no router. It is new in this release; no old name.
+
 `routerShow` stays a plain one Save key: the status label is one setting for the status bar, not one for each router.
 
 ## Close names that are not retired

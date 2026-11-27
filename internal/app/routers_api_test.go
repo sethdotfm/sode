@@ -19,13 +19,13 @@ func TestNewLinksEveryRouter(t *testing.T) {
 	})
 	b := a.r().cfg.Routers[1]
 	u, ok := a.unit(b.UID)
-	if len(a.units()) != 2 || !ok || u == a.first {
+	if len(a.units()) != 2 || !ok || u == a.firstUnit() {
 		t.Fatalf("units %v", a.units())
 	}
-	if u.sw == nil || a.first.sw == nil || u.status.Addr != "10.0.0.9:8910" || a.first.status.Addr == u.status.Addr {
-		t.Errorf("second link %v at %q, first at %q", u.sw, u.status.Addr, a.first.status.Addr)
+	if u.sw == nil || a.firstUnit().sw == nil || u.status.Addr != "10.0.0.9:8910" || a.firstUnit().status.Addr == u.status.Addr {
+		t.Errorf("second link %v at %q, first at %q", u.sw, u.status.Addr, a.firstUnit().status.Addr)
 	}
-	if got := a.unitsInOrder(a.r()); len(got) != 2 || got[0] != a.first || got[1] != u {
+	if got := a.unitsInOrder(a.r()); len(got) != 2 || got[0] != a.firstUnit() || got[1] != u {
 		t.Errorf("units in order %v", got)
 	}
 }
@@ -176,7 +176,7 @@ func TestAPIReadsNeedARouter(t *testing.T) {
 func TestAPIProtectedOfEachRouter(t *testing.T) {
 	a, _, _, b, key := apiTwoRouters(t)
 	a.mu.Lock()
-	a.first.router.protect[5] = map[int]protHold{1: {dev: 9, kind: swp08.KindProtect}}
+	a.firstUnit().router.protect[5] = map[int]protHold{1: {dev: 9, kind: swp08.KindProtect}}
 	b.router.protect[2] = map[int]protHold{1: {dev: 7, kind: swp08.KindProtect}}
 	a.mu.Unlock()
 	wantErr(t, apiDo(a, "GET", "/api/v1/protected", key, nil), http.StatusBadRequest, "router_needed")
@@ -230,7 +230,7 @@ func TestRouterChangeCutsOnlyItsTakes(t *testing.T) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if b.status.Addr != "10.0.0.10:8910" || a.first.status.Addr == b.status.Addr {
-		t.Errorf("status of B %q, of A %q", b.status.Addr, a.first.status.Addr)
+	if b.status.Addr != "10.0.0.10:8910" || a.firstUnit().status.Addr == b.status.Addr {
+		t.Errorf("status of B %q, of A %q", b.status.Addr, a.firstUnit().status.Addr)
 	}
 }

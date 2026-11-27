@@ -70,17 +70,54 @@ func addRouterSpec(key string) fieldSpec {
 		}}
 }
 
-// removeRouterSpec removes a router after the first. What names it changes as dropRouter says.
+// removeRouterSpec removes a router, the first one too, while another router stays. What names it changes as
+// dropRouter says. With the first router gone, the next one is the default router.
 func removeRouterSpec(uid string) fieldSpec {
 	return fieldSpec{section: routersSection, item: "router/" + uid,
 		get: func(c config.Config) any { _, ok := c.RouterByUID(uid); return !ok },
 		set: func(c *config.Config, _ json.RawMessage, _ *saveCtx) error {
-			if uid == c.DefaultRouter().UID {
-				return errors.New("the first router stays: Sode needs one router")
+			if _, ok := c.RouterByUID(uid); ok && len(c.Routers) < 2 {
+				return errors.New("the last router stays: Sode needs one router")
 			}
 			dropRouter(c, uid)
 			return nil
 		}}
+}
+
+// routersOrderKey: the one Save key of the order of the routers, a list of router UIDs. The first router of the list
+// is the default router. A router that the list does not name (one that the same save adds) comes after the named
+// ones. Sode skips a UID that it does not have. A reorder reconnects no router.
+const routersOrderKey = "routers/order"
+
+func routersOrderSpec() fieldSpec {
+	return fieldSpec{section: routersSection,
+		get: func(c config.Config) any { return c.RouterUIDs() },
+		set: func(c *config.Config, v json.RawMessage, _ *saveCtx) error {
+			var uids []string
+			if err := json.Unmarshal(v, &uids); err != nil {
+				return err
+			}
+			c.Routers = reorderRouters(c.Routers, uids)
+			return nil
+		}}
+}
+
+// reorderRouters gives the routers in the order of uids, then the routers that uids does not name, in their order.
+func reorderRouters(rs []config.Router, uids []string) []config.Router {
+	out := make([]config.Router, 0, len(rs))
+	used := map[string]bool{}
+	for _, uid := range uids {
+		if i := slices.IndexFunc(rs, func(r config.Router) bool { return r.UID == uid }); i >= 0 && !used[uid] {
+			out = append(out, rs[i])
+			used[uid] = true
+		}
+	}
+	for _, r := range rs {
+		if !used[r.UID] {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 func removeKeyRouter(key string) (string, bool) {
@@ -95,7 +132,7 @@ func removeKeyRouter(key string) (string, bool) {
 // owners see what to fix. Rights lose the references and levels of that router, and each tie line with an end on it
 // goes. Validate refuses a router that Sode does not have, and Sode never uses a router UID again.
 func dropRouter(c *config.Config, uid string) {
-	i := moreRouterIndex(c, uid)
+	i := routerIndex(c, uid)
 	if i < 0 {
 		return
 	}

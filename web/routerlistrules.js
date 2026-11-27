@@ -14,6 +14,9 @@ export function routerDisplay(r) {
 export const listKey = (uid, attr) => `router/${uid}/${attr}`;
 export const addKey = (n) => `router/new:${n}/add`;
 export const removeKey = (uid) => `router/${uid}/remove`;
+// The order of the routers, a list of router UIDs. The first router of the list is the default router. Keep in step
+// with routersOrderKey in internal/app/routeradd.go.
+export const ORDER_KEY = 'routers/order';
 
 // The keys of the router list: every setting of a router, its Remove, and Add router.
 export const LIST_KEY = /^router\/[^/]+\/[A-Za-z]+$/;

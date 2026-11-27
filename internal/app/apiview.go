@@ -20,8 +20,8 @@ func (a *App) view(c *apiCtx) apiView { return a.viewOf(c.Rights) }
 // viewOf is the view of a caller with rights rt: an API caller, or a page (pageTieRetry).
 func (a *App) viewOf(rt config.Rights) apiView {
 	v := apiView{rights: rt, first: a.r().cfg.DefaultRouter().UID}
-	if a.first != nil {
-		v.firstUnit = a.first.uid()
+	if a.firstUnit() != nil {
+		v.firstUnit = a.firstUnit().uid()
 	}
 	return v
 }

@@ -131,7 +131,7 @@ func TestOneSaveBlankDefaultLevels(t *testing.T) {
 func TestRouterNameAndRecordLevels(t *testing.T) {
 	a, uid := routerLevelsApp(t)
 	u, _ := a.unit(uid)
-	if got := a.routerName(a.first); got != "Router A" {
+	if got := a.routerName(a.firstUnit()); got != "Router A" {
 		t.Errorf("first router %q", got)
 	}
 	if got, sw := a.routerName(u), u.sw.Name(); got != "B Second" || sw != got {
@@ -155,7 +155,7 @@ func TestRouterNameAndRecordLevels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := a1.routerName(a1.first); got != "Main" {
+	if got := a1.routerName(a1.firstUnit()); got != "Main" {
 		t.Errorf("one router %q", got)
 	}
 }

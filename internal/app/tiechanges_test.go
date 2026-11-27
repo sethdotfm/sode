@@ -108,7 +108,7 @@ func TestTieLineChangeSurvivesRestart(t *testing.T) {
 		t.Errorf("after the restart %v", row)
 	}
 	a2.mu.Lock()
-	a2.stampTieLines(a2.first, a2.r(), 10, false)
+	a2.stampTieLines(a2.firstUnit(), a2.r(), 10, false)
 	a2.mu.Unlock()
 	if row := apiTieLineRow(t, a2, "t1"); row["before"] != false {
 		t.Errorf("after a new change %v", row)
@@ -155,7 +155,7 @@ func TestTieLineChangeRanksPaths(t *testing.T) {
 	stampAt := func(a *App, dst int, at time.Time) {
 		a.now = func() time.Time { return at }
 		a.mu.Lock()
-		a.stampTieLines(a.first, a.r(), dst, false)
+		a.stampTieLines(a.firstUnit(), a.r(), dst, false)
 		a.mu.Unlock()
 	}
 	stampAt(a, 10, recent)

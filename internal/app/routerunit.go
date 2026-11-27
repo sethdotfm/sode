@@ -93,7 +93,7 @@ func (u *routerUnit) name() string {
 // renameFirstMu gives it a new UID. A unit that a commit took out is "removed router".
 func (a *App) routerName(u *routerUnit) string {
 	cfg := a.r().cfg
-	if u == a.first {
+	if u == a.firstUnit() {
 		return cfg.RouterName(cfg.DefaultRouter())
 	}
 	if rc, ok := cfg.RouterByUID(u.uid()); ok {
@@ -139,7 +139,8 @@ func (r *runtime) routerOf(uid string) config.Router {
 // unit gives the router unit for a router UID; blank is the first router.
 func (a *App) unit(uid string) (*routerUnit, bool) {
 	if uid == "" {
-		return a.first, a.first != nil
+		f := a.firstUnit()
+		return f, f != nil
 	}
 	u, ok := a.units()[uid]
 	return u, ok
@@ -155,20 +156,23 @@ func (a *App) startUnitMu(u *routerUnit) {
 }
 
 // syncUnitsMu makes a unit for each router that the settings add, and starts its link while Run runs. It takes the
-// unit of each router that they remove out of the list, and cuts its takes. The first router's unit always stays.
-// The caller ends the gone units' links (endUnit) after it releases mu. Caller holds mu.
+// unit of each router that they remove out of the list, and cuts its takes. Then it points first at the unit of the
+// first router of the settings. A reorder, or a removal of the first router, only moves first: each unit that stays
+// keeps its link, names, tally and uptime. A restore can give the first router a UID that no unit has, while the old
+// first router left the settings. Then the old first unit takes the new UID (renameFirstMu). The caller
+// ends the gone units' links (endUnit) after it releases mu. Caller holds mu.
 func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
 	old := a.units()
-	if uid := r.cfg.DefaultRouter().UID; uid != "" && uid != a.first.uid() {
-		// A unit after the first that has the new UID leaves; a router of the settings with that UID gets a new unit.
-		if u, ok := old[uid]; ok {
-			u.cutRoutes()
-			gone = append(gone, u)
+	first := a.firstUnit()
+	want := r.cfg.DefaultRouter().UID
+	if _, have := old[want]; want != "" && !have && first != nil {
+		if _, stays := r.cfg.RouterByUID(first.uid()); !stays {
+			old = a.renameFirstMu(old, want)
 		}
-		old = a.renameFirstMu(old, uid)
 	}
-	next := map[string]*routerUnit{a.first.uid(): a.first}
-	for _, rc := range r.cfg.Routers[1:] {
+	next := map[string]*routerUnit{}
+	changed := false
+	for _, rc := range r.cfg.Routers {
 		if u, ok := old[rc.UID]; ok {
 			next[rc.UID] = u
 			continue
@@ -180,15 +184,20 @@ func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
 		}
 		next[u.uid()] = u
 		added = append(added, u)
+		changed = true
 	}
 	for uid, u := range old {
 		if _, ok := next[uid]; !ok {
 			u.cutRoutes()
 			gone = append(gone, u)
+			changed = true
 		}
 	}
-	if len(added) > 0 || len(gone) > 0 {
+	if changed {
 		a.routers.Store(&next)
+	}
+	if u := next[want]; u != nil && u != first {
+		a.first.Store(u)
 	}
 	return added, gone
 }
@@ -198,14 +207,19 @@ func (a *App) syncUnitsMu(r *runtime) (added, gone []*routerUnit) {
 // carries an older UID. It gives old with the unit under its new key only; a router after the first that has the old
 // UID gets a new unit. Caller holds mu.
 func (a *App) renameFirstMu(old map[string]*routerUnit, uid string) map[string]*routerUnit {
+	first := a.firstUnit()
 	m := make(map[string]*routerUnit, len(old))
 	for k, u := range old {
-		if u != a.first && k != uid {
+		if u != first && k != uid {
 			m[k] = u
 		}
 	}
-	a.first.id.Store(&uid)
-	m[uid] = a.first
+	first.id.Store(&uid)
+	m[uid] = first
+	// The uptime file goes on with the router that it was about.
+	if first.up != nil && first.up.path != "" {
+		writeUptimeRouter(first.up.path, uid)
+	}
 	a.routers.Store(&m)
 	return m
 }
@@ -227,8 +241,9 @@ func (a *App) gone(u *routerUnit) bool {
 // units gives every router unit by router UID. The map is never changed: syncUnitsMu swaps in a new one.
 func (a *App) units() map[string]*routerUnit { return *a.routers.Load() }
 
-// firstUnit gives the first router's unit. The flat hello fields, the protected message and the uptime file name it.
-func (a *App) firstUnit() *routerUnit { return a.first }
+// firstUnit gives the unit of the first router of the settings, the default router. It is the router of a blank UID.
+// A reorder or a removal of the first router changes it (syncUnitsMu).
+func (a *App) firstUnit() *routerUnit { return a.first.Load() }
 
 // unitOrFirst gives the unit for a router UID. Blank, or a UID with no unit (one that a page sent before a restore
 // changed the UID), gives the first router.
@@ -236,14 +251,18 @@ func (a *App) unitOrFirst(uid string) *routerUnit {
 	if u, ok := a.unit(uid); ok {
 		return u
 	}
-	return a.first
+	return a.firstUnit()
 }
 
-// unitOfRouter gives the unit of a router in cfg. The first router of cfg is the first unit, also while a commit has
-// not yet given that unit a new UID (renameFirstMu).
+// unitOfRouter gives the unit of a router in cfg. A commit can give the first router a UID that no unit has yet
+// (renameFirstMu). Until then, that first router of cfg is the first unit.
 func (a *App) unitOfRouter(cfg config.Config, uid string) (*routerUnit, bool) {
+	if u, ok := a.unit(uid); ok && uid != "" {
+		return u, true
+	}
 	if uid == cfg.DefaultRouter().UID {
-		return a.first, a.first != nil
+		f := a.firstUnit()
+		return f, f != nil
 	}
 	return a.unit(uid)
 }

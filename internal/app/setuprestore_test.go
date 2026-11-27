@@ -32,7 +32,7 @@ func backupOf(t *testing.T, pins bool) (*App, []byte) {
 	seedPanelExtras(t, a)
 	lifeCommit(t, a, func(c *config.Config) { c.BrandText, c.Routers[0].Title, c.Routers[0].Prefix = "Truck A", "Main", "B" })
 	a.mu.Lock()
-	a.first.router.namesAt = time.Date(2026, 11, 18, 9, 30, 0, 0, time.UTC)
+	a.firstUnit().router.namesAt = time.Date(2026, 11, 18, 9, 30, 0, 0, time.UTC)
 	a.mu.Unlock()
 	return a, exported(t, a, tok, backupReq(pins))
 }
@@ -198,7 +198,7 @@ func slicesSortedKeys(m map[string][]byte) []string {
 func TestRestoreFirstRouterUIDReachesItsUnit(t *testing.T) {
 	_, file := backupOf(t, true)
 	b := setupApp(t)
-	was := b.first.uid()
+	was := b.firstUnit().uid()
 	_, key := restoreKey(t, b)
 	restored(t, postRestore(t, b, key, file, ""))
 	uid := b.r().cfg.Routers[0].UID
@@ -216,14 +216,14 @@ func TestRestoreFirstRouterUIDReachesItsUnit(t *testing.T) {
 	if err := json.Unmarshal(raw, &h); err != nil || len(h.Routers) == 0 || h.Routers[0].UID != uid {
 		t.Fatalf("hello routers %+v (%v), want the first with %s", h.Routers, err, uid)
 	}
-	if u, ok := b.unit(uid); !ok || u != b.first {
-		t.Fatalf("no unit for the file's UID %s (first unit %s)", uid, b.first.uid())
+	if u, ok := b.unit(uid); !ok || u != b.firstUnit() {
+		t.Fatalf("no unit for the file's UID %s (first unit %s)", uid, b.firstUnit().uid())
 	}
 	if _, ok := b.unit(was); ok {
 		t.Fatalf("the start-up UID %s still has a unit", was)
 	}
 	b.mu.Lock()
-	b.first.up.State(true)
+	b.firstUnit().up.State(true)
 	b.mu.Unlock()
 	if m := b.uptimeReply(1, uid, 0, 0, 60_000); m.Router != uid || len(m.Trans) == 0 || m.Trans[len(m.Trans)-1].S != "up" {
 		t.Fatalf("uptime of %s: %+v", uid, m)
@@ -232,7 +232,7 @@ func TestRestoreFirstRouterUIDReachesItsUnit(t *testing.T) {
 		<-b.evq
 	}
 	b.mu.Lock()
-	b.logLink(b.first, swp08.StateDown, errors.New("refused"))
+	b.logLink(b.firstUnit(), swp08.StateDown, errors.New("refused"))
 	b.mu.Unlock()
 	if e := <-b.evq; e.Router != uid {
 		t.Fatalf("link row names router %s, want %s", e.Router, uid)
@@ -240,7 +240,7 @@ func TestRestoreFirstRouterUIDReachesItsUnit(t *testing.T) {
 	for len(b.txq) > 0 {
 		<-b.txq
 	}
-	b.first.sw.OnTx(swp08.TxEvent{})
+	b.firstUnit().sw.OnTx(swp08.TxEvent{})
 	if e := <-b.txq; e.Why.Router != uid {
 		t.Fatalf("sent row names router %s, want %s", e.Why.Router, uid)
 	}

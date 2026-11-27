@@ -37,7 +37,7 @@ func TestPushCheckpointsAndSetsStoreRouterReferences(t *testing.T) {
 	uid := a.r().cfg.Routers[0].UID
 	ana := userKey(t, a, "Ana")
 	a.mu.Lock()
-	a.first.router.srcNames[3] = "CAM 3"
+	a.firstUnit().router.srcNames[3] = "CAM 3"
 	a.mu.Unlock()
 	from := makePanel(t, a, ana, `{"name":"From"}`)
 	to := makePanel(t, a, ana, `{"name":"To"}`)

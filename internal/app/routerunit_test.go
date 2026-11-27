@@ -13,11 +13,11 @@ import (
 func TestAppHoldsOneRouterUnitByUID(t *testing.T) {
 	a := newTestApp(t)
 	uid := a.r().cfg.Routers[0].UID
-	if len(a.units()) != 1 || a.units()[uid] != a.first || a.first.uid() != uid {
-		t.Fatalf("routers %v, first %p, uid %q", a.units(), a.first, uid)
+	if len(a.units()) != 1 || a.units()[uid] != a.firstUnit() || a.firstUnit().uid() != uid {
+		t.Fatalf("routers %v, first %p, uid %q", a.units(), a.firstUnit(), uid)
 	}
 	for _, k := range []string{"", uid} {
-		if u, ok := a.unit(k); !ok || u != a.first {
+		if u, ok := a.unit(k); !ok || u != a.firstUnit() {
 			t.Errorf("unit(%q) = %p %v", k, u, ok)
 		}
 	}
@@ -137,11 +137,11 @@ func TestRouterMessageStaysInItsUnit(t *testing.T) {
 	if other.router.tally[5][1] != 7 {
 		t.Errorf("other unit tally %v", other.router.tally)
 	}
-	if _, ok := a.first.router.tally[5]; ok {
-		t.Errorf("first unit got the other router's route: %v", a.first.router.tally)
+	if _, ok := a.firstUnit().router.tally[5]; ok {
+		t.Errorf("first unit got the other router's route: %v", a.firstUnit().router.tally)
 	}
 	a.onUnitState(other, swp08.StateUp, nil)
-	if other.status.Router != string(swp08.StateUp) || a.first.status.Router == string(swp08.StateUp) {
-		t.Errorf("status: other %q, first %q", other.status.Router, a.first.status.Router)
+	if other.status.Router != string(swp08.StateUp) || a.firstUnit().status.Router == string(swp08.StateUp) {
+		t.Errorf("status: other %q, first %q", other.status.Router, a.firstUnit().status.Router)
 	}
 }

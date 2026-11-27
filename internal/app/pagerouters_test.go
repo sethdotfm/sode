@@ -26,7 +26,7 @@ func pageMsgs(t *testing.T, c *client) map[string][]map[string]any {
 // The hello lists every router with its names, tally, levels and link state. It has no flat fields of one router.
 func TestHelloListsEveryRouter(t *testing.T) {
 	a, _, _, u := twoRouterFiles(t)
-	readUnitNames(a, a.first, []string{"A CAM 1"}, []string{"A MON 1"})
+	readUnitNames(a, a.firstUnit(), []string{"A CAM 1"}, []string{"A MON 1"})
 	readUnitNames(a, u, []string{"B CAM 1"}, []string{"B MON 1"})
 	a.mu.Lock()
 	u.router.tally[0] = map[int]int{1: 0}
@@ -89,7 +89,7 @@ func TestPageMessagesNameTheirRouter(t *testing.T) {
 	for _, m := range got["tally"] {
 		byRouter[m["routerUid"].(string)] = strings.TrimSpace(string(mustJSON(t, m["u"])))
 	}
-	if byRouter[a.first.uid()] != "[[2,1,4]]" || byRouter[u.uid()] != "[[3,1,5]]" {
+	if byRouter[a.firstUnit().uid()] != "[[2,1,4]]" || byRouter[u.uid()] != "[[3,1,5]]" {
 		t.Errorf("tally messages: %v", byRouter)
 	}
 	if n := got["names"]; len(n) != 1 || n[0]["routerUid"] != u.uid() {

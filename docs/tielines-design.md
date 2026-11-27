@@ -32,7 +32,7 @@ With this design, the user types `A.1` to `B.42` on one Sode page and does one t
 2. The dot is optional when a person types. `A11` and `A.11` mean the same thing. Sode always shows the dot.
 3. Letters that are a router prefix, followed by digits, always mean that router first. Name matches come after the prefix match. Thus `B42` stays B.42 when someone names a source "B42 MON".
 4. With two or more routers, each match in every name search shows its router prefix.
-5. Each patch box has a default router, set for each browser and shown in the box. A bare number means that router. A new browser gets the first router.
+5. Each patch box has a router, set for each browser and shown in the box. A bare number means that router. A new browser gets the default router (the first router of the list in Settings > Routers).
 6. With two or more routers, History and presets always show the prefix.
 7. docs/api.md says that a prefix is one letter, A to Z. Change it to one or two letters.
 
@@ -292,7 +292,7 @@ Rights checks compare the router and the number of each reference. A right for s
 1. Swap does not move a tie line end by itself, since a tie line is a cable. The Swap review row lists each tie line that uses a swapped number, and the Administrator chooses. Each tie line starts not ticked. A ticked tie line moves its end to the new number. A user's own Swap never lists a tie line (agent decision).
 2. Tie lines are their own export category. On import, Sode drops a tie line with a note when one of its two routers is not mapped.
 3. Before the Critical confirm, a router delete lists every tie line, panel and preset that it will break. The delete also deletes each tie line with an end on that router. Validate refuses a tie line with a router that Sode does not have.
-4. A router delete marks each preset, filter set, panel cell and Grid member that names the router Broken. Rights and a panel's level subset lose that router, since a Rights entry cannot name a router that Sode does not have. The first router cannot be deleted. An Administrator changes its address in its own block.
+4. A router delete marks each preset, filter set, panel cell and Grid member that names the router Broken. Rights and a panel's level subset lose that router, since a Rights entry cannot name a router that Sode does not have. The last router cannot be deleted. When the first router goes, the next router is the default router.
 
 ## Open items
 

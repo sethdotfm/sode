@@ -4,15 +4,15 @@ import "testing"
 
 func TestBrandNotRouterSide(t *testing.T) {
 	a := pinApp(t)
-	st := a.first.router
-	a.first.status.Err = "marker"
+	st := a.firstUnit().router
+	a.firstUnit().status.Err = "marker"
 	cfg := a.r().cfg
 	cfg.BrandText = "Studio B"
 	cfg.BrandBorder = "teal"
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if a.first.router != st || a.first.status.Err != "marker" {
+	if a.firstUnit().router != st || a.firstUnit().status.Err != "marker" {
 		t.Fatal("brand change reset the router state")
 	}
 	if c := a.r().cfg; c.BrandText != "Studio B" || c.BrandBorder != "teal" {

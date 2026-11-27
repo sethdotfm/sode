@@ -158,7 +158,7 @@ func TestPinRouterShapes(t *testing.T) {
 func TestPinRouterShapesLost(t *testing.T) {
 	a, key := shapeApp(t, 3)
 	a.mu.Lock()
-	ua, ub := a.first, a.units()[pinUIDB]
+	ua, ub := a.firstUnit(), a.units()[pinUIDB]
 	a.mu.Unlock()
 	for _, u := range []*routerUnit{ua, ub} {
 		a.onUnitState(u, swp08.StateDown, errors.New("connection refused"))

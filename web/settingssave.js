@@ -432,8 +432,10 @@ export function initSave(toc) {
       edited();
     });
   }
+  // A save in flight can reload the page: a new default router or prefix reloads every page (core.js). The save
+  // goes on at the server, so the page does not ask.
   window.addEventListener('beforeunload', (e) => {
-    if (dirty()) e.preventDefault();
+    if (dirty() && !pending) e.preventDefault();
   });
   form.addEventListener('submit', (e) => {
     e.preventDefault();

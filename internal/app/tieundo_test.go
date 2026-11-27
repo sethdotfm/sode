@@ -14,7 +14,7 @@ func undoTie(t *testing.T, dst int) (a *App, fa, fb *fakeRouter, key string, des
 	t.Helper()
 	a, fa, fb, key = tieApp(t, nil)
 	a.mu.Lock()
-	a.first.router.srcNames[3], a.first.router.srcNames[8] = "CAM 3", "CAM 9"
+	a.firstUnit().router.srcNames[3], a.firstUnit().router.srcNames[8] = "CAM 3", "CAM 9"
 	a.mu.Unlock()
 	rec := apiPost(a, "/api/v1/takes", key, tieRoutes(a.r().cfg.Routers[0].UID, [2]int{4, dst}), nil)
 	b := tieTakeAnswer(t, rec.Body)

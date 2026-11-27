@@ -207,7 +207,7 @@ func TestPanelTiesReservedRefusals(t *testing.T) {
 	try(two, "this press needs two sources through TIE 3")
 	// Someone else holds a Protect on TIE 3.
 	a.mu.Lock()
-	a.first.router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
+	a.firstUnit().router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
 	a.mu.Unlock()
 	try(ends(uidA, "b2b2b2b2", 4, 2), "TIE 3 is protected by device 99")
 }

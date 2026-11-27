@@ -21,14 +21,14 @@ func protDump(level int, holds ...protHold) []byte {
 // dumpAll sends one dump for each of the 3 wire levels with the same holds.
 func dumpAll(a *App, holds ...protHold) {
 	for l := 0; l < 3; l++ {
-		a.onUnitMsg(a.first, protDump(l, holds...))
+		a.onUnitMsg(a.firstUnit(), protDump(l, holds...))
 	}
 }
 
 // endProtBurst makes the pending burst old enough to be written, and writes it.
 func endProtBurst(a *App) []Entry {
 	a.mu.Lock()
-	a.first.router.protAt = [2]time.Time{time.Now().Add(-time.Minute), time.Now().Add(-time.Second)}
+	a.firstUnit().router.protAt = [2]time.Time{time.Now().Add(-time.Minute), time.Now().Add(-time.Second)}
 	a.mu.Unlock()
 	before := a.hist.Len()
 	a.flushProtExt()
@@ -77,9 +77,9 @@ func TestProtExtFirstDumpIsTheBaseline(t *testing.T) {
 func TestProtExtAnnouncedChanges(t *testing.T) {
 	a, _ := protectApp(t)
 	for l := 0; l < 3; l++ {
-		a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, l, swp08.KindProtect, 5, 40))
+		a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, l, swp08.KindProtect, 5, 40))
 	}
-	a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, 0, swp08.KindProtect, 5, 41))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, 0, swp08.KindProtect, 5, 41))
 	es := endProtBurst(a)
 	if len(es) != 3 {
 		t.Fatalf("entries %+v", es)
@@ -89,7 +89,7 @@ func TestProtExtAnnouncedChanges(t *testing.T) {
 	extProt(t, es[1], "clear", "protect", 40, false, 5, 1)
 	extProt(t, es[2], "set", "protect", 41, false, 5, 1)
 	for l := 0; l < 3; l++ {
-		a.onUnitMsg(a.first, swp08.ExtProtectChange(swp08.CmdExtProtectDisconnected, 0, l, 0, 5, 0))
+		a.onUnitMsg(a.firstUnit(), swp08.ExtProtectChange(swp08.CmdExtProtectDisconnected, 0, l, 0, 5, 0))
 	}
 	es = endProtBurst(a)
 	if len(es) != 2 {
@@ -136,7 +136,7 @@ func TestProtExtRouterChangeIsANewBaseline(t *testing.T) {
 	a, _ := protectApp(t)
 	dumpAll(a, protHold{})
 	a.mu.Lock()
-	a.first.router = newRouterState()
+	a.firstUnit().router = newRouterState()
 	a.mu.Unlock()
 	dumpAll(a, protHold{dev: 3, kind: swp08.KindRouterLock})
 	if es := endProtBurst(a); es != nil {

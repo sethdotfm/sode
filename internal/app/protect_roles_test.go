@@ -56,7 +56,7 @@ func apiCall(t *testing.T, a *App, key string) protCall {
 
 func routerUp(a *App) {
 	a.mu.Lock()
-	a.first.status.Router = string(swp08.StateUp)
+	a.firstUnit().status.Router = string(swp08.StateUp)
 	a.mu.Unlock()
 }
 
@@ -168,7 +168,7 @@ func TestProtectWithNoUsers(t *testing.T) {
 	f.prot = fakeProtect{holds: map[[2]int]protHold{}, deafSet: map[int]bool{}, deafClear: map[int]bool{}}
 	routerUp(a)
 	a.mu.Lock()
-	a.first.router.dstNames[5] = "MON 5"
+	a.firstUnit().router.dstNames[5] = "MON 5"
 	a.mu.Unlock()
 	call := wsCall(a, &client{ip: "10.0.0.50"})
 	if got := call(true, 5, nil); got != pOK {

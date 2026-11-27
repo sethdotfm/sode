@@ -114,6 +114,9 @@ func lookupField(key string) (fieldSpec, bool) {
 		}
 		return clientSpec(rest[:i], rest[i+1:])
 	}
+	if key == routersOrderKey {
+		return routersOrderSpec(), true
+	}
 	if rest, ok := strings.CutPrefix(key, "router/"); ok {
 		uid, attr, ok := strings.Cut(rest, "/")
 		switch {
@@ -197,14 +200,6 @@ func routerIndex(c *config.Config, uid string) int {
 	return slices.IndexFunc(c.Routers, func(r config.Router) bool { return r.UID == uid })
 }
 
-// moreRouterIndex gives the index in c.Routers of router uid when it is after the default router, else -1.
-func moreRouterIndex(c *config.Config, uid string) int {
-	if i := routerIndex(c, uid); i > 0 {
-		return i
-	}
-	return -1
-}
-
 // routerSpec: one setting of one router. The fields of one router validate together, so a new level count and new
 // default levels save as one.
 func routerSpec(uid, attr string) (fieldSpec, bool) {
@@ -231,15 +226,11 @@ func routerSpec(uid, attr string) (fieldSpec, bool) {
 	return s, true
 }
 
-// routerVersions: the versions of the router keys of every router, which every hello carries. Remove is for a
-// router after the first.
+// routerVersions: the versions of the router keys of every router and of the order, which every hello carries.
 func routerVersions(cfg config.Config, out map[string]string) {
-	for i, r := range cfg.Routers {
-		attrs := routerAttrNames()
-		if i > 0 {
-			attrs = append(attrs, "remove")
-		}
-		for _, at := range attrs {
+	out[routersOrderKey] = fieldVersion(cfg, routersOrderKey)
+	for _, r := range cfg.Routers {
+		for _, at := range append(routerAttrNames(), "remove") {
 			k := "router/" + r.UID + "/" + at
 			out[k] = fieldVersion(cfg, k)
 		}

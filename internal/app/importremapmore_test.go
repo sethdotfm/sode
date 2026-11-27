@@ -13,7 +13,7 @@ import (
 func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 	a, _, tok := importApp(t)
 	a.mu.Lock()
-	a.first.router.srcNames[23] = "CAM 3"
+	a.firstUnit().router.srcNames[23] = "CAM 3"
 	a.mu.Unlock()
 	uid := a.r().cfg.Routers[0].UID
 	lifeCommit(t, a, func(cfg *config.Config) {
@@ -22,7 +22,7 @@ func TestImportRemapFilterSetTakesPageText(t *testing.T) {
 	file := otherRouter(t, a, exported(t, a, tok, exportReq{Categories: []string{catFilterSets}}))
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.FilterSets = nil })
 	a.mu.Lock()
-	a.first.router.srcNames[23], a.first.router.srcNames[40] = "VT 1", "CAM 3"
+	a.firstUnit().router.srcNames[23], a.firstUnit().router.srcNames[40] = "VT 1", "CAM 3"
 	a.mu.Unlock()
 
 	check := postCheck(t, a, tok, file, importReq{Mode: importAdd})
@@ -122,8 +122,8 @@ func TestAddImportWaitsForNamesPerItem(t *testing.T) {
 	file := exported(t, a, tok, exportReq{Categories: []string{catPresets, catFilterSets}})
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets, cfg.FilterSets = nil, nil })
 	a.mu.Lock()
-	clear(a.first.router.srcNames)
-	clear(a.first.router.dstNames)
+	clear(a.firstUnit().router.srcNames)
+	clear(a.firstUnit().router.dstNames)
 	a.mu.Unlock()
 	res := applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd}))
 	cat := res.Plan.Categories[catPresets]
@@ -151,7 +151,7 @@ func TestImportRemapMovesEveryReferenceKind(t *testing.T) {
 	a, c, tok := importApp(t)
 	uid := a.r().cfg.Routers[0].UID
 	a.mu.Lock()
-	a.first.router.srcNames[23] = "CAM 3"
+	a.firstUnit().router.srcNames[23] = "CAM 3"
 	a.mu.Unlock()
 	lifeCommit(t, a, func(cfg *config.Config) {
 		srcs := []config.Ref{cfg.SourceRef(23, "CAM 3")}
@@ -196,7 +196,7 @@ func TestImportRemapMovesEveryReferenceKind(t *testing.T) {
 		cfg.APIClients, cfg.GuestRights, cfg.HiddenDsts, cfg.HiddenDstsRouter = nil, config.Rights{}, "", ""
 	})
 	a.mu.Lock()
-	a.first.router.srcNames[23], a.first.router.srcNames[40] = "VT 1", "CAM 3"
+	a.firstUnit().router.srcNames[23], a.firstUnit().router.srcNames[40] = "VT 1", "CAM 3"
 	a.mu.Unlock()
 	grantRecheck(a, c)
 	req := importReq{Mode: importAdd, Categories: []string{catSettings, catPanels, catArtwork, catAPIClients, catBrowser},

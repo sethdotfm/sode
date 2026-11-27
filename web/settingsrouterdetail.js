@@ -13,7 +13,7 @@ import { namesTimeText } from './settingsrules.js';
 import { rereadNames } from './rereadnames.js';
 import { everyHold } from './protects.js';
 import { levelColor } from './levelbox.js';
-import { LIST_KEY, addKey, freePrefix, keyAttr, keyRouter, linkState, listKey, removeKey, routerDisplay, usesNote } from './routerlistrules.js';
+import { LIST_KEY, ORDER_KEY, addKey, freePrefix, keyAttr, keyRouter, linkState, listKey, removeKey, routerDisplay, usesNote } from './routerlistrules.js';
 import {
   ATTR_LABELS,
   DETAIL_ATTRS,
@@ -52,7 +52,13 @@ const inputOf = (attr) => (attr === 'levelNumbering' ? null : $(`cfg-rt-${attr}`
 const radio = (mode) => $(`cfg-rt-lvlnum-${mode}`);
 const itemOf = (uid) => items.find((x) => x.uid === uid) || null;
 const selected = () => itemOf(sel);
-const isFirst = (x) => !x.isNew && items[0] === x;
+// The first router as loaded: the default router now, the router of a blank routerData UID.
+const isFirst = (x) => !x.isNew && x.uid === S.routers[0]?.uid;
+// The default router after the save: the first router of the list that stays.
+const defaultAfter = () => items.find((x) => !x.isNew && !x.removed) || null;
+// The routers that stay after the save, new ones too.
+const staying = () => items.filter((x) => !x.removed);
+const loadedOrder = () => items.filter((x) => !x.isNew).map((x) => x.uid);
 const valuesOf = (x) => readValues(x.text);
 // The shown name: prefix and Router title with two or more routers, else the title.
 export const many = () => items.length > 1;
@@ -63,6 +69,12 @@ function loadedName(uid) {
   if (!r) return 'The new router';
   return S.routers.length > 1 ? routerDisplay(r) : r.title || 'Router';
 }
+
+// The shown name of a router now, by UID.
+const nameOfUid = (uid) => {
+  const x = itemOf(uid);
+  return x ? nameOf(x) : loadedName(uid);
+};
 
 // The routerData UID: blank for the first router.
 const dataUid = (x) => (isFirst(x) ? '' : x.uid);
@@ -85,17 +97,50 @@ function now() {
     const v = valuesOf(x);
     // A staged removal sends no edits of that router.
     for (const a of DETAIL_ATTRS) out[listKey(x.uid, a)] = x.removed ? base[listKey(x.uid, a)] : v[a];
-    if (!isFirst(x)) out[removeKey(x.uid)] = x.removed;
+    out[removeKey(x.uid)] = x.removed;
   }
+  // The order holds the routers that Sode has. A new router comes after them; a removed one keeps its place until
+  // the save removes it.
+  if (base[ORDER_KEY]) out[ORDER_KEY] = loadedOrder();
   return out;
 }
 const edited = () => items.some((x) => x.isNew) || diffRows(base, now()).length > 0;
-// An edited router: a setting differs from the loaded one.
+// An edited router: a setting differs from the loaded one, or it has another place in the order.
 export const routerEdited = (x) =>
-  !x.isNew && DETAIL_ATTRS.some((a) => JSON.stringify(valuesOf(x)[a] ?? null) !== JSON.stringify(base[listKey(x.uid, a)] ?? null));
+  !x.isNew &&
+  (loadedOrder().indexOf(x.uid) !== (base[ORDER_KEY] || []).indexOf(x.uid) ||
+    DETAIL_ATTRS.some((a) => JSON.stringify(valuesOf(x)[a] ?? null) !== JSON.stringify(base[listKey(x.uid, a)] ?? null)));
 
 // routerItems: the routers in list order, for the list (settingsrouterlist.js), each {uid, isNew, removed, first, text}.
-export const routerItems = () => items.map((x) => ({ ...x, first: isFirst(x) }));
+// first: the default router after the save, which the list marks Default.
+export const routerItems = () => items.map((x) => ({ ...x, first: x === defaultAfter() }));
+
+// moveRouter moves router uid by step places among the routers that Sode has (a new router stays last). The first
+// router of the list is the default router. Gives true when it moved.
+export function moveRouter(uid, step) {
+  const loaded = items.filter((x) => !x.isNew);
+  const i = loaded.findIndex((x) => x.uid === uid);
+  const j = i + step;
+  if (i < 0 || j < 0 || j >= loaded.length) return false;
+  const [x] = loaded.splice(i, 1);
+  loaded.splice(j, 0, x);
+  items = [...loaded, ...items.filter((y) => y.isNew)];
+  paint();
+  changed();
+  emit('saveSourceChanged');
+  return true;
+}
+
+// moveRouterTo puts router uid before router to (after it with after), for a drag in the list.
+export function moveRouterTo(uid, to, after) {
+  const loaded = items.filter((x) => !x.isNew).map((x) => x.uid);
+  const i = loaded.indexOf(uid);
+  let j = loaded.indexOf(to);
+  if (i < 0 || j < 0 || uid === to) return false;
+  if (after) j++;
+  if (i < j) j--;
+  return moveRouter(uid, j - i);
+}
 export const selectedRouter = () => sel;
 
 // The list draws again on routerRows; the detail view only when its router changed.
@@ -177,7 +222,13 @@ function paintHead(x) {
   $('router-swap').hidden = !admin || x.isNew || x.removed;
   $('router-log').hidden = x.isNew;
   const rm = $('router-remove');
-  rm.hidden = !admin || isFirst(x) || x.removed;
+  // Every router can go while another stays (the last router stays).
+  rm.hidden = !admin || x.removed || (!x.isNew && staying().filter((y) => !y.isNew).length < 2);
+  const loaded = loadedOrder();
+  const at = loaded.indexOf(x.uid);
+  $('router-up').hidden = $('router-down').hidden = !admin || x.isNew || x.removed || loaded.length < 2;
+  $('router-up').disabled = at <= 0;
+  $('router-down').disabled = at < 0 || at >= loaded.length - 1;
   rm.textContent = x.isNew ? 'Cancel' : 'Remove…';
   $('router-detail').classList.toggle('sode__rdetail--removed', !!x.removed);
   for (const f of $('router-detail').querySelectorAll('.sode__rgroup input, .sode__rgroup select')) f.disabled = !!x.removed;
@@ -221,7 +272,7 @@ function paintFacts(x) {
   $('router-protects-show').hidden = x.isNew;
   $('router-ties-group').hidden = one;
   if (!one) {
-    const first = items[0]?.uid;
+    const first = S.routers[0]?.uid;
     const end = (e) => e?.router || first;
     const ties = S.cfg?.tieLines || [];
     const from = ties.filter((t) => end(t.from) === x.uid).length;
@@ -393,6 +444,8 @@ detail.addEventListener('focusout', (e) => {
   if (x && attr) check(x, attr);
 });
 
+$('router-up').addEventListener('click', () => moveRouter(sel, -1));
+$('router-down').addEventListener('click', () => moveRouter(sel, 1));
 $('router-swap').addEventListener('click', () => emit('openSwap', { mine: false, router: sel }));
 $('router-remove').addEventListener('click', () => selected() && askRemove(selected()));
 $('router-names-reread').addEventListener('click', (e) => {
@@ -436,21 +489,19 @@ export function stageFirstRouter(attr, value) {
 // A hello moves only a baseline with no edits on it, so another person's save shows as a conflict.
 function load(force = false) {
   if (!S.cfg || (!force && items.length && edited())) return;
-  base = {};
-  vers = {};
+  base = { [ORDER_KEY]: S.routers.map((r) => r.uid) };
+  vers = { [ORDER_KEY]: S.versions?.[ORDER_KEY] };
   // A remove note that is open stays open.
   const was = force ? new Map() : new Map(items.map((x) => [x.uid, x]));
-  items = S.routers.map((r, i) => {
+  items = S.routers.map((r) => {
     const text = textsOf(r);
     const v = readValues(text);
     for (const a of DETAIL_ATTRS) {
       base[listKey(r.uid, a)] = v[a];
       vers[listKey(r.uid, a)] = S.versions?.[listKey(r.uid, a)];
     }
-    if (i) {
-      base[removeKey(r.uid)] = false;
-      vers[removeKey(r.uid)] = S.versions?.[removeKey(r.uid)];
-    }
+    base[removeKey(r.uid)] = false;
+    vers[removeKey(r.uid)] = S.versions?.[removeKey(r.uid)];
     const old = was.get(r.uid);
     return {
       uid: r.uid,
@@ -496,11 +547,15 @@ on('access', (a) => {
 const attrOf = (key) => keyAttr(key);
 
 addSaveSource({
-  owns: (key) => LIST_KEY.test(key),
+  owns: (key) => LIST_KEY.test(key) || key === ORDER_KEY,
   base: () => base,
   now,
   version: (key) => vers[key],
   label(r) {
+    if (r.key === ORDER_KEY) {
+      const [was, now] = [r.was?.[0], r.now?.[0]];
+      return was !== now ? `Router order. Default router: ${loadedName(was)} → ${nameOfUid(now)}` : 'Router order';
+    }
     const attr = attrOf(r.key);
     const uid = keyRouter(r.key);
     if (attr === 'add') return `New router ${now()[r.key]?.prefix || ''}`.trim();
@@ -509,10 +564,17 @@ addSaveSource({
     return S.routers.length + items.filter((x) => x.isNew).length > 1 ? `${loadedName(uid)}: ${ATTR_LABELS[attr]}` : ATTR_LABELS[attr];
   },
   show(r, v) {
+    if (r.key === ORDER_KEY) return (v || []).map(loadedName).join(', ');
     const attr = attrOf(r.key);
     const x = itemOf(keyRouter(r.key));
     if (attr === 'add') return v ? addText(v) : 'Blank';
-    if (attr === 'remove') return v ? usesNote(x ? valuesOf(x).prefix : '', x?.uses || []).head : 'Kept';
+    if (attr === 'remove') {
+      if (!v) return 'Kept';
+      const head = usesNote(x ? valuesOf(x).prefix : '', x?.uses || []).head;
+      const next = defaultAfter();
+      // The first router goes: the next router that stays is the default router.
+      return x && isFirst(x) && next ? `${head} ${nameOfUid(next.uid)} becomes the default router.` : head;
+    }
     return valueText(attr, v, x ? valuesOf(x) : {});
   },
   // A key of the router in view marks its field; a key of another router marks the section.
@@ -520,6 +582,7 @@ addSaveSource({
     const attr = attrOf(key);
     const uid = keyRouter(key);
     if (attr === 'add') return sel === uid ? $('cfg-rt-address') : null;
+    if (key === ORDER_KEY) return null;
     if (uid !== sel) return null;
     if (attr === 'remove') return $('router-remove');
     if (attr === 'levelNumbering') return $('cfg-rt-lvlnum');

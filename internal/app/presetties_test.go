@@ -20,7 +20,7 @@ func presetTieApp(t *testing.T) (*App, *fakeRouter, *fakeRouter, string) {
 		}}}
 	})
 	a.mu.Lock()
-	a.first.router.dstNames[1] = "MON 1"
+	a.firstUnit().router.dstNames[1] = "MON 1"
 	a.mu.Unlock()
 	return a, fa, fb, key
 }

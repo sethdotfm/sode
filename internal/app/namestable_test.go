@@ -14,8 +14,8 @@ import (
 // settleNames makes the name replies old enough for flush to finish the read.
 func settleNames(a *App) {
 	a.mu.Lock()
-	a.first.nameRxAt = a.first.nameRxAt.Add(-time.Second)
-	a.first.nameReqAt = a.first.nameReqAt.Add(-time.Second)
+	a.firstUnit().nameRxAt = a.firstUnit().nameRxAt.Add(-time.Second)
+	a.firstUnit().nameReqAt = a.firstUnit().nameReqAt.Add(-time.Second)
 	a.mu.Unlock()
 	a.flush()
 	a.writes.wg.Wait()
@@ -23,15 +23,15 @@ func settleNames(a *App) {
 
 func giveNames(a *App, dest bool, names ...string) {
 	a.mu.Lock()
-	a.first.applyNames(&swp08.NameBlock{Dest: dest, First: 0, Names: names})
+	a.firstUnit().applyNames(&swp08.NameBlock{Dest: dest, First: 0, Names: names})
 	a.mu.Unlock()
 }
 
 // readNames is a full read: the request, the replies, then the quiet time.
 func readNames(a *App, srcs, dsts []string) {
 	a.mu.Lock()
-	a.first.router.newSrc, a.first.router.newDst = map[int]string{}, map[int]string{}
-	a.first.nameReqAt = time.Now()
+	a.firstUnit().router.newSrc, a.firstUnit().router.newDst = map[int]string{}, map[int]string{}
+	a.firstUnit().nameReqAt = time.Now()
 	a.mu.Unlock()
 	giveNames(a, false, srcs...)
 	giveNames(a, true, dsts...)
@@ -111,8 +111,8 @@ func TestSavedNamesShowUntilFirstRead(t *testing.T) {
 	}
 
 	b.mu.Lock()
-	b.first.router.newSrc, b.first.router.newDst = map[int]string{}, map[int]string{}
-	b.first.nameReqAt = time.Now().Add(-namesTimeout - time.Second)
+	b.firstUnit().router.newSrc, b.firstUnit().router.newDst = map[int]string{}, map[int]string{}
+	b.firstUnit().nameReqAt = time.Now().Add(-namesTimeout - time.Second)
 	b.mu.Unlock()
 	b.flush()
 	if h := helloOf(t, b); h.SavedAt.IsZero() {

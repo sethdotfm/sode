@@ -3,14 +3,17 @@ package config
 import "reflect"
 
 // ReconnectChanged: a field that needs a new link changed on some router, or a router came or went. Routers match
-// by UID; the default router matches the default router.
+// by UID, so a new order is no change. A default router whose UID b does not have (a restore gave it a new UID)
+// matches the default router of b.
 func ReconnectChanged(a, b Config) bool {
-	ra, rb := a.Routers, b.Routers
-	if len(ra) != len(rb) || RouterReconnectChanged(a.DefaultRouter(), b.DefaultRouter()) {
+	if len(a.Routers) != len(b.Routers) {
 		return true
 	}
-	for _, r := range ra[1:] {
+	for _, r := range a.Routers {
 		o, ok := b.RouterByUID(r.UID)
+		if !ok && r.UID == a.DefaultRouter().UID {
+			o, ok = b.DefaultRouter(), true
+		}
 		if !ok || RouterReconnectChanged(r, o) {
 			return true
 		}

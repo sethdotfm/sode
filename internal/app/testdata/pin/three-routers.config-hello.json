@@ -341,6 +341,7 @@
     "router/a1a1a1a1a1a1a1a1/numberOffset": "af63ac4c86019afc",
     "router/a1a1a1a1a1a1a1a1/prefix": "d493a417d823774a",
     "router/a1a1a1a1a1a1a1a1/protectDevice": "af63b44c8601a894",
+    "router/a1a1a1a1a1a1a1a1/remove": "b5fae2c14238b978",
     "router/a1a1a1a1a1a1a1a1/salvoGroup": "456fc6181822cba7",
     "router/a1a1a1a1a1a1a1a1/tallyResyncSeconds": "57288d1822492c52",
     "router/a1a1a1a1a1a1a1a1/title": "6865fb43ed8cd273",
@@ -379,6 +380,7 @@
     "router/c3c3c3c3c3c3c3c3/tallyResyncSeconds": "57288d1822492c52",
     "router/c3c3c3c3c3c3c3c3/title": "07cc7607b4949e25",
     "routerShow": "18b3b613123c71ec",
+    "routers/order": "9d93037f9abb5441",
     "tieHopWeight": "af63ac4c86019afc",
     "trustedProxies": "09612b07b5ecb5a5"
   }

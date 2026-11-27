@@ -152,7 +152,7 @@ func (a *App) itemRouter(it routeReq) string {
 // rightsUID is the router UID that a Rights check asks about. Rights store the settings UID. So blank and the first
 // router's unit are the first router of the settings, also after a settings change gave it another UID.
 func (a *App) rightsUID(r *runtime, uid string) string {
-	if uid == "" || a.first != nil && uid == a.first.uid() {
+	if uid == "" || a.firstUnit() != nil && uid == a.firstUnit().uid() {
 		return r.cfg.DefaultRouter().UID
 	}
 	return uid

@@ -64,6 +64,9 @@ var routerAttrLabels = map[string]string{
 // itemLabel: "User Ana: Role", "API client Bot: Scopes" or "B Studio B: Levels" (config.Config.RouterName). The name
 // is the one before the save, else after it.
 func itemLabel(key string, was, now config.Config) string {
+	if key == routersOrderKey {
+		return "Router order"
+	}
 	if rest, ok := strings.CutPrefix(key, "user/"); ok {
 		id, attr, _ := strings.Cut(rest, "/")
 		u, ok := was.FindUserByID(id)
@@ -149,6 +152,15 @@ func diffList(f SavedField, was, now json.RawMessage, rights bool) []SavedField 
 // recordJSON is the value of key in cfg as the Settings saves record shows it. Default levels show in the Level
 // numbering of their router ("V, 1-2"), as a person types them; the file keeps them as UI levels (LP-14).
 func recordJSON(cfg config.Config, key string) json.RawMessage {
+	// The order shows the routers by name; the first one is the default router.
+	if key == routersOrderKey {
+		var names []string
+		for _, r := range cfg.Routers {
+			names = append(names, cfg.RouterName(r))
+		}
+		b, _ := json.Marshal(names)
+		return b
+	}
 	if rest, ok := strings.CutPrefix(key, "router/"); ok && strings.HasSuffix(rest, "/defaultLevels") {
 		if r, ok := cfg.RouterByUID(strings.TrimSuffix(rest, "/defaultLevels")); ok {
 			b, _ := json.Marshal(r.LevelsText(r.DefaultLevels))

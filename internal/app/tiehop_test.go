@@ -27,7 +27,7 @@ func TestAPITieTakeRefusesProtectedHop(t *testing.T) {
 	a, fa, fb, key := tieApp(t, nil)
 	uidA := a.r().cfg.Routers[0].UID
 	a.mu.Lock()
-	a.first.router.protect[10] = map[int]protHold{2: {dev: 99, kind: swp08.KindProtect}}
+	a.firstUnit().router.protect[10] = map[int]protHold{2: {dev: 99, kind: swp08.KindProtect}}
 	a.mu.Unlock()
 	log := connectLog(fa, fb)
 	rec := apiPost(a, "/api/v1/takes", key, withRoute(tieRoutes(uidA, [2]int{4, 2}), plainB(6, 30)), nil)

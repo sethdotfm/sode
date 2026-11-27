@@ -17,7 +17,7 @@ func fixStatusApp(t *testing.T) *App {
 		c.APIClients = append(c.APIClients, config.APIClient{Name: "StatLog", Scopes: []string{config.ScopeStatus, config.ScopeLog}})
 	})
 	a.mu.Lock()
-	a.first.status = statusMsg{T: "status", Router: "down", Addr: fixRouterAddr, Err: "dial tcp " + fixRouterAddr + ": connection refused"}
+	a.firstUnit().status = statusMsg{T: "status", Router: "down", Addr: fixRouterAddr, Err: "dial tcp " + fixRouterAddr + ": connection refused"}
 	a.mu.Unlock()
 	return a
 }
@@ -72,7 +72,7 @@ func TestStreamStatusHidesRouterAddressWithoutLogScope(t *testing.T) {
 		c.next() // hello
 	}
 	a.mu.Lock()
-	a.broadcast(a.first.status)
+	a.broadcast(a.firstUnit().status)
 	a.mu.Unlock()
 	for i := 0; i < 2; i++ {
 		for name, c := range map[string]*strmConn{"plain": plain, "log": logger} {

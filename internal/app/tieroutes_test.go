@@ -28,7 +28,7 @@ func tieApp(t *testing.T, mut func(*config.Config)) (a *App, fa, fb *fakeRouter,
 	})
 	var b *routerUnit
 	fb, b = addFakeUnit(t, a, a.r().cfg.Routers[1])
-	a.onUnitState(a.first, swp08.StateUp, nil)
+	a.onUnitState(a.firstUnit(), swp08.StateUp, nil)
 	a.onUnitState(b, swp08.StateUp, nil)
 	wire := a.r().byUI[1].Wire
 	// TIE 3 carries A.3 on every level of A, so it is not mixed.
@@ -39,7 +39,7 @@ func tieApp(t *testing.T, mut func(*config.Config)) (a *App, fa, fb *fakeRouter,
 	fb.seed(21, 5, wire)
 	fb.seed(2, 7, wire)
 	a.mu.Lock()
-	a.first.router.srcNames[4], a.first.router.dstNames[10] = "CAM 4", "TO B"
+	a.firstUnit().router.srcNames[4], a.firstUnit().router.dstNames[10] = "CAM 4", "TO B"
 	b.router.srcNames[5], b.router.dstNames[2], b.router.dstNames[20], b.router.dstNames[21] = "FROM A", "B MON 2", "B MON 20", "B MON 21"
 	a.mu.Unlock()
 	return a, fa, fb, key
@@ -134,7 +134,7 @@ func TestAPITakeAcrossRoutersHidden(t *testing.T) {
 	for _, code := range []string{"tie_line_needed", "no_path"} {
 		if code == "no_path" {
 			a.mu.Lock()
-			a.first.router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
+			a.firstUnit().router.protect[10] = map[int]protHold{1: {dev: 99, kind: swp08.KindProtect}}
 			a.mu.Unlock()
 		}
 		rec := apiPost(a, "/api/v1/takes", key, ends(a.r().cfg.Routers[0].UID, "b2b2b2b2", 4, 2), nil)
@@ -162,7 +162,7 @@ func TestAPITakeAcrossRoutersHidden(t *testing.T) {
 		}
 	}
 	a.mu.Lock()
-	delete(a.first.router.protect, 10)
+	delete(a.firstUnit().router.protect, 10)
 	a.mu.Unlock()
 	// tie_line_changed hides the same ends. The origin that the 409 body gives still goes back as expect.
 	take := func(src int) string {

@@ -9,8 +9,10 @@ import (
 	"log"
 	"maps"
 	"net/netip"
+	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -111,9 +113,11 @@ func probe(rc config.Router) []byte {
 // stays; clients get a new hello.
 // Fields from mu down to sessionsAt are guarded by mu, as are the fields of each router unit.
 type App struct {
-	// first: the first router's unit (routerunit.go), fixed after New; it takes a new first router UID (renameFirstMu). routers: every router unit by router UID. A
-	// save that adds or removes a router swaps in a new map (syncUnitsMu), so a reader needs no lock.
-	first   *routerUnit
+	// first: the unit of the first router of the settings, the default router (routerunit.go firstUnit). A reorder, or a
+	// removal of the first router, points it at the unit of the new first router (syncUnitsMu). A restore can give the
+	// first router a new UID; then that unit takes the UID (renameFirstMu). routers: every router unit
+	// by router UID. A save that adds or removes a router swaps in a new map (syncUnitsMu), so a reader needs no lock.
+	first   atomic.Pointer[routerUnit]
 	routers atomic.Pointer[map[string]*routerUnit]
 	// linkCtx: the context of the router links while Run runs, so a router added later starts its link on it.
 	// Guarded by mu. unitRuns counts the uptime loops of the units, which Run waits for at the end.
@@ -280,7 +284,6 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	}
 	first := newRouterUnit(cfg.DefaultRouter())
 	a := &App{
-		first:      first,
 		hist:       hist,
 		sent:       sent,
 		txq:        make(chan swp08.TxEvent, 1024),
@@ -305,6 +308,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.mon = loadPanelMon(cfgPath)
 	a.inbox, a.inboxTTL = loadInbox(cfgPath), inboxTTL
 	a.protects = loadProtects(cfgPath)
+	a.first.Store(first)
 	units := map[string]*routerUnit{first.uid(): first}
 	for _, rc := range cfg.Routers[1:] {
 		u := newRouterUnit(rc)
@@ -469,8 +473,25 @@ func (u *routerUnit) send(m []byte, reason swp08.Reason) {
 	}
 }
 
-// SetUptime gives the first router its uptime file.
-func (a *App) SetUptime(up *Uptime) { a.firstUnit().up = up }
+// SetUptime gives the uptime file (SODE_UPTIME) to the router it was written for: the UID in <path>.router. A file
+// with no UID (an older release) is the first router's. A file of a router that Sode no longer has starts empty. It
+// goes to the first router, so no router shows the history of another. A reorder does not move the file while Sode
+// runs: it stays with its router. The uptime of a new first router is in memory until the next start. Call it before Run.
+func (a *App) SetUptime(up *Uptime) {
+	u := a.firstUnit()
+	if up.path != "" {
+		b, _ := os.ReadFile(uptimeRouterPath(up.path))
+		if uid := strings.TrimSpace(string(b)); uid != "" {
+			if v, ok := a.units()[uid]; ok {
+				u = v
+			} else {
+				up.clear()
+			}
+		}
+		writeUptimeRouter(up.path, u.uid())
+	}
+	u.up = up
+}
 
 func (a *App) SetSettingsSaves(l *SaveLog) {
 	l.Reanchor(a.sent.Next(), a.sent.Oldest())

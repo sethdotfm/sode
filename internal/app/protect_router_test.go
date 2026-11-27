@@ -22,10 +22,10 @@ func protectTwoRouters(t *testing.T) (a *App, first, second *fakeRouter, u *rout
 	}
 	second, u = addFakeUnit(t, a, a.r().cfg.Routers[1])
 	a.mu.Lock()
-	a.first.status.Router = string(swp08.StateUp)
+	a.firstUnit().status.Router = string(swp08.StateUp)
 	u.status.Router = string(swp08.StateUp)
 	for d := 0; d < 8; d++ {
-		a.first.router.dstNames[d] = "A MON " + string(rune('0'+d))
+		a.firstUnit().router.dstNames[d] = "A MON " + string(rune('0'+d))
 		u.router.dstNames[d] = "B MON " + string(rune('0'+d))
 	}
 	a.mu.Unlock()
@@ -73,7 +73,7 @@ func TestProtectUsesItsRouter(t *testing.T) {
 	}
 
 	// Sode's own Protects are not Externals on either router.
-	for _, x := range []*routerUnit{a.first, u} {
+	for _, x := range []*routerUnit{a.firstUnit(), u} {
 		a.mu.Lock()
 		x.router.protAt = [2]time.Time{time.Now().Add(-time.Minute), time.Now().Add(-time.Second)}
 		a.mu.Unlock()
@@ -196,7 +196,7 @@ func TestProtExtUsesItsRouter(t *testing.T) {
 	a, _, _, u := protectTwoRouters(t)
 	wire := a.r().byUI[1].Wire
 	a.onUnitMsg(u, swp08.ExtProtectChange(swp08.CmdExtProtectConnected, 0, wire, 1, 3, 112))
-	for _, x := range []*routerUnit{a.first, u} {
+	for _, x := range []*routerUnit{a.firstUnit(), u} {
 		a.mu.Lock()
 		x.router.protAt = [2]time.Time{time.Now().Add(-time.Minute), time.Now().Add(-time.Second)}
 		a.mu.Unlock()
@@ -213,17 +213,17 @@ func TestProtExtUsesItsRouter(t *testing.T) {
 func TestExtUsesItsRouter(t *testing.T) {
 	a, _, _, u := secondRouter(t)
 	for _, d := range []int{5, 9} {
-		a.onUnitMsg(a.first, swp08.ExtTally(0, 0, d, 1))
+		a.onUnitMsg(a.firstUnit(), swp08.ExtTally(0, 0, d, 1))
 		a.onUnitMsg(u, swp08.ExtTally(0, 0, d, 1))
 	}
 	a.mu.Lock()
 	u.router.dstNames[9] = "B MON 9"
 	now := time.Now()
-	a.first.ext.causes = append(a.first.ext.causes, &cause{src: 7, dst: 5, first: now, last: now, id: 42, done: true})
+	a.firstUnit().ext.causes = append(a.firstUnit().ext.causes, &cause{src: 7, dst: 5, first: now, last: now, id: 42, done: true})
 	a.mu.Unlock()
 	a.onUnitMsg(u, swp08.ExtConnected(0, 0, 9, 7))
 	a.mu.Lock()
-	pendA := len(a.first.ext.pending)
+	pendA := len(a.firstUnit().ext.pending)
 	u.ext.last = time.Now().Add(-time.Second)
 	a.mu.Unlock()
 	if pendA != 0 {
@@ -236,7 +236,7 @@ func TestExtUsesItsRouter(t *testing.T) {
 	}
 
 	// The same change on the first router follows the take.
-	a.onUnitMsg(a.first, swp08.ExtConnected(0, 0, 9, 7))
+	a.onUnitMsg(a.firstUnit(), swp08.ExtConnected(0, 0, 9, 7))
 	endBurst(a)
 	es, _ = a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].Router != a.r().cfg.Routers[0].UID || es[0].Follow == nil || *es[0].Follow != 42 {

@@ -27,7 +27,7 @@ func cam3File(t *testing.T) (*App, string, []byte) {
 	t.Helper()
 	a, _, tok := importApp(t)
 	a.mu.Lock()
-	a.first.router.srcNames[23] = "CAM 3"
+	a.firstUnit().router.srcNames[23] = "CAM 3"
 	a.mu.Unlock()
 	lifeCommit(t, a, func(cfg *config.Config) {
 		cfg.Presets = []config.Preset{{Name: "Show", Items: []config.PresetItem{{Src: cfg.SourceRef(23, "CAM 3"), Dsts: []config.Ref{cfg.DestinationRef(4, "MON 4")}}}}}
@@ -35,8 +35,8 @@ func cam3File(t *testing.T) (*App, string, []byte) {
 	file := otherRouter(t, a, exported(t, a, tok, exportReq{Categories: []string{catPresets}}))
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = nil })
 	a.mu.Lock()
-	a.first.router.srcNames[23] = "VT 1"
-	a.first.router.srcNames[40] = "CAM 3"
+	a.firstUnit().router.srcNames[23] = "VT 1"
+	a.firstUnit().router.srcNames[40] = "CAM 3"
 	a.mu.Unlock()
 	return a, tok, file
 }
@@ -127,7 +127,7 @@ func TestImportRemapMovesPanelCellsAndAddsBoth(t *testing.T) {
 	a, _, tok := importApp(t)
 	uid := a.r().cfg.Routers[0].UID
 	a.mu.Lock()
-	a.first.router.srcNames[23] = "CAM 3"
+	a.firstUnit().router.srcNames[23] = "CAM 3"
 	a.mu.Unlock()
 	lifeCommit(t, a, func(cfg *config.Config) { cfg.Presets = []config.Preset{showPreset(*cfg, "Show", "MON 4")} })
 	desk, err := a.panels.create(Panel{Name: "Desk", Owner: userID(t, a, "Ada"), Rows: 1, Cols: 1, Pages: []PanelPage{{ID: "p1", Enabled: true,
@@ -141,8 +141,8 @@ func TestImportRemapMovesPanelCellsAndAddsBoth(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	a.first.router.srcNames[23], a.first.router.srcNames[40] = "VT 1", "CAM 3"
-	a.first.router.dstNames[4], a.first.router.dstNames[6], a.first.router.dstNames[7] = "OUT", "MON 4", "MON 4"
+	a.firstUnit().router.srcNames[23], a.firstUnit().router.srcNames[40] = "VT 1", "CAM 3"
+	a.firstUnit().router.dstNames[4], a.firstUnit().router.dstNames[6], a.firstUnit().router.dstNames[7] = "OUT", "MON 4", "MON 4"
 	a.mu.Unlock()
 	applied(t, postApply(t, a, tok, file, importReq{Mode: importAdd, Names: map[string][]int{
 		remapKey(config.MissingSource, 23):     {40},

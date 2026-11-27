@@ -14,7 +14,7 @@ import (
 func tieImportApp(t *testing.T) (*App, *client, string, *routerUnit) {
 	t.Helper()
 	a, _, _, u := twoRouterFiles(t)
-	readUnitNames(a, a.first, []string{"A CAM 0", "FROM STAGE 2"}, []string{"A MON 0", "A MON 1", "TO STAGE 2"})
+	readUnitNames(a, a.firstUnit(), []string{"A CAM 0", "FROM STAGE 2"}, []string{"A MON 0", "A MON 1", "TO STAGE 2"})
 	readUnitNames(a, u, []string{"B CAM 0", "FROM STAGE 1"}, []string{"B MON 0", "B MON 1", "TO STAGE 1"})
 	c := &client{ip: "10.0.0.9", send: make(chan []byte, 4096)}
 	a.mu.Lock()

@@ -281,3 +281,12 @@ fieldset[data-section="routers"] {
 .sode__rlink .sode__code {
   overflow-wrap: anywhere;
 }
+.sode__rrow[draggable="true"] {
+  cursor: grab;
+}
+.sode__rrow[data-drop="before"] {
+  box-shadow: inset 0 3px 0 var(--pb-accent);
+}
+.sode__rrow[data-drop="after"] {
+  box-shadow: inset 0 -3px 0 var(--pb-accent);
+}

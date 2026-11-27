@@ -11,14 +11,14 @@ import (
 // An Administrator saves tie lines; each end keeps its router name; the list survives a restart.
 func TestSaveTieLines(t *testing.T) {
 	a, _, _, u := twoRouterFiles(t)
-	readUnitNames(a, a.first, []string{"A CAM 1"}, []string{"A MON 1", "TO STAGE 2"})
+	readUnitNames(a, a.firstUnit(), []string{"A CAM 1"}, []string{"A MON 1", "TO STAGE 2"})
 	readUnitNames(a, u, []string{"B CAM 1", "FROM STAGE 1"}, []string{"B MON 1"})
 	ada := adminClient(t, a)
 	ada.send = make(chan []byte, 16)
 	a.mu.Lock()
 	a.clients[ada] = struct{}{}
 	a.mu.Unlock()
-	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.first.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 1}}
+	tie := config.TieLine{Name: "TIE 3", From: config.Ref{Router: a.firstUnit().uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 1}}
 	if err := a.SaveTieLines(ada, []config.TieLine{tie}); err != nil {
 		t.Fatal(err)
 	}
@@ -79,8 +79,8 @@ func TestSaveTieLinesRefusesBad(t *testing.T) {
 	}{
 		{[]config.TieLine{{Name: "X", From: config.Ref{Router: u.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 2}}}, "different router"},
 		{[]config.TieLine{
-			{Name: "TIE", From: config.Ref{Router: a.first.uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 2}},
-			{Name: "tie", From: config.Ref{Router: a.first.uid(), N: 2}, To: config.Ref{Router: u.uid(), N: 3}},
+			{Name: "TIE", From: config.Ref{Router: a.firstUnit().uid(), N: 1}, To: config.Ref{Router: u.uid(), N: 2}},
+			{Name: "tie", From: config.Ref{Router: a.firstUnit().uid(), N: 2}, To: config.Ref{Router: u.uid(), N: 3}},
 		}, "two tie lines are named"},
 	} {
 		if err := a.SaveTieLines(ada, tc.list); err == nil || !strings.Contains(err.Error(), tc.want) {

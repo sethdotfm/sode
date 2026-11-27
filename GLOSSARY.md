@@ -55,6 +55,9 @@ The name a person gives a router in Sode, such as "Studio Ultrix". It is the rou
 **Router prefix**:
 The one or two letters that name a router when you type or read a source or destination. B.69 is number 69 on router B, and BA.69 is number 69 on router BA. Each router on a server has its own. Sode hides it while there is only one router.
 
+**Default router**:
+The first router of the list in Settings > Routers. A new browser's patch boxes start on it, and a number with no router means it. To change it, change the order of the list. When the default router goes, the next router of the list is the default router.
+
 **Router UID**:
 The hidden identity Sode gives a router when it is added. It never changes, never shows in the UI, and is what stored items and export files use to say which router they mean.
 
