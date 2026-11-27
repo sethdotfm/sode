@@ -13,6 +13,22 @@ Scope: the routers, their levels and the Protects in Settings. The status bar is
 
 How the claims were checked: I read the three reports, looked at the screenshots, and read the code for each root cause. "Confirmed" below means that the code or a screenshot shows it.
 
+## 0. Owner decisions (2026-11-26)
+
+The owner answered the questions in section 6. Where a decision differs from the proposal, the decision wins over sections 2 to 5.
+
+1. **Default router: the first router of the list.** There is no `defaultRouter` key and no `default: true` field. To change the default router, reorder the list. `routers/order` stays. The detail view has no "Default router" field; the list marks the first row "Default".
+2. **Names: approved.** The flat save keys and hello fields of router A go (4.3, 4.4). Each new `router/<uid>/<attribute>` key takes the JSON name that Sode sends today.
+3. **Health: remove the top-level router fields now, as a breaking change.** `/api/health` loses top-level `router`, `targetAddress` and `err`. `/api/v1/status` loses flat `router`, `routerUp`, `error`, `address` and `err`. A monitor reads `state` and `routers[]`. The changelog fragment marks it as breaking. This moves from phase 4 to phase 2.
+4. **Status label: one setting for the bar, not one for each router.** The status bar shows **one Routers icon at every router count**, with this color code:
+   - no color: every router is up
+   - amber: one or more routers are lost, and one or more are up
+   - red: every router is lost
+   A click on the icon opens the router list of section 3 (fixed height, lost routers first, links to Router settings and the Communication Log). The prefixes of lost routers do not show in the bar. Status label picks the text next to the icon.
+5. **Tie lines: stay instant, with a Confirm on Remove.**
+6. **Color: agreed, all three.** "Connected" is plain text with no green. "Protect freed" is a neutral result. A Protect of another device is plain text with a magenta shield.
+7. **Level colors: one palette by position for every router**, with the router named on each chip.
+
 ## 1. Verdict
 
 Seven problems matter most. Each one lists the findings that support it.
