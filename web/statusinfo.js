@@ -99,7 +99,7 @@ function makeBox(root) {
     autocomplete: 'off',
     spellcheck: false,
   });
-  const list = el('ul', 'sode-routerlist sode__scroll');
+  const list = el('ul', 'sode-routerlist');
   const none = el('p', 'sode-routerlist__none', 'No router matches.');
   pop.append(server, find, list, none);
   root.append(pop);

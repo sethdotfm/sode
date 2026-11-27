@@ -235,7 +235,7 @@
 .sode-statusinfo__sum {
   color: var(--pb-text-muted);
 }
-/* A fixed height with its own scroll bar (bigscroll.js, .sode__scroll), so 24 routers never make the list taller. */
+/* A fixed height with its own big scroll bar (bigscroll.js SCROLLERS), so 24 routers never make the list taller. */
 .sode-routerlist {
   border-top: var(--pb-border-w) solid var(--pb-border);
   list-style: none;

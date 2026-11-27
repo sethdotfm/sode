@@ -37,6 +37,7 @@ export const SCROLLERS = [
   ['.sode-ov__people', 'y'],
   ['.sode-ov__keys', 'y'],
   ['.sode-lock', 'y'],
+  ['.sode-routerlist', 'y'],
 ];
 
 const PAGE = 0.9; // a track press pages by this much of the view, so a line stays in sight
