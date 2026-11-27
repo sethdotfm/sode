@@ -58,15 +58,15 @@ func TestChromeReconnectConfirmNamesEachRouter(t *testing.T) {
 	b.check()
 }
 
-// twoNamedRouters: an Administrator Settings page on two routers, "A Studio A" and "B Stage 2". It gives the App and
-// router B's UID.
-func twoNamedRouters(t *testing.T, b *tab) (*App, string) {
+// twoNamedRouters: an Administrator Settings page on two routers, "A Studio A" and "B Stage 2". edit runs last. It
+// gives the App and router B's UID.
+func twoNamedRouters(t *testing.T, b *tab, edit ...func(*config.Config)) (*App, string) {
 	t.Helper()
 	simA, simB := startSim(t), startSim(t)
-	a := simRoutersApp(t, []string{simA, simB}, func(c *config.Config) {
+	a := simRoutersApp(t, []string{simA, simB}, append([]func(*config.Config){func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
 		c.Title, c.MoreRouters[0].Title = "Studio A", "Stage 2"
-	})
+	}}, edit...)...)
 	srv := seamServer(t, a)
 	uid := routerUIDs(a)[1]
 	b.open(srv.URL + "/#settings")
@@ -105,6 +105,36 @@ func TestChromeReviewNamesEveryRouter(t *testing.T) {
 		const m = (k) => document.querySelector('.sode__refused[data-refused="' + k + '"]')?.textContent || '';
 		return m('router') === 'Not saved. A Studio A: address must be host:port, for example 10.0.0.50:8910.'
 			&& m('router/`+uid+`/address') === 'Not saved. B Stage 2: address must be host:port, for example 10.0.0.50:8910.';
+	})()`)
+	b.check()
+}
+
+// Swap… on router B's row opens the Swap dialog on router B. The staged Swap changes router B's preset, and its review
+// row names the router.
+func TestChromeSwapOnSecondRouter(t *testing.T) {
+	b := startBrowser(t)
+	const ub = "00000000000000bb"
+	_, uid := twoNamedRouters(t, b, func(c *config.Config) {
+		c.MoreRouters[0].UID = ub
+		ref := func(router string, n int) config.Ref { return config.Ref{Router: router, N: n} }
+		c.Presets = []config.Preset{{ID: "pb", Name: "On B", Items: []config.PresetItem{{Src: ref(ub, 0), Dsts: []config.Ref{ref(ub, 4)}}}}}
+	})
+	if uid != ub {
+		t.Fatalf("router B's UID is %q", uid)
+	}
+	b.eval(`[...document.querySelectorAll('[data-router="` + ub + `"] .sode__routers-head button')].find((x) => x.textContent === 'Swap…').click(); true`)
+	b.waitFor("the dialog opens on router B", `!!document.getElementById('swap-router')?.offsetParent && document.getElementById('swap-router').value === '`+ub+`'
+		&& document.getElementById('swap-router').selectedOptions[0].textContent === 'B Stage 2'`)
+	typeField(b, "swap-from", "5")
+	b.eval(`document.getElementById('swap-find').click(); true`)
+	b.waitFor("router B's preset listed", `document.querySelector('.sode__swap-list')?.textContent.includes('Preset: On B')`)
+	typeField(b, "swap-to", "6")
+	b.waitFor("one item to stage", `document.getElementById('swap-go').textContent === 'Stage 1 item' && !document.getElementById('swap-go').disabled`)
+	b.eval(`document.getElementById('swap-go').click(); true`)
+	b.eval(`document.getElementById('settings-save').click(); true`)
+	b.waitFor("the review names router B", `(() => {
+		const d = document.getElementById('review');
+		return !!d?.offsetParent && [...d.querySelectorAll('tbody tr')].some((r) => r.cells[0]?.textContent === 'Swap destination 5 for 6 on B Stage 2');
 	})()`)
 	b.check()
 }

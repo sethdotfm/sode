@@ -193,8 +193,8 @@ func TestValidateRoutersNamesEveryRouter(t *testing.T) {
 		t.Errorf("one router: %v", err)
 	}
 	for _, tc := range []struct{ title, want string }{{"", "Router B"}, {"Router B", "Router B"}, {" Stage 2 ", "B Stage 2"}} {
-		if got := (Router{Prefix: "B", Title: tc.title}).display(); got != tc.want {
-			t.Errorf("display(%q) = %q, want %q", tc.title, got, tc.want)
+		if got := (Router{Prefix: "B", Title: tc.title}).Display(); got != tc.want {
+			t.Errorf("Display(%q) = %q, want %q", tc.title, got, tc.want)
 		}
 	}
 }

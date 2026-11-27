@@ -26,9 +26,11 @@ type brokenEntry struct {
 	Swap   *swapFrom `json:"swap,omitempty"`
 }
 
+// swapFrom: Router is the router UID of the reference, so Swap… opens on that router.
 type swapFrom struct {
-	Side string `json:"side"`
-	From int    `json:"from"`
+	Side   string `json:"side"`
+	From   int    `json:"from"`
+	Router string `json:"router,omitempty"`
 }
 
 type brokenRouter struct {
@@ -48,7 +50,7 @@ func firstSwap(ls ...[]config.Missing) *swapFrom {
 	for _, l := range ls {
 		for _, m := range l {
 			if (m.Kind == config.MissingSource || m.Kind == config.MissingDestination) && m.Ref.N >= 0 {
-				return &swapFrom{Side: m.Kind, From: m.Ref.N}
+				return &swapFrom{Side: m.Kind, From: m.Ref.N, Router: m.Ref.Router}
 			}
 		}
 	}

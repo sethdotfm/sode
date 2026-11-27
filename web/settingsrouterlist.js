@@ -96,7 +96,10 @@ function block(r) {
     const { inputs, node } = fields(r.uid, false);
     b = { uid: r.uid, inputs, note: el('div', 'sode__routers-note'), title: el('span', 'sode__label') };
     b.remove = button('Remove…', 'pb-btn--outline', () => askRemove(b));
-    b.node = el('li', 'sode__routers-item', el('div', 'sode__routers-head', b.title, b.remove), node, b.note);
+    // Swap stages into the one Save, so it is offered where the Routers section is editable (Administrator).
+    b.swap = button('Swap…', 'pb-btn--outline', () => emit('openSwap', { mine: false, router: b.uid }));
+    b.swap.setAttribute('aria-haspopup', 'dialog');
+    b.node = el('li', 'sode__routers-item', el('div', 'sode__routers-head', b.title, b.swap, b.remove), node, b.note);
     b.node.dataset.router = r.uid;
   }
   b.prefix = r.prefix;
@@ -188,6 +191,7 @@ function paint() {
     b.node.classList.toggle('sode__routers-item--removed', gone);
     for (const f of Object.values(b.inputs)) f.disabled = gone;
     b.remove.hidden = !admin || gone;
+    b.swap.hidden = !admin || gone;
   }
   for (const x of adds) x.node.querySelector('.sode__routers-head .pb-btn').hidden = !admin;
   $('routers-list').replaceChildren(firstRow, ...blocks.map((b) => b.node), ...adds.map((x) => x.node));

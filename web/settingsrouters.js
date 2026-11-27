@@ -29,7 +29,7 @@ export function fillRouters(onPick) {
   swap.id = 'router-1-swap';
   swap.setAttribute('aria-haspopup', 'dialog');
   swap.hidden = !admin;
-  swap.addEventListener('click', () => emit('openSwap', { mine: false }));
+  swap.addEventListener('click', () => emit('openSwap', { mine: false, router: S.routers[0]?.uid || '' }));
   // The Broken and Name moved count (brokencount.js), Administrator only since it covers everyone's items.
   const broken = el('div', 'sode__broken-count');
   broken.id = 'router-1-broken';

@@ -1,2 +1,3 @@
 - Settings: with two or more routers, Save and reconnect names each router that reconnects, with its new address. Before, it always gave the first router's address. It now comes before the PIN recheck, so nothing asks again after the PIN.
 - Settings: with two or more routers, every Save review row and every error names its router by prefix and Router title ("A Studio A: Address"). This includes the first router. The address error now says "address must be host:port".
+- Settings: Swap… is on the row of each router, and the Swap dialog has a Router select. Before, Swap worked only on the first router.

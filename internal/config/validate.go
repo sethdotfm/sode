@@ -117,7 +117,7 @@ func (c Config) validateRouters() []error {
 	for _, r := range routers {
 		name := ""
 		if len(routers) > 1 {
-			name = r.display() + ": "
+			name = r.Display() + ": "
 		}
 		for _, err := range r.problems() {
 			errs = append(errs, fmt.Errorf("%s%w", name, err))
@@ -212,10 +212,10 @@ func (r Router) problems() []error {
 	return errs
 }
 
-// display is the one shown form of a router: the Router prefix and then the Router title ("B Studio B"). A router with
+// Display is the one shown form of a router: the Router prefix and then the Router title ("B Studio B"). A router with
 // no title, or one that only repeats the default ("Router B"), is "Router B". Keep in step with routerDisplay in
 // web/routerlistrules.js.
-func (r Router) display() string {
+func (r Router) Display() string {
 	title := strings.TrimSpace(r.Title)
 	if title == "" || title == "Router "+r.Prefix {
 		return "Router " + r.Prefix

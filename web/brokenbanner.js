@@ -20,7 +20,7 @@ const canEdit = (it) => (it.scope === 'global' ? role === 'administrator' || rol
 
 const swapOf = (it) => {
   const m = it.broken.find((x) => (x.kind === 'source' || x.kind === 'destination') && x.ref.n >= 0);
-  return m ? { side: m.kind, from: m.ref.n } : null;
+  return m ? { side: m.kind, from: m.ref.n, router: m.ref.router || '' } : null;
 };
 
 function itemNode(it) {
