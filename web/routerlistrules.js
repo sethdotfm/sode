@@ -103,8 +103,8 @@ const LINK_STATES = {
 };
 
 // linkState: r is one entry of routerLinks (routerlinkrules.js), {link, err}. link is '' while the server link is down,
-// so nothing is known and nothing shows (null). everUp: the router was connected at some time (this page saw it up, or
-// Sode has its names). A link that connects for the first time is Connecting; one that failed is Down, or Never
+// so nothing is known and nothing shows (null). everUp: the router was connected at some time (the server's never flag is
+// false). A link that connects for the first time is Connecting; one that failed is Down, or Never
 // connected when it was never up.
 export function linkState(r, everUp) {
   if (!r?.link) return null;

@@ -4,7 +4,7 @@
 // router asks the server what it breaks before the router is staged; the save is Critical. Each row shows the link
 // state of its router in words (linkState), live on each `conn` event.
 
-import { $, S, el, emit, on, request, linkList, routerData } from './core.js';
+import { $, S, el, emit, on, request, linkList } from './core.js';
 import { addSaveSource } from './savesources.js';
 import { diffRows, showValue } from './savereviewrules.js';
 import {
@@ -202,19 +202,13 @@ function paint() {
   paintLinks();
 }
 
-// The routers this page saw connected. With Sode's names of a router, they tell Down from Never connected.
-const seenUp = new Set();
-
-// paintLinks writes the link state into each row's [data-link] (a router UID) of the Routers list.
+// paintLinks writes the link state into each row's [data-link] (a router UID) of the Routers list. The server's
+// never flag tells Down from Never connected.
 function paintLinks() {
   const links = new Map(linkList().map((r) => [r.uid, r]));
-  const firstUid = routerData('').uid;
   for (const node of $('routers-list').querySelectorAll('[data-link]')) {
     const r = links.get(node.dataset.link);
-    if (r?.link === 'up') seenUp.add(r.uid);
-    const d = routerData(node.dataset.link === firstUid ? '' : node.dataset.link);
-    // A names time is a zero time ("0001-01-01…") until a read, so only a time after 1970 counts.
-    const s = linkState(r, seenUp.has(node.dataset.link) || Date.parse(d.namesAt) > 0 || Date.parse(d.namesSavedAt) > 0);
+    const s = linkState(r, !r?.never);
     node.hidden = !s;
     node.className = `sode__routers-link ${s?.cls || ''}`.trim();
     node.textContent = s?.word || '';
