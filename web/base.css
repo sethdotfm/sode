@@ -840,6 +840,9 @@ html {
   flex: none;
   margin-top: var(--pb-space-1);
 }
+.sode__degraded-show {
+  flex: none;
+}
 /* The page's sticky copy would sit over the fixed phone view's header; the phone view draws its own under it. */
 [data-layout="phone"]:not([data-view="settings"]) body > .sode__notsaved {
   display: none;

@@ -466,13 +466,9 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   .sode-lock__who-bar {
   opacity: 1;
 }
-/* Degraded (sode__conn--degraded, connview.js): only the red icon of each lost router stays. The Server status and the
-   other routers fade as they do while every link is up. The full status shows again with the Lost link banner. */
-:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--degraded:not(:hover, :focus-within) > :is(.pb-status, .sode__conn-addr),
-:root[data-layout="desktop"][data-compact]:not([data-view="settings"])
-  .sode__conn--degraded:not(:hover, :focus-within)
-  > .sode__conn-routers
-  > .pb-status:not(:has(> .sode__state[data-state="error"])) {
+/* Degraded (sode__conn--degraded, connview.js): only the Routers icon and its count of lost routers stay. The Server
+   status fades as it does while every link is up. The full status shows again with the Lost link banner. */
+:root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--degraded:not(:hover, :focus-within) > :is(.pb-status, .sode__conn-addr) {
   opacity: 0;
 }
 :root[data-layout="desktop"][data-compact]:not([data-view="settings"]) .sode__conn--degraded :is(.pb-status, .sode__conn-addr) {

@@ -27,7 +27,8 @@ import { levelRouterOf } from './levels.js';
 import { fedBy, currentlyNodes, fedThroughTies } from './routes.js';
 import { flipped } from './device.js';
 import { paintRouters } from './connview.js';
-import { routerMarks } from './routerlinkrules.js';
+import { barMark } from './routerlinkrules.js';
+import { statusInfo } from './statusinfo.js';
 import { renderDegraded } from './degradedview.js';
 import { resultNode, patchPlan, rightsOff, lastTake, nextTake, armedAdd, boxPatch, lastChip } from './plans.js';
 import { layout, onLayout } from './layout.js';
@@ -95,7 +96,8 @@ function renderConn() {
   setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Server'], { base: 'server', label: c.ws[1] });
   $('m-ws-text').parentElement.title = c.ws[1];
   const list = linkList();
-  paintRouters($('m-routers'), routerMarks(list), true);
+  // One Routers icon at any router count, so the header always fits. A press opens the router list.
+  statusInfo($('m-routers').closest('header'), paintRouters($('m-routers'), barMark(list)));
   const [label, isName] = list.length === 1 ? routerTitle() : ['', false];
   $('m-rt-addr').textContent = label;
   $('m-rt-addr').title = label;
