@@ -1,0 +1,5 @@
+- Settings > Routers > Protects is one list of fixed height with a big scroll bar, in a group for each router. The heading of each group stays in view and shows the router's counts and device number. A find box, filters with counts (Sode's, Mine, Other devices, Router locks, and each router) and a count line ("158 on 4 routers. Sode set 91.") narrow it.
+- Free on a row asks in that row, with the letter and the lockout, so the list does not move. The row then says "Protect freed", and a status line under the list keeps the last result. A refusal shows in the row with Try again.
+- Free Sode's Protects asks which routers, with the count on each. A router that is down or has Protect off shows why and cannot be picked. The result shows for each router.
+- The rows of a router that is down are grey and say when they were last read. Another device's Protect shows as plain words with a magenta shield.
+- The `protectClearAll` page message takes `routers` (router UIDs) and its answer has `routers` with the result on each router. Each router of the hello has `protectAt` while its link is down.
