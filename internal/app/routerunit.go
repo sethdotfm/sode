@@ -62,7 +62,7 @@ func newRouterUnit(r config.Router) *routerUnit {
 		up:           up,
 		router:       newRouterState(),
 		ext:          newExtTracker(),
-		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: r.Address},
+		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: r.Address, Never: true},
 		waiters:      map[*waiter]struct{}{},
 		checks:       map[*tallyCheck]struct{}{},
 		checkTimeout: defaultCheckTimeout,

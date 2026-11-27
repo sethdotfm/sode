@@ -203,6 +203,7 @@ func (a *App) reconnectMu(u *routerUnit, addr string) {
 	u.status.Addr = addr
 	a.viaTouchRouter(u, a.r())
 	u.status.Err = ""
+	u.status.Never = true
 	u.up.State(false)
 	u.linkSeen, u.linkErr = "", ""
 	ch := event(kindLink, "", "", "changed")

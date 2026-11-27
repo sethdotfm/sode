@@ -132,6 +132,7 @@ function newRouter(r, first = false) {
     link: null,
     addr: '',
     err: '',
+    never: false, // the link was not up one time since the start or the last address change (server's status)
   };
 }
 
@@ -140,11 +141,11 @@ function newRouter(r, first = false) {
 function setRouters(list) {
   S.routers = list.map((r) => ({ uid: r.uid, prefix: r.prefix || '', title: r.title || '', address: r.address || '', matrix: r.matrix || 0 }));
   more.clear();
-  const { link, addr, err } = FIRST;
+  const { link, addr, err, never } = FIRST;
   const fresh = newRouter(list[0] || {}, true);
   delete fresh.off; // the offset of the first router comes from the settings (off)
   // The link fields stay. So the hello's status keeps the last error of an unchanged address, as a status message does.
-  Object.assign(FIRST, fresh, { link, addr, err });
+  Object.assign(FIRST, fresh, { link, addr, err, never });
   fillRouter(FIRST, list[0] || {});
   for (const r of list.slice(1)) {
     const st = newRouter(r);
@@ -179,6 +180,7 @@ function setRouterStatus(st, m) {
   if ((m.addr || '') !== st.addr) st.err = '';
   st.link = m.router || null;
   st.addr = m.addr || '';
+  st.never = !!m.never;
   if (m.err) st.err = m.err;
   else if (st.link === 'up') st.err = '';
 }

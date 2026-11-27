@@ -257,6 +257,9 @@ type statusMsg struct {
 	Router string `json:"router"` // the link state
 	Addr   string `json:"addr"`
 	Err    string `json:"err,omitempty"`
+	// Never: the link was not up one time since the start or since the last change of the address. The page then
+	// says "Never connected" in place of "Down", since the cause is most likely a wrong address.
+	Never bool `json:"never,omitempty"`
 	// RouterUID: as on deltaMsg; statusOut sets it.
 	RouterUID string      `json:"routerUid,omitempty"`
 	from      *routerUnit // as on deltaMsg; statusOut sets it
@@ -487,6 +490,9 @@ func (a *App) onUnitState(u *routerUnit, s swp08.State, err error) {
 	}
 	u.status.Router = string(s)
 	u.status.Addr = a.r().routerOf(u.uid()).Address
+	if s == swp08.StateUp {
+		u.status.Never = false
+	}
 	// A retry keeps the last error, so a browser that loads during it sees the router as lost. Up clears it.
 	if s != swp08.StateConnecting {
 		u.status.Err = ""
