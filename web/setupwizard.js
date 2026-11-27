@@ -205,6 +205,7 @@ const VIEW = {
   ],
   router: () => [
     'Router setup',
+    section('Router', '', row(field('setup-routerTitle', 'Router title', d.routerTitle, { maxlength: '32' }), el('div'))),
     section(
       'Connection',
       '',
@@ -302,6 +303,7 @@ const KEYS = {
   'setup-name': 'name',
   'setup-pin': 'pin',
   'setup-pin2': 'pin2',
+  'setup-routerTitle': 'routerTitle',
   'setup-router': 'router',
   'setup-levels': 'levels',
   'setup-group': 'group',
@@ -468,7 +470,14 @@ function startWizard() {
   if (d) return;
   // The wizard sets up the first router: its settings come from the hello's routers list.
   const r0 = S.routers[0] || {};
-  const router = { router: r0.address, levels: routerSetting(r0, 'levels'), levelNumbering: r0.levelNumbering, numberOffset: r0.numberOffset };
+  const router = {
+    routerTitle: r0.title,
+    routerPrefix: r0.prefix,
+    router: r0.address,
+    levels: routerSetting(r0, 'levels'),
+    levelNumbering: r0.levelNumbering,
+    numberOffset: r0.numberOffset,
+  };
   d = startAnswers({ ...S.cfg, ...router, fireMode: r0.fireMode, salvoGroup: r0.salvoGroup }, S.setup);
   filled = S.setup;
   sentRouter = d.router.trim();

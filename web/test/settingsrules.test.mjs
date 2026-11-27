@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { intProblem, namesTimeText } from '../settingsrules.js';
+import { intProblem, namesTimeText, positionTip } from '../settingsrules.js';
 
 const e = (key, value, type = 'int') => ({ key, type, value });
 
@@ -32,4 +32,17 @@ test('a read wins over the saved time', () => {
 });
 test('no names yet', () => {
   assert.equal(namesTimeText({ at: '0001-01-01T00:00:00Z', savedAt: null }, fmt), 'Not read yet');
+});
+
+test('positionTip: the level of each router that takes a color position', () => {
+  const lv = (labels) => labels.map((label, i) => ({ ui: i + 1, label }));
+  const routers = [
+    { prefix: 'A', levels: lv(['1', '2', '3']) },
+    { prefix: 'B', levels: lv(['0', '1']) },
+    { prefix: 'C', levels: lv(['V', '1', '2']) },
+  ];
+  assert.equal(positionTip(1, routers), 'Position 1. A: 1, B: 0, C: V.');
+  assert.equal(positionTip(3, routers), 'Position 3. A: 3, C: 2.');
+  assert.equal(positionTip(9, routers), 'Position 9. No router has this many levels.');
+  assert.equal(positionTip(1, routers.slice(0, 1)), '', 'one router: no tip');
 });

@@ -2,7 +2,7 @@
 // (settingsrouterlist.js). Each router has the same settings, as the one Save keys router/<uid>/<attribute>. Pure
 // (Node-tested).
 
-import { parseLevelsAs, levelInputOf, levelLabelOf } from './levels.js';
+import { parseLevelsAs, levelInputOf, levelLabelOf, levelsTextAs } from './levels.js';
 import { routerLevelsOf } from './routerlevelrules.js';
 
 // Every setting of a router, in the order of the detail view. Keep in step with ROUTER_SETTINGS in core.js and
@@ -81,13 +81,17 @@ export const NEW_ROUTER = Object.freeze({
 // levelLabel: the label of UI level ui in numbering mode ('1', '0' or 'va').
 export const levelLabel = (ui, mode) => levelLabelOf([], mode, ui, mode);
 
-// The default levels as the box shows them: in the numbering of the router. Saved text is in 1 numbering. A text that
-// does not parse stays as it is.
-export function defaultLevelsBox(saved, count, mode) {
+// Saved levels (1 numbering, "1-3") in the numbering of the router: "V, 1-2". The box of Default levels and the Save
+// review show it. Router.LevelsText in internal/config/config.go writes the same for the Settings saves record. Shared
+// cases: web/test/levels_text_cases.json. Blank stays blank, and a text that does not parse stays as it is.
+export function levelsText(saved, count, mode) {
   if (!String(saved || '').trim()) return '';
-  const list = parseLevelsAs(saved, '1', count);
-  return list ? levelInputOf(list, [], mode, mode) : saved;
+  const list = parseLevelsAs(String(saved), '1', Number.isInteger(count) && count >= 1 ? count : 256);
+  return list ? levelsTextAs(list, mode) : saved;
 }
+
+// The default levels as the box shows them: in the numbering of the router.
+export const defaultLevelsBox = (saved, count, mode) => levelsText(saved, count, mode);
 
 // The default levels of the box as saved: '' for every level, the text in 1 numbering, or null when it does not parse.
 export function readDefaultLevels(text, mode, count) {
@@ -101,7 +105,7 @@ export function readDefaultLevels(text, mode, count) {
 // be mid-edit, so the levels are not limited here: Save checks them.
 export function renumberDefault(text, from, to) {
   const list = String(text || '').trim() && parseLevelsAs(text, from, Infinity);
-  return list ? levelInputOf(list, [], to, to) : text;
+  return list ? levelsTextAs(list, to) : text;
 }
 
 // textsOf: the input text of each setting of router r of the hello's routers list (S.routers).
@@ -203,7 +207,8 @@ const WORDS = {
 };
 export function valueText(attr, v, all = {}) {
   if (attr === 'levelNumbering') return numberingRange(all.levels, v);
-  if (attr === 'defaultLevels' && v === '') return 'All levels';
+  // Default levels show in the numbering the router has after the save, both was and now, so the two compare.
+  if (attr === 'defaultLevels' && v != null) return v === '' ? 'Every level' : levelsText(v, all.levels, all.levelNumbering || '1');
   if (WORDS[attr]?.[v] !== undefined) return WORDS[attr][v];
   if (v === '' || v == null || Number.isNaN(v)) return 'Blank';
   return String(v);

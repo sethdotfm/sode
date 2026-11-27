@@ -29,6 +29,8 @@ test('the hello config fills the fields, and Standard access is the default', ()
   assert.equal(d.numberOffset, '0');
   assert.equal(d.preset, 'standard');
   assert.equal(d.fireMode, 'sequential');
+  assert.equal(d.routerTitle, 'Router A', 'the default title of Add router');
+  assert.equal(startAnswers({ routerTitle: 'MCR', routerPrefix: 'A' }, {}).routerTitle, 'MCR');
   assert.equal(startAnswers({}, { preset: 'secured' }).preset, 'secured');
 });
 
@@ -86,9 +88,14 @@ test('chips move between visited steps until Finish', () => {
 
 test('level numbering reads from the level count', () => {
   assert.deepEqual(numberingChoices('17'), [
-    ['1', '1 to 17'],
-    ['0', '0 to 16'],
-    ['va', 'V + 1 to 16'],
+    ['1', '1–17'],
+    ['0', '0–16'],
+    ['va', 'V, 1–16'],
+  ]);
+  assert.deepEqual(numberingChoices(''), [
+    ['1', '1'],
+    ['0', '0'],
+    ['va', 'V'],
   ]);
 });
 
@@ -97,6 +104,7 @@ test('Finish sends the answers once, without Repeat your PIN', () => {
   assert.equal(m.t, 'setupFinish');
   assert.equal(m.id, 4);
   assert.equal(m.setup.name, 'Ada');
+  assert.equal(m.setup.title, 'Router A');
   assert.equal(m.setup.levels, 17);
   assert.equal(m.setup.numberOffset, 1);
   assert.equal(m.setup.group, 120);
@@ -135,4 +143,10 @@ test('a restore without PINs takes a new PIN only when both entries agree', () =
   assert.match(restorePinProblem('24', '24', 8), /4 to 8 digits/);
   assert.match(restorePinProblem('24a8', '24a8', 8), /4 to 8 digits/);
   assert.match(restorePinProblem('2468', '2469', 8), /differ/);
+});
+
+test('the Router step refuses a Router title longer than 32 characters', () => {
+  const at = STEPS.findIndex(([k]) => k === 'router');
+  assert.equal(stepProblem({ ...filled(), routerTitle: 'x'.repeat(33) }, at), 'A Router title has at most 32 characters.');
+  assert.equal(stepProblem({ ...filled(), routerTitle: '' }, at), '');
 });

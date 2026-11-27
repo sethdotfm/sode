@@ -28,6 +28,7 @@ const presets = [standard, secured];
 const now = () => ({
   brandText: 'Studio B',
   brandBorder: 'teal',
+  routerTitle: 'Studio Ultrix',
   router: '10.0.0.5:8910',
   levels: 4,
   levelNumbering: 'va',
@@ -45,6 +46,7 @@ test('the current values fill every step, and the matching preset is picked', ()
   assert.equal(d.again, true);
   assert.equal(d.brandText, 'Studio B');
   assert.equal(d.brandBorder, 'teal');
+  assert.equal(d.routerTitle, 'Studio Ultrix');
   assert.equal(d.router, '10.0.0.5:8910');
   assert.equal(d.levels, '4');
   assert.equal(d.levelNumbering, 'va');
@@ -96,4 +98,12 @@ test("a Guest whose Use tie lines right differs from the preset's matches no pre
   assert.equal(d.preset, '');
   assert.equal(againStage({ ...d, preset: 'standard' }, n, ps).preset, ps[0]);
   assert.equal(againAnswers({ ...now(), guestRights: { tieLines: false } }, ps).preset, 'standard');
+});
+
+test('the Router title stages as the first router title, trimmed; a blank title stays blank', () => {
+  const d = againAnswers(now(), presets);
+  assert.deepEqual(againStage({ ...d, routerTitle: ' MCR ' }, now(), presets).fields, { routerTitle: 'MCR' });
+  const blank = againAnswers({ ...now(), routerTitle: '' }, presets);
+  assert.equal(blank.routerTitle, '', 'no default title: Finish would stage a change nobody made');
+  assert.deepEqual(againStage(blank, { ...now(), routerTitle: '' }, presets).fields, {});
 });

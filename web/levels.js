@@ -86,8 +86,18 @@ function levelRuns(list) {
   }
   return out;
 }
+// V never starts a range: V and then 1 to 3 is "V, 1–3", since "V–3" reads as "V minus 3" (LP-21). Keep in step with
+// Router.LevelsText in internal/config/config.go.
 const runsText = (list, levels, numbering, dash, sep, mode) =>
   levelRuns(list)
+    .flatMap(([a, b]) =>
+      a < b && levelLabelOf(levels, numbering, a, mode) === 'V'
+        ? [
+            [a, a],
+            [a + 1, b],
+          ]
+        : [[a, b]],
+    )
     .map(([a, b]) => {
       const la = levelLabelOf(levels, numbering, a, mode);
       return a === b ? la : `${la}${dash}${levelLabelOf(levels, numbering, b, mode)}`;
@@ -95,6 +105,9 @@ const runsText = (list, levels, numbering, dash, sep, mode) =>
     .join(sep);
 export const levelTextOf = (list, levels, numbering) => runsText(list, levels, numbering, '–', ', ');
 export const levelInputOf = (list, levels, numbering, mode) => runsText(list, levels, numbering, '-', ',', mode);
+// A list of levels as the file and the Settings saves record write it, in numbering mode: "V, 1-2, 4". The Save review
+// and the Default levels box show it.
+export const levelsTextAs = (list, mode) => runsText(list, [], mode, '-', ', ', mode);
 
 // A configured #rrggbb is one color for both themes: its number gets black or white by WCAG luminance.
 function inkFor(hex) {

@@ -72,6 +72,7 @@ type setupReq struct {
 	BrandBorder    string `json:"brandBorder"`
 	Name           string `json:"name"`
 	Pin            string `json:"pin"`
+	Title          string `json:"title"` // the Router title
 	Router         string `json:"router"`
 	Levels         int    `json:"levels"`
 	LevelNumbering string `json:"levelNumbering"`
@@ -86,7 +87,7 @@ type setupReq struct {
 var setupKeys = []string{"brandText", "brandBorder", "locks", "autoLockMinutes", "guestRole", "pinWaits", "publicPanels",
 	"api", "guestApiScopes", "newPanelActs", "newUserDefaults"}
 
-var setupRouterAttrs = []string{"address", "levels", "levelNumbering", "numberOffset", "fireMode", "salvoGroup"}
+var setupRouterAttrs = []string{"title", "address", "levels", "levelNumbering", "numberOffset", "fireMode", "salvoGroup"}
 
 // setupHold: the one browser that runs setup. addr is the address before its Router step moved
 // the link. Sode puts it back when that browser closes or loses control, since its answers go.
@@ -227,7 +228,7 @@ func (a *App) setupFinish(c *client, s setupReq) (config.User, error) {
 		cfg.BrandText, cfg.BrandBorder = s.BrandText, s.BrandBorder
 		// The wizard sets up the default router, the only one while setup is pending.
 		r := cfg.EditDefaultRouter()
-		r.Address = strings.TrimSpace(s.Router)
+		r.Title, r.Address = strings.TrimSpace(s.Title), strings.TrimSpace(s.Router)
 		if r.Levels != s.Levels {
 			r.DefaultLevels = "" // blank: every level of the new count
 		}

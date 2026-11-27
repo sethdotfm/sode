@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   DETAIL_ATTRS,
   NEW_ROUTER,
@@ -10,6 +11,7 @@ import {
   offsetNote,
   defaultNote,
   renumberDefault,
+  levelsText,
   valueText,
   addText,
   countLine,
@@ -51,7 +53,7 @@ test('the detail view has every router key, and the review section of each is Ro
 test('a router of the hello reads back as the values it has', () => {
   const t = textsOf(hello);
   assert.equal(t.levels, '17');
-  assert.equal(t.defaultLevels, 'V-2', 'in the numbering of the router');
+  assert.equal(t.defaultLevels, 'V, 1-2', 'in the numbering of the router; V never starts a range');
   const v = readValues(t);
   assert.equal(v.levels, 17);
   assert.equal(v.defaultLevels, '1-3');
@@ -64,7 +66,7 @@ test('a blank Default levels stays blank: every level', () => {
   const v = readValues({ ...textsOf({ ...hello, defaultLevels: '' }) });
   assert.equal(v.defaultLevels, '');
   assert.equal(defaultNote(v), 'Blank is every level, also after the level count changes.');
-  assert.equal(valueText('defaultLevels', ''), 'All levels');
+  assert.equal(valueText('defaultLevels', ''), 'Every level');
 });
 
 test('fieldErrors: one message for each setting, Matrix against Name requests on the page', () => {
@@ -95,7 +97,7 @@ test('Level numbering shows the real range, and the offset hint and the default 
   assert.equal(offsetNote('-1', '1'), 'Level 1 = level 0 on the router.');
   assert.equal(offsetNote('0', 'va'), 'Level V = level 1 on the router.');
   assert.equal(offsetNote('', '1'), '');
-  assert.equal(renumberDefault('1-3', '1', 'va'), 'V-2');
+  assert.equal(renumberDefault('1-3', '1', 'va'), 'V, 1-2');
   assert.equal(renumberDefault('x', '1', 'va'), 'x');
 });
 
@@ -145,4 +147,20 @@ test('a pin or Bookmark of a setting that moved finds its new place under its ol
   const rows = [{ key: 'setting:routers/cfg-rt-address', label: 'Address' }];
   assert.deepEqual(rowByKey(rows, 'setting:router-matrix/cfg-router'), { key: 'setting:router-matrix/cfg-router', label: 'Address' });
   assert.equal(rowByKey(rows, 'setting:router-matrix/cfg-gone'), null);
+});
+
+// The same cases as TestLevelsText in internal/config/router_test.go: the review shows what the Settings saves record
+// writes.
+const shared = JSON.parse(readFileSync(new URL('./levels_text_cases.json', import.meta.url), 'utf8'));
+
+test('levelsText: saved levels in the numbering of the router, as the server writes them', () => {
+  assert.ok(shared.cases.length);
+  for (const c of shared.cases) assert.equal(levelsText(c.in, c.levels, c.numbering), c.want, `${c.numbering} ${c.in}`);
+});
+
+test('valueText: the review shows Default levels in the numbering of the router (LP-14)', () => {
+  assert.equal(valueText('defaultLevels', '1-3', { levels: 17, levelNumbering: 'va' }), 'V, 1-2');
+  assert.equal(valueText('defaultLevels', '1-17', { levels: 17, levelNumbering: '0' }), '0-16');
+  assert.equal(valueText('defaultLevels', '2,4', { levels: 17, levelNumbering: '1' }), '2, 4');
+  assert.equal(valueText('defaultLevels', '', { levels: 17, levelNumbering: 'va' }), 'Every level');
 });

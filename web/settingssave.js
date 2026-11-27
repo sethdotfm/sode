@@ -104,7 +104,7 @@ function formLabel(r) {
   if (r.key === 'locks') return checkText($(`cfg-lock-${r.sub}`)) || r.sub;
   if (r.key === 'newUserDefaults') return `New user defaults: ${checkText($(r.sub === 'persistent' ? 'cfg-new-persistent' : 'cfg-new-no-auto-lock')) || r.sub}`;
   if (r.key === 'browserDefaults') return forText(form.querySelector(`select[data-gpref="${r.sub}"]`)) || r.sub;
-  if (r.key === 'levelColors') return $(`cfg-color-${r.sub + 1}`)?.getAttribute('aria-label') || `Level ${r.sub + 1} color`;
+  if (r.key === 'levelColors') return $(`cfg-color-${r.sub + 1}`)?.getAttribute('aria-label') || `Position ${r.sub + 1} color`;
   const node = keyNode(r.key);
   return (forText(node) || checkText(node) || r.key).trim();
 }

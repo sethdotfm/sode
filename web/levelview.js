@@ -54,12 +54,14 @@ export function levelBar(on, uid = '') {
     return all;
   }
   const set = new Set(on);
+  // Levels of two routers have the same colors by position, so with two or more routers the words name the router: "B: V".
+  const rt = S.routers.length > 1 ? `${routerData(uid).prefix}: ` : '';
   const row = el(
     'span',
     'sode__bar',
     ...levels.map((l) => {
       const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
-      slot.dataset.hint = `Level ${l.label}`; // where the slot is too small for its label
+      slot.dataset.hint = `Level ${rt}${l.label}`; // where the slot is too small for its label
       return levelColor(slot, l);
     }),
   );
@@ -69,7 +71,7 @@ export function levelBar(on, uid = '') {
   row.style.setProperty('--sode-bar-cols', Math.floor(levels.length / 2) + odd);
   const sorted = [...set].sort((a, b) => a - b);
   row.setAttribute('role', 'img');
-  row.setAttribute('aria-label', sorted.length ? `Levels ${levelText(sorted, uid)}` : 'No levels');
+  row.setAttribute('aria-label', sorted.length ? `Levels ${rt}${levelText(sorted, uid)}` : `No levels${rt ? ` on router ${routerData(uid).prefix}` : ''}`);
   return row;
 }
 

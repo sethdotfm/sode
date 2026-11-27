@@ -127,7 +127,7 @@
       </div>
       <div class="sode__group sode__group--levels">
         <div class="sode__box sode__box--levels">
-          <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
+          <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span class="sode__box-router sode__lvl-router" id="lvl-router" hidden></span><span data-last="lvl"></span></div>
           <span class="sode__keyed">
             <input id="lvl" class="pb-input sode__input" spellcheck="false">
             <kbd class="sode__key-note" aria-hidden="true">f</kbd>
@@ -376,6 +376,7 @@
 
     <fieldset class="sode__group" data-section="level-colors" data-topic="look-and-feel">
       <legend>Level colors</legend>
+      <p class="sode__hint">Each router takes these colors by position: its first level takes color 1, its second level takes color 2. So level 1, level 0 and level V can have the same color on different routers.</p>
       <div class="sode__colors" id="cfg-colors"></div>
       <div class="sode__names">
         <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-colors-reset">Reset to default</button>

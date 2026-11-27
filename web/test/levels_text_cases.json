@@ -1,0 +1,18 @@
+{
+  "about": "Saved levels (UI levels, 1 numbering) as Sode shows them in the numbering of the router. Go: TestLevelsText (internal/config/router_test.go). Node: routerdetailrules.test.mjs.",
+  "cases": [
+    { "numbering": "1", "levels": 8, "in": "1-3,5", "want": "1-3, 5" },
+    { "numbering": "0", "levels": 8, "in": "1-3,5", "want": "0-2, 4" },
+    { "numbering": "va", "levels": 8, "in": "1-3,5", "want": "V, 1-2, 4" },
+    { "numbering": "va", "levels": 8, "in": "1-2", "want": "V, 1" },
+    { "numbering": "va", "levels": 8, "in": "1", "want": "V" },
+    { "numbering": "va", "levels": 8, "in": "2-4", "want": "1-3" },
+    { "numbering": "va", "levels": 17, "in": "1-17", "want": "V, 1-16" },
+    { "numbering": "0", "levels": 17, "in": "1-17", "want": "0-16" },
+    { "numbering": "1", "levels": 8, "in": "5,1-3", "want": "1-3, 5" },
+    { "numbering": "1", "levels": 8, "in": "1 2 3", "want": "1-3" },
+    { "numbering": "va", "levels": 8, "in": "", "want": "" },
+    { "numbering": "1", "levels": 8, "in": "nope", "want": "nope" },
+    { "numbering": "1", "levels": 4, "in": "1-9", "want": "1-9" }
+  ]
+}

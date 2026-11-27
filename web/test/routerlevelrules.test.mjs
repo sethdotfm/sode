@@ -21,7 +21,7 @@ test('routerLevelsOf: the saved values of a router from the hello', () => {
 
 test('the default levels box shows the router numbering and reads back in 1 numbering', () => {
   const saved = { levels: 17, levelWireOffset: -1, levelNumbering: 'va', defaultLevels: '1-3' };
-  assert.equal(defaultLevelsText(saved), 'V-2');
+  assert.equal(defaultLevelsText(saved), 'V,1-2');
   const now = readRouterLevels({ levels: '17', levelWireOffset: '-1', levelNumbering: 'va', defaultText: 'V-2' });
   assert.deepEqual(now, saved);
   assert.deepEqual(routerFields('b1', now), {

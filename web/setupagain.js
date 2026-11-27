@@ -10,6 +10,7 @@ import { stageFirstRouter } from './settingsrouterdetail.js';
 
 // The setup steps name the first router's settings by these keys; the one Save names them router/<uid>/<attribute>.
 const FIRST = {
+  routerTitle: 'title',
   router: 'address',
   levels: 'levels',
   levelNumbering: 'levelNumbering',

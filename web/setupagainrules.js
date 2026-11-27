@@ -18,6 +18,7 @@ export function againAnswers(now, presets) {
     name: '',
     pin: '',
     pin2: '',
+    routerTitle: now.routerTitle ?? '',
     router: now.router || '',
     levels: String(now.levels ?? ''),
     levelNumbering: now.levelNumbering || '1',
@@ -33,6 +34,7 @@ export function againStage(d, now, presets = []) {
   const want = {
     brandText: d.brandText.trim(),
     brandBorder: d.brandBorder,
+    routerTitle: (d.routerTitle || '').trim(),
     router: d.router.trim(),
     levels: +d.levels,
     levelNumbering: d.levelNumbering,

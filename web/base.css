@@ -1735,6 +1735,15 @@ html {
 .sode__box-router[hidden] {
   display: none;
 }
+/* The router of the Levels box: text, not a button, since it follows the destination. It has the look of the router
+   buttons beside it. */
+.sode__lvl-router {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-medium);
+  padding: 0 var(--pb-space-3);
+}
 .sode__box-head > [data-last] {
   display: flex;
   gap: var(--pb-space-5);

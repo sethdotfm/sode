@@ -7,7 +7,7 @@ import { resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { brandCaution, pickerColors, CAUTION_NOTE } from './accent.js';
 import { parseFilter, compileFilter } from './filter.js';
-import { intProblem } from './settingsrules.js';
+import { intProblem, positionTip } from './settingsrules.js';
 
 const root = document.documentElement;
 export const form = $('settings-view');
@@ -166,12 +166,15 @@ function renderColors(vals) {
   for (let ui = 1; ui <= Math.min(n, 256); ui++) {
     const slot = el('span', 'sode__slot sode__slot--on', String(ui));
     slot.setAttribute('aria-hidden', 'true');
+    const tip = positionTip(ui, S.routers);
+    if (tip) slot.dataset.pbTip = tip;
     const f = el('input', 'pb-input');
     f.id = `cfg-color-${ui}`;
     f.value = vals[ui - 1] || '';
     f.placeholder = defaultHex(ui);
     f.spellcheck = false;
-    f.setAttribute('aria-label', `Level ${ui} color`);
+    f.setAttribute('aria-label', `Position ${ui} color`);
+    if (tip) f.setAttribute('aria-description', tip);
     f.addEventListener('input', () => {
       preview(slot, ui, f.value);
       f.classList.toggle('pb-input--invalid', f.value.trim() !== '' && !HEX.test(f.value.trim()));

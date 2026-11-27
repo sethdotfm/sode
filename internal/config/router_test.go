@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -357,18 +358,31 @@ func TestBlankDefaultLevelsStayBlank(t *testing.T) {
 	}
 }
 
+// The cases are shared with the page's copy of the rules (web/test/routerdetailrules.test.mjs), so the Save review
+// and the Settings saves record show the same text.
 func TestLevelsText(t *testing.T) {
-	for _, c := range []struct{ numbering, in, want string }{
-		{"1", "1-3,5", "1-3, 5"},
-		{"0", "1-3,5", "0-2, 4"},
-		{"va", "1-3,5", "V, 1-2, 4"},
-		{"va", "1", "V"},
-		{"va", "", ""},
-		{"1", "nope", "nope"},
-	} {
-		r := Router{Levels: 8, LevelNumbering: c.numbering}
-		if got := r.LevelsText(c.in); got != c.want {
-			t.Errorf("%s %q: %q, want %q", c.numbering, c.in, got, c.want)
+	raw, err := os.ReadFile("../../web/test/levels_text_cases.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shared struct {
+		Cases []struct {
+			Numbering string `json:"numbering"`
+			Levels    int    `json:"levels"`
+			In        string `json:"in"`
+			Want      string `json:"want"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(raw, &shared); err != nil {
+		t.Fatal(err)
+	}
+	if len(shared.Cases) == 0 {
+		t.Fatal("no cases")
+	}
+	for _, c := range shared.Cases {
+		r := Router{Levels: c.Levels, LevelNumbering: c.Numbering}
+		if got := r.LevelsText(c.In); got != c.Want {
+			t.Errorf("%s %q: %q, want %q", c.Numbering, c.In, got, c.Want)
 		}
 	}
 }

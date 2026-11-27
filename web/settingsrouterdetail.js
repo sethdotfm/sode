@@ -190,7 +190,9 @@ function paintLevels(x) {
   const colors = S.cfg?.levelColors || [];
   const chips = Array.from({ length: count }, (_, i) => {
     const ui = i + 1;
-    const chip = el('span', `sode__slot${on.has(ui) ? ' sode__slot--on' : ''}`, levelLabel(ui, v.levelNumbering));
+    const label = levelLabel(ui, v.levelNumbering);
+    const chip = el('span', `sode__slot${on.has(ui) ? ' sode__slot--on' : ''}`, label);
+    chip.dataset.pbTip = `Level ${label}: color ${ui}`;
     const c = /^#[0-9a-f]{6}$/i.test(colors[i] || '') ? colors[i] : S.levelDefaults?.[i] || '';
     return levelColor(chip, { swatch: ui === 1 ? 'video' : String(((ui - 2) % 16) + 1).padStart(2, '0'), color: c });
   });

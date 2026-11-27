@@ -17,7 +17,7 @@ import {
 } from './core.js';
 import { keyLabel } from './keys.js';
 import { prefixOf } from './routerprefix.js';
-import { boxRouter, wireBoxRouter } from './boxrouter.js';
+import { boxRouter, paintLevelsRouter, wireBoxRouter } from './boxrouter.js';
 import { parseList, namedAs, listMatches, missingNote, LIST_MAX } from './boxlist.js';
 import { paintConn } from './connview.js';
 import { renderDegraded } from './degradedview.js';
@@ -116,6 +116,7 @@ let lvlAt = '';
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), () => levelSource(lvlRouter()), { onChange: () => renderTally() });
 function followLevels() {
+  paintLevelsRouter($('lvl-router'), lvlRouter());
   if (lvlRouter() === lvlAt) return;
   lvlAt = lvlRouter();
   lvl.repick();
@@ -657,6 +658,7 @@ on('presetAdd', paintTakes);
 on('hello', () => {
   pager.reset();
   lvlAt = lvlRouter();
+  paintLevelsRouter($('lvl-router'), lvlAt);
   lvl.reset();
   // A Settings save sends a new hello, so an open page follows a change of levels.
   const box = lvlInput.closest('.sode__box');
