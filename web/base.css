@@ -330,6 +330,10 @@ html {
   font-size: var(--pb-text-sm);
   gap: var(--pb-space-4);
 }
+.sode__down-why > code {
+  /* Down with two or more routers: one reason for each router, one to a line. */
+  white-space: pre-line;
+}
 .sode__down-why > span {
   font-size: var(--pb-text-xs);
   font-weight: var(--pb-weight-bold);
@@ -905,7 +909,7 @@ html {
     left: max(var(--pb-space-4), calc(50% - var(--sode-page-bar) / 2 - 20rem - 12.5rem - var(--pb-space-8)));
     overflow-x: hidden;
     position: fixed;
-    top: calc(10vh + var(--sode-down-h, 0px));
+    top: calc(10vh + var(--sode-down-h, 0px) + var(--sode-notsaved-h, 0px));
     width: 12.5rem;
   }
   .sode__toc .pb-tab {
@@ -1706,11 +1710,57 @@ html {
   display: inline-flex;
   gap: var(--pb-space-1);
 }
-.sode__notsaved .pb-chip {
-  background: color-mix(in srgb, var(--pb-status-warn-fill) 70%, black);
-  border-color: transparent;
-  color: white;
-  text-decoration: none;
+/* A narrow window gets the phone's smaller banner on every page (the main page's phone layout has its own, mobile.css).
+   Keep in step with the .sode-m__down rules there. */
+@media (max-width: 47.9rem) {
+  .sode__down {
+    font-size: var(--pb-text-xs);
+    gap: var(--pb-space-3);
+    padding: var(--pb-space-3) var(--pb-space-4) var(--pb-space-4);
+  }
+  .sode__down .sode__down-title {
+    font-size: var(--pb-text-sm);
+  }
+  .sode__down .sode__down-map {
+    gap: var(--pb-space-3) 0;
+  }
+  .sode__down .sode__down-node {
+    gap: var(--pb-space-2);
+    padding: var(--pb-space-1) var(--pb-space-3);
+  }
+  .sode__down .sode__down-node > .pb-icon {
+    height: var(--pb-icon-size-sm);
+    width: var(--pb-icon-size-sm);
+  }
+  .sode__down .sode__down-link {
+    flex-basis: 5rem;
+    gap: var(--pb-space-2);
+    padding-inline: var(--pb-space-2);
+  }
+  .sode__down .sode__down-link::before,
+  .sode__down .sode__down-link::after {
+    min-width: var(--pb-space-3);
+  }
+  .sode__down .sode__down-link--error {
+    gap: var(--pb-space-3);
+  }
+  .sode__down .sode__down-word,
+  .sode__down .sode__down-link--error .sode__down-word {
+    font-size: var(--pb-text-2xs);
+  }
+  .sode__down .sode__down-why {
+    font-size: var(--pb-text-xs);
+    gap: var(--pb-space-3);
+  }
+  .sode__down .sode__down-why > span {
+    font-size: var(--pb-text-2xs);
+  }
+}
+/* The banner's own dark text on its warn fill, in both themes. */
+.sode__notsaved .pb-btn {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
   white-space: nowrap;
 }
 .sode__lock-help > p {

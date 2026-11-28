@@ -453,7 +453,8 @@ function renderMore() {
   const busy = pager.loading;
   const filling = busy && rangeNeedsMore();
   older.hidden = !pager.more || rangeDone();
-  older.disabled = busy;
+  // Load older asks the server, so it stays off while the Server link is down (the Lost link banner says why).
+  older.disabled = busy || S.wsState !== 'up';
   older.textContent = filling ? `Loading back to ${fmtDay(pager.oldest.t)}…` : busy ? 'Loading…' : 'Load older';
   const empty = $('log-empty');
   empty.hidden = shown > 0 || busy;
@@ -487,10 +488,8 @@ on('conn', () => {
     .join(' ');
   if (routerWas !== null && now !== routerWas) refreshUptime();
   routerWas = now;
-  if (S.wsState !== 'up') {
-    pager.close();
-    renderMore();
-  }
+  if (S.wsState !== 'up') pager.close();
+  renderMore();
 });
 // Uptime graph: its chips set the log's time range (From = that long ago, no To) and move with the clock. No times set = the last 24 hours. Only the newest reply is drawn.
 

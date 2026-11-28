@@ -32,7 +32,7 @@ func TestChromeDegradedRouter(t *testing.T) {
 	b.waitFor("Degraded: the Routers icon is amber and counts router B", states+` === 'warn' && document.querySelector('#conn-routers .sode__conn-open').textContent === '1 of 2 down'`)
 	b.waitFor("the note names router B and its destinations", `(() => {
 		const n = document.getElementById('conn-degraded');
-		return !n.hidden && n.classList.contains('pb-note--warn') && /Router B .*is down\. You cannot patch its \d+ destinations now: B\.1 /.test(n.textContent);
+		return !n.hidden && n.classList.contains('pb-alert--warn') && /Router B .*is down\. You cannot patch its \d+ destinations now: B\.1 /.test(n.textContent);
 	})()`)
 	if b.eval(`!document.getElementById('conn-down').hidden || document.documentElement.dataset.conn !== 'up'`).(bool) {
 		t.Fatal("the Lost link banner shows while Sode is Degraded")
@@ -67,8 +67,9 @@ func TestChromeDegradedRouter(t *testing.T) {
 	b.waitFor("Down: the banner has a node for each router", `(() => {
 		const box = document.getElementById('conn-down');
 		const nodes = [...box.querySelectorAll('.sode__down-node--down')].map((n) => n.textContent);
-		return !box.hidden && box.querySelector('.sode__down-title').textContent === 'Lost link: every Router link down' &&
-			nodes.length === 2 && nodes[0].startsWith('Router A') && nodes[1].startsWith('Router B') && document.getElementById('conn-degraded').hidden;
+		return !box.hidden && box.querySelector('.sode__down-title').textContent === 'Lost link: every Router link is down' &&
+			nodes.length === 2 && nodes[0].startsWith('Router A') && nodes[1].startsWith('Router B') && !nodes.some((n) => /Router (.) Router \1/.test(n)) &&
+			getComputedStyle(box.querySelector('.sode__down-why code')).whiteSpace === 'pre-line' && document.getElementById('conn-degraded').hidden;
 	})()`)
 	b.waitFor("Down: the full status shows in Compact view", `getComputedStyle(document.getElementById('conn-srv-dot').parentElement).opacity === '1'`)
 

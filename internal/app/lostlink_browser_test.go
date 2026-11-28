@@ -79,7 +79,7 @@ func TestChromeLostLinkBanner(t *testing.T) {
 
 	stopSim()
 	want("Router link down: the router node is past the break, the good wire moves",
-		"Lost link: Router link down | ok,ok,sode__down-node--down | ok:#pb-i-circle-check:sode-down-flow,lost:#pb-i-circle-x:none | frame:none")
+		"Lost link: the Router link is down | ok,ok,sode__down-node--down | ok:#pb-i-circle-check:sode-down-flow,lost:#pb-i-circle-x:none | frame:none")
 	why("the router's own error shows", "connection refused")
 	if txt := b.eval(`document.getElementById('conn-down').textContent`).(string); strings.Contains(txt, "Reconnecting") || strings.Contains(txt, "tries again") {
 		t.Fatalf("the banner still names the next try: %q", txt)
@@ -89,7 +89,7 @@ func TestChromeLostLinkBanner(t *testing.T) {
 	}
 	media(map[string]string{"name": "prefers-reduced-motion", "value": "reduce"})
 	want("reduced motion stops the good wire",
-		"Lost link: Router link down | ok,ok,sode__down-node--down | ok:#pb-i-circle-check:none,lost:#pb-i-circle-x:none | frame:none")
+		"Lost link: the Router link is down | ok,ok,sode__down-node--down | ok:#pb-i-circle-check:none,lost:#pb-i-circle-x:none | frame:none")
 	media()
 	views("router")
 
@@ -98,7 +98,7 @@ func TestChromeLostLinkBanner(t *testing.T) {
 	// httptest forgets a hijacked connection, so the open socket outlives Close: drop it as a dead server would.
 	b.eval(`import('./core.js').then((m) => { m.S.ws?.close(); return true; })`)
 	want("Server link down: the server node is past the break, the router is unknown",
-		"Lost link: Server link down | ok,sode__down-node--down,sode__down-node--unknown | lost:#pb-i-circle-x:none,unknown:#pb-i-circle-minus:none | frame:none")
+		"Lost link: the Server link is down | ok,sode__down-node--down,sode__down-node--unknown | lost:#pb-i-circle-x:none,unknown:#pb-i-circle-minus:none | frame:none")
 	why("the socket's close shows", "connection closed (code ")
 	views("server")
 
