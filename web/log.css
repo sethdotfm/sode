@@ -1,6 +1,8 @@
 /* The Sode Communication Log page (/log). Load after base.css. */
 
 .sode-log {
+  /* One label column for the filter rows: "Router uptime", the widest label, is 97 px. */
+  --sode-log-label-w: 6.5rem;
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-5);
@@ -45,8 +47,18 @@
   padding: 0;
   width: auto;
 }
+.sode-log__uptime > .sode-log__line > h2,
+.sode-log__kinds > legend,
+.sode-log__when:first-child > .sode__label {
+  flex: none;
+  width: var(--sode-log-label-w);
+}
+/* With the fieldset's gap, the legend ends the same space before the first chip as the other rows. */
 .sode-log__kinds > legend {
-  margin-right: var(--pb-space-2);
+  margin-right: calc(var(--pb-space-6) - var(--pb-space-2));
+}
+.sode-log__when:first-child {
+  gap: var(--pb-space-6);
 }
 .sode-log__chip {
   font-size: var(--pb-text-xs);

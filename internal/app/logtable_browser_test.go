@@ -13,12 +13,12 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// logTablePage opens /log at 1920x1080 on a log with the rows that set the table's shape: router messages with a
+// logTablePage opens /log at 1920x1080 with two routers, on a log with the rows that set the table's shape: router messages with a
 // level chip, short command rows, a row with no reason, and one problem row with a long note.
 func logTablePage(t *testing.T) *tab {
 	b := startBrowser(t)
-	sim := startSim(t)
-	a := simApp(t, sim)
+	// Two routers, so the Routers filter row shows.
+	a := simRoutersApp(t, []string{startSim(t), startSim(t)})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
@@ -92,6 +92,14 @@ func TestChromeLogTableLayout(t *testing.T) {
 	})()`).(string); bad != "" {
 		t.Errorf("fonts: %s", bad)
 	}
+
+	// The filter rows share one label column: each row's first control starts on one edge.
+	b.sameLeft("first control of each filter row", "#log-uptime-presets > :first-child", "#log-kinds > button:first-of-type",
+		"#log-routers > button:first-of-type", "#log-from")
+	if b.boxes("#log-routers > button") == nil {
+		t.Error("no Routers chips")
+	}
+	b.noClip("filter labels", "#log-uptime-title", "#log-kinds > legend", ".sode-log__when > .sode__label")
 
 	// The divider before Problems only is a drawn line as high as the chips, not a typed character.
 	if bad := b.eval(`(() => {
