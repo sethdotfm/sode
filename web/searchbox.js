@@ -15,7 +15,7 @@ export function emptyNote(rows, fetching) {
   // A search says it all in one sentence: the clear button beside the boxes clears it, and the note stays empty.
   if (searching)
     return el('div', 'sode__filters-empty', el('span', 'sode__hint', searchRespectsFilters() ? 'No matches.' : 'No matches (filter sets not applied).'));
-  const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Clear filters');
+  const clear = el('button', 'pb-btn pb-btn--outline', 'Clear filters');
   clear.type = 'button';
   clear.addEventListener('click', () => pickSet('all', 'All'));
   return el('div', 'sode__filters-empty', el('span', 'sode__hint', activeStack().length ? 'No matches in the stacked sets.' : 'No matches.'), clear);
@@ -145,7 +145,7 @@ for (const b of searchBoxes) {
 function renderSearch() {
   const on = searchActive();
   const n = on ? histRows(S.hist).length : 0;
-  const note = !on || !n ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ', filters ignored'}`;
+  const note = !on || !n ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ', filter sets not applied'}`;
   for (const b of searchBoxes) {
     for (const k of ['src', 'dst']) {
       const st = sb[k];

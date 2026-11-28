@@ -44,11 +44,12 @@
   justify-self: start;
 }
 /* Each button has a track of one width, so Redo and Undo each make one column down the list whatever the Undo words
-   ("Undo", "Undo 3", "Undo all"). 5.25rem holds "Undo all". */
+   ("Undo", "Undo 3", "Undo all"). 5.25rem holds "Undo all"; a longer label ("Undo all 12", "Put TIE 1 back") widens
+   its column instead of being cut. */
 .sode__hist-actions {
   display: grid;
   gap: var(--pb-space-3);
-  grid-auto-columns: 5.25rem;
+  grid-auto-columns: minmax(5.25rem, max-content);
   grid-auto-flow: column;
   justify-content: end;
 }

@@ -35,7 +35,7 @@ func TestChromeHistoryToolsOneHeight(t *testing.T) {
 	b.waitFor("bookmarks and filter sets", `document.querySelectorAll('#patch-view [data-presets] .sode__set').length === 2 && document.querySelectorAll('#patch-view [data-sets] .sode__set').length === 3`)
 	b.waitFor("fonts loaded", `document.fonts.status === 'loaded'`)
 	b.shot("desktop")
-	// A2-02, A2-12: one height in each row, an action high.
+	// One height in each row, an action high.
 	search := []string{"#history-search .sode__search-box > .pb-input", "#history-search [data-search-clear]"}
 	row := append(append([]string{}, search...), "#patch-view [data-filters]")
 	b.sameMiddle("filter boxes, their clear button and Filters", row...)
@@ -47,7 +47,7 @@ func TestChromeHistoryToolsOneHeight(t *testing.T) {
 			t.Errorf("%s is %.2f px high, want --sode-h-action (%.2f px)", x.Name, x.height(), want)
 		}
 	}
-	// A2-12: one text size on the chips and the buttons of both rows.
+	// One text size on the chips and the buttons of both rows.
 	if got := b.eval(`(() => {
 		const want = getComputedStyle(Object.assign(document.getElementById('history-search').appendChild(document.createElement('span')), { style: 'font-size: var(--pb-text-sm)' })).fontSize;
 		document.querySelector('#history-search > span:last-child').remove();
@@ -57,7 +57,7 @@ func TestChromeHistoryToolsOneHeight(t *testing.T) {
 		t.Errorf("text not at --pb-text-sm: %v", got)
 	}
 
-	// C1-18: the phone.
+	// The phone.
 	size(375, 812, true)
 	b.open(srv.URL + "/")
 	b.waitFor("phone layout", `document.documentElement.dataset.layout === 'phone' && !!document.querySelector('#m-recent [data-search-clear]')?.getClientRects().length`)

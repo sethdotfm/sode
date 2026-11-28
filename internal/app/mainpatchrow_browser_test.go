@@ -37,7 +37,7 @@ func TestChromeMainPatchRow(t *testing.T) {
 	b.waitFor("Inbox shows", `!!document.querySelector('[data-inbox-button]')?.offsetParent`)
 	b.eval(`document.activeElement.blur(); true`)
 
-	// A2-03, A2-13: Last and Next.
+	// Last and Next chips.
 	for _, k := range []string{"src", "dst"} {
 		slot := `[data-last="` + k + `"]`
 		b.gapX(k+": Last to Next", "--pb-space-3", slot+" > .sode__last", slot+" .sode__next")
@@ -55,26 +55,26 @@ func TestChromeMainPatchRow(t *testing.T) {
 	b.sameHeight("every box head", ".sode__boxes .sode__box-head")
 	b.noClip("Last 0–10", `[data-last="lvl"] .sode__last-text`)
 
-	// A2-10, A2-26: the gaps of the row.
+	// The gaps of the row.
 	b.gapX("Levels to Take", "--pb-space-6", "#lvl", "#patch")
 	b.gapX("Source to Destination", "calc(2 * var(--pb-space-6) + var(--sode-h-action))", "#src", "#dst")
 	b.gapX("+ to Levels", "calc(2 * var(--pb-space-6) + var(--sode-h-action))", "#dst-add", "#lvl")
 
-	// A2-23: Select All ends under Clear, its words on one line.
+	// Select All ends under Clear, its words on one line.
 	if x := b.boxes("#lvl-all", "#clear-all"); len(x) != 2 || math.Abs(x[0].Right-x[1].Right) > layoutTol {
 		t.Errorf("Select All and Clear end at %v, want one right edge", x)
 	}
 	b.sameMiddle("Select None on one line", "#lvl-all > span")
 	b.noClip("Select None", "#lvl-all")
 
-	// A2-11: out of keyboard mode the boxes keep no room for the hidden key note.
+	// Out of keyboard mode the boxes keep no room for the hidden key note.
 	for _, id := range []string{"src", "dst", "lvl"} {
 		if got, want := b.eval(`parseFloat(getComputedStyle(document.getElementById('`+id+`')).paddingRight)`).(float64), b.tokenPx(".sode__boxes", "--pb-space-3"); math.Abs(got-want) > layoutTol {
 			t.Errorf("#%s has a right pad of %v px, want --pb-space-3 (%v px)", id, got, want)
 		}
 	}
 
-	// A2-22: a disabled Clear and a disabled Take have patchbay's disabled look.
+	// A disabled Clear and a disabled Take have patchbay's disabled look.
 	look := `((n) => { const c = getComputedStyle(n); return [c.backgroundColor, c.borderTopColor, c.color, c.opacity].join(' '); })`
 	b.eval(`(() => { const p = Object.assign(document.createElement('button'), { className: 'pb-btn', disabled: true, id: 'probe-off' }); document.getElementById('patch').after(p); document.getElementById('patch').disabled = true; return true; })()`)
 	b.waitFor("Take's color change ends", `document.getElementById('patch').getAnimations().length === 0`)
@@ -83,13 +83,13 @@ func TestChromeMainPatchRow(t *testing.T) {
 	}
 	b.eval(`document.getElementById('probe-off').remove(); document.getElementById('patch').disabled = false; true`)
 
-	// A2-16: the top bar.
+	// The top bar.
 	if got, want := b.eval(`getComputedStyle(document.querySelector('.sode-inbox__word')).fontSize`), b.eval(`getComputedStyle(document.getElementById('conn-srv-text')).fontSize`); got != want {
 		t.Errorf("Inbox text is %v, the status text %v", got, want)
 	}
 	b.sameHeight("Inbox icon and status icons", "[data-inbox-button] .pb-icon", "#conn .sode__state > .pb-icon")
 
-	// A2-01: the routes under Source and Destination start on one line.
+	// The routes under Source and Destination start on one line.
 	pick := func(id, text string) {
 		b.waitFor(id+" match list", `(() => { const t = document.getElementById('`+id+`'); t.focus(); t.value = '`+text+`'; t.dispatchEvent(new Event('input', { bubbles: true })); return !!document.getElementById('`+id+`-opt-0'); })()`)
 		b.eval(`document.getElementById('` + id + `').dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', code: 'Tab', bubbles: true, cancelable: true })); true`)
@@ -100,12 +100,12 @@ func TestChromeMainPatchRow(t *testing.T) {
 	b.waitFor("routes under both boxes", `!!document.querySelector('#src-under > .sode__under-head') && !!document.querySelector('#dst-under > .sode__under-head')`)
 	b.sameMiddle("routes under Source and Destination", "#src-under > .sode__under-head", "#dst-under > .sode__under-head")
 
-	// A2-13: on a narrow window the Levels Last chip keeps room for "Last 0–10".
+	// On a narrow window the Levels Last chip keeps room for "Last 0–10".
 	size(1100, 900)
 	b.waitFor("1100 px", `innerWidth === 1100`)
 	b.noClip("Last 0–10 at 1100 px", `[data-last="lvl"] .sode__last-text`)
 
-	// A2-06: at 3840x2160 the Levels text box stops at 14rem, and Take keeps its gap.
+	// At 3840x2160 the Levels text box stops at 14rem, and Take keeps its gap.
 	size(3840, 2160)
 	b.waitFor("3840 px", `innerWidth === 3840`)
 	if w, max := b.boxes("#lvl")[0], b.tokenPx(".sode__boxes", "14rem"); w.Right-w.Left > max+layoutTol {
@@ -113,7 +113,7 @@ func TestChromeMainPatchRow(t *testing.T) {
 	}
 	b.gapX("Levels to Take at 3840 px", "--pb-space-6", "#lvl", "#patch")
 
-	// A2-16: two routers leave the address empty, and the status still ends on the bar's edge. A lost link
+	// Two routers leave the address empty, and the status still ends on the bar's edge. A lost link
 	// takes the rule before the status with it.
 	size(1920, 1080)
 	b.waitFor("1920 px", `innerWidth === 1920`)

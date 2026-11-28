@@ -57,7 +57,7 @@ import {
   usedLast,
   choiceLook,
 } from './tiepickrules.js';
-import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText, chainWords, feedingHop } from './tiepickrules.js';
+import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText, chainWords, feedingHop, destsWord } from './tiepickrules.js';
 import { mayProtect } from './protects.js';
 import { reasonText } from './tietakerules.js';
 
@@ -457,7 +457,7 @@ function dstsNode(st) {
   const { o } = cur;
   if (!o.members?.length) return endNode('Destination', dstOf(st.route.dst), 'sode-tiepick__end--dst', st.marks?.end);
   const routers = [...new Set(o.members.map((x) => prefix(x.dst.router || '')))];
-  const word = el('span', 'sode-tiepick__word', `${o.members.length > 1 ? 'Destinations' : 'Destination'} on Router ${routers.join(', ')}`);
+  const word = el('span', 'sode-tiepick__word', destsWord(o.members.length, routers));
   const rows = o.members.map((x, i) => {
     const marked = i === 0 ? st.marks?.end : cur.hits.includes(x.at);
     return el('div', 'sode-tiepick__dst', labelNode(x.dst), ...(marked ? [changedMark()] : []));

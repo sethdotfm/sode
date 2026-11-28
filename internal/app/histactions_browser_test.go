@@ -48,5 +48,9 @@ func TestChromeHistoryActionsColumn(t *testing.T) {
 	if t.Failed() {
 		t.Log(fmt.Sprint(xs))
 	}
+	// The widest labels a row can have: "Undo all 12" of a partial Group and "Put TIE 1 back" of a hop row. The
+	// column grows with its label, so neither is cut by the button's overflow.
+	b.eval(`(() => { const u = [...document.querySelectorAll('` + undo[0] + `')]; u[0].textContent = 'Undo all 12'; u[1].textContent = 'Put TIE 1 back'; return true; })()`)
+	b.noClip("longest action labels", undo[0])
 	b.check()
 }
