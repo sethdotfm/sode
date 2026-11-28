@@ -73,7 +73,10 @@ func TestChromeSettingsTieLinesLayout(t *testing.T) {
 		b.sameLeft(what+" head and cells", "#tielines-list .sode__trow--head > "+n, "#tielines-list .sode__trow[data-id] > "+n)
 	}
 	b.sameLeft("Edit buttons", `#tielines-list [data-act="edit"]`)
-	b.noClip("Edit and Remove fit the last column", "#tielines-list .sode__trow[data-id] > .sode__prow-act")
+	if over := b.eval(`[...document.querySelectorAll('#tielines-list .sode__trow[data-id] > .sode__prow-act')]
+		.filter((e) => e.scrollWidth > e.clientWidth || e.firstElementChild.getBoundingClientRect().left < e.getBoundingClientRect().left - 0.5).length`); over != 0.0 {
+		b.layoutFail(fmt.Sprintf("Edit and Remove do not fit the last column in %v rows", over))
+	}
 
 	// B1-02: the State text of every row is on one line.
 	lines := b.eval(`[...document.querySelectorAll('#tielines-list .sode__tstate-carries')].map((e) => {
