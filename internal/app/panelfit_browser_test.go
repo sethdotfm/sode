@@ -82,3 +82,45 @@ func TestChromePanelFullWidthFits(t *testing.T) {
 	}
 	b.check()
 }
+
+// The panel title is on the Lock chip's centre line. In Full width it clears the chip by one space-4. In Normal width it
+// starts on the grid's left edge when the chip is outside the page's column.
+func TestChromePanelTitleLine(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim)
+	srv := seamServer(t, a)
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Title panel","rows":3,"cols":8,"cells":[{"r":1,"c":1,"kind":"destination","n":%d}]}`, simDst))
+	waitNamesAndTally(t, a, ana)
+
+	sizeTo(b, 1920, 1080)
+	b.open(srv.URL + "/panels/" + id)
+	signInOnPad(b)
+	b.waitFor("the lock screen goes", `!document.documentElement.dataset.sodeLock`)
+	b.waitFor("the grid is drawn", `document.querySelector('.sode-panel__cell--destination span')?.textContent === 'DSM1'`)
+	settled := `document.getAnimations().every((a) => a.playState !== 'running')`
+
+	b.waitFor("full width", `!!document.querySelector('.sode-panels--full') && !!document.querySelector('.sode-lock__who')?.offsetWidth && `+settled)
+	b.shot("full")
+	b.sameMiddle("the title is on the chip's centre line", ".sode-lock__who-bar", "#panel-title")
+	// --sode-who-w is the chip's width rounded up, so the gap is space-4 plus less than 1 px.
+	x := b.boxes(".sode-lock__who", "#panel-title")
+	if gap, want := x[1].Left-x[0].Right, b.tokenPx("#panel-title", "--pb-space-4"); gap < want-layoutTol || gap > want+1 {
+		t.Errorf("the title is %.2f px from the chip, want %.2f", gap, want)
+	}
+
+	b.eval(`document.getElementById('panel-full').click(); true`)
+	b.waitFor("normal width", `!document.querySelector('.sode-panels--full') && `+settled)
+	b.shot("normal")
+	b.sameMiddle("the title is on the chip's centre line in Normal width", ".sode-lock__who-bar", "#panel-title")
+	// At 1920 px the column starts 1 px right of the chip, so the title moves only by what space-4 from the chip needs.
+	x = b.boxes(".sode-lock__who", "#panel-title", "#panel-grid")
+	if x[1].Left < x[0].Right+b.tokenPx("#panel-title", "--pb-space-4")-layoutTol || x[1].Left > x[2].Left+b.tokenPx("#panel-title", "--pb-space-4") {
+		t.Errorf("Normal width at 1920: the title starts at %.2f, the chip ends at %.2f and the grid starts at %.2f", x[1].Left, x[0].Right, x[2].Left)
+	}
+	sizeTo(b, 2560, 1440)
+	b.waitFor("2560x1440", `innerWidth === 2560 && `+settled)
+	b.sameLeft("the title, the instance name and the grid start on one edge", "#panel-title", "#panel-device", "#panel-grid")
+	b.check()
+}

@@ -30,6 +30,25 @@ body {
 [data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels__head:not(.sode-bar) {
   padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-4));
 }
+/* A Buttons panel page pads its header only by what the chip covers, so the title starts on the grid's edge when the
+   chip is outside the page's column. --sode-panel-x is the left of the page's content: the centred 100rem column plus
+   its padding, or the Full width padding. The chip's right edge is its left (lock.css) plus --sode-who-w. */
+.sode-panels:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  --sode-panel-x: max(var(--pb-space-8), (100vw - 100rem) / 2 + var(--pb-space-8));
+}
+.sode-panels--full:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  --sode-panel-x: var(--pb-space-3);
+}
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels:not(:has(.sode-gridpanel)) > .sode-panels__head:not(.sode-bar) {
+  padding-inline-start: max(0px, var(--pb-space-5) + var(--sode-who-w, 0px) + var(--pb-space-4) - var(--sode-panel-x));
+}
+/* The header row has the chip's top and height, so the title is on the chip's centre line (lock.css .sode-lock__who). */
+:root:not([data-layout="phone"]) .sode-panels:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  padding-top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
+}
+:root:not([data-layout="phone"]) .sode-panels:not(:has(.sode-gridpanel)) > .sode-panels__head:not(.sode-bar) {
+  min-height: calc(var(--pb-control-h-sm) + var(--pb-space-2) * 2);
+}
 [data-sode-kiosk] .sode-lock__who {
   display: none;
 }
