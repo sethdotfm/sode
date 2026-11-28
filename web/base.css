@@ -1331,6 +1331,11 @@ html {
   max-height: calc(var(--pb-control-h) * 6 + var(--pb-space-2) * 2);
   position: static;
 }
+/* No gap for the closed match list or the blank Router title, so an empty end box is as tall as Tie line name. */
+.sode__tfind > .sode__menu[hidden],
+.sode__tfind > .sode__tfind-end:empty {
+  display: none;
+}
 .sode__tedit-err:empty {
   display: none;
 }
