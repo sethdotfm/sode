@@ -1707,9 +1707,13 @@ body {
   overscroll-behavior: contain;
   min-width: 0;
   overflow: hidden auto;
-  padding: var(--pb-space-9) var(--pb-space-5);
+  padding: var(--pb-space-5);
   position: sticky;
   top: var(--pb-space-5);
+}
+/* The big scroll bar's room is always kept (data-bigscroll-room), so the sidebar keeps one width on every tab. */
+:root:not([data-layout="phone"]) .sode-ed__side[data-bigscroll-room] {
+  padding-inline-end: calc(var(--sode-bigscroll-w) + var(--pb-space-5));
 }
 .sode-side__tab,
 .sode-side__form {
