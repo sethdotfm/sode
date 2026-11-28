@@ -91,9 +91,9 @@ test('the router filter and the find work with the kind filter', () => {
 });
 
 test('the count line: all of them, or what a filter shows', () => {
-  assert.equal(countLine(ROWS, ROUTERS, NONE), '9 on 4 routers. Sode set 5.');
+  assert.equal(countLine(ROWS, ROUTERS, NONE), '9 Protects and Router locks on 4 routers. Sode set 5.');
   assert.equal(countLine(ROWS, ROUTERS, { ...NONE, kind: 'lock' }), 'Shows 2 of 9.');
-  assert.equal(countLine(ROWS.slice(0, 1), ROUTERS.slice(0, 1), NONE), '1 on 1 router. Sode set 1.');
+  assert.equal(countLine(ROWS.slice(0, 1), ROUTERS.slice(0, 1), NONE), '1 Protect or Router lock on 1 router. Sode set 1.');
   assert.equal(countLine([], ROUTERS, NONE), 'No Protects or Router locks.');
 });
 
@@ -143,7 +143,7 @@ test('groups: one for each router, in router order, with counts; a filter leaves
     groupsOf([], ROUTERS.slice(0, 2), NONE).map((g) => g.total),
     [0, 0],
   );
-  assert.equal(groupCount(gs[0]), '4 in all. Sode set 2, other devices 2.');
+  assert.equal(groupCount(gs[0]), '4 here. Sode set 2. Other devices set 2.');
   assert.equal(groupCount({ total: 0 }), 'None.');
 });
 

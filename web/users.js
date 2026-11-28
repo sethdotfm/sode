@@ -46,7 +46,7 @@ const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('s
 const owners = el('div', 'sode__users-opts');
 owners.hidden = true;
 
-const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
+const addBtn = btn('pb-btn--outline', 'Add user', () => {
   addRow().focus();
   touched();
 });
@@ -283,7 +283,7 @@ function paintPeople() {
   if (!show) return people.replaceChildren();
   people.replaceChildren(
     ...names.map((n) => {
-      const b = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: n }));
+      const b = btn('pb-btn--outline', 'Edit Profile', () => emit('openProfile', { name: n }));
       b.setAttribute('aria-haspopup', 'dialog');
       b.setAttribute('aria-label', `Edit Profile of ${n}`);
       return el('div', 'sode__names', el('span', 'sode__label', n), b);

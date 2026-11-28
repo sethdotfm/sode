@@ -171,3 +171,8 @@ test('dialog buttons have one look: Save is sode-btn--primary, Close, Cancel and
   // The Tie line picker's Cancel has the height of its Take.
   assert.match(src.get('tiepicker.css'), /\.sode-tiepick__cancel[^{]*\{[^}]*height: var\(--sode-h-action\)/);
 });
+
+test('Make key is one primary button in all three places', () => {
+  for (const f of ['mykeys.js', 'myclients.js', 'usersclients.js'])
+    assert.match(src.get(f), /btn\('sode-btn--primary', 'Make key'/, `${f} draws Make key another way`);
+});

@@ -1,0 +1,3 @@
+- In Settings, the Tie lines table heads are above their columns and the State text stays on one line. Add tie line and the find box are on one row, with the router filter below. Accept and Dismiss are in columns at the right, and the editor fields have one height.
+- A tie line error shows one time, in the editor, and a duplicate name now says "another tie line has the name". The empty Tie lines texts say what to do.
+- In the Swap dialog, the four fields are on one row, and Find items and Only Broken are on one line with a gap.

@@ -69,18 +69,16 @@
   border-color: var(--pb-accent);
   box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-accent);
 }
-.sode__rrow:focus-visible {
-  outline: 2px solid var(--pb-accent);
-  outline-offset: 2px;
-}
 .sode__rrow[data-removed] .sode__rrow-title {
   text-decoration: line-through;
 }
+/* A drop place is an accent bar on the chip's side. The chip has no focus rule: patchbay's ring for [tabindex] is the
+   one every other control has. */
 .sode__rrow[data-drop="before"] {
-  box-shadow: inset 3px 0 0 var(--pb-accent);
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
 }
 .sode__rrow[data-drop="after"] {
-  box-shadow: inset -3px 0 0 var(--pb-accent);
+  box-shadow: inset calc(-1 * var(--pb-accent-bar-w)) 0 0 var(--pb-accent);
 }
 .sode__rrow-prefix {
   color: var(--pb-text-strong);
@@ -154,17 +152,23 @@
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
 }
+/* The name takes the width of its words, so a long Router title moves the buttons to the next line and does not wrap
+   beside them. */
 .sode__rhead-name {
   display: flex;
-  flex: 1 1 12rem;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--pb-space-2);
   min-width: 0;
 }
+/* The name line is a control high, so the name and the buttons share a centre line. */
 .sode__rname {
+  align-items: center;
   color: var(--pb-text-strong);
+  display: flex;
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
+  min-height: var(--pb-control-h);
   overflow-wrap: anywhere;
 }
 .sode__rlink {
@@ -228,13 +232,13 @@
   flex-wrap: wrap;
   gap: var(--pb-space-1);
 }
-/* Every chip of the row has the width of its widest label (--sode-rchip-ch, its characters), so the columns line up. */
+/* Every chip of the row has the width of its widest label (--sode-rchip-ch, its characters), so the columns line up. Its
+   least size and its height are the slot's of Look and feel > Level colors. */
 .sode__rchips > .sode__slot {
-  height: 1.5rem;
   justify-content: center;
   min-width: 0;
   padding: 0;
-  width: max(1.5rem, calc(var(--sode-rchip-ch, 1) * 1ch + var(--pb-space-2)));
+  width: max(calc(var(--pb-space-8) + var(--pb-space-1)), calc(var(--sode-rchip-ch, 1) * 1ch + var(--pb-space-2)));
 }
 .sode__rfacts {
   align-items: center;
@@ -261,6 +265,9 @@
   column-gap: var(--pb-space-5);
   grid-template-columns: repeat(auto-fill, minmax(11.25rem, 1fr));
   grid-auto-rows: auto;
+  /* Each field's bottom margin parts the rows; the last row's margin is taken back, so the next block of the group is
+     one group gap away, as after a field outside the grid. */
+  margin-bottom: calc(-1 * var(--pb-space-4));
   row-gap: 0;
 }
 .sode__rgroup .sode__fields > .sode__field {
@@ -270,12 +277,13 @@
   grid-template-rows: subgrid;
   margin-bottom: var(--pb-space-4);
 }
-.sode__rgroup .sode__fields > .sode__field > label {
+.sode__rgroup .sode__fields > .sode__field > :is(label, .sode__label-help) {
   align-self: end;
   margin-bottom: var(--pb-space-2);
 }
 .sode__rgroup .sode__fields > .sode__field > :is(.sode__hint, .sode__field-err) {
-  margin-top: var(--pb-space-1);
+  /* The gap of a .sode__field outside the grid. */
+  margin-top: var(--pb-space-2);
 }
 .sode__rlink .sode__code,
 .sode__rtry .sode__code {

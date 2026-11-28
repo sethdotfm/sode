@@ -43,11 +43,12 @@ export const filtered = (f) => !!(f.q || '').trim() || f.kind !== 'all' || f.rou
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-// "158 on 4 routers. Sode set 91." With a filter on: "Shows 12 of 158."
+// "158 Protects and Router locks on 4 routers. Sode set 91." With a filter on: "Shows 12 of 158."
 export function countLine(rows, routers, f) {
   if (!rows.length) return 'No Protects or Router locks.';
   if (filtered(f)) return `Shows ${rows.filter((r) => matches(r, f)).length} of ${rows.length}.`;
-  return `${rows.length} on ${plural(routers.length, 'router', 'routers')}. Sode set ${rows.filter((r) => r.hold.sode).length}.`;
+  const what = rows.length === 1 ? 'Protect or Router lock' : 'Protects and Router locks';
+  return `${rows.length} ${what} on ${plural(routers.length, 'router', 'routers')}. Sode set ${rows.filter((r) => r.hold.sode).length}.`;
 }
 
 // The count on each kind button: in the router and find of f, so the counts say what a press shows.
@@ -69,7 +70,7 @@ export const isUp = (rt) => rt.link === 'up';
 // Why Sode cannot free a Protect on router rt now, or '' when it can. linked: the page's own link to Sode is up.
 export function freeBlock(rt, linked = true) {
   if (!linked) return 'The link to the Sode server is down.';
-  if (!rt.device) return "Protect is off for this router: Sode's device number is 0.";
+  if (!rt.device) return "Protect is off for this router, because Sode's device number is 0.";
   if (!isUp(rt)) return 'The router is not connected.';
   return '';
 }
@@ -90,8 +91,8 @@ export function groupsOf(rows, routers, f, results = {}) {
   return out;
 }
 
-// The words of a group heading's count: "42 in all. Sode set 30, other devices 12."
-export const groupCount = (g) => (g.total ? `${g.total} in all. Sode set ${g.sode}, other devices ${g.other}.` : 'None.');
+// The words of a group heading's count: "42 here. Sode set 30. Other devices set 12."
+export const groupCount = (g) => (g.total ? `${g.total} here. Sode set ${g.sode}. Other devices set ${g.other}.` : 'None.');
 
 const clock = (at) => {
   const d = at instanceof Date ? at : new Date(at);

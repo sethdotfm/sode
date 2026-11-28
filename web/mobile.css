@@ -589,3 +589,13 @@
 [data-layout="phone"] .sode__pickbar-controls .sode__hint {
   flex: 1 1 auto;
 }
+
+/* The Save bar's server path: the phone has no room for it, and a person cannot act on it there. The hint without the
+   path (Unsaved changes, Not saved) stays. */
+[data-layout="phone"] #settings-path.sode__path-shown {
+  display: none;
+}
+/* Back's icon starts on the page edge: the margin takes back the button's padding and border. */
+[data-layout="phone"] .pb-btn.sode__back {
+  margin-left: calc((var(--pb-space-5) + var(--pb-border-w)) * -1);
+}

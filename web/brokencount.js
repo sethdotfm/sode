@@ -56,7 +56,7 @@ function row(it) {
 function paint(box, r) {
   if (!box) return;
   if (!r || (!r.broken && !r.moved)) {
-    box.replaceChildren(el('span', 'sode__hint', 'No Broken or Name moved items'));
+    box.replaceChildren(el('span', 'sode__hint', 'No item is Broken or Name moved.'));
     return;
   }
   const list = el('ul', 'sode__broken-list', ...r.items.map(row));

@@ -97,7 +97,7 @@ function prefLine(f) {
 }
 
 function listSection(heading, rows, empty, addText, ev) {
-  const add = btn('pb-btn--outline pb-btn--sm', addText, () => emit(ev, { user: who, profile: prof }));
+  const add = btn('pb-btn--outline', addText, () => emit(ev, { user: who, profile: prof }));
   return el(
     'section',
     'sode__profiles-sec',

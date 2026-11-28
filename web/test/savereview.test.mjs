@@ -4,6 +4,7 @@ import {
   diffRows,
   groupRows,
   saveLabel,
+  unsavedWords,
   refusalNote,
   showValue,
   reconnects,
@@ -142,4 +143,11 @@ test('with one router the reconnect question gives only the address', () => {
   const t = reconnectTargets(['router/ua/address'], [ROUTERS[0]], routerDisplay, () => '10.0.0.9:8910');
   assert.deepEqual(reconnectQuestion(t, false), { title: 'Save and reconnect to 10.0.0.9:8910?', lines: [] });
   assert.deepEqual(reconnectQuestion([{ uid: '', name: 'Router A', address: '' }], false).title, 'Save and reconnect?');
+});
+
+test('unsavedWords: the Exit warning names each section with changes and says what to do', () => {
+  assert.equal(unsavedWords([]), '');
+  assert.equal(unsavedWords(['Routers']), 'Routers has unsaved changes. Save, or press Discard and exit.');
+  assert.equal(unsavedWords(['Routers', 'Locks']), 'Routers and Locks have unsaved changes. Save, or press Discard and exit.');
+  assert.equal(unsavedWords(['Server', 'Routers', 'Locks']), 'Server, Routers and Locks have unsaved changes. Save, or press Discard and exit.');
 });

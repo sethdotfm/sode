@@ -77,6 +77,6 @@ func TestChromeBrokenBanner(t *testing.T) {
 		t.Fatal(err)
 	}
 	b.waitFor("banner gone once fixed", banner+`.hidden`)
-	b.waitFor("the count follows the fix", count+` === 'No Broken or Name moved items'`)
+	b.waitFor("the count follows the fix", count+` === 'No item is Broken or Name moved.'`)
 	b.check()
 }
