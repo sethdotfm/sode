@@ -584,9 +584,13 @@ onMsg('setupFree', () => {
   show();
 });
 
+// brand.js paints the hello's saved brand on helloCfg, before this. The answers are not saved yet, so paint them again.
+const keepBrand = () => d && showBrand(d.brandText, d.brandBorder);
+
 on('hello', () => {
-  if (mode === 'again') return;
+  if (mode === 'again') return keepBrand();
   if (S.setup) {
+    keepBrand();
     if (!mode) {
       sheetPresets = S.setup.presets || [];
       // Desktop shows nothing until the claim answers, so the first browser never sees the wait page.

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -256,5 +257,51 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 	b.waitFor("Settings > Routers", `document.documentElement.dataset.view === 'settings' && !!document.getElementById('cfg-rt-fireMode')?.offsetParent`)
 	b.waitFor("the help button sits after the Multi destination label", `document.querySelector('label[for="cfg-rt-fireMode"]').nextElementSibling?.id === 'cfg-rt-fireMode-help'`)
 	helpOK("Settings", "cfg-rt-fireMode-help")
+	b.check()
+}
+
+// A new router address brings a hello with the saved config, which has no brand yet. The bar keeps the name and
+// Theme color of the answers through it.
+func TestChromeSetupKeepsBrand(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = sim })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	type_ := func(id, text string) {
+		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	}
+	next := `document.getElementById('setup-next')`
+	b.open(srv.URL + "/")
+	b.waitFor("Welcome", `document.getElementById('setup-title')?.textContent === 'Set up Sode'`)
+	b.eval(`sessionStorage.clear(); true`)
+	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)
+	type_("setup-brandText", "Studio B")
+	type_("setup-name", "Ada")
+	type_("setup-pin", "2468")
+	type_("setup-pin2", "2468")
+	b.waitFor("Next", `!`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("Router", `!!document.getElementById('setup-router')`)
+	brand := `(() => {
+		const title = document.querySelector('#home-bar .sode-panels__title').textContent.trim();
+		const accent = getComputedStyle(document.documentElement).getPropertyValue('--pb-accent').trim();
+		return title + ' ' + accent + ' ' + document.querySelector('.sode__brandframe').dataset.brand;
+	})()`
+	want := b.eval(brand).(string)
+	if !strings.HasPrefix(want, "Studio B ") || !strings.HasSuffix(want, " teal") {
+		t.Fatalf("before the new address the bar shows %q", want)
+	}
+	b.eval(`import('./core.js').then((m) => { window.hellos = 0; m.on('hello', () => window.hellos++); return true; })`)
+	type_("setup-router", "127.0.0.1:1")
+	b.waitFor("the hello after the new address", `window.hellos > 0`)
+	if got := b.eval(brand); got != want {
+		t.Fatalf("after the hello the bar shows %q, want %q", got, want)
+	}
 	b.check()
 }

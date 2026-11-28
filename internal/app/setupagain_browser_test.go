@@ -74,3 +74,40 @@ func TestChromeRunSetupAgain(t *testing.T) {
 	}
 	b.check()
 }
+
+// A hello while Run setup again is open (here after a reconnect) keeps the name and Theme color of the answers.
+// Cancel puts back the saved ones.
+func TestChromeRunSetupAgainKeepsBrand(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) {
+		c.Users[0].Role = config.RoleAdministrator
+		c.BrandText = "Studio B"
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	b.open(srv.URL + "/#settings")
+	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
+	signInSettings(b)
+	b.waitFor("Run setup again ready", `(() => { const x = document.getElementById('setup-again-open'); return !!x?.offsetParent && !x.disabled; })()`)
+	b.eval(`document.getElementById('setup-again-open').click(); true`)
+	b.waitFor("Welcome with the current name", `document.getElementById('setup-brandText')?.value === 'Studio B'`)
+	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)
+	b.eval(`(() => { const i = document.getElementById('setup-brandText'); i.value = 'Studio C'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	title := `document.querySelector('#home-bar .sode-panels__title').textContent.trim()`
+	frame := `document.querySelector('.sode__brandframe').dataset.brand`
+	b.waitFor("the answers show in the bar", title+` === 'Studio C' && `+frame+` === 'teal'`)
+	b.eval(`import('./core.js').then((m) => { window.hellos = 0; m.on('hello', () => window.hellos++); m.S.ws?.close(); return true; })`)
+	b.waitFor("the hello after the reconnect", `window.hellos > 0`)
+	if got := b.eval(title + ` + ' ' + ` + frame); got != "Studio C teal" {
+		t.Fatalf("after the hello the bar shows %q, want the answers", got)
+	}
+	b.waitFor("the wizard stays open", `!document.getElementById('setup').hidden`)
+	b.eval(`document.getElementById('setup-back').click(); true`)
+	b.waitFor("Cancel puts back the saved name and color", `document.getElementById('setup').hidden && `+title+` === 'Studio B' && document.querySelector('.sode__brandframe').hidden`)
+}
