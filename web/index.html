@@ -227,7 +227,7 @@
           <span class="pb-select-wrap"><select id="cfg-clock" class="pb-select" data-pref="clock"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-flip">Destination before Source</label>
+          <label for="cfg-flip">Destination before source</label>
           <span class="pb-select-wrap"><select id="cfg-flip" class="pb-select" data-pref="flip"></select></span>
         </div>
         <div class="sode__field">
@@ -235,7 +235,7 @@
           <span class="pb-select-wrap"><select id="cfg-scrolltop" class="pb-select" data-pref="scrollTop"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-search-filters">Searching history respects filters</label>
+          <label for="cfg-search-filters">Search in History uses filters</label>
           <span class="pb-select-wrap"><select id="cfg-search-filters" class="pb-select" data-pref="searchFilters"></select></span>
         </div>
         <div class="sode__field">
@@ -300,7 +300,7 @@
           <span class="pb-select-wrap"><select id="gcfg-clock" class="pb-select" data-gpref="clock"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-flip">Destination before Source</label>
+          <label for="gcfg-flip">Destination before source</label>
           <span class="pb-select-wrap"><select id="gcfg-flip" class="pb-select" data-gpref="flip"></select></span>
         </div>
         <div class="sode__field">
@@ -308,7 +308,7 @@
           <span class="pb-select-wrap"><select id="gcfg-scrolltop" class="pb-select" data-gpref="scrollTop"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-search-filters">Searching history respects filters</label>
+          <label for="gcfg-search-filters">Search in History uses filters</label>
           <span class="pb-select-wrap"><select id="gcfg-search-filters" class="pb-select" data-gpref="searchFilters"></select></span>
         </div>
         <div class="sode__field">
@@ -394,7 +394,7 @@
           <span class="sode__hint">Delay before the Confirm letter and OK work.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-dismiss">Success banner closes after (s)</label>
+          <label for="cfg-dismiss">Close a success banner after (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
           <span class="sode__hint">0 keeps it open. A failure banner always stays.</span>
         </div>
@@ -692,7 +692,7 @@
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-public-panels" data-key="publicPanels" data-type="bool"><span class="pb-check__label">Public panels allowed</span></label>
       </div>
       <div class="sode__field sode__field--half">
-        <label for="cfg-new-panel-acts">New-panel Authentication mode</label>
+        <label for="cfg-new-panel-acts">Authentication mode for new panels</label>
         <span class="pb-select-wrap"><select id="cfg-new-panel-acts" class="pb-select" data-key="newPanelActs"><option value="public">Public</option><option value="session">User</option><option value="both">Both</option><option value="api">API</option></select></span>
       </div>
     </fieldset>
@@ -706,7 +706,7 @@
       </div>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-require-https" data-key="requireHttps" data-type="bool"><span class="pb-check__label">Require HTTPS</span></label>
-        <span class="sode__hint">Refuses every request that a trusted proxy did not mark <code>X-Forwarded-Proto: https</code>, except the health endpoints. Needs at least one trusted proxy, and you must save from an HTTPS address. Console reset: <code>sode -reset-https</code>.</span>
+        <span class="sode__hint">Sode refuses a request that a trusted proxy did not mark <code>X-Forwarded-Proto: https</code>. The health endpoints stay open. Add a trusted proxy first, and save from an HTTPS address. To turn it off from the console: <code>sode -reset-https</code>.</span>
       </div>
     </fieldset>
 

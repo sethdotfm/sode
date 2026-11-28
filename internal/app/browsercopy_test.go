@@ -45,7 +45,7 @@ func TestBrowserCopyWritesOneSaveRowForTheUser(t *testing.T) {
 	if theme.Section != "My user" || theme.Topic != "Preferences" || theme.Label != "Theme" || string(theme.Old) != `"light"` || string(theme.New) != `"dark"` {
 		t.Fatalf("theme field %+v", theme)
 	}
-	if fl := f["profile/prefs/flip"]; fl.Label != "Destination before Source" || len(fl.Old) != 0 || string(fl.New) != `"on"` {
+	if fl := f["profile/prefs/flip"]; fl.Label != "Destination before source" || len(fl.Old) != 0 || string(fl.New) != `"on"` {
 		t.Fatalf("flip field %+v", fl)
 	}
 	names := func(vs []json.RawMessage) []string {
