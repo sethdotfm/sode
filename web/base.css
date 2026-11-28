@@ -1023,8 +1023,13 @@ html {
 .sode__topic + .sode__group > legend {
   border-top: 0;
 }
+/* The remove note's list: a small indent, and no browser margins in the note. */
 .sode__routers-uses {
   margin: var(--pb-space-2) 0;
+  padding-left: var(--pb-space-6);
+}
+.sode__rnote p {
+  margin: 0 0 var(--pb-space-2);
 }
 .sode__swap-list {
   margin-top: var(--pb-space-4);

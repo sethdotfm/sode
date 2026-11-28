@@ -18,14 +18,14 @@ test('usesNote: what Remove router breaks', () => {
     { kind: 'preset', name: 'Stage', owner: '' },
     { kind: 'preset', name: 'Mine', owner: 'Ana' },
   ]);
-  assert.equal(n.head, 'Remove router B makes 2 presets, 1 filter set and 1 panel Broken:');
+  assert.equal(n.head, 'If you remove router B, Sode makes 2 presets, 1 filter set and 1 panel Broken:');
   assert.deepEqual(n.lines, ['Filter set B cams (Everyone)', 'Panel Desk (Ana)', 'Preset Stage (Everyone)', 'Preset Mine (Ana)']);
   const ties = [
     { kind: 'tieLine', name: 'TIE 3', owner: '' },
     { kind: 'tieLine', name: 'TIE 4', owner: '' },
   ];
-  assert.deepEqual(usesNote('B', ties), { head: 'Remove router B removes 2 tie lines:', lines: ['Tie line TIE 3', 'Tie line TIE 4'] });
-  assert.equal(usesNote('B', [{ kind: 'preset', name: 'Stage', owner: '' }, ties[0]]).head, 'Remove router B makes 1 preset Broken and removes 1 tie line:');
+  assert.deepEqual(usesNote('B', ties), { head: 'If you remove router B, Sode removes 2 tie lines:', lines: ['Tie line TIE 3', 'Tie line TIE 4'] });
+  assert.equal(usesNote('B', [{ kind: 'preset', name: 'Stage', owner: '' }, ties[0]]).head, 'If you remove router B, Sode makes 1 preset Broken and removes 1 tie line:');
 });
 
 test('the router keys: section routers, and Add, Remove, Address and Matrix are Critical', () => {

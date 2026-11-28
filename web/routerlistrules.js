@@ -62,7 +62,7 @@ export function usesNote(prefix, items) {
     return it.kind === 'tieLine' ? what : `${what} (${it.owner || 'Everyone'})`;
   });
   const parts = [broken.length ? `makes ${joinAnd(broken)} Broken` : '', ties.length ? `removes ${ties[0]}` : ''].filter(Boolean);
-  return { head: `Remove router ${prefix} ${parts.join(' and ')}:`, lines };
+  return { head: `If you remove router ${prefix}, Sode ${parts.join(' and ')}:`, lines };
 }
 
 // The link state of a router in the Routers list, as an icon and words. A healthy link shows no color

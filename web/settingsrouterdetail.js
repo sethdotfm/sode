@@ -299,7 +299,7 @@ function paintNote(x) {
       el(
         'div',
         'pb-note pb-note--warn',
-        el('p', null, `Router ${prefix} goes when you save. The save asks for your PIN again.`),
+        el('p', null, `Router ${prefix} is removed when you save. Save asks for your PIN again.`),
         el('p', null, head),
         ...(lines.length ? [el('ul', 'sode__routers-uses', ...lines.map((t) => el('li', null, t)))] : []),
         el('div', 'sode__racts', keep),
@@ -307,12 +307,12 @@ function paintNote(x) {
     );
     return;
   }
-  if (x.note === 'asking') return void box.replaceChildren(el('p', 'sode__hint', `Looking for what names router ${prefix}…`));
+  if (x.note === 'asking') return void box.replaceChildren(el('p', 'sode__hint', `Looking for items that use router ${prefix}…`));
   if (x.note === 'error') return void box.replaceChildren(el('div', 'pb-note pb-note--warn', x.err || 'The list did not load.'));
   if (x.note === 'list') {
     const { head, lines } = usesNote(prefix, x.uses || []);
     const go = button(`Remove router ${prefix}`, 'pb-btn--outline', () => setRemoved(x, true));
-    const keep = button('Keep', 'pb-btn--ghost', () => {
+    const keep = button(`Keep router ${prefix}`, 'pb-btn--outline', () => {
       const now = itemOf(x.uid);
       if (!now) return;
       now.note = '';
