@@ -202,7 +202,7 @@ func TestChromeTiePickerGroupsThreeRouters(t *testing.T) {
 	p.question("B → C, for C.3 C.4")
 	b.waitFor("the second question shows the hop B to C and sends", `(() => {
 		const t = document.querySelector('#tiepick .sode-tiepick__step')?.textContent || '';
-		return document.querySelectorAll('#tiepick .sode-tiepick__step').length === 1 && t.includes('router B to router C') && document.getElementById('tiepick-take').textContent.startsWith('Take'); })()`)
+		return document.querySelectorAll('#tiepick .sode-tiepick__step').length === 1 && t.includes('Router B to Router C') && document.getElementById('tiepick-take').textContent.startsWith('Take'); })()`)
 	p.choose(groupTie2)
 	b.shot("hop-bc")
 	p.key("Enter")

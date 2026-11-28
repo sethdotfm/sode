@@ -203,6 +203,9 @@ func TestChromeChipMenu(t *testing.T) {
 	}
 
 	// The Lock item locks. Under the Lock the drop-down does not open, and the button fades but keeps its place.
+	// On a slow machine the bar's padding can still move back after the Step in pad (lock.css, --sode-lock-out). So
+	// read the name's place only after every transition in the chip ends.
+	b.waitFor("the chip at rest", `document.querySelector('.sode-lock__who').getAnimations({ subtree: true }).length === 0`)
 	nameX := b.eval(`document.querySelector('.sode-lock__who-name').getBoundingClientRect().left - document.querySelector('.sode-lock__who-bar').getBoundingClientRect().left`)
 	tap(b, `document.getElementById('lock-chip-more')`)
 	b.waitFor("open on a tap", chipOpen)
