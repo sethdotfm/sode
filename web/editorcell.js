@@ -32,13 +32,15 @@ export function createCellTab(ed, { picked }) {
   const form = el('div', 'sode-side__form');
   let at = '';
 
-  const kindLine = el('p', 'sode-side__kind');
+  const kindLine = el('h3', 'sode-side__h');
   kindLine.id = 'ed-cell-kind';
   const caption = el('input', 'pb-input');
   caption.id = 'ed-cell-caption';
   caption.maxLength = CAPTION_MAX;
   caption.autocomplete = 'off';
-  const captionField = field('ed-cell-caption', 'Text override', caption);
+  const captionField = field('ed-cell-caption', 'Text on the cell', caption);
+  const captionHint = el('span', 'sode__hint');
+  captionField.append(captionHint);
   const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => patch({ levels: v }, null, LEVEL_KINDS) });
   const levelNote = el('span', 'sode__hint');
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Levels'), levelBoxes.node, levelNote);
@@ -142,7 +144,7 @@ export function createCellTab(ed, { picked }) {
     for (const n of [...cellOnly, deflt.node]) n.hidden = true;
     showForm(!!g);
     if (!g) {
-      hint.textContent = 'Select sources or destinations in the lists to set their artwork.';
+      hint.textContent = 'Select a source or destination in a list to set its artwork.';
       return;
     }
     const off = ed.routerNames()?.numberOffset || 0;
@@ -184,8 +186,9 @@ export function createCellTab(ed, { picked }) {
     const oneKind = kinds.size === 1;
     kindLine.textContent = several
       ? `${cs.length} ${oneKind ? `${kindLabel(first.kind)} ` : ''}cells selected`
-      : `${kindLabel(c.kind)} at row ${c.r}, column ${c.c}`;
+      : `${kindLabel(c.kind)}, row ${c.r}, column ${c.c}`;
     captionField.hidden = sizeRow.hidden = false;
+    captionHint.textContent = cs.every((x) => x.kind === 'source' || x.kind === 'destination') ? 'Empty shows the router name.' : '';
     caption.placeholder = several && same(cs, 'caption') === '' && cs.some((x) => x.caption) ? 'Several values' : '';
     put(caption, same(cs, 'caption'), fresh);
     put(size, String(same(cs, 'fontSize') || 100), fresh); // shown, so the arrows step from the default

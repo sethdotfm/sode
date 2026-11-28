@@ -78,6 +78,14 @@
 .sode-bar > .sode-inbox__slot[hidden] + .sode-bar__rule--end {
   display: none;
 }
+/* A lost link hides the status (base.css), and the rule before it goes too. */
+[data-conn="down"] .sode-bar > .sode-bar__rule--end {
+  display: none;
+}
+/* With two or more routers the address is empty. As a flex item it still took a gap at the bar's right end. */
+.sode__conn-addr:empty {
+  display: none;
+}
 .sode-bar__panels .sode-panels__logo {
   margin: 0;
 }
@@ -165,7 +173,9 @@
   background: var(--pb-overlay-hover);
 }
 /* The router list (statusinfo.js): under the status, at its right edge, since a status mostly sits at a right end.
-   The status is positioned on every page, so this places against it. */
+   The status is positioned on every page, so this places against it. One fixed label column for the Server rows, the
+   router names and an open router's rows, so names start on the labels' edge and states in the value column. Fixed,
+   since a subgrid stops at the list (a scroll container), so the list cannot size the column. */
 .sode-statusinfo {
   background: var(--pb-surface-overlay);
   box-shadow: var(--pb-shadow-overlay);
@@ -174,7 +184,8 @@
   display: grid;
   font-size: var(--pb-text-sm);
   font-weight: var(--pb-weight-normal);
-  gap: var(--pb-space-4);
+  gap: var(--pb-space-4) var(--pb-space-5);
+  grid-template-columns: var(--sode-status-label-w) minmax(0, 1fr);
   padding: var(--pb-space-4) var(--pb-space-5);
   position: absolute;
   right: 0;
@@ -182,6 +193,7 @@
   top: calc(100% + var(--pb-space-2));
   width: 26rem;
   z-index: var(--pb-z-tooltip);
+  --sode-status-label-w: 7rem;
 }
 .sode-statusinfo--start {
   left: 0;
@@ -244,15 +256,22 @@
    (the router list has the full text) and a router's strip has no "link up for" line while there are more routers. */
 /* One label column for the whole box (subgrid), so the values of every router line up. */
 .sode-statusinfo--hover {
-  gap: var(--pb-space-3) var(--pb-space-5);
   grid-template-columns: fit-content(12rem) minmax(0, 1fr);
+  row-gap: var(--pb-space-3);
 }
-.sode-statusinfo--hover > *,
-.sode-statusinfo__router > * {
+/* Not the list's big scroll bar: it places itself against the box's padding edge, not a grid area. */
+.sode-statusinfo > :not(.sode-bigscroll),
+.sode-statusinfo__router > *,
+.sode-routerlist > *,
+.sode-routerlist__item > *,
+.sode-routerlist__body > * {
   grid-column: 1 / -1;
 }
-.sode-statusinfo--hover .sode-statusinfo__rows,
-.sode-statusinfo__router {
+.sode-statusinfo .sode-statusinfo__rows,
+.sode-statusinfo__router,
+.sode-routerlist__item,
+.sode-routerlist__head,
+.sode-routerlist__body {
   display: grid;
   grid-template-columns: subgrid;
 }
@@ -271,7 +290,11 @@
 }
 /* A fixed height with its own big scroll bar (bigscroll.js SCROLLERS), so 24 routers never make the list taller. */
 .sode-routerlist {
-  border-top: var(--pb-border-w) solid var(--pb-border);
+  align-content: start;
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  column-gap: var(--pb-space-5);
+  display: grid;
+  grid-template-columns: var(--sode-status-label-w) minmax(0, 1fr);
   list-style: none;
   margin: 0;
   max-height: min(24rem, 60vh);
@@ -279,7 +302,7 @@
   padding: 0;
 }
 .sode-routerlist__item {
-  border-bottom: var(--pb-border-w) solid var(--pb-border);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
 }
 .sode-routerlist__head {
   align-items: baseline;
@@ -287,11 +310,9 @@
   border: 0;
   color: var(--pb-text-strong);
   cursor: pointer;
-  display: flex;
   font: inherit;
-  gap: var(--pb-space-4);
   min-height: var(--sode-h-compact);
-  padding: var(--pb-space-2);
+  padding: var(--pb-space-2) 0;
   text-align: start;
   width: 100%;
 }
@@ -299,14 +320,10 @@
   background: var(--pb-overlay-hover);
 }
 .sode-routerlist__name {
-  flex: 1 1 auto;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 /* Connected is plain text (dark cockpit); red is a lost link only, amber a link that connects. */
-.sode-routerlist__state {
-  flex: none;
-}
 .sode-routerlist__state[data-state="error"] {
   color: var(--pb-status-error);
 }
@@ -318,8 +335,8 @@
 }
 .sode-routerlist__body {
   display: grid;
-  gap: var(--pb-space-3);
-  padding: var(--pb-space-2) var(--pb-space-2) var(--pb-space-4);
+  row-gap: var(--pb-space-3);
+  padding: var(--pb-space-2) 0 var(--pb-space-4);
 }
 .sode-routerlist__note {
   margin: 0;

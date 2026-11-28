@@ -8,8 +8,10 @@ import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
 import { itemPlain } from './presetref.js';
 import { levelsOn } from './routerlevels.js';
-import { numText, routerN } from './routerids.js';
+import { numText, routerN, placeOf } from './routerids.js';
+import { routerName } from './routerlinkrules.js';
 import { acrossOffText } from './paneltierules.js';
+import { LINK_WORDS } from './routerlinkrules.js';
 
 export const KINDS = [
   'source',
@@ -247,9 +249,31 @@ export function undoneText(u, names) {
 
 // No answer from Sode wins: with no answer the router link is unknown.
 export function offlineOf({ failed, routerUp }) {
-  if (failed) return { title: 'Offline', detail: 'No contact with Sode. Presses do nothing.' };
-  if (!routerUp) return { title: 'Offline', detail: 'Sode lost the router. Presses do nothing.' };
+  if (failed) return { title: 'Offline', detail: `${LINK_WORDS.server} Presses do nothing.` };
+  if (!routerUp) return { title: 'Offline', detail: `${LINK_WORDS.router} Presses do nothing.` };
   return null;
+}
+
+// The places of the routers that GET /status says are down, while Sode has two or more routers. With one router, a
+// down link makes the whole page Offline (offlineOf). A router with no answer yet is up.
+export function downPlaces(link, places) {
+  const out = new Set();
+  if (!places?.many || !Array.isArray(link?.routers)) return out;
+  places.routers.forEach((r, i) => {
+    if (link.routers.find((x) => x.uid === r.uid)?.routerUp === false) out.add(i);
+  });
+  return out;
+}
+
+// A Source or Destination cell on a down router: its press does nothing.
+export const cellDown = (cell, down) => (cell.kind === 'source' || cell.kind === 'destination') && Number.isInteger(cell.n) && !!down?.has(placeOf(cell.n));
+
+// The status line for the down routers that cells of the shown Page are on; '' when there is none.
+export function routersDownText(places, down, cells) {
+  const hit = [...down].filter((p) => cells.some((c) => cellDown(c, new Set([p])))).sort((a, b) => a - b);
+  if (!hit.length) return '';
+  const names = hit.map((p) => routerName(places.routers[p]));
+  return names.length === 1 ? `${names[0]} is down. Its cells do nothing.` : `${names.join(' and ')} are down. Their cells do nothing.`;
 }
 
 // A page with no instance yet (still naming itself, or the Live Editor) shows the kind's own words.

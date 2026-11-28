@@ -12,7 +12,7 @@
 }
 
 .sode-lock {
-  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 6.5)); /* the pad and the name box */
+  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 8.5)); /* the pad and the name box: a 24-character name fits */
   align-items: center;
   -webkit-backdrop-filter: blur(0);
   backdrop-filter: blur(0);
@@ -51,8 +51,13 @@
     -webkit-backdrop-filter var(--sode-lock-motion) var(--pb-ease),
     border-width var(--sode-lock-motion) var(--pb-ease);
 }
+/* The lock's site name starts where the page's site name is, so the page's own copy hides while the overlay is on and
+   does not show blurred through it. visibility keeps its box, which lockbrand.js measures for the way out. */
+[data-sode-lock-on] :is(.sode__mark, .sode-m__mark, .sode-bar__site) {
+  visibility: hidden;
+}
 
-/* Offline wins over the Lock's colors, in either order (html[data-conn="down"], set by desktop.js and panelrun.js).
+/* Offline wins over the Lock's colors, in either order (html[data-conn="down"], set by desktop.js, panelrun.js and panelsbar.js).
    The border is the offline red and stays still, as the main page's outline does. lock.js shows "Offline, locked". */
 [data-conn="down"] .sode-lock {
   border-color: var(--pb-status-error);
@@ -84,8 +89,8 @@
   display: none;
 }
 
-/* The pad shrinks (to keys of --sode-h-action) before the Lock scrolls, so the open name list
-   pushes the pad down and everything still fits a 768 px screen. main and body pass the space down. */
+/* The pad shrinks (to keys of --sode-h-action) before the Lock scrolls, so a short window still shows it whole.
+   main and body pass the space down. */
 .sode-lock__main {
   align-items: center;
   display: flex;
@@ -115,6 +120,7 @@
   font-weight: var(--pb-weight-bold);
   letter-spacing: var(--pb-tracking-label);
   margin: 0;
+  padding-inline-start: var(--pb-tracking-label); /* letter-spacing also follows the last letter: this centres the text */
   white-space: nowrap;
 }
 /* Phone: lock.js scales a long site name to one line (fitBrand); one too long even then wraps, centred. */
@@ -127,6 +133,7 @@
 /* The words ("Incorrect", "Welcome, <name>") carry the status; the color only backs them. */
 .sode-lock__dots.is-text {
   letter-spacing: normal;
+  padding-inline-start: 0;
   max-width: 100%;
   text-align: center;
 }
@@ -142,8 +149,7 @@
   flex-direction: column;
   flex: none;
   gap: var(--pb-space-2);
-  max-width: calc(100vw - var(--pb-space-9) * 2); /* the lock's own padding */
-  width: calc(var(--pb-control-h-lg) * 8.5);
+  width: var(--sode-lock-w);
 }
 .sode-lock__namefield[hidden] {
   display: none;
@@ -159,11 +165,10 @@
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.4);
 }
-/* On the Lock the list is in flow: it pushes the pad down and never covers it. */
+/* On the Lock the list drops over the pad, as in a dialog, so no key moves between the pick and the first digit.
+   A pick closes it, so it never covers a key the user needs. */
 .sode-lock__namefield .sode-namepick__list {
-  margin-top: var(--pb-space-1);
-  max-height: calc(var(--sode-h-action) * 3.5);
-  position: static;
+  max-height: min(calc(var(--sode-h-action) * 6.5), 40vh); /* the half row says the list scrolls */
 }
 .sode-lock .sode-namepick__list .pb-menu__item {
   font-size: var(--pb-text-lg);
@@ -189,6 +194,10 @@
 .sode-namepick__list[hidden] {
   display: none;
 }
+/* The list's own scroll bar (bigscroll.js, a sibling) sits on the list's layer, not under it. */
+.sode-namepick__list ~ .sode-bigscroll {
+  z-index: calc(var(--pb-z-dropdown) + 1);
+}
 .sode-lock__state {
   color: var(--pb-text-muted);
   margin: 0;
@@ -199,6 +208,7 @@
   font-size: var(--pb-text-xl);
   letter-spacing: var(--pb-space-4);
   min-height: calc(var(--pb-text-xl) * 1.6);
+  padding-inline-start: var(--pb-space-4); /* as the site name's: the dots are centred */
 }
 .sode-lock__msg {
   margin: 0;
@@ -217,8 +227,8 @@
   flex: 0 1 auto;
   gap: var(--pb-space-5);
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(4, minmax(var(--sode-h-action), calc(var(--pb-control-h-lg) * 1.6))) var(--pb-control-h-lg);
-  min-height: calc(var(--sode-h-action) * 4 + var(--pb-control-h-lg) + var(--pb-space-5) * 4);
+  grid-template-rows: repeat(5, minmax(var(--sode-h-action), calc(var(--pb-control-h-lg) * 1.6)));
+  min-height: calc(var(--sode-h-action) * 5 + var(--pb-space-5) * 4);
   width: var(--sode-lock-w);
 }
 .pb-btn.sode-lock__key {
@@ -230,7 +240,6 @@
   font-size: var(--pb-text-md);
 }
 .pb-btn.sode-lock__key--go {
-  font-size: var(--pb-text-xl);
   grid-column: 1 / -1;
 }
 .sode-lock__cancel:not([hidden]) + .sode-lock__key--go {
@@ -458,7 +467,17 @@
 }
 
 .sode__scrim > .sode__filters.sode__users-dlg {
-  width: min(60rem, calc(100vw - var(--pb-space-8) * 2));
+  width: min(68rem, calc(100vw - var(--pb-space-8) * 2));
+}
+/* A fixed top and a body of one least height, so the tab strip stays under the pointer when the tab changes. */
+/* The max height takes off the top margin, else a tall tab puts the footer under the screen's lower edge. */
+.sode__scrim > .sode__filters.sode__users-dlg {
+  align-self: flex-start;
+  margin-top: 8vh;
+  max-height: calc(100vh - 8vh - var(--pb-space-8) * 2 - var(--sode-down-h, 0px));
+}
+.sode__users-dlg .pb-modal__body {
+  min-height: min(30rem, 50vh);
 }
 .sode__scrim > .sode__filters.sode__profiles-dlg {
   width: min(64rem, calc(100vw - var(--pb-space-8) * 2));
@@ -470,6 +489,17 @@
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-4);
+}
+/* Why the prompt asks, in body text: it is the reason, not a hint. */
+.sode__pinprompt-why {
+  margin: 0;
+}
+
+/* The name list drops out of the popup whole, as it drops over the Lock's pad: while it is open, neither the body nor
+   the popup clips it. */
+.sode__pinprompt:has(.sode-namepick__list:not([hidden])),
+.sode__pinprompt:has(.sode-namepick__list:not([hidden])) .pb-modal__body {
+  overflow: visible;
 }
 .sode__users-list {
   display: flex;
@@ -489,7 +519,7 @@
   .sode__users-table {
     column-gap: var(--pb-space-5);
     display: grid;
-    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(7, auto);
+    grid-template-columns: minmax(8rem, 1fr) minmax(7rem, 1fr) max-content repeat(6, max-content);
   }
   .sode__users-head,
   .sode__users-list,
@@ -499,7 +529,8 @@
     grid-template-columns: subgrid;
   }
   .sode__users-head {
-    font-size: 0.875rem;
+    font-size: var(--pb-text-sm);
+    font-weight: var(--pb-weight-medium);
     margin-bottom: var(--pb-space-2);
   }
   .sode__users-list {
@@ -508,6 +539,13 @@
   .sode__users-row {
     column-gap: var(--pb-space-5);
   }
+}
+.sode__users-row .pb-btn {
+  white-space: nowrap;
+}
+/* Room for "Confirm remove", so the second click finds the button where the first one was. */
+.sode__users-rm {
+  min-width: 8rem;
 }
 .sode__users-in {
   flex: 1 1 8rem;
@@ -536,7 +574,8 @@
 }
 
 .sode__profiles-h {
-  font-size: 1rem;
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
   margin: var(--pb-space-4) 0 var(--pb-space-2);
 }
 .sode__profiles-list {
@@ -556,19 +595,32 @@
   gap: var(--pb-space-2) var(--pb-space-4);
   padding: var(--pb-space-3) var(--pb-space-4);
 }
+/* User defaults fill column 2. Presets, Filter sets and Broken stack in column 1 next to it, and the last row (1fr)
+   takes the height that User defaults has over them, so they keep one gap between them. */
 .sode__profiles-body {
+  align-items: start;
   display: grid;
   gap: var(--pb-space-3) var(--pb-space-7);
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr;
 }
-.sode__profiles-body > .sode__hint {
+.sode__profiles-body > :is(.sode__hint, .pb-note) {
   grid-column: 1 / -1;
 }
 .sode__profiles-sec--prefs {
-  grid-row: span 2;
+  grid-column: 2;
+  grid-row: 2 / -1;
+}
+.sode__profiles-swap {
+  margin-top: var(--pb-space-3);
 }
 @media (max-width: 49.99rem) {
+  .sode__profiles-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
   .sode__profiles-sec--prefs {
+    grid-column: auto;
     grid-row: auto;
   }
 }
@@ -591,6 +643,9 @@
   flex-direction: column;
   gap: var(--pb-space-4);
   margin-top: var(--pb-space-5);
+}
+.sode__keys-new[hidden] {
+  display: none;
 }
 /* Capped so a long list scrolls inside its dialog or tab instead of running off the screen. */
 .sode__key-list {
@@ -642,11 +697,16 @@
   gap: var(--pb-space-4) var(--pb-space-6);
   margin-bottom: var(--pb-space-5);
 }
+/* One column with one gap for the list blocks and the plain fields under them. */
+.sode__rights-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
 .sode__rights-list {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-2);
-  margin-bottom: var(--pb-space-4);
 }
 .sode__rights-list textarea,
 .sode__rights-list .pb-input {
@@ -656,7 +716,15 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pb-space-3) var(--pb-space-5);
+  gap: var(--pb-space-2) var(--pb-space-5);
+}
+.sode__preset-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode__preset-users .pb-badge {
+  margin-inline-start: var(--pb-space-3);
 }
 .sode__tabs {
   margin-bottom: var(--pb-space-5);

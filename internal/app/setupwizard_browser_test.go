@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -55,8 +56,26 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Set up Sode'`)
 	stepsFit("Style & User")
 	adminLine("Style & User", 1)
+	// The footer gives the reason for a disabled Next as a muted hint, in red only for a real mistake. Its text is on
+	// the centre line of the Next label.
+	foot := func(what, text string, hint bool) {
+		b.waitFor(what, `(() => {
+			const err = document.getElementById('setup-err');
+			const nextBtn = document.getElementById('setup-next');
+			if (err.textContent !== '`+text+`' || err.classList.contains('is-hint') !== `+strconv.FormatBool(hint)+` || err.getAttribute('role') !== 'status') return false;
+			const probe = document.createElement('span');
+			probe.style.color = 'var(' + (`+strconv.FormatBool(hint)+` ? '--pb-text-muted' : '--pb-status-error') + ')';
+			err.parentElement.append(probe);
+			const want = getComputedStyle(probe).color;
+			probe.remove();
+			const mid = (n) => { const r = document.createRange(); r.selectNodeContents(n); const q = r.getBoundingClientRect(); return (q.top + q.bottom) / 2; };
+			return getComputedStyle(err).color === want && Math.abs(mid(err) - mid(nextBtn)) <= 0.5;
+		})()`)
+	}
+	foot("the first view says why Next is off, as a hint", "Enter your name.", true)
 
 	type_("setup-brandText", "Studio B")
+	foot("the optional site name brings no red", "Enter your name.", true)
 	b.waitFor("the name shows live in the bar", `(() => { const t = document.querySelector('#home-bar .sode-panels__title'); return !!t.offsetParent && t.textContent.trim() === 'Studio B'; })()`)
 	b.waitFor("the bar of Settings and /log: site name and status, no links, no Lock, no big name", `(() => {
 		const bar = document.getElementById('home-bar');
@@ -73,19 +92,21 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("the heading and the label say Theme Color", `[...document.querySelectorAll('#setup-body .sode-setup__h')].some((h) => h.textContent === 'Sode Server Name and Theme Color')
 		&& document.getElementById('setup-brand-label').textContent === 'Theme color'`)
 	b.eval(`(() => { const c = document.querySelector('input[name="brandBorder"][type="color"]'); c.value = '#e05050'; c.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
-	b.waitFor("a custom color near a state color shows the caution note", `!!document.getElementById('setup-brand-caution')?.offsetParent`)
+	b.waitFor("a custom color near a state color shows the caution note", `getComputedStyle(document.getElementById('setup-brand-caution')).visibility === 'visible'`)
 	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)
 	b.waitFor("the border shows live", `document.querySelector('.sode__brandframe').dataset.brand === 'teal'`)
-	b.waitFor("Teal shows no note", `!document.getElementById('setup-brand-caution').offsetParent`)
-	b.waitFor("Name, PIN and Repeat your PIN are a third each, in one row", `(() => {
+	b.waitFor("Teal shows no note", `getComputedStyle(document.getElementById('setup-brand-caution')).visibility === 'hidden'`)
+	b.waitFor("Name, PIN and Repeat PIN are a third each, in one row", `(() => {
 		const r = ['setup-name', 'setup-pin', 'setup-pin2'].map((id) => document.getElementById(id).getBoundingClientRect());
 		const body = document.getElementById('setup-body').getBoundingClientRect();
 		return r.every((x) => Math.abs(x.width - r[0].width) <= 1 && Math.abs(x.top - r[0].top) <= 1) && r[0].width < body.width / 3;
 	})()`)
 	type_("setup-name", "Ada")
+	foot("a name and no PIN yet is a hint", "A PIN has 4 to 8 digits.", true)
 	type_("setup-pin", "2468")
 	type_("setup-pin2", "2469")
 	b.waitFor("PINs that differ stop Next", next+`.disabled && `+next+`.textContent === 'Next'`)
+	foot("PINs that differ are a mistake", "The PINs differ.", false)
 	type_("setup-pin2", "2468")
 	b.waitFor("Next", `!`+next+`.disabled`)
 	b.waitFor("Restore from a backup sits beside it", `!document.getElementById('setup-restore').hidden`)
@@ -126,9 +147,49 @@ func TestChromeSetupWizard(t *testing.T) {
 		return rows.length > 2 && rows.every((r) => r.getBoundingClientRect().height < 2 * rem)
 			&& bg(rows[0]) !== bg(rows[1]) && bg(rows[0]) === bg(rows[2]);
 	})()`)
+	b.waitFor("Access words: the corner says who, the rows say what", `(() => {
+		const sheet = document.querySelector('.sode-setup__sheet');
+		return sheet.querySelector('.sode-setup__corner').textContent === 'A person who is not signed in can:'
+			&& [...sheet.querySelectorAll('tbody th')].map((h) => h.textContent).join(' | ') === 'Change routes | Change routes across routers | Change shared presets and filter sets | Open public panels | Read names and tally from another app, without a key | Take from another app, without a key';
+	})()`)
+	for _, p := range []string{"open", "standard", "secured"} {
+		b.sameLeft("the "+p+" heading over its Yes and No", `.sode-setup__sheet th[data-preset="`+p+`"] .pb-check`, `.sode-setup__sheet td[data-preset="`+p+`"] > span`)
+	}
+	// Text middles, since a cell's box is as tall as its row whatever the text does in it.
+	b.waitFor("the corner and the preset names: one size, one centre line", `(() => {
+		const sheet = document.querySelector('.sode-setup__sheet');
+		const corner = sheet.querySelector('.sode-setup__corner');
+		const names = [...sheet.querySelectorAll('thead .pb-check__label')];
+		const r = document.createRange();
+		r.selectNodeContents(corner);
+		const mid = (q) => (q.top + q.bottom) / 2;
+		const m = mid(r.getBoundingClientRect());
+		const size = getComputedStyle(corner).fontSize;
+		return names.length === 3 && names.every((n) => Math.abs(mid(n.getBoundingClientRect()) - m) <= 0.5 && getComputedStyle(n).fontSize === size);
+	})()`)
+	b.waitFor("each row label on the centre line of its Yes and No", `(() => {
+		const rows = [...document.querySelectorAll('.sode-setup__sheet tbody tr')];
+		const mid = (q) => (q.top + q.bottom) / 2;
+		const r = document.createRange();
+		return rows.length === 6 && rows.every((row) => {
+			r.selectNodeContents(row.querySelector('th'));
+			const m = mid(r.getBoundingClientRect());
+			return [...row.querySelectorAll('td > span')].every((s) => Math.abs(mid(s.getBoundingClientRect()) - m) <= 0.5);
+		});
+	})()`)
 	b.waitFor("Finish", next+`.textContent === 'Finish'`)
 	b.eval(`document.querySelector('[data-go="0"]').click(); true`)
 	b.waitFor("a chip goes back and keeps the answers", `document.getElementById('setup-name')?.value === 'Ada'`)
+	b.waitFor("Access is visited, not finished: it keeps its number", `(() => {
+		const lis = [...document.querySelectorAll('#setup-steps li')];
+		return lis.map((li) => li.className || '-').join(' ') === 'is-now is-done - -'
+			&& lis[2].querySelector('.sode-setup__dot').textContent === '3' && !!lis[1].querySelector('.sode-setup__dot .pb-icon');
+	})()`)
+	b.waitFor("a done chip's check is 1rem, the weight of a digit", `(() => {
+		const r = document.querySelector('#setup-steps .is-done .sode-setup__dot .pb-icon').getBoundingClientRect();
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		return Math.abs(r.width - rem) <= 0.5 && Math.abs(r.height - rem) <= 0.5;
+	})()`)
 	b.eval(`document.querySelector('[data-go="2"]').click(); true`)
 	b.waitFor("and forward again", next+`.textContent === 'Finish'`)
 	b.eval(next + `.click(); true`)
@@ -147,8 +208,34 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("the next steps, with no backup or tablet link", `[...document.querySelectorAll('.sode-setup__next a')].map((a) => a.textContent + '>' + (a.dataset.section || a.getAttribute('href'))).join(' | ')
 		=== 'Add another router>routers | Adjust level colors>level-colors | Add more users>users | Create your first panel>panels/editor'`)
 
+	// Next steps: a column beside the text, its heading level with the first line, links in text color.
+	b.waitFor("the Next steps heading on the centre line of the text's first line", `(() => {
+		const r = document.createRange();
+		const mid = (n) => { r.selectNodeContents(n); const q = r.getClientRects()[0]; return (q.top + q.bottom) / 2; };
+		return Math.abs(mid(document.querySelector('.sode-setup__next h3')) - mid(document.getElementById('setup-done-text'))) <= 0.5;
+	})()`)
+	b.gapX("the Next steps column beside the text", "--pb-space-8", ".sode-setup__done > div:first-child", ".sode-setup__next")
+	b.waitFor("the next steps in text color, not muted", `(() => {
+		const a = document.querySelector('.sode-setup__next a');
+		const probe = document.createElement('span');
+		probe.style.color = 'var(--pb-text)';
+		a.parentElement.append(probe);
+		const want = getComputedStyle(probe).color;
+		probe.remove();
+		return getComputedStyle(a).color === want;
+	})()`)
+
 	b.eval(`document.getElementById('setup-open').click(); true`)
 	b.waitFor("Open Sode shows the patch page", `document.getElementById('setup').hidden && getComputedStyle(document.getElementById('patch-view')).display !== 'none'`)
+	// Run setup again with no reload: the first run's SODE_ROUTER hint is not true of the saved address.
+	b.eval(`location.hash = '#settings'; true`)
+	b.waitFor("Run setup again ready", `(() => { const x = document.getElementById('setup-again-open'); return !!x?.offsetParent && !x.disabled; })()`)
+	b.eval(`document.getElementById('setup-again-open').click(); true`)
+	b.waitFor("Run setup again", `!!document.getElementById('setup-brandText') && !`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("its Address has no Filled from hint", `!!document.getElementById('setup-router') && !document.getElementById('setup-router').parentElement.querySelector('.sode__hint')`)
+	b.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); true`)
+	b.waitFor("Escape closes it", `document.getElementById('setup').hidden`)
 	b.open(srv.URL + "/")
 	b.waitFor("no wizard after a reload", `!!document.getElementById('src') && document.getElementById('setup').hidden`)
 	b.check()
@@ -215,7 +302,8 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	}
 	next := `document.getElementById('setup-next')`
-	helpOK := func(where, id string) {
+	// field gives the elements that the tip must not cover: the choices the help is about (A1-14).
+	helpOK := func(where, id, field string) {
 		b.waitFor(where+": a focusable help button with the tip", `(() => {
 			const h = document.getElementById('`+id+`');
 			if (!h || h.tagName !== 'BUTTON' || h.tabIndex < 0 || !h.classList.contains('pb-btn--ghost') || !h.classList.contains('pb-btn--icon')) return false;
@@ -231,7 +319,7 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 			return r.top >= 0 && r.bottom <= innerHeight;
 		})()`)
 		mouseTo(b, "#"+id)
-		b.waitFor(where+": the tip shows whole, wrapped in a column", tipShows("#"+id)+` && document.querySelector('body > .sode__tip').getBoundingClientRect().width < innerWidth / 3`)
+		b.waitFor(where+": the tip shows whole, wrapped in a column, clear of the choices", tipShows("#"+id)+` && document.querySelector('body > .sode__tip').getBoundingClientRect().width < innerWidth / 3 && `+tipClearOf(field))
 	}
 
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
@@ -244,7 +332,7 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 	b.eval(next + `.click(); true`)
 	b.waitFor("Router", `!!document.getElementById('setup-router')`)
 	b.waitFor("the help button sits after the heading", `document.getElementById('setup-fireMode-label').nextElementSibling?.id === 'setup-fireMode-help'`)
-	helpOK("wizard", "setup-fireMode-help")
+	helpOK("wizard", "setup-fireMode-help", `(() => { const h = document.getElementById('setup-fireMode-help'); return [...h.closest('.sode-setup__section').children].filter((c) => !c.contains(h)); })()`)
 	b.shot("setup-firemode-help")
 
 	b.waitFor("Router answers", `!`+next+`.disabled`)
@@ -255,6 +343,52 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 	b.eval(`document.querySelector('.sode-setup__next a[data-section="routers"]').click(); true`)
 	b.waitFor("Settings > Routers", `document.documentElement.dataset.view === 'settings' && !!document.getElementById('cfg-rt-fireMode')?.offsetParent`)
 	b.waitFor("the help button sits after the Multi destination label", `document.querySelector('label[for="cfg-rt-fireMode"]').nextElementSibling?.id === 'cfg-rt-fireMode-help'`)
-	helpOK("Settings", "cfg-rt-fireMode-help")
+	helpOK("Settings", "cfg-rt-fireMode-help", `[document.getElementById('cfg-rt-fireMode')]`)
+	b.check()
+}
+
+// A new router address brings a hello with the saved config, which has no brand yet. The bar keeps the name and
+// Theme color of the answers through it.
+func TestChromeSetupKeepsBrand(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = sim })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	type_ := func(id, text string) {
+		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	}
+	next := `document.getElementById('setup-next')`
+	b.open(srv.URL + "/")
+	b.waitFor("Welcome", `document.getElementById('setup-title')?.textContent === 'Set up Sode'`)
+	b.eval(`sessionStorage.clear(); true`)
+	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)
+	type_("setup-brandText", "Studio B")
+	type_("setup-name", "Ada")
+	type_("setup-pin", "2468")
+	type_("setup-pin2", "2468")
+	b.waitFor("Next", `!`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("Router", `!!document.getElementById('setup-router')`)
+	brand := `(() => {
+		const title = document.querySelector('#home-bar .sode-panels__title').textContent.trim();
+		const accent = getComputedStyle(document.documentElement).getPropertyValue('--pb-accent').trim();
+		return title + ' ' + accent + ' ' + document.querySelector('.sode__brandframe').dataset.brand;
+	})()`
+	want := b.eval(brand).(string)
+	if !strings.HasPrefix(want, "Studio B ") || !strings.HasSuffix(want, " teal") {
+		t.Fatalf("before the new address the bar shows %q", want)
+	}
+	b.eval(`import('./core.js').then((m) => { window.hellos = 0; m.on('hello', () => window.hellos++); return true; })`)
+	type_("setup-router", "127.0.0.1:1")
+	b.waitFor("the hello after the new address", `window.hellos > 0`)
+	if got := b.eval(brand); got != want {
+		t.Fatalf("after the hello the bar shows %q, want %q", got, want)
+	}
 	b.check()
 }

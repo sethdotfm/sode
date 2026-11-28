@@ -1,4 +1,4 @@
 - Critical actions ask a signed-in Administrator to type their own PIN again (a PIN recheck). A recheck holds for one minute on that page. A Lock or closing the page ends it. Wrong PINs count toward your name's wait. With no users, no recheck applies.
 - Critical in the Settings form and API settings: the router connection, the page locks, auto-lock, Wait after wrong PINs, the keyless API and its scopes.
 - Critical in Manage users: adding or removing a user, a Role, another user's PIN, Guest role, Persistent and No auto-lock.
-- Also Critical: Rights, Guest Rights or API clients wider than your own Rights. Sign out everywhere, Clear History, a configuration import and Revoke all keys are Critical too.
+- Also Critical: Rights, Guest Rights or API clients wider than your own Rights. Sign out all, Clear History, a configuration import and Revoke all keys are Critical too.

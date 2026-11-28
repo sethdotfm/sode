@@ -100,7 +100,7 @@ func TestChromeGridPanelTake(t *testing.T) {
 	b.waitFor("a press stages", staged(12, 4))
 	b.waitFor("Take with one route has no count", `document.getElementById('panel-take').textContent === 'Take'`)
 	b.eval(gridXp(12, 4) + `.click()`)
-	b.waitFor("a second press opens the take confirm", `!document.getElementById('confirm').hidden && document.getElementById('confirm-body').textContent.includes('Destination ')`)
+	b.waitFor("a second press opens the take confirm", `!document.getElementById('confirm').hidden && document.getElementById('confirm-body').textContent.startsWith('Take 1 route?')`)
 	b.eval(`document.getElementById('confirm-cancel').click(); true`)
 	b.waitFor("Cancel keeps the route staged", `document.getElementById('confirm').hidden && `+staged(12, 4))
 	b.eval(`document.getElementById('panel-clear').click(); true`)
@@ -117,14 +117,19 @@ func TestChromeGridPanelTake(t *testing.T) {
 	for _, typ := range []string{"keyDown", "keyUp"} {
 		b.call("Input.dispatchKeyEvent", map[string]any{"type": typ, "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13})
 	}
-	b.waitFor("the confirm lists both destinations", `document.getElementById('confirm-body').textContent.includes('2 destinations')`)
-	// It reads and looks as Home's Confirm. The question names each destination by number and name. The boxes show
-	// numbered ends under a numbered head.
-	if q := b.eval(`document.querySelector('#confirm-body > div').textContent`).(string); q != "Take 2 sources to 2 destinations: 3 DSM1 and 4 DSM2?" {
+	b.waitFor("the confirm asks for both routes", `!document.getElementById('confirm').hidden`)
+	// The question counts the routes. Each route is one line of text in destination number order: the destination,
+	// the new source, what it replaces and the levels. Both routes have the same levels, so no level bar shows.
+	if q := b.eval(`document.querySelector('#confirm-body > div').textContent`).(string); q != "Take 2 routes?" {
 		t.Errorf("the confirm asks %q", q)
 	}
-	if got := b.eval(`[...document.querySelectorAll('#confirm-body .sode__plan-head')].map((h) => h.firstChild.textContent + ' ' + h.children[1].textContent).join('|') + ' ' + document.querySelector('#confirm-body .sode__end--dst .sode__lbl-n')?.textContent`).(string); got != "1/2 3 DSM1|2/2 4 DSM2 3" {
-		t.Errorf("the confirm's boxes are %q", got)
+	rows := b.eval(`[...document.querySelectorAll('#confirm-body .sode-gridpanel__plan-row')].map((r) => r.textContent).join('|')`).(string)
+	if lines := strings.Split(rows, "|"); len(lines) != 2 || !strings.HasPrefix(lines[0], "3 DSM1: ") || !strings.HasPrefix(lines[1], "4 DSM2: ") ||
+		!strings.Contains(rows, " replaces ") || !strings.Contains(lines[0], " on level") || b.eval(`!!document.querySelector('#confirm-body .sode__bar')`) != false {
+		t.Errorf("the confirm's routes are %q", rows)
+	}
+	if p := b.eval(`document.querySelector('#confirm-body .sode__prompt').textContent`).(string); !strings.HasSuffix(p, " to take. Press Esc to cancel.") {
+		t.Errorf("the confirm's foot is %q", p)
 	}
 	b.shot("confirm")
 	gridConfirm(b)
@@ -214,14 +219,14 @@ func TestChromeGridPanelDiagonal(t *testing.T) {
 	b.waitFor("the header counts the staged routes", `document.getElementById('panel-staged')?.textContent === '3 staged' && !document.getElementById('panel-staged').hidden`)
 	// The same Diagonal again adds nothing, so it is the second press.
 	b.eval(gridXp(11, 4) + `.click()`)
-	b.waitFor("the same Diagonal again opens the take confirm", `!document.getElementById('confirm').hidden && document.getElementById('confirm-body').textContent.includes('3 destinations')`)
+	b.waitFor("the same Diagonal again opens the take confirm", `!document.getElementById('confirm').hidden && document.getElementById('confirm-body').textContent.startsWith('Take 3 routes?')`)
 	b.eval(`document.getElementById('confirm-cancel').click(); true`)
 	b.waitFor("Cancel keeps the stage", `document.getElementById('confirm').hidden && `+staged(12, 5))
 	b.eval(gridXp(12, 5) + `.dispatchEvent(new MouseEvent('click', { bubbles: true, altKey: true }))`)
 	b.waitFor("Alt-click unstages only that route", `!(`+staged(12, 5)+`) && `+staged(11, 4)+` && `+staged(13, 6)+` && document.getElementById('panel-staged').textContent === '2 staged'`)
 	b.waitFor("Clear's tip names the way to unstage one route", `document.getElementById('panel-clear').dataset.pbTip.includes('Alt-click')`)
 	gridKey(b, "Enter")
-	b.waitFor("the confirm lists the two", `document.getElementById('confirm-body').textContent.includes('2 destinations')`)
+	b.waitFor("the confirm lists the two", `document.getElementById('confirm-body').textContent.startsWith('Take 2 routes?')`)
 	gridConfirm(b)
 	tallyHas(t, a, ana, 4, 11)
 	tallyHas(t, a, ana, 6, 13)
@@ -456,7 +461,7 @@ func TestChromeGridPanelLevels(t *testing.T) {
 	b.eval(gridXp(12, 4) + `.click()`)
 	b.waitFor("a press stages", gridXp(12, 4)+`.dataset.s === 'staged'`)
 	gridKey(b, "Enter")
-	b.waitFor("the confirm shows the typed levels", `!document.getElementById('confirm').hidden && [...(document.querySelector('#confirm-body .sode__route')?.querySelectorAll('.sode__slot--on') || [])].map((n) => n.textContent).join() === '3,5'`)
+	b.waitFor("the confirm shows the typed levels", `!document.getElementById('confirm').hidden && document.querySelector('#confirm-body .sode-gridpanel__plan-row')?.textContent.endsWith(' on levels 3, 5')`)
 	b.shot("levels-confirm")
 	gridConfirm(b)
 	b.check()

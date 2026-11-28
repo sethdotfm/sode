@@ -31,11 +31,11 @@ const editorBtn = btn('pb-btn--outline pb-btn--sm sode__head-link', 'Edit Preset
 });
 const dlg = modal({
   titleId: 'preset-pop-title',
-  title: 'All Presets',
+  title: 'All presets',
   cls: 'sode__presets-dlg sode__preset-pop',
   head: [editorBtn],
   body: el('div', 'pb-modal__body sode__filters-body', input, list, noteEl),
-  foot: [btn('sode-btn--primary', 'Close', () => close())],
+  foot: [btn('pb-btn--outline', 'Close', () => close())],
   onEsc() {
     if (input.value) {
       input.value = '';

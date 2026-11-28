@@ -113,10 +113,13 @@ func TestChromeExportDialog(t *testing.T) {
 	if got.ImportHidden || strings.Join(got.Footer, ",") != "Close,Choose a file…" {
 		t.Errorf("Import tab: hidden %v, footer %v", got.ImportHidden, got.Footer)
 	}
+	b.gapX("Close next to Choose a file", "--pb-space-3", "#xi-close", ".sode__xi .sode__xi-acts button")
+	footAt(b, "Import tab", ".sode__xi", ".sode__xi-acts button", true)
 	b.eval(`document.getElementById('xi-close').click(); true`)
 	b.waitFor("dialog closed", `!document.querySelector('.sode__xi')?.offsetParent`)
 
 	b.eval(`document.documentElement.dataset.layout = 'phone'; document.getElementById('xi-open').click(); true`)
 	b.waitFor("desktop-only message", `!!document.querySelector('.sode__xi .sode__desktop-only')?.offsetParent && !document.querySelector('.sode__xi [role=tab]')?.offsetParent`)
+	footAt(b, "Export on the phone, a lone Close", ".sode__xi", "#xi-close", true)
 	b.check()
 }

@@ -19,6 +19,8 @@ import {
   startSend,
   afterTake,
   stageText,
+  stagedEnds,
+  resultText,
 } from './gridpanelstage.js';
 import { createPicks, pickName, pickCount, dropPicks, diagonal, extendPick, dragPick, enterGrid } from './gridpanelpick.js';
 import { pieOn, otherRouterLevels } from './gridpanellevels.js';
@@ -39,7 +41,6 @@ import { lineGestures } from './gridpanelgesture.js';
 import { levelTextOf } from './levels.js';
 import { el, LINK_DOWN, showNote } from './core.js';
 import { editHref } from './panelsrules.js';
-import { plural } from './gridmodel.js';
 import { shortcutList } from './shortcuts.js';
 import { restPoint, tapMods, pickNote } from './gridpanelphone.js';
 import { onLayout } from './layout.js';
@@ -146,7 +147,8 @@ export function gridBody(ctx, first) {
     via: (s, d) => viaOn(env, s, d),
     viaText: (row) => viaText(row, (o) => ctx.viaLabel?.(o) ?? names.source(ctx.places ? ctx.places().id(o.router, o.n) : o.n)),
     staged,
-    held: (d) => st.staged.some((x) => x.dst === d),
+    held: (d) => stagedEnds(st).dsts.has(d),
+    heldSrc: (s) => stagedEnds(st).srcs.has(s),
     marks: null, // the press policy's marks and words (gridpaneladd.js) as of the last render
     picked: (kind, n) => picks[kind].includes(n),
     // Filter shows only matches, so only Find marks them.
@@ -190,6 +192,8 @@ export function gridBody(ctx, first) {
   };
 
   const render = () => {
+    const blank = g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded, owner: panel.owner });
+    if (!blank) empty.free();
     view.marks = pressMode()?.marks() || null;
     paintLevels();
     dirty = false;
@@ -207,14 +211,14 @@ export function gridBody(ctx, first) {
     );
     // The Grid popup's staged list (gridpopup.js). A new array is a new stage.
     if (ctx.onStage && st.staged !== toldStaged) ctx.onStage((toldStaged = st.staged));
-    paintEmpty(g, g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded }));
+    empty.paint(g, blank, [ui.levels, head?.finds]);
     // The Live Editor (editorlive.js), where the picks are also the lists' selection, and the Grid popup's shield
     // (gridpopshield.js). picks is replaced on every change.
     if (ui.onPicks && picks !== toldPicks) ui.onPicks((toldPicks = picks));
     boxes?.paint(find, countsOf());
     status();
   };
-  const paintEmpty = gridEmpty(ctx, ui);
+  const empty = gridEmpty(ctx, ui);
   // Results and errors fade on the clock, so the status line is what the tick paints each time. On the panel page's
   // desktop layout they show in the banner (gridpanelheadview.js). A note is new by its time. A state's text goes when
   // the state clears.
@@ -341,7 +345,7 @@ export function gridBody(ctx, first) {
       const n = (reply?.results || routes).length;
       note = bad.length
         ? noteOf(`${undo ? 'Undo' : 'Take'} failed on ${[...new Set(bad.map((r) => names.destination(r.dst)))].join(', ')}`)
-        : noteOf(`${undo ? 'Undone' : 'Taken'}: ${plural(n, 'route')}${plan.left ? `. ${plan.left}` : ''}`, !plan.left);
+        : noteOf(`${resultText(n, undo)}${plan.left ? `. ${plan.left}` : ''}`, !plan.left);
     } catch (e) {
       failed =
         e.status === undefined

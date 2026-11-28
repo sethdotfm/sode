@@ -127,6 +127,8 @@ var identAllow = []allowEntry{
 	{"salvo", "web/setupwizard.js", `r0\.salvoGroup`, "the router's own salvo group, a key of the hello's routers list"},
 	{"salvo", "web/test/setupwizardrules.test.mjs", `salvoGroup: \d+`, "the router's own salvo group, a Config JSON key"},
 	{"unlock", "web/logkinds.js", `^\s*adminUnlock:`, "a `log` command kind, as old rows hold it"},
+	{"unlock", "web/logkinds.js", `^\s*(?:userU|u)nlock:`, "`log` whys of rows written before the v2 renames (docs/persisted-names.md)"},
+	{"refresh", "web/logkinds.js", `^\s*refreshNames:`, "a `log` why of rows written before the v2 renames (docs/persisted-names.md)"},
 	{"unlock", "", `\bunlocked\b`, "the access a `userSignIn` grants (lock.js); it holds a wire value, not a UI word"},
 	{"follows", ".js", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 	{"follows", ".mjs", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},

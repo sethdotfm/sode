@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
 )
 
@@ -27,8 +28,20 @@ var mouseFlags = []string{"--blink-settings=primaryHoverType=2,availableHoverTyp
 
 const tipBox = `document.querySelector('body > .sode__tip').getBoundingClientRect()`
 
+// tipClearOf is true when the fixed tip covers no part of the elements that the JS expression els gives (an array).
+// It is false when els gives none, so it never passes on nothing.
+func tipClearOf(els string) string {
+	return `(() => {
+		const t = ` + tipBox + `, list = (` + els + `).filter((n) => n && n.getClientRects().length);
+		return list.length > 0 && list.every((n) => {
+			const r = n.getBoundingClientRect();
+			return t.right <= r.left || t.left >= r.right || t.bottom <= r.top || t.top >= r.bottom;
+		});
+	})()`
+}
+
 // Every data-pb-tip draws in one fixed tip on the body, so a modal's edge does not cut it off. The check hovers Take
-// control on the setup wait page, whose tip reaches past the modal's body. Then it hovers a pb-tip--end tip in the
+// control on the setup wait page, whose tip reaches past the modal's body and starts inside it (A1-14). Then it hovers a pb-tip--end tip in the
 // last row of the wizard's modal, and changes its text while it shows.
 func TestChromeTipsOverModalEdge(t *testing.T) {
 	b := startBrowser(t, mouseFlags...)
@@ -54,7 +67,7 @@ func TestChromeTipsOverModalEdge(t *testing.T) {
 	mouseTo(b, "#setup-take")
 	b.waitFor("the tip of Take control, whole, past the bottom of the modal's body", tipShows("#setup-take")+` && (() => {
 		const r = `+tipBox+`, body = document.getElementById('setup-wait-body').getBoundingClientRect();
-		return r.bottom > body.bottom;
+		return r.bottom > body.bottom && r.left >= body.left;
 	})()`)
 	b.shot("tip-setup-take")
 
@@ -80,5 +93,84 @@ func TestChromeTipsOverModalEdge(t *testing.T) {
 
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 5, "y": 1000})
 	b.waitFor("no tip once the pointer leaves", `document.querySelector('body > .sode__tip').hidden`)
+	b.check()
+}
+
+// A tip never covers its own control or that control's field (A2-04, A2-15, B2-22). The Lock menu's tip closes when
+// the drop-down opens under it. The Last chip's tip opens over the chip, clear of the Destination box, and a press
+// leaves no focus on the chip. A label's tip in Settings opens over the label, clear of its box.
+func TestChromeTipsClearOfTheirControl(t *testing.T) {
+	b := startBrowser(t, mouseFlags...)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role, c.Users[0].Persistent = config.RoleAdministrator, true })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+	waitNamesAndTally(t, a, userKey(t, a, "Ana"))
+
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("the Lock menu button", `!!document.getElementById('lock-chip-more')?.offsetParent`)
+
+	// The tip shows at once and the drop-down 120 ms later, so an observer records the tip.
+	b.eval(`window.sawLockTip = false;
+		new MutationObserver(() => { const t = document.querySelector('body > .sode__tip'); if (!t.hidden && t.textContent === 'Lock menu') window.sawLockTip = true })
+			.observe(document.querySelector('body > .sode__tip'), { attributes: true, childList: true, characterData: true, subtree: true }); true`)
+	mouseTo(b, "#lock-chip-more")
+	b.waitFor("the drop-down open on hover, after its tip showed", chipOpen+` && window.sawLockTip`)
+	b.waitFor("no tip on the drop-down", `document.querySelector('body > .sode__tip').hidden`)
+	// A move over the button's icon does not bring the tip back while the drop-down is open.
+	x, y := touchAt(b, `document.querySelector('#lock-chip-more .pb-icon')`)
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": x + 1, "y": y})
+	b.waitFor("still no tip, the drop-down open", chipOpen+` && document.querySelector('body > .sode__tip').hidden`)
+	b.shot("tip-lock-menu")
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 960, "y": 900})
+	b.waitFor("the drop-down closed", chipShut)
+
+	pick := func(id, text string) {
+		b.waitFor(id+" match list", `(() => { const t = document.getElementById('`+id+`'); t.focus(); t.value = '`+text+`'; t.dispatchEvent(new Event('input', {bubbles: true})); return !!document.getElementById('`+id+`-opt-0'); })()`)
+		b.eval(`document.getElementById('` + id + `').dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab', code: 'Tab', bubbles: true, cancelable: true})); true`)
+		b.waitFor(id+" picked", `document.activeElement.id !== '`+id+`'`)
+	}
+	// No take yet: Ctrl+D from the Source box has nothing to fill, says so, and moves focus to the Destination box.
+	b.eval(`document.getElementById('src').focus(); true`)
+	b.call("Input.dispatchKeyEvent", map[string]any{"type": "keyDown", "key": "d", "code": "KeyD", "windowsVirtualKeyCode": 68, "modifiers": 2})
+	b.call("Input.dispatchKeyEvent", map[string]any{"type": "keyUp", "key": "d", "code": "KeyD", "windowsVirtualKeyCode": 68, "modifiers": 2})
+	b.waitFor("No earlier take shown", `document.body.textContent.includes('No earlier take')`)
+	b.waitFor("focus in the Destination box", `document.activeElement?.id === 'dst'`)
+	pick("src", simSrcName)
+	pick("dst", "DSM1")
+	b.eval(`(() => { const t = document.getElementById('lvl'); t.focus(); t.value = '1'; t.dispatchEvent(new Event('input', {bubbles: true})); t.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true})); return true; })()`)
+	b.waitFor("confirm unlocks", `!document.getElementById('confirm').hidden && !document.getElementById('confirm-ok').disabled`)
+	b.eval(`document.getElementById('confirm-ok').click(); true`)
+	last := `[data-last="dst"] button.sode__last:not(.sode__next)`
+	b.waitFor("Last destination chip", `!!document.querySelector('`+last+`')`)
+	mouseTo(b, last)
+	b.waitFor("the Last chip's tip over the chip, clear of the Destination box", tipShows(last)+` && `+tipBox+`.bottom <= document.querySelector('`+last+`').getBoundingClientRect().top && `+
+		tipClearOf(`[...document.querySelector('.sode__box--dst').children].filter((c) => !c.querySelector('[data-last]'))`))
+	b.shot("tip-last-chip")
+	realClick(b, last)
+	// The chip fills the destination and focus goes on to the empty Source box, not to the page.
+	b.waitFor("focus in the Source box after a press", `document.activeElement?.id === 'src'`)
+
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 960, "y": 1000})
+	b.open(srv.URL + "/#settings")
+	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
+	signInSettings(b)
+	label := `label[for="cfg-proxies"]`
+	b.waitFor("the Trusted proxies label in the window", `(() => {
+		const l = document.querySelector('`+label+`');
+		if (!l?.offsetParent || !l.dataset.pbTip) return false;
+		l.scrollIntoView({ block: 'center', behavior: 'instant' });
+		const r = l.getBoundingClientRect();
+		return r.top >= 0 && r.bottom <= innerHeight;
+	})()`)
+	mouseTo(b, label)
+	b.waitFor("the label's tip over the label, clear of its box", tipShows(label)+` && `+tipBox+`.bottom <= document.querySelector('`+label+`').getBoundingClientRect().top && `+
+		tipClearOf(`[document.getElementById('cfg-proxies')]`))
+	b.shot("tip-label")
 	b.check()
 }

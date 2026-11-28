@@ -58,7 +58,7 @@ func TestChromeSettingsRouterReorder(t *testing.T) {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const r = [...d.querySelectorAll('tbody tr')].find((x) => x.cells[0]?.textContent.startsWith('Router order'));
-		return !!r && r.cells[0].textContent === 'Router order. Default router: A Studio A → B Stage 2'
+		return !!r && r.cells[0].textContent === 'Router order. Default router: was A Studio A, now B Stage 2'
 			&& r.textContent.includes('A Studio A, B Stage 2, C MCR') && r.textContent.includes('B Stage 2, A Studio A, C MCR')
 			&& document.getElementById('review-save').textContent === 'Save 1 change';
 	})()`)
@@ -78,7 +78,7 @@ func TestChromeSettingsRouterReorder(t *testing.T) {
 	b.eval(`document.getElementById('settings-exit').click(); true`)
 	b.waitFor("Home", `document.documentElement.dataset.view !== 'settings'`)
 	b.eval(`document.querySelector('#conn-routers > .sode__conn-open').click(); true`)
-	b.waitFor("the status bar lists the routers in the new order", `[...document.querySelectorAll('#conn .sode-routerlist__item .sode-routerlist__name')].map((n) => n.textContent).join('|') === 'B Stage 2|A Studio A|C MCR'`)
+	b.waitFor("the status bar lists the routers in the new order", `[...document.querySelectorAll('#conn .sode-routerlist__item .sode-routerlist__name')].map((n) => n.textContent).join('|') === 'Router B Stage 2|Router A Studio A|Router C MCR'`)
 	b.check()
 }
 
@@ -103,7 +103,7 @@ func TestChromeSettingsRemoveFirstRouter(t *testing.T) {
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("the review says B becomes the default router", `(() => {
 		const d = document.getElementById('review');
-		return !!d?.offsetParent && d.textContent.includes('Remove A Studio A') && d.textContent.includes('B Stage 2 becomes the default router.');
+		return !!d?.offsetParent && d.textContent.includes('Router A Studio A') && d.textContent.includes('Removed. B Stage 2 becomes the default router.');
 	})()`)
 	b.waitFor("PIN recheck asked", `(() => {
 		if (document.getElementById('review')?.offsetParent) document.getElementById('review-save').click();

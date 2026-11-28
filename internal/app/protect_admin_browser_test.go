@@ -93,7 +93,7 @@ func TestChromeProtectFreeAnotherAsksApproval(t *testing.T) {
 	b.waitFor("Confirm unlocks", `!document.getElementById('confirm').hidden && !document.getElementById('confirm-ok').disabled`)
 	b.eval(`document.getElementById('confirm-ok').click(); true`)
 	b.waitFor("the Approval names the destination", `!!document.getElementById('approval-pin')?.offsetParent &&
-		document.querySelector('#approval-title').closest('.pb-modal').textContent.includes("Freeing another user's Protect on 3 DSM1: Approval from an Administrator.")`)
+		document.querySelector('#approval-title').closest('.pb-modal').textContent.includes("Freeing another user's Protect on 3 DSM1 needs Approval from an Administrator.")`)
 	b.eval(`document.getElementById('approval-name').value = 'Ada'; document.getElementById('approval-pin').value = '2468';
 		document.getElementById('approval-go').click(); true`)
 	b.waitFor("freed", `!document.getElementById('approval-pin').offsetParent && !document.querySelector('#dst-under .pb-badge[data-owner]')`)

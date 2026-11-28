@@ -164,7 +164,7 @@ export function brandHex(value, colors) {
 }
 
 // Settings and the setup wizard show it under the picker. Sode never refuses the color.
-export const CAUTION_NOTE = 'This color is near a state color (failure, caution, routed or protected). Selection can look like a state.';
+export const CAUTION_NOTE = 'This color is near a state color (failure, caution, routed or protected). A selected item can look like a state.';
 export function brandCaution(value, colors) {
   const hex = brandHex(value, colors);
   return !!hex && reservedBy(hex).length > 0;

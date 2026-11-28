@@ -6,7 +6,7 @@ import { namesReply } from './gridpanelfixture.mjs';
 
 const names = namesFrom(namesReply());
 
-test('one item per destination, with each source and its levels, in staged order', () => {
+test('one item per destination, with each source and its levels, in destination number order', () => {
   const plan = planOf(
     [
       { src: 0, dst: 1, levels: [1] },
@@ -19,6 +19,12 @@ test('one item per destination, with each source and its levels, in staged order
     verb: 'take',
     items: [
       {
+        dst: 0,
+        dstName: 'MON A',
+        dstLabel: { num: '1', name: 'MON A' },
+        groups: [{ src: 2, srcName: 'VT 1', srcLabel: { num: '3', name: 'VT 1' }, levels: [1, 2] }],
+      },
+      {
         dst: 1,
         dstName: 'MON B',
         dstLabel: { num: '2', name: 'MON B' },
@@ -26,12 +32,6 @@ test('one item per destination, with each source and its levels, in staged order
           { src: 0, srcName: 'CAM 1', srcLabel: { num: '1', name: 'CAM 1' }, levels: [1] },
           { src: 1, srcName: 'CAM 2', srcLabel: { num: '2', name: 'CAM 2' }, levels: [2] },
         ],
-      },
-      {
-        dst: 0,
-        dstName: 'MON A',
-        dstLabel: { num: '1', name: 'MON A' },
-        groups: [{ src: 2, srcName: 'VT 1', srcLabel: { num: '3', name: 'VT 1' }, levels: [1, 2] }],
       },
     ],
   });

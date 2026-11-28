@@ -45,10 +45,10 @@ onMsg('pinRecheckResult', (m) => {
   else prompt.fail(m.err || 'Wrong PIN.');
 });
 
-// what names the action, for example 'Clearing History'.
-export function askRecheck(what) {
+// what names the action, for example 'Clearing History'. go: the button's words, the action that the PIN lets go on.
+export function askRecheck(what, go = 'Continue') {
   settle(false); // a second ask replaces the first
-  prompt.open(`${what}: Critical. Enter your PIN.`);
+  prompt.open(`${what} needs your PIN again. Enter your PIN.`, go);
   return new Promise((resolve) => {
     done = resolve;
   });

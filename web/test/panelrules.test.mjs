@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { LINK_WORDS } from '../routerlinkrules.js';
 import {
   panelIdFrom,
   keyFromHash,
@@ -13,7 +14,11 @@ import {
   offlineOf,
   currentLabel,
   artLeftOut,
+  downPlaces,
+  cellDown,
+  routersDownText,
 } from '../panelrules.js';
+import { makePlaces, itemId } from '../routerids.js';
 import { createState, currentOfDestination } from '../panelmodel.js';
 
 test('the panel id is the last path segment of /panels/<id>, and the editor and list are not panels', () => {
@@ -142,12 +147,13 @@ test('opening a panel fails with a reason that says what to do with the key', ()
 
 test('the page is offline when Sode does not answer or the router link is down, and says which', () => {
   assert.equal(offlineOf({ failed: false, routerUp: true }), null);
-  assert.match(offlineOf({ failed: true, routerUp: true }).detail, /Sode/);
+  // The Lost link banner's words (routerlinkrules.js), as the editor's line has them.
+  assert.equal(offlineOf({ failed: true, routerUp: true }).detail, `${LINK_WORDS.server} Presses do nothing.`);
   const router = offlineOf({ failed: false, routerUp: false });
-  assert.match(router.detail, /router/);
+  assert.equal(router.detail, `${LINK_WORDS.router} Presses do nothing.`);
   assert.equal(router.title, 'Offline');
-  // Both down: the page cannot see the router, so the text names Sode.
-  assert.match(offlineOf({ failed: true, routerUp: false }).detail, /Sode/);
+  // Both down: the page cannot see the router, so the text names the Server link.
+  assert.equal(offlineOf({ failed: true, routerUp: false }).detail, `${LINK_WORDS.server} Presses do nothing.`);
 });
 
 test('the Current Source cell names the viewed destination, and a caption still wins', () => {
@@ -169,4 +175,31 @@ test('artwork a Copy or Push left out is counted', () => {
   assert.equal(artLeftOut([]), '');
   assert.equal(artLeftOut(['a-1']), '1 image left out: over the 64 MB artwork total.');
   assert.equal(artLeftOut(['a-1', 'a-2'], 'EVS 2'), '2 images of EVS 2 left out: over the 64 MB artwork total.');
+});
+
+test('cells on a down router: their router, a status line that names it, and nothing with one router', () => {
+  const places = makePlaces([
+    { uid: 'a', prefix: 'A', title: 'Router A' },
+    { uid: 'b', prefix: 'B', title: 'Router B' },
+    { uid: 'c', prefix: 'C', title: 'Stage' },
+  ]);
+  const link = {
+    routers: [
+      { uid: 'a', routerUp: true },
+      { uid: 'b', routerUp: false },
+      { uid: 'c', routerUp: false },
+    ],
+  };
+  const down = downPlaces(link, places);
+  assert.deepEqual([...down], [1, 2]);
+  assert.equal(downPlaces(null, places).size, 0, 'no answer yet is up');
+  assert.equal(downPlaces({ routers: [{ uid: 'a', routerUp: false }] }, makePlaces([{ uid: 'a', prefix: 'A' }])).size, 0, 'one router goes Offline instead');
+  const onB = { kind: 'destination', n: itemId(1, 4) };
+  const onA = { kind: 'source', n: itemId(0, 4) };
+  assert.equal(cellDown(onB, down), true);
+  assert.equal(cellDown(onA, down), false);
+  assert.equal(cellDown({ kind: 'take' }, down), false);
+  assert.equal(routersDownText(places, down, [onA, onB]), 'Router B is down. Its cells do nothing.');
+  assert.equal(routersDownText(places, down, [onA]), '');
+  assert.equal(routersDownText(places, down, [onB, { kind: 'source', n: itemId(2, 1) }]), 'Router B and Router C Stage are down. Their cells do nothing.');
 });

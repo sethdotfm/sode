@@ -45,7 +45,7 @@
   </header>
   <div class="sode__down" id="conn-down" role="alert" hidden></div>
   <!-- Degraded: the routers that are down and their destinations (degradedview.js). The phone view has its own copy. -->
-  <div class="pb-note pb-note--warn sode__degraded" id="conn-degraded" role="status" hidden></div>
+  <div class="pb-alert pb-alert--warn sode__degraded" id="conn-degraded" role="status" hidden></div>
   <!-- The command keeps in step with recoverCommand in internal/app/roles.go. -->
   <div class="pb-alert pb-alert--error sode__noadmin" id="no-admin" role="alert" hidden>
     <div class="sode__lock-help">
@@ -59,8 +59,8 @@
   <!-- Env-only mode (notsaved.js). The phone view has its own copy. -->
   <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
     <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
-    <span class="pb-grow">Not saved: SODE_CONFIG is not set. Settings and users are lost on restart.</span>
-    <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
+    <span class="pb-grow">Not saved: SODE_CONFIG is not set. A restart loses settings and users.</span>
+    <a class="pb-btn pb-btn--outline" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
   </div>
 
   <!-- The setup wizard (setupwizard.js): a config file with no users. html[data-sode-setup] hides the rest. -->
@@ -78,7 +78,7 @@
         <button type="button" class="pb-btn pb-btn--outline" id="setup-back">Back</button>
         <button type="button" class="pb-btn pb-btn--outline" id="setup-restore">Restore from a backup</button>
         <span class="pb-grow"></span>
-        <span class="sode-setup__err" id="setup-err" role="alert"></span>
+        <span class="sode-setup__err" id="setup-err" role="status"></span>
         <button type="button" class="pb-btn sode-btn--primary" id="setup-next">Next</button>
       </div>
     </div>
@@ -96,9 +96,9 @@
             <kbd class="sode__key-note" aria-hidden="true">s</kbd>
           </span>
           <div class="sode__menu-pop"><ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul><div class="sode__menu-count" id="src-count" aria-hidden="true" hidden></div></div>
-          <div class="sode__menu-all" id="src-all"><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all sources</button></div>
+          <div class="sode__menu-all" id="src-all"><button type="button" class="pb-btn pb-btn--ghost" tabindex="-1">Show all sources</button></div>
         </div>
-        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="src-router" tabindex="-1" hidden></button>
+        <button type="button" class="pb-btn pb-btn--ghost sode__box-router" id="src-router" tabindex="-1" hidden></button>
       </div>
       <div class="sode__box sode__box--to">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
@@ -115,9 +115,9 @@
               <kbd class="sode__key-note" aria-hidden="true">d</kbd>
             </span>
             <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div></div>
-            <div class="sode__menu-all" id="dst-all"><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div>
+            <div class="sode__menu-all" id="dst-all"><button type="button" class="pb-btn pb-btn--ghost" tabindex="-1">Show all destinations</button></div>
           </div>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="dst-router" tabindex="-1" hidden></button>
+          <button type="button" class="pb-btn pb-btn--ghost sode__box-router" id="dst-router" tabindex="-1" hidden></button>
           <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations of this plan" hidden></div>
         </div>
         <div class="sode__box sode__box--add">
@@ -135,7 +135,7 @@
           </span>
           <div class="sode__picker">
             <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
-            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode__all" id="lvl-all" tabindex="-1"><span>Select</span><span>All</span></button>
+            <button type="button" class="pb-btn pb-btn--outline sode__all" id="lvl-all" tabindex="-1"><span>Select</span><span>All</span></button>
           </div>
         </div>
         <div class="sode__box sode__box--take">
@@ -185,7 +185,7 @@
         </div>
         <div class="sode__sets-bar">
           <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
+          <button type="button" class="pb-btn pb-btn--ghost sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
       </div>
       <ul class="sode__hist" id="history" tabindex="-1" aria-label="History"></ul>
@@ -227,7 +227,7 @@
           <span class="pb-select-wrap"><select id="cfg-clock" class="pb-select" data-pref="clock"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-flip">Destination before Source</label>
+          <label for="cfg-flip">Destination before source</label>
           <span class="pb-select-wrap"><select id="cfg-flip" class="pb-select" data-pref="flip"></select></span>
         </div>
         <div class="sode__field">
@@ -235,7 +235,7 @@
           <span class="pb-select-wrap"><select id="cfg-scrolltop" class="pb-select" data-pref="scrollTop"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-search-filters">Searching history respects filters</label>
+          <label for="cfg-search-filters">Search in History uses filters</label>
           <span class="pb-select-wrap"><select id="cfg-search-filters" class="pb-select" data-pref="searchFilters"></select></span>
         </div>
         <div class="sode__field">
@@ -265,6 +265,7 @@
       <legend>My user</legend>
       <div class="sode__field" id="account" data-find="account" data-label="Me">
         <span class="sode__acct" id="account-name"></span>
+        <p class="sode__hint" id="account-guest-note" hidden>You act as a guest, with Guest Rights.</p>
         <div class="sode__names sode__names--start">
           <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Sign in" hidden>Sign in</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-stepin" data-find="account-stepin" data-label="Step in" aria-haspopup="dialog" hidden>Step in</button>
@@ -299,7 +300,7 @@
           <span class="pb-select-wrap"><select id="gcfg-clock" class="pb-select" data-gpref="clock"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-flip">Destination before Source</label>
+          <label for="gcfg-flip">Destination before source</label>
           <span class="pb-select-wrap"><select id="gcfg-flip" class="pb-select" data-gpref="flip"></select></span>
         </div>
         <div class="sode__field">
@@ -307,7 +308,7 @@
           <span class="pb-select-wrap"><select id="gcfg-scrolltop" class="pb-select" data-gpref="scrollTop"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-search-filters">Searching history respects filters</label>
+          <label for="gcfg-search-filters">Search in History uses filters</label>
           <span class="pb-select-wrap"><select id="gcfg-search-filters" class="pb-select" data-gpref="searchFilters"></select></span>
         </div>
         <div class="sode__field">
@@ -350,6 +351,7 @@
             <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
             <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
           </span>
+          <span class="sode__hint">Page border and app icon</span>
           <p class="pb-note pb-note--warn sode__brand-caution" id="brand-caution" role="status" hidden></p>
         </div>
       </div>
@@ -366,21 +368,20 @@
         <div class="sode__names" id="clear-step1">
           <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
         </div>
-        <div class="sode__names" id="clear-step2" hidden>
-          <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Cancel</button>
-            <button type="button" class="pb-btn pb-btn--outline" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
-          </span>
+        <div class="sode__names sode__names--start" id="clear-step2" hidden>
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Cancel</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
         </div>
       </div>
     </fieldset>
 
     <fieldset class="sode__group" data-section="level-colors" data-topic="look-and-feel">
       <legend>Level colors</legend>
-      <p class="sode__hint">Each router takes these colors by position: its first level takes color 1, its second level takes color 2. So level 1, level 0 and level V can have the same color on different routers.</p>
+      <p class="sode__hint">Each router takes these colors by position: its first level takes color 1, its second level takes color 2. So level 1, level 0 and level V can have the same color on different routers. Grey text is the default color.</p>
       <div class="sode__colors" id="cfg-colors"></div>
+      <p class="sode__hint sode__error-text" id="cfg-colors-err" role="status" hidden></p>
       <div class="sode__names">
-        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-colors-reset">Reset to default</button>
+        <button type="button" class="pb-btn pb-btn--outline" id="cfg-colors-reset">Reset to default</button>
       </div>
     </fieldset>
 
@@ -388,12 +389,14 @@
       <legend>Confirm and results</legend>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-lockout" data-pb-tip="Delay before the Confirm letter and OK work.">Confirm lockout (ms)</label>
+          <label for="cfg-lockout">Confirm lockout (ms)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
+          <span class="sode__hint">Delay before the Confirm letter and OK work.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-dismiss" data-pb-tip="0 = stays open. Failures always stay.">Success banner closes after (s)</label>
+          <label for="cfg-dismiss">Close a success banner after (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
+          <span class="sode__hint">0 keeps it open. A failure banner always stays.</span>
         </div>
       </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms takes</span></label>
@@ -429,11 +432,11 @@
               <div class="sode__rlink" id="router-detail-link"></div>
             </div>
             <div class="sode__racts">
-              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-up" data-pb-tip="The first router is the default router" hidden>Move up</button>
-              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-down" hidden>Move down</button>
-              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-swap" aria-haspopup="dialog" hidden>Swap…</button>
-              <a class="pb-btn pb-btn--outline pb-btn--sm" id="router-log" href="log">Communication Log</a>
-              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-remove" hidden>Remove…</button>
+              <button type="button" class="pb-btn pb-btn--outline" id="router-up" data-pb-tip="The first router is the default router" hidden>Move up</button>
+              <button type="button" class="pb-btn pb-btn--outline" id="router-down" hidden>Move down</button>
+              <button type="button" class="pb-btn pb-btn--outline" id="router-swap" aria-haspopup="dialog" hidden>Swap…</button>
+              <a class="pb-btn pb-btn--outline" id="router-log" href="log">Communication Log</a>
+              <button type="button" class="pb-btn pb-btn--outline" id="router-remove" hidden>Remove…</button>
             </div>
           </div>
           <div class="sode__rnote" id="router-remove-note"></div>
@@ -443,7 +446,7 @@
               <div class="sode__field" id="cfg-rt-prefix-field">
                 <label for="cfg-rt-prefix">Prefix</label>
                 <input id="cfg-rt-prefix" class="pb-input sode__rprefix" maxlength="2" spellcheck="false" autocomplete="off">
-                <span class="sode__hint">One or two letters. B.69 is number 69 on this router.</span>
+                <span class="sode__hint">One or two letters. For example, B.69 is number 69 on router B.</span>
               </div>
               <div class="sode__field">
                 <label for="cfg-rt-title">Router title</label>
@@ -452,7 +455,7 @@
             </div>
           </div>
           <div class="sode__rgroup" data-group="connection">
-            <p class="sode__rgroup-head">Connection <span class="sode__hint">A change here reconnects this router only.</span></p>
+            <p class="sode__rgroup-head">Connection <span class="sode__hint">A change here reconnects only this router.</span></p>
             <div class="sode__fields">
               <div class="sode__field">
                 <label for="cfg-rt-address">Address</label>
@@ -518,8 +521,8 @@
             </div>
             <div class="sode__rfacts">
               <span id="router-names-count"></span>
-              <span class="sode__chipbox" id="router-names-at"></span>
-              <button type="button" class="pb-btn pb-btn--sm" id="router-names-reread" data-find="router-names-reread" data-label="Re-read names now">Re-read now</button>
+              <button type="button" class="pb-btn" id="router-names-reread" data-find="router-names-reread" data-label="Re-read names now">Re-read now</button>
+              <span class="sode__hint" id="router-names-at"></span>
               <span class="sode__hint" id="router-names-why"></span>
             </div>
           </div>
@@ -527,7 +530,7 @@
             <p class="sode__rgroup-head">Takes</p>
             <div class="sode__fields">
               <div class="sode__field">
-                <span class="sode__label-help"><label class="sode__field-label" for="cfg-rt-fireMode">Multi destination</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__help" id="cfg-rt-fireMode-help" aria-label="About Multi destination" data-pb-tip="One after another: Sode sends each route as its own connect, about 16 ms each. Router salvo: the router keeps every route, then switches them all together on one command. Use Router salvo only on a router that has router salvos, with a router salvo group that nothing else uses."><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-circle-help"/></svg></button></span>
+                <span class="sode__label-help"><label class="sode__field-label" for="cfg-rt-fireMode">Multi destination</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__help" id="cfg-rt-fireMode-help" aria-label="About Multi destination" data-pb-tip="One after another: Sode sends each route alone, about 16 ms apart. Router salvo: the router holds all the routes and switches them together. The router must have router salvos, and the router salvo group must be free."><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-circle-help"/></svg></button></span>
                 <span class="pb-select-wrap"><select id="cfg-rt-fireMode" class="pb-select"><option value="sequential">One after another</option><option value="native">Router salvo (stage, then Take all)</option></select></span>
               </div>
               <div class="sode__field">
@@ -553,14 +556,14 @@
             </div>
             <div class="sode__rfacts">
               <span id="router-protects-count"></span>
-              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-protects-show">Show in Protects</button>
+              <button type="button" class="pb-btn pb-btn--outline" id="router-protects-show">Show in Protects</button>
             </div>
           </div>
           <div class="sode__rgroup" data-group="tie-lines" id="router-ties-group">
             <p class="sode__rgroup-head">Tie lines</p>
             <div class="sode__rfacts">
               <span id="router-ties-count"></span>
-              <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="router-ties-show">Show in Tie lines</button>
+              <button type="button" class="pb-btn pb-btn--outline" id="router-ties-show">Show in Tie lines</button>
             </div>
           </div>
         </div>
@@ -570,17 +573,17 @@
     <fieldset class="sode__group" data-section="tie-lines" data-topic="routers">
       <legend>Tie lines</legend>
       <p class="sode__hint" id="tielines-note">A tie line is a one-way cable from a destination on one router to a source on another router. It carries all levels.</p>
-      <p class="sode__hint" id="tielines-one" hidden>Tie lines need two or more routers. Add router in Routers adds one.</p>
+      <p class="sode__hint" id="tielines-one" hidden>Tie lines need two or more routers. To add a router, use Add router in Routers.</p>
       <div class="sode__field sode__field--half" id="tielines-weight">
         <label for="cfg-tie-hop-weight" data-pb-tip="The cost of each hop that changes a tie line, added to the number of Affected destinations. Sode offers the path with the lowest cost first">Hop weight</label>
         <span class="pb-number-wrap"><input type="number" id="cfg-tie-hop-weight" class="pb-input" data-key="tieHopWeight" data-type="int" min="0" max="100"></span>
       </div>
       <div id="tielines-app" data-apart>
+        <div class="sode__ptools sode__ptools--top">
+          <button type="button" class="pb-btn pb-btn--outline" id="tieline-new">Add tie line</button>
+        </div>
         <div class="sode__pbar">
-          <div class="sode__ptools">
-            <button type="button" class="pb-btn pb-btn--outline" id="tieline-new">Add tie line</button>
-            <span class="sode__ptools" id="tielines-tools"></span>
-          </div>
+          <span class="sode__ptools" id="tielines-tools"></span>
           <span class="sode__pcount-line" id="tielines-count"></span>
         </div>
         <div class="sode__tadd" id="tielines-add-box" hidden></div>
@@ -603,11 +606,10 @@
     <fieldset class="sode__group" data-section="protects" data-topic="routers">
       <legend>Protects</legend>
       <div class="sode__field" data-apart data-find="protects-list" data-label="Protects and Router locks">
-        <span class="sode__label">Protects and Router locks</span>
         <div class="sode__ptools" id="protects-tools"></div>
         <div class="sode__pbar">
           <span class="sode__pcount-line" id="protects-count"></span>
-          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Free Sode's Protects" data-pb-tip="Frees every Protect with Sode's device number, also with no record, on the routers you pick. Asks your PIN again">Free Sode's Protects…</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="protects-clear-all" data-find="protects-clear-all" data-label="Free Sode's Protects" data-pb-tip="Frees every Protect with Sode's device number, also with no record, on the routers you pick. Asks for your PIN again">Free Sode's Protects…</button>
         </div>
         <div class="sode__pwrap"><div class="sode__plist" id="protects-list"></div></div>
         <p class="sode__presult" id="protects-status" role="status" aria-live="polite"></p>
@@ -623,16 +625,18 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field" data-find="lock-pages" data-label="Page locks">
-          <span class="sode__label" id="cfg-locks-label" data-pb-tip="Needs a user with a PIN">Page locks</span>
+          <span class="sode__label" id="cfg-locks-label">Page locks</span>
           <div role="group" aria-labelledby="cfg-locks-label">
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Main page</span></label>
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Communication Log</span></label>
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-panel"><span class="pb-check__label">Panels</span></label>
           </div>
+          <span class="sode__hint">Needs a user with a PIN.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-auto-lock" data-pb-tip="0 = off">Auto-lock after (min)</label>
+          <label for="cfg-auto-lock">Auto-lock after (min)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
+          <span class="sode__hint">0 is off.</span>
         </div>
       </div>
       <div class="sode__field sode__field--half">
@@ -672,8 +676,9 @@
         <label class="pb-check" data-pb-tip="Off: commands, refusals and key events only"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>
       </div>
       <div class="sode__field sode__field--half">
-        <label for="api-rate" data-pb-tip="0 = off">Rate limit (requests/min per key)</label>
+        <label for="api-rate">Rate limit (requests/min per key)</label>
         <span class="pb-number-wrap"><input type="number" id="api-rate" class="pb-input" min="0" max="100000"></span>
+        <span class="sode__hint">0 is off.</span>
       </div>
       <div class="sode__field sode__field--half">
         <label for="api-cap">API takes in flight (max)</label>
@@ -687,7 +692,7 @@
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-public-panels" data-key="publicPanels" data-type="bool"><span class="pb-check__label">Public panels allowed</span></label>
       </div>
       <div class="sode__field sode__field--half">
-        <label for="cfg-new-panel-acts">New-panel Authentication mode</label>
+        <label for="cfg-new-panel-acts">Authentication mode for new panels</label>
         <span class="pb-select-wrap"><select id="cfg-new-panel-acts" class="pb-select" data-key="newPanelActs"><option value="public">Public</option><option value="session">User</option><option value="both">Both</option><option value="api">API</option></select></span>
       </div>
     </fieldset>
@@ -701,7 +706,7 @@
       </div>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-require-https" data-key="requireHttps" data-type="bool"><span class="pb-check__label">Require HTTPS</span></label>
-        <span class="sode__hint">Refuses every request that a trusted proxy did not mark <code>X-Forwarded-Proto: https</code>, except the health endpoints. Needs at least one trusted proxy, and you must save from an HTTPS address. Console reset: <code>sode -reset-https</code>.</span>
+        <span class="sode__hint">Sode refuses a request that a trusted proxy did not mark <code>X-Forwarded-Proto: https</code>. The health endpoints stay open. Add a trusted proxy first, and save from an HTTPS address. To turn it off from the console: <code>sode -reset-https</code>.</span>
       </div>
     </fieldset>
 
@@ -748,11 +753,11 @@
     </header>
 
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
-    <div class="pb-note pb-note--warn sode__degraded" id="m-degraded" role="status" hidden></div>
+    <div class="pb-alert pb-alert--warn sode__degraded" id="m-degraded" role="status" hidden></div>
     <div class="pb-banner sode__notsaved" data-notsaved role="alert" hidden>
       <svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-triangle-alert"/></svg>
-      <span class="pb-grow">Not saved: SODE_CONFIG is not set. Settings and users are lost on restart.</span>
-      <a class="pb-chip" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
+      <span class="pb-grow">Not saved: SODE_CONFIG is not set. A restart loses settings and users.</span>
+      <a class="pb-btn pb-btn--outline" data-notsaved-fix target="_blank" rel="noopener">How to fix this</a>
     </div>
     <div class="sode-m__result" id="m-result" aria-live="polite"></div>
     <div class="pb-alert pb-alert--warn sode__broken" data-broken role="status" hidden></div>
@@ -765,7 +770,7 @@
         <div class="sode__recent-head">
           <span class="sode__label" id="m-recent-head">History</span>
           <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
+          <button type="button" class="pb-btn pb-btn--ghost sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
         <div class="sode__search" data-search>
           <span class="sode__search-box">
@@ -843,8 +848,8 @@
         <div class="sode__filters-set" id="flt-set-name-row" hidden>
           <label class="sode__fld"><span class="sode__label">Name of the copy</span><input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name" aria-label="Filter set name" autocomplete="off"></label>
           <label class="sode__fld sode__filters-scope" id="flt-set-scope-wrap"><span class="sode__label">Save the copy for</span><span class="pb-select-wrap"><select class="pb-select" id="flt-set-scope" aria-label="Save for"><option value="local">This browser</option><option value="global">Everyone</option></select></span></label>
-          <button type="button" class="pb-btn pb-btn--commit" id="flt-set-name-ok">Save</button>
-          <button type="button" class="pb-btn pb-btn--ghost" id="flt-set-name-cancel">Cancel</button>
+          <button type="button" class="pb-btn sode-btn--primary" id="flt-set-name-ok">Save</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="flt-set-name-cancel">Cancel</button>
         </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
       </div>
@@ -868,7 +873,7 @@
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="flt-clear">Clear all</button>
       <button type="button" class="pb-btn pb-btn--outline" id="flt-done">Cancel</button>
-      <button type="button" class="pb-btn pb-btn--commit" id="flt-save">Save</button>
+      <button type="button" class="pb-btn sode-btn--primary" id="flt-save">Save</button>
     </div>
   </div>
 </div>

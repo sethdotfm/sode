@@ -48,10 +48,10 @@ export function createWake(nav, doc) {
 // Chrome locks the turn only in fullscreen, so landscape on makes the fullscreen switch moot.
 export const wantsFullscreen = (look) => !!(look?.fullscreen || look?.landscape);
 
-export const LANDSCAPE_HINT = 'A press also enters fullscreen, since browsers lock the turn only there.';
+export const LANDSCAPE_HINT = 'A press also goes to full screen, since browsers lock the turn only there.';
 
 export const fullscreenNote = (s) =>
-  s?.landscape === true && s?.fullscreen !== true ? 'Enforce landscape orientation is on, so a press still enters fullscreen.' : '';
+  s?.landscape === true && s?.fullscreen !== true ? 'Keep the page in landscape is on, so a press still goes to full screen.' : '';
 
 // Browsers allow fullscreen only from a user gesture. The turn lock follows fullscreen: iOS never allows it.
 export function enterFullscreen(doc, landscape = false, scr = globalThis.screen) {

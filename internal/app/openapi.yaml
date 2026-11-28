@@ -3056,7 +3056,7 @@ components:
               description: |
                 Output only. The devices counted for the caller: those heard since Sode started and
                 those the caller watches one by one, less the ones the caller hid. The panels page
-                reads All Online, Some Online or All Offline from this and `instancesOnline`
+                reads All online, Some online, All offline or Not open from this and `instancesOnline`
             instances:
               type: array
               description: Output only, for an editor. The devices that have opened the panel since Sode started

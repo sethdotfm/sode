@@ -1,13 +1,15 @@
 // The words in a Grid panel's header. Pure.
 
 // The grid when it has nothing to show on an axis: a new Grid panel starts with no items (docs/panels-design.md).
-export function emptyText({ srcs, dsts, canEdit }) {
+// owner is the panel owner's name, '' when the page does not know it. none is true when neither axis has an item.
+export function emptyText({ srcs, dsts, canEdit, owner = '' }) {
   if (srcs && dsts) return null;
   const what = !srcs && !dsts ? 'sources or destinations' : !srcs ? 'sources' : 'destinations';
   return {
-    title: `This panel shows no ${what}`,
-    msg: canEdit ? '' : 'Only its owner can add them.',
+    title: `This panel has no ${what}.`,
+    msg: canEdit ? '' : `Ask ${owner || 'its owner'} to add them.`,
     edit: !!canEdit,
+    none: !srcs && !dsts,
   };
 }
 

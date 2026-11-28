@@ -82,7 +82,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	b.waitFor("the picker lists DSM1", `row()?.textContent.includes('DSM1')`)
 	b.eval(`row().click(); true`)
 	b.waitFor("DSM1 chosen, by name", `chosen() === '`+fmt.Sprint(simDst)+`' && document.querySelector('#ed-fixed-list > li').textContent.includes('DSM1')`)
-	b.waitFor("the Destination cell is set aside and Stage several Destinations is off with a note", `!dstSquare() && multi().disabled && document.getElementById('ed-multi-note').textContent !== ''`)
+	b.waitFor("the Destination cell is set aside and Stage more than one destination is off with a note", `!dstSquare() && multi().disabled && document.getElementById('ed-multi-note').textContent !== ''`)
 	b.waitFor("unsaved", `document.getElementById('ed-state').textContent === 'Unsaved changes'`)
 	b.eval(`const sq = document.querySelector('.sode-ed__sq[data-r="2"][data-c="1"]'); const r = sq.getBoundingClientRect();
 		sq.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 })); true`)
@@ -90,7 +90,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	b.eval(`document.getElementById('ed-grid').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); true`)
 
 	b.eval(`document.querySelector('#ed-fixed-list button').click(); true`)
-	b.waitFor("an empty list brings the Destination cell and Stage several Destinations back", `chosen() === '' && !!dstSquare() && !multi().disabled`)
+	b.waitFor("an empty list brings the Destination cell and Stage more than one destination back", `chosen() === '' && !!dstSquare() && !multi().disabled`)
 	b.waitSaved("and nothing is unsaved")
 
 	for _, text := range []string{"DSM1", nameOf[other]} {

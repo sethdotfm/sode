@@ -69,11 +69,14 @@ func TestChromeInboxButton(t *testing.T) {
 	b.eval(btn + `.click(); true`)
 	b.waitFor("the Inbox lists both cards with Accept and Decline", `document.querySelectorAll('#inbox-cards [data-card]').length === 2 && [...document.querySelectorAll('#inbox-cards button')].some((x) => x.textContent === 'Accept…')`)
 	b.shot("inbox-log")
+	footAt(b, "Inbox", ".sode-inbox", "button", true)
 	b.eval(`document.querySelector('#inbox-cards [data-decline]').click(); true`)
 	b.waitFor("Decline lowers the count with no toast", count(1)+` && document.querySelectorAll('[data-inbox-toast]').length === 0`)
 
 	b.eval(`[...document.querySelectorAll('#inbox-cards button')].find((x) => x.textContent === 'Accept…').click(); true`)
 	b.waitFor("the review, item ticked", `!!document.getElementById('inbox-accept').offsetParent && document.querySelector('.sode-inbox__review [data-key="item:presets:`+show.ID+`"]')?.checked === true`)
+	b.gapX("Close, Back and Accept in a row", "--pb-space-3", ".sode-inbox .pb-modal__footer button")
+	footAt(b, "Inbox review", ".sode-inbox", "#inbox-accept", true)
 	b.eval(`document.getElementById('inbox-accept').click(); true`)
 	b.waitFor("Accept clears the count", count(0)+` && document.getElementById('inbox-note').textContent === 'Accepted.'`)
 	if p := a.r().cfg.Users[0].Profile.Presets; len(p) != 1 || p[0].Name != "Show" {

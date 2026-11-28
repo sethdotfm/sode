@@ -19,7 +19,7 @@ const buttons = [];
 
 function headButton(slot) {
   const count = el('span', 'pb-badge sode-inbox__count');
-  const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-inbox__btn', icon('inbox'), el('span', 'sode-inbox__word', 'Inbox'), count);
+  const b = el('button', 'pb-btn pb-btn--ghost sode-inbox__btn', icon('inbox', false), el('span', 'sode-inbox__word', 'Inbox'), count);
   b.type = 'button';
   b.dataset.inboxButton = '';
   b.addEventListener('click', () => openDialog());
@@ -46,10 +46,14 @@ const review = el('div', { class: 'sode-inbox__review', hidden: true });
 const phoneNote = el('div');
 const note = el('span', { class: 'sode__hint', id: 'inbox-note', role: 'status' });
 const acceptBtn = btn('sode-btn--primary', 'Accept', () => accept(), 'inbox-accept');
-const reviewActs = el(
+const backBtn = btn('pb-btn--outline', 'Back', () => endReview());
+acceptBtn.hidden = backBtn.hidden = true;
+// base.css .sode__foot-end: Close is on the right alone and left of Back and Accept in a review.
+const footActs = el(
   'span',
-  { class: 'sode__xi-acts', hidden: true },
-  btn('pb-btn--outline', 'Back', () => endReview()),
+  'sode__foot-end',
+  btn('pb-btn--outline', 'Close', () => close()),
+  backBtn,
   acceptBtn,
 );
 const tabs = makeTabs([
@@ -123,7 +127,7 @@ function sentRow(c) {
 function drawLists() {
   if (!open || reviewing) return;
   const cards = inbox.cards.map(cardRow);
-  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'Inbox empty')]));
+  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'Inbox is empty')]));
   // Newest first, as the server sends them oldest first.
   const sent = [...inbox.sent].reverse().map(sentRow);
   sentList.replaceChildren(...(sent.length ? sent : [el('p', 'sode__hint', 'None sent (30 days)')]));
@@ -193,7 +197,7 @@ function showReview(on) {
   dlg.title.textContent = on ? 'Accept a copy?' : 'Inbox';
   tabs.node.hidden = on;
   review.hidden = !on;
-  reviewActs.hidden = !on;
+  acceptBtn.hidden = backBtn.hidden = !on;
   if (on) inboxPanel.hidden = sentPanel.hidden = true;
   else tabs.select(tabs.current());
 }
@@ -245,7 +249,7 @@ if (slots.length) {
     title: 'Inbox',
     cls: 'pb-modal--md sode-inbox',
     body: el('div', 'pb-modal__body sode-inbox__body', tabs.node, phoneNote, inboxPanel, sentPanel, review),
-    foot: [btn('pb-btn--outline', 'Close', () => close()), note, reviewActs],
+    foot: [note, footActs],
     onEsc: close,
   });
   for (const s of slots) s.append(headButton(s));

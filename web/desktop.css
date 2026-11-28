@@ -14,10 +14,10 @@
   column-gap: var(--pb-space-6);
   display: grid;
   /* Three groups of one width: Source, Destination with +, and Levels with Take and Clear. The arrow is between the
-     first two. An empty track makes the space between the last two space-8; a margin would make Levels narrower. The
-     last group is never narrower than its controls, so on a narrow window (below about 1100 px) it is wider than the
-     other two. */
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) calc(var(--pb-space-8) - var(--pb-space-6)) minmax(min-content, 1fr);
+     first two. An empty track as wide as the arrow makes the space between the last two the same; a margin would make
+     Levels narrower. The last group is never narrower than its controls, so on a narrow window (below about 1100 px)
+     it is wider than the other two. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) var(--sode-h-action) minmax(min-content, 1fr);
   /* No row gap, so an empty row of routes under the boxes adds no height (.sode__under has the gap). */
   row-gap: 0;
   width: 100%;
@@ -44,6 +44,9 @@
   grid-row: 1 / span 2;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: subgrid;
+  /* .sode__group is also the Settings fieldset, with a row gap. A subgrid's own gap moves its second row down, so the
+     routes under Destination would start lower than those under Source. */
+  row-gap: 0;
 }
 .sode__group--dst > .sode__box {
   grid-row: 1;
@@ -56,10 +59,15 @@
   display: grid;
   grid-column: -2;
   grid-row: 1;
-  /* The text box keeps room for a short list of levels. */
-  grid-template-columns: minmax(6rem, 1fr) auto;
+  /* The text box keeps room for a short list of levels, and stops at 14rem: on a wide window it would grow far past
+     its text, such as "1-17 (All)". */
+  grid-template-columns: minmax(6rem, 14rem) auto;
+  justify-content: start;
 }
+/* The box's own gap is the group's: a subgrid with a smaller gap grows its tracks by half the difference, and the text
+   box ran into the space before Take. */
 .sode__group--levels > .sode__box--levels {
+  column-gap: var(--pb-space-6);
   grid-column: 1 / -1;
   grid-row: 1;
   grid-template-columns: subgrid;
@@ -72,9 +80,9 @@
 .sode__group--levels > .sode__box--levels > .sode__picker {
   grid-column: 1 / -1;
 }
-/* The key note shows only in keyboard mode (history.css), so out of it the narrow text box keeps its right pad for
-   the levels, such as "1-17 (All)". */
-html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
+/* The key note shows only in keyboard mode (history.css), so out of it a box keeps no room for it: a long name, or
+   levels such as "1-17 (All)", runs to the box's edge. */
+html:not([data-keys-on]) :is(.sode__keyed, .sode__search-box) > .pb-input {
   padding-right: var(--pb-space-3);
 }
 .sode__group--levels > .sode__box--take {
@@ -92,6 +100,11 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   flex-direction: column;
   gap: var(--pb-space-2);
   position: relative;
+}
+/* As high as the Last and Next chips, also when a head has none (the blank heads over the arrow, + and Take), so the
+   row keeps one head height. */
+.sode__boxes .sode__box-head {
+  min-height: var(--sode-h-action);
 }
 .sode__entry {
   display: flex;
@@ -283,16 +296,17 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   min-width: 100%;
   width: 0;
 }
-/* The Levels box's Last chip is never narrower than "Last 0–10". A longer list is cut with an ellipsis, and its tip
-   shows all of it (cutOff, tooltip.js). On a narrow window the chip runs on past the text box, over the blank head of
-   Take and Clear. The head stacks over the Take box, so a press there still reaches the chip. */
+/* The Levels box's Last chip is never narrower than "Last 0–10" (about 5.05rem at --pb-text-md). A longer list is cut
+   with an ellipsis, and its tip shows all of it (cutOff, tooltip.js). On a narrow window the chip runs on past the text
+   box, over the blank head of Take and Clear. The head stacks over the Take box, so a press there still reaches the
+   chip. */
 .sode__box--levels > .sode__box-head {
   position: relative;
   z-index: 1;
 }
 .sode__box--levels > .sode__box-head > [data-last],
 .sode__box--levels > .sode__box-head > [data-last] > .pb-chip.sode__last:not(.sode__next) {
-  min-width: 5rem;
+  min-width: 5.5rem;
 }
 .sode__box--levels > .sode__keyed {
   grid-column: 1 / -1;
@@ -334,12 +348,17 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
 .sode__box--levels .sode__levels--odd > .sode__pick:first-child {
   height: auto;
 }
+/* Select All takes the rest of the row, so it ends under Clear and its two words fit on one line. In a narrow box it
+   keeps --sode-all-w and its words go on two lines. */
 .sode__box--levels .pb-btn.sode__all {
-  flex: none;
+  align-content: center;
+  column-gap: var(--pb-space-2);
+  flex: 1 1 var(--sode-all-w);
+  flex-direction: row;
+  flex-wrap: wrap;
   height: calc(2 * var(--sode-pick-w) + var(--sode-pick-gap));
   min-height: 0;
   padding: 0;
-  width: var(--sode-all-w);
 }
 
 .sode__under {

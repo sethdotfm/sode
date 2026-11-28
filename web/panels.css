@@ -30,6 +30,25 @@ body {
 [data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels__head:not(.sode-bar) {
   padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-4));
 }
+/* A Buttons panel page pads its header only by what the chip covers, so the title starts on the grid's edge when the
+   chip is outside the page's column. --sode-panel-x is the left of the page's content: the centred 100rem column plus
+   its padding, or the Full width padding. The chip's right edge is its left (lock.css) plus --sode-who-w. */
+.sode-panels:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  --sode-panel-x: max(var(--pb-space-8), (100vw - 100rem) / 2 + var(--pb-space-8));
+}
+.sode-panels--full:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  --sode-panel-x: var(--pb-space-3);
+}
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels:not(:has(.sode-gridpanel)) > .sode-panels__head:not(.sode-bar) {
+  padding-inline-start: max(0px, var(--pb-space-5) + var(--sode-who-w, 0px) + var(--pb-space-4) - var(--sode-panel-x));
+}
+/* The header row has the chip's top and height, so the title is on the chip's centre line (lock.css .sode-lock__who). */
+:root:not([data-layout="phone"]) .sode-panels:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  padding-top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
+}
+:root:not([data-layout="phone"]) .sode-panels:not(:has(.sode-gridpanel)) > .sode-panels__head:not(.sode-bar) {
+  min-height: calc(var(--pb-control-h-sm) + var(--pb-space-2) * 2);
+}
 [data-sode-kiosk] .sode-lock__who {
   display: none;
 }
@@ -137,6 +156,13 @@ body {
   gap: var(--pb-space-3);
   width: 100%;
 }
+/* A Buttons panel's grid is never higher than the window, so the page does not scroll: its width is capped by the
+   height left under the header (--sode-panel-chrome, measured by panelfull.js) and centred. --sode-cols and --sode-rows
+   are the grid's size (panelview.js). */
+:root:not([data-layout="phone"]) .sode-panels > .sode-panel__grid:not(.sode-gridpanel) {
+  margin-inline: auto;
+  max-width: calc((100dvh - var(--sode-panel-chrome, 6rem)) * var(--sode-cols) / var(--sode-rows));
+}
 .sode-panel__cell {
   flex-direction: column;
   gap: var(--pb-space-1);
@@ -170,12 +196,18 @@ body {
   position: absolute;
   translate: -50% 0;
 }
-/* A Broken or Name moved cell (panelview.js statusIcon). */
+/* A Broken or Name moved cell (panelview.js statusIcon), and a cell on a down router (paintDown). */
 .sode-panel__status-mark {
   color: var(--pb-status-warn-fill);
   inset-block-start: var(--pb-space-1);
   inset-inline-start: var(--pb-space-1);
   position: absolute;
+}
+.sode-panel__status-mark--down {
+  color: var(--pb-status-error);
+}
+.sode-panel__cell[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 .sode-panel__staged {
   font-size: var(--pb-text-xs);
@@ -205,7 +237,7 @@ body {
 .sode-panel__cell[data-s="staged"] {
   background-color: color-mix(in oklab, var(--pb-view) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-view-idle));
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-view);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 .sode-panel__cell[data-s="pending"] {
   background-color: color-mix(
@@ -214,7 +246,7 @@ body {
     var(--pb-current-idle)
   );
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-ok);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 .sode-panel__cell[data-v="1"] {
   outline: var(--pb-state-border-w) solid var(--pb-text-strong);
@@ -226,12 +258,22 @@ body {
 .sode-panel__cell[data-result="already"] {
   box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-idle);
 }
+/* A base-colored line inside the red ring keeps the red apart from an orange cell. */
 .sode-panel__cell[data-result="failed"] {
-  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error);
+  box-shadow:
+    inset 0 0 0 var(--pb-space-2) var(--pb-status-error),
+    inset 0 0 0 calc(var(--pb-space-2) + var(--pb-border-w)) var(--pb-surface-base);
 }
+.sode-panel__cell .sode-panel__result--failed {
+  font-weight: var(--pb-weight-bold);
+  opacity: 1;
+}
+/* Label cells: disabled, since a press does nothing, but not faded as a disabled control is. */
 .sode-panel__cell--current:disabled,
 .sode-panel__cell--panelName:disabled,
-.sode-panel__cell--instanceName:disabled {
+.sode-panel__cell--instanceName:disabled,
+.sode-panel__cell--pageName:disabled,
+.sode-panel__cell--info:disabled {
   background-color: var(--pb-surface-control);
   color: var(--pb-text-strong);
   opacity: 1;
@@ -253,12 +295,13 @@ body {
     var(--pb-surface-control)
   );
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 
-/* No staged route: the Take cell is solid, not faded like a disabled control. */
+/* No staged route: the Take cell is solid, not faded like a disabled control, with the inset line of Clear and Undo. */
 .sode-panel__take:disabled {
   background-color: color-mix(in oklab, var(--pb-commit) 40%, var(--pb-surface-control));
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-edge);
   color: var(--pb-text-strong);
   opacity: 1;
 }
@@ -349,6 +392,7 @@ body {
   font-size: calc(var(--pb-text-md) * var(--panel-fs, 1));
 }
 .sode-panel__cell {
+  --sode-grow: 6.5; /* text grows past its font size with the cell: 6.5cqi is 14px in a 215px cell */
   font-size: calc(var(--pb-text-md) * var(--panel-fs, 1) * var(--cell-fs, 1));
   isolation: isolate;
   overflow: hidden;
@@ -356,7 +400,10 @@ body {
 }
 .sode-panel__cell small,
 .sode-panel__staged {
-  font-size: min(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), 14cqi);
+  font-size: min(
+    max(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), calc(var(--sode-grow) * 0.8cqi * var(--panel-fs, 1) * var(--cell-fs, 1))),
+    14cqi
+  );
 }
 /* Text never runs past its square. Each cell and editor square is an inline-size container: text is held to its
    width, breaks anywhere, and shrinks with the square (cqi) when the font size would not fit a word or two. */
@@ -369,11 +416,27 @@ body {
 .sode-ed__sq > :not(.sode-panel__art) {
   max-inline-size: 100%;
 }
-.sode-panel__cell span.sode-panel__text,
 .sode-ed__text {
   font-size: min(1em, 20cqi);
 }
+/* The cell's font size, or more in a big cell; the panel's and the cell's Font size multiply both. cqi here is the
+   cell's width, since the cell is the container. */
+.sode-panel__cell span.sode-panel__text {
+  font-size: min(max(1em, calc(var(--sode-grow) * 1cqi * var(--panel-fs, 1) * var(--cell-fs, 1))), 20cqi);
+}
+/* A staged destination: the staged source is smaller than the name, and the present source above it is struck through
+   (panelview.js). */
+.sode-panel__cell span.sode-panel__staged {
+  font-size: min(
+    max(calc(var(--pb-text-sm) * var(--panel-fs, 1) * var(--cell-fs, 1)), calc(var(--sode-grow) * 0.93cqi * var(--panel-fs, 1) * var(--cell-fs, 1))),
+    20cqi
+  );
+}
+.sode-panel__replaced {
+  text-decoration: line-through;
+}
 .sode-panel__take {
+  --sode-grow: 10; /* the Take word is text-xl, about 1.6 times text-md */
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
 }
 /* Icon A, then Icon B. The row is a size container, so a glyph follows the square's height (cqh). An image fills the row and Icon B is a badge over it. */
@@ -461,7 +524,7 @@ body {
   }
 }
 .sode-ov__list {
-  border-right: var(--pb-border-w) solid var(--pb-border);
+  border-right: var(--pb-border-w) solid var(--pb-edge-soft);
   min-width: 0;
 }
 .sode-ov__find {
@@ -487,19 +550,26 @@ body {
   margin: var(--pb-space-4) 0 var(--pb-space-2);
   text-transform: uppercase;
 }
+/* One row height: the picture has a 6rem slot and is never higher than --sode-ov-thumb-h, the row less its padding and
+   line (panelslist.js thumb). */
 .sode-ov__item {
+  --sode-ov-thumb-h: calc(4.5rem - 2 * var(--pb-space-3) - var(--pb-border-w));
   align-items: center;
   background: none;
   border: 0;
-  border-bottom: var(--pb-border-w) solid var(--pb-border);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
   color: inherit;
   cursor: pointer;
   display: grid;
   gap: var(--pb-space-3);
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 6rem 1fr auto;
+  min-height: 4.5rem;
   padding: var(--pb-space-3);
   text-align: left;
   width: 100%;
+}
+.sode-ov__item > .sode-ov__thumb {
+  justify-self: center;
 }
 .sode-ov__item[aria-current="true"] {
   background: var(--pb-surface-control);
@@ -524,7 +594,11 @@ body {
   color: var(--pb-text-muted);
 }
 .sode-ov__empty {
-  padding: var(--pb-space-3);
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-3) 0;
 }
 .sode-ov__title {
   color: var(--pb-text-strong);
@@ -537,7 +611,7 @@ body {
   gap: var(--pb-space-5);
   grid-template-columns: minmax(0, 24rem) 1fr;
 }
-@media (max-width: 52rem) {
+@media (max-width: 64rem) {
   .sode-ov__big {
     grid-template-columns: 1fr;
   }
@@ -553,32 +627,35 @@ body {
   gap: var(--pb-space-3);
   margin-bottom: var(--pb-space-3);
 }
+/* Both rows have one set of columns, each at least 12rem, so the buttons line up and a narrow window wraps them
+   before a label is cut. Delete stays apart in the last column of the first row. */
+.sode-ov__acts-main,
+.sode-ov__acts-more {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+}
 .sode-ov__acts .pb-btn {
   height: var(--sode-h-action);
   min-width: 0;
 }
-/* Both rows share two equal columns, so a key hint or a long label does not change a width. Delete stays apart
-   at the end of the first row. */
-.sode-ov__acts-main,
-.sode-ov__acts-more {
-  --sode-ov-act: minmax(0, 13rem);
-  align-items: center;
-  display: grid;
-  gap: var(--pb-space-3);
-  grid-template-columns: repeat(2, var(--sode-ov-act));
-}
-.sode-ov__acts-main {
-  grid-template-columns: repeat(2, var(--sode-ov-act)) 1fr;
-}
-.sode-ov__delete {
-  grid-column: 3;
+/* The armed Delete reads "Press again to delete"; the min-width (the column's) holds both labels, so it does not move. */
+.sode-ov__acts .sode-ov__delete {
+  grid-column: -2 / -1;
+  justify-content: flex-end;
   justify-self: end;
+  min-width: 12rem;
 }
+/* The hint takes the button's own colors, so it is not the strongest mark on a filled button. */
 .sode-ov__kbd {
-  color: var(--pb-text-muted);
+  background: transparent;
+  border: var(--pb-border-w) solid currentColor;
+  color: inherit;
   font-family: var(--pb-font-num);
-  font-size: var(--pb-text-2xs);
+  font-size: var(--pb-text-xs);
   margin-inline-start: var(--pb-space-2);
+  opacity: 0.8;
 }
 .sode-ov__kv {
   display: grid;
@@ -619,6 +696,11 @@ body {
   display: flex;
   gap: var(--pb-space-3);
   justify-content: space-between;
+  /* The side padding is the Find box's, so a name starts on the box's text. */
+  padding: var(--pb-space-2) calc(var(--pb-space-3) + var(--pb-border-w));
+}
+#assign-list {
+  margin-top: var(--pb-space-3);
 }
 .sode-ov__cp[aria-current="true"] {
   background: var(--pb-surface-control);
@@ -633,7 +715,7 @@ body {
 }
 .sode-ov__thumb {
   background: var(--pb-surface-base);
-  border: var(--pb-border-w) solid var(--pb-border);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
   display: grid;
   gap: var(--pb-space-1);
   padding: var(--pb-space-2);
@@ -643,6 +725,12 @@ body {
   padding: var(--pb-space-1);
   width: 6rem;
 }
+/* The large picture starts on the title's edge, with no frame. */
+.sode-ov__thumb:not(.sode-ov__thumb--sm) {
+  --sode-ov-bw: 0px;
+  border: 0;
+  padding: 0;
+}
 .sode-ov__thumb {
   position: relative;
 }
@@ -650,19 +738,24 @@ body {
   background: var(--pb-surface-control);
 }
 /* A Grid panel's picture has three sizes with one square size (--sode-ov-sq): the picture grows with its squares
-   (--sode-ov-cols). The width counts the gaps, padding and border (border-box). In the list the Large picture is 6rem
-   and a margin pads the others to it, so the names line up. */
+   (--sode-ov-cols). The width counts the gaps, padding and border (border-box). The list shows Medium at most
+   (gridThumb), and its Medium picture is --sode-ov-thumb-h high. */
 .sode-ov__thumb--grid {
   --sode-ov-sq: 2rem;
   --sode-ov-gap: var(--pb-space-1);
   --sode-ov-pad: var(--pb-space-2);
-  --sode-ov-w: calc(var(--sode-ov-cols) * var(--sode-ov-sq) + (var(--sode-ov-cols) - 1) * var(--sode-ov-gap) + 2 * var(--sode-ov-pad) + 2 * var(--pb-border-w));
+  --sode-ov-w: calc(
+    var(--sode-ov-cols) * var(--sode-ov-sq) + (var(--sode-ov-cols) - 1) * var(--sode-ov-gap) + 2 * var(--sode-ov-pad) + 2 *
+      var(--sode-ov-bw, var(--pb-border-w))
+  );
   width: var(--sode-ov-w);
+}
+.sode-ov__thumb--grid:not(.sode-ov__thumb--sm) {
+  --sode-ov-pad: 0px;
 }
 .sode-ov__thumb--sm.sode-ov__thumb--grid {
   --sode-ov-pad: var(--pb-space-1);
-  --sode-ov-sq: calc((6rem - 10 * var(--pb-space-1) - 2 * var(--pb-border-w)) / 9);
-  margin-inline-end: calc(6rem - var(--sode-ov-w));
+  --sode-ov-sq: calc((var(--sode-ov-thumb-h) - 7 * var(--pb-space-1) - 2 * var(--pb-border-w)) / 6);
 }
 .sode-ov__thumb .sode-ov__k-source {
   background: var(--pb-current-idle);
@@ -687,6 +780,10 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
+}
+/* The save state and Save stay at the right when they wrap to a row of their own. */
+.sode-ed__bar > .sode-ed__grp:last-child {
+  margin-inline-start: auto;
 }
 .sode-ed__pick {
   font-size: var(--pb-text-md);
@@ -717,10 +814,30 @@ body {
   margin-top: var(--pb-space-3);
   width: 12rem;
 }
-.sode-ov__sharebody {
+/* The panel dialogs' tab panels: Share (People, Link with key) and Push (its three tabs). Margins and empty
+   lines would add to the one gap. A status line stays, since a live region with display: none says nothing. */
+.sode-ov__sharebody,
+.sode-ov__tabbody {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-4);
+}
+:is(.sode-ov__sharebody, .sode-ov__tabbody, .sode-ov__keytab) > * {
+  margin-block: 0;
+}
+:is(.sode-ov__sharebody, .sode-ov__tabbody, .sode-ov__keytab) > :is(.sode__hint, .sode-ov__keylink):empty:not([role="status"]) {
+  display: none;
+}
+/* A heading keeps more room above it than the gap between the parts it groups. */
+.sode-ov__people > .sode-ov__group:first-child {
+  margin-top: 0;
+}
+.sode-ov__tabbody > .sode-ov__sub {
+  margin-top: var(--pb-space-4);
+}
+/* Over patchbay's .pb-tabpanel.active { display: block }, which is more specific and hid the gaps above. */
+.pb-tabpanel.active:is(.sode-ov__sharebody, .sode-ov__tabbody, .sode-ov__keytab, .sode-side__tab) {
+  display: flex;
 }
 .sode-ed__field {
   align-items: center;
@@ -801,6 +918,14 @@ body {
 }
 .sode-ed__text {
   overflow-wrap: anywhere;
+}
+/* Long text stops at three lines, so it never pushes the icon out of the square. */
+.sode-ed__sq .sode-ed__text {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-line;
 }
 
 .sode-ed__menu {
@@ -934,7 +1059,7 @@ body {
   gap: var(--pb-space-3);
 }
 .sode-tpl__name {
-  font-weight: 600;
+  font-weight: var(--pb-weight-bold);
 }
 .sode-tpl__row > .pb-btn:first-of-type {
   margin-left: auto;
@@ -976,7 +1101,7 @@ body {
 }
 .sode-ov__keyname {
   display: flex;
-  flex: 1 1 10rem;
+  flex: 0 0 12rem;
   flex-direction: column;
   min-width: 0;
 }
@@ -991,6 +1116,12 @@ body {
   flex-direction: column;
   gap: var(--pb-space-3);
   padding: var(--pb-space-4);
+}
+.sode-ov__keyitem > .sode-ov__keyname + .sode-ov__muted {
+  flex: 1 1 auto;
+}
+.sode-ov__keynets > .pb-btn {
+  align-self: flex-start;
 }
 .sode-ov__keylink,
 .sode-ov__keynets {
@@ -1207,21 +1338,10 @@ body {
   grid-template-rows: auto;
   min-width: 0;
 }
-/* The one Follow the router note (editorside.js) sits over both lists, which keep the row under it when it hides. */
-.sode-ed__follow {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-.sode-ed[data-type="grid"] .sode-ed__lists > .sode-edge {
-  grid-row: 2;
-}
 @media (max-width: 64rem) {
   .sode-ed[data-type="grid"] .sode-ed__body,
   .sode-ed[data-type="grid"] .sode-ed__lists {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .sode-ed[data-type="grid"] .sode-ed__lists > .sode-edge {
-    grid-row: auto;
   }
 }
 /* On a desktop the editor is one window high and the page does not scroll: only the sidebar, the Pages list and a
@@ -1287,7 +1407,7 @@ body {
   }
   :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__lists {
     align-items: stretch;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
   :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__on {
     flex: 3 1 0;
@@ -1337,6 +1457,12 @@ body {
   font-size: var(--pb-text-md);
   font-weight: var(--pb-weight-normal);
 }
+.sode-edge__note {
+  margin: 0;
+}
+.sode-edge__note[hidden] {
+  display: none;
+}
 .sode-edge__part {
   display: flex;
   flex-direction: column;
@@ -1347,10 +1473,26 @@ body {
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);
   padding-top: var(--pb-space-4);
 }
+/* Pin, Move up, Move down and Remove end the bar and the row (editorgridlist.js), so the bar's end space is the row's
+   end padding plus the list's scroll bar room. Its gap is the row tools' gap. */
 .sode-edge__acts {
   align-items: center;
   display: flex;
   gap: var(--pb-space-1);
+  padding-inline-end: var(--pb-space-1);
+}
+:root:not([data-layout="phone"]) .sode-edge__on > .sode-edge__acts {
+  padding-inline-end: calc(var(--sode-littlescroll-w) + var(--pb-space-1));
+}
+:root:not([data-layout="phone"]) .sode-edge__list[data-bigscroll-room] {
+  padding-inline-end: var(--sode-littlescroll-w);
+}
+/* Move and Remove while the list follows the router: hidden, in their place, so Pin stays over the rows' Pin. */
+.sode-edge__acts > .sode-edge__gone {
+  visibility: hidden;
+}
+.sode-edge__acts > [hidden] {
+  display: none;
 }
 .sode-edge__sel {
   color: var(--pb-text-muted);
@@ -1458,6 +1600,15 @@ body {
 .sode-edge__row .sode-pages__name {
   flex: 1 1 auto;
 }
+/* --sode-num-ch is the longest number label in the list (editorgridlist.js, editorrouterlist.js), so every name
+   starts at one edge. */
+:is(.sode-edge__row, .sode-rlist__row) .sode-pages__num {
+  color: var(--pb-text-muted);
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  min-width: calc(var(--sode-num-ch, 4) * 1ch + 0.5ch);
+  text-align: end;
+}
 /* A row's artwork is the cell's artwork row (panelview.js artNode) in a small box, at full strength. */
 .sode-edge__art {
   flex: 0 0 auto;
@@ -1485,6 +1636,10 @@ body {
 .sode-grip.is-off {
   cursor: default;
   opacity: 0.4;
+}
+/* Hidden, not removed, so the names keep their place when a list follows the router. */
+.sode-grip.is-gone {
+  visibility: hidden;
 }
 /* The drag image (orderedlist.js): under the pointer for one moment, since the browser copies it at dragstart. */
 .sode-drag-chip {
@@ -1520,17 +1675,18 @@ body {
 }
 /* The Pages bar (editorpagebar.js) and the open Pages side by side (editorpageview.js). Frames sit at their Page's
    place through order, set in code. */
+/* One gap with .sode-ed__frame, so the first Page row starts on the grid's top line. */
 .sode-pages {
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-3);
+  gap: var(--pb-space-2);
   min-width: 0;
 }
 .sode-pages__title,
 .sode-ed__frame-title {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-sm);
-  font-weight: 600;
+  font-weight: var(--pb-weight-bold);
   margin: 0;
 }
 .sode-pages__list {
@@ -1595,6 +1751,11 @@ body {
   flex-wrap: nowrap;
   gap: var(--pb-space-1);
 }
+/* The place of a button the row leaves out (orderedlist.js bareFixed). */
+.sode-pages__blank {
+  flex: 0 0 auto;
+  width: var(--pb-icon-btn-w);
+}
 .sode-pages__on {
   flex: 0 0 auto;
   margin-inline-start: var(--pb-space-4);
@@ -1650,9 +1811,13 @@ body {
   overscroll-behavior: contain;
   min-width: 0;
   overflow: hidden auto;
-  padding: var(--pb-space-9) var(--pb-space-5);
+  padding: var(--pb-space-5);
   position: sticky;
   top: var(--pb-space-5);
+}
+/* The big scroll bar's room is always kept (data-bigscroll-room), so the sidebar keeps one width on every tab. */
+:root:not([data-layout="phone"]) .sode-ed__side[data-bigscroll-room] {
+  padding-inline-end: calc(var(--sode-bigscroll-w) + var(--pb-space-5));
 }
 .sode-side__tab,
 .sode-side__form {
@@ -1664,6 +1829,15 @@ body {
   border: 0;
   margin: 0;
   padding: 0;
+}
+/* Bootstrap's legend is a large float; Show reads as the other labels of the form. */
+#ed-cell-show > legend {
+  float: none;
+  font-size: inherit;
+  line-height: inherit;
+  margin: 0 0 var(--pb-space-2);
+  padding: 0;
+  width: auto;
 }
 .sode-side__checks {
   display: flex;
@@ -1699,7 +1873,6 @@ body {
   font-weight: var(--pb-weight-bold);
   margin: 0;
 }
-.sode-side__kind,
 .sode-side__rights {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-sm);
@@ -1737,10 +1910,6 @@ body {
 }
 .sode-side__sizerow {
   flex-wrap: wrap;
-}
-.sode-side__sizerow > .sode-side__inline:not(:first-child) {
-  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
-  padding-inline-start: var(--pb-space-4);
 }
 .sode__field.sode-side__inline {
   flex-direction: row;
@@ -1894,19 +2063,23 @@ body {
   margin: 0;
   text-align: end;
 }
-.sode-side__kind {
-  text-align: center;
-}
+/* The Rights table reads as label and value pairs on the text's edge, with no rules. */
 .sode-side__table {
-  width: auto;
+  width: max-content;
 }
-.sode-side__table th {
-  font-weight: var(--pb-weight-regular);
-  padding-inline-end: var(--pb-space-5);
+.sode-side__table tbody th {
+  color: var(--pb-text-muted);
+  font-weight: var(--pb-weight-normal);
+  padding-inline: 0 var(--pb-space-5);
+}
+.sode-side__table tbody td {
+  border: 0;
+  padding-inline: 0;
 }
 .sode-side__people {
+  list-style: none;
   margin: 0;
-  padding-inline-start: var(--pb-space-5);
+  padding: 0;
 }
 .sode-ed__side .sode__tabs {
   gap: var(--pb-space-4);

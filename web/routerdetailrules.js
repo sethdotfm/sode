@@ -224,17 +224,52 @@ export function addText(v) {
 // The list shows a find box and the problem filter from this many routers.
 export const FIND_FROM = 8;
 
-// The line above the list: "4 routers. 3 connected, 1 down." keys: the linkState key of each router. A key is null
-// when Sode does not know the state (no server link, or a router to add).
-export function countLine(keys) {
-  if (keys.length < 2) return '';
+// problemText: the Save error line for router settings with an error. bad: [{name, label, text}], name as
+// routerDisplay gives it ("A Studio A", or "Router B" with no title), text the field's error sentence. One sentence for
+// each error: the router and the setting, then what to do.
+export function problemText(bad) {
+  if (!bad.length) return '';
+  const lines = bad.map((b) => {
+    const who = /^Router /.test(b.name) ? b.name : `Router ${b.name}`;
+    return `${who}, ${b.label}: ${b.text.charAt(0).toLowerCase()}${b.text.slice(1)}`;
+  });
+  return [...(bad.length > 1 ? [`${bad.length} settings have an error.`] : []), ...lines].join(' ');
+}
+
+// The line above the list: "4 routers. 3 connected, 1 down." keys: the linkState key of each saved router. A key is
+// null when Sode does not know the state (no server link). added: the routers to add, which the line counts as not
+// saved. One router has the line too, so Add router is not alone on the bar.
+export function countLine(keys, added = 0) {
+  if (!keys.length) return added ? `${added} not saved.` : '';
   const n = (k) => keys.filter((x) => x === k).length;
-  const head = `${keys.length} routers.`;
-  if (keys.every((k) => !k)) return head;
+  const head = `${keys.length} ${keys.length === 1 ? 'router' : 'routers'}.`;
+  const more = added ? ` ${added} not saved.` : '';
+  if (keys.every((k) => !k)) return head + more;
   const parts = [`${n('connected')} connected`];
   if (n('down') + n('never')) parts.push(`${n('down') + n('never')} down`);
   if (n('connecting')) parts.push(`${n('connecting')} connecting`);
-  return `${head} ${parts.join(', ')}.`;
+  return `${head} ${parts.join(', ')}.${more}`;
+}
+
+// tryWhy: the operator words for why an Address try failed, from the server's error text. It is '' when Sode has no
+// words for it. The Go dial errors are not operator words.
+export function tryWhy(err) {
+  const e = String(err || '');
+  if (/connection refused/i.test(e)) return 'The router refused the connection.';
+  if (/i\/o timeout|timed out|deadline exceeded/i.test(e)) return 'No answer from this address.';
+  return '';
+}
+
+// tryNote: how the page shows a failed try, {text, tip, code}. Operator words keep the server's text as a tip. A Go dial
+// error with no words shows as it is, in code. Sode's own errors are already for the operator: they show as a sentence
+// (core.js sentence(), which a pure module cannot import).
+export function tryNote(err) {
+  const e = String(err || '').trim();
+  if (!e) return { text: '', tip: '', code: false };
+  const words = tryWhy(e);
+  if (words) return { text: words, tip: e, code: false };
+  if (/^dial /.test(e)) return { text: e, tip: '', code: true };
+  return { text: e[0].toUpperCase() + e.slice(1) + (/[.!?…]$/.test(e) ? '' : '.'), tip: '', code: false };
 }
 
 // findMatch: the find box matches the prefix, the Router title or the address.

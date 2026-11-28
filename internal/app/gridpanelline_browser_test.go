@@ -83,7 +83,7 @@ func TestChromeGridPanelLine(t *testing.T) {
 		t.Fatal("release opened the confirm in Take mode")
 	}
 	realKey(b, "Enter", "Enter", 13)
-	b.waitFor("Enter opens the confirm for three destinations", `document.getElementById('confirm-body').textContent.includes('3 destinations')`)
+	b.waitFor("Enter opens the confirm for three destinations", `document.getElementById('confirm-body').textContent.startsWith('Take 3 routes?')`)
 	gridConfirm(b)
 	for _, d := range []int{1, 2, 4} {
 		tallyHas(t, a, ana, d, 7)
@@ -122,7 +122,7 @@ func TestChromeGridPanelLine(t *testing.T) {
 	realKey(b, " ", "Space", 32)
 	b.waitFor("Space stages the line and the line goes", staged(5, 1)+` && `+staged(6, 2)+` && `+lineGone+` && document.getElementById('confirm').hidden`)
 	realKey(b, "Enter", "Enter", 13)
-	b.waitFor("Enter opens the confirm for two destinations", `document.getElementById('confirm-body').textContent.includes('2 destinations')`)
+	b.waitFor("Enter opens the confirm for two destinations", `document.getElementById('confirm-body').textContent.startsWith('Take 2 routes?')`)
 	gridConfirm(b)
 	tallyHas(t, a, ana, 1, 5)
 	tallyHas(t, a, ana, 2, 6)

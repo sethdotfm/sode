@@ -15,7 +15,7 @@ func asGrid(b *tab, all bool) {
 	b.waitFor("the lists show", `!!document.getElementById('ed-sources-col')?.offsetParent`)
 	if all {
 		b.eval(`for (const k of ['sources', 'destinations']) { const s = document.getElementById('ed-' + k + '-all'); s.click(); s.click(); } true`)
-		b.waitFor("both lists hold every router item, not following", `!document.getElementById('ed-sources-all').checked && !document.getElementById('ed-destinations-all').checked && document.getElementById('ed-lists-following').hidden`)
+		b.waitFor("both lists hold every router item, not following", `!document.getElementById('ed-sources-all').checked && !document.getElementById('ed-destinations-all').checked && document.getElementById('ed-sources-following').hidden && document.getElementById('ed-destinations-following').hidden`)
 	}
 }
 

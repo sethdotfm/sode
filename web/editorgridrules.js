@@ -279,3 +279,7 @@ export function itemsHideText(edge, ns, hide, hasDefault) {
   }
   return changed ? { ...e, items } : edge;
 }
+
+// The characters in the longest number label of rows. It sets the lists' number column (--sode-num-ch in
+// panels.css), so every name in a list starts at one edge.
+export const numChars = (rows, num) => rows.reduce((m, r) => Math.max(m, num(r.n).length), 1);

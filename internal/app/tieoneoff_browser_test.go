@@ -38,8 +38,8 @@ func TestChromeTiePickerOneOff(t *testing.T) {
 		&& document.getElementById('tiepick-take').disabled`)
 
 	b.eval(`document.getElementById('tiepick-oneoff').click(); true`)
-	b.waitFor("the form names the routers", `!document.getElementById('tiepick-oneoff-form').hidden && document.getElementById('tiepick-oneoff-form').textContent.includes('Destination on router A')
-		&& document.getElementById('tiepick-oneoff-form').textContent.includes('Source on router B')`)
+	b.waitFor("the form names the routers", `!document.getElementById('tiepick-oneoff-form').hidden && document.getElementById('tiepick-oneoff-form').textContent.includes('Destination on Router A')
+		&& document.getElementById('tiepick-oneoff-form').textContent.includes('Source on Router B')`)
 	const typeIn = `((id, v) => { const i = document.getElementById(id); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })`
 	b.eval(typeIn + `('tiepick-oneoff-from', '6')`)
 	b.eval(typeIn + `('tiepick-oneoff-to', '12')`)

@@ -234,13 +234,16 @@ function track(scroller, axis, little, page) {
       else delete document.documentElement.dataset.bigscrollOn;
       return;
     }
+    // The scroller's CSS keeps the bar's room at all times, so it never changes width when the bar shows.
+    if (scroller.hasAttribute('data-bigscroll-room')) return;
     const side = y ? 'paddingRight' : 'paddingBottom';
     if (pad === null) pad = getComputedStyle(scroller)[side];
     scroller.style[side] = on ? `calc(${pad} + ${width})` : '';
   }
 
   function decide(shown) {
-    part.want = shown && content() - view() > 1;
+    // The page scrolls with overflow visible on its root, so only an element scroller is tested. overflow: visible is a scroller that lets its content out whole (the Approval body while its name list is open): no bar, no gutter.
+    part.want = shown && content() - view() > 1 && (page || getComputedStyle(scroller)[y ? 'overflowY' : 'overflowX'] !== 'visible');
     gutter(part.want);
     if (bar.hidden !== !part.want) bar.hidden = !part.want;
     if (!part.want) geo = null;

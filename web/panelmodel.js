@@ -27,7 +27,7 @@ export function createState(settings = {}) {
     view: fixedView(fixed), // { dst, levels }: levels is the destination cell's own set, null for all
     staged: [], // [{ dst, src, levels }] in the order staged
     busy: false,
-    results: {}, // dst -> { result, at }
+    results: {}, // dst -> { result, at, error }
     error: null,
     undone: null, // the Undo cell's last finished undo: { routes, failed, at }.
     undoId: null, // set while the plan is a staged undo: the id GET /panels/<id>/undo answered, which Take sends back
@@ -94,6 +94,7 @@ const overUndo = (st, press) => {
 
 // The view and the staged routes have no clock: they stay until a press, a take or Clear ends them.
 export function pressDestination(st, cell) {
+  st = dropFailed(st, cell.n);
   const own = st.staged.some((x) => x.dst === cell.n);
   if (st.view?.dst === cell.n && own && st.undoId !== null) return dropUndo(st);
   if (st.view?.dst === cell.n && own) return unstage(st, cell.n);
@@ -176,7 +177,16 @@ function pressPresetOne(st, cell, env, now) {
 
 export const unstage = (st, dst) => ({ ...st, staged: st.staged.filter((x) => x.dst !== dst) });
 
-export const clear = (st) => ({ ...st, view: fixedView(st.fixed || []), staged: [], undoId: null, error: null, undone: null, guardAt: 0, holdAt: 0 });
+export const clear = (st) => ({
+  ...dropFailed(st),
+  view: fixedView(st.fixed || []),
+  staged: [],
+  undoId: null,
+  error: null,
+  undone: null,
+  guardAt: 0,
+  holdAt: 0,
+});
 
 const valid = (st, env, x) => !env.protectedDsts.has(x.dst) && x.levels.length > 0;
 
@@ -188,7 +198,7 @@ export const plan = (st) => st.staged.map((x) => ({ src: x.src, dst: x.dst, leve
 
 // The routes to send and the busy state, or null when a press must do nothing. undoId set means the plan is a staged
 // undo, sent as POST /panels/<id>/undo so the server marks the take undone.
-const start = (st) => ({ routes: plan(st), undoId: st.undoId, state: { ...st, busy: true, error: null, undone: null } });
+const start = (st) => ({ routes: plan(st), undoId: st.undoId, state: { ...dropFailed(st), busy: true, error: null, undone: null } });
 
 export function startTake(st, env) {
   return armed(st, env) ? start(st) : null;
@@ -224,9 +234,15 @@ export const guardWaiting = (st, now) => st.guard === 'double' && st.guardAt > 0
 // refusal arrives as failed.
 const resultsOf = (st, reply, now) => {
   const results = { ...st.results };
-  for (const r of reply.results || []) results[r.dst] = { result: r.result, at: now };
+  for (const r of reply.results || []) results[r.dst] = { result: r.result, at: now, error: r.error || '' };
   return results;
 };
+
+// A failed Result has no clock: it stays until the next press on its destination (dst) or on Take (dst undefined).
+export function dropFailed(st, dst) {
+  const keep = Object.entries(st.results).filter(([d, r]) => r.result !== 'failed' || (dst !== undefined && Number(d) !== dst));
+  return keep.length === Object.keys(st.results).length ? st : { ...st, results: Object.fromEntries(keep) };
+}
 
 // Connected and Already routes leave the plan; a Failed one stays staged.
 export function finishTake(st, reply, now) {
@@ -297,15 +313,23 @@ export function destinationState(st, n) {
 
 export function resultOf(st, dst, now) {
   const r = st.results[dst];
-  return r && now - r.at <= RESULT_MS ? r.result : null;
+  return r && (r.result === 'failed' || now - r.at <= RESULT_MS) ? r.result : null;
 }
 
 const RESULT_WORD = { connected: 'Connected', already: 'Already', failed: 'Failed' };
 
 // What a destination shows after a take: the icon's result and word, and the text only when the panel turned it on.
+// A failure always has its text. It adds the first part of the server's reason, if any. The rest lists each level and
+// does not fit a cell.
 export function resultShown(st, dst, now) {
   const result = resultOf(st, dst, now);
-  return result ? { result, word: RESULT_WORD[result], text: st.resultText ? RESULT_WORD[result] : '' } : null;
+  if (!result) return null;
+  const word = RESULT_WORD[result];
+  if (result === 'failed') {
+    const why = st.results[dst].error.split(/[:;]/)[0].trim();
+    return { result, word, text: why ? `${word}: ${why}` : word };
+  }
+  return { result, word, text: st.resultText ? word : '' };
 }
 
 export const errorOf = (st, now) => (st.error && now - st.error.at <= ERROR_MS ? st.error : null);

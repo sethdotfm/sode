@@ -34,7 +34,7 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 		window.press = (n, mods = {}) => n.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...mods }));
 		document.getElementById('ed-live').click(); true`)
 	b.waitFor("the live grid shows the saved order", `first('src', 'left')[0] === '0' && first('dst', 'top')[0] === '0'`)
-	b.waitFor("Back to editing is left of Edit lists, which is last and not pressed", `(() => {
+	b.waitFor("Back to the editor is left of Edit lists, which is last and not pressed", `(() => {
 		const bar = document.getElementById('ed-live-bar'), back = document.getElementById('ed-live-back'), open = document.getElementById('ed-live-lists');
 		return bar.lastElementChild === open && open.previousElementSibling === back && open.getAttribute('aria-pressed') === 'false' && back.getBoundingClientRect().right <= open.getBoundingClientRect().left;
 	})()`)
@@ -43,9 +43,9 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 	b.eval(`document.getElementById('ed-live-lists').click(); true`)
 	b.waitFor("a second press closes it", `document.getElementById('ed-live-lists').getAttribute('aria-pressed') === 'false' && !document.getElementById('ed-live-drawer').classList.contains('pb-drawer--open')`)
 
-	b.waitFor("the bar says Panel Live Editor, the page header keeps its Settings link, and the run has no take note", `document.getElementById('ed-live-title').textContent === 'Panel Live Editor' && document.getElementById('ed-live-bar').getAttribute('aria-labelledby') === 'ed-live-title'
+	b.waitFor("the bar says Live Editor, the page header keeps its Settings link, and the run has no take note", `document.getElementById('ed-live-title').textContent === 'Live Editor' && document.getElementById('ed-live-bar').getAttribute('aria-labelledby') === 'ed-live-title'
 		&& !!document.querySelector('.sode-ed > .sode-bar .sode-bar__settings')?.offsetParent && !document.querySelector('.sode-live__what')`)
-	b.waitFor("the page header is the top bar: its title clears the Lock bar, and the Preview bar is under it", `(() => {
+	b.waitFor("the page header is the top bar: its title clears the Lock bar, and the Live Editor bar is under it", `(() => {
 		const head = document.querySelector('.sode-ed > .sode-bar'), t = head.querySelector('.sode-panels__title').getBoundingClientRect(), who = document.querySelector('.sode-lock__who').getBoundingClientRect();
 		return t.width > 0 && t.left >= who.right && document.getElementById('ed-live-bar').getBoundingClientRect().top >= head.getBoundingClientRect().bottom;
 	})()`)
@@ -98,7 +98,7 @@ func TestChromeGridPanelLivePicks(t *testing.T) {
 		t.Errorf("destination 2 saved %v, want the camera", it)
 	}
 	b.eval(`document.getElementById('ed-live-back').click(); true`)
-	b.waitFor("Back to editing puts both bars back in their lists", `document.getElementById('ed-sources-col').contains(document.getElementById('ed-sources-acts')) && document.getElementById('ed-destinations-col').contains(document.getElementById('ed-destinations-acts'))`)
+	b.waitFor("Back to the editor puts both bars back in their lists", `document.getElementById('ed-sources-col').contains(document.getElementById('ed-sources-acts')) && document.getElementById('ed-destinations-col').contains(document.getElementById('ed-destinations-acts'))`)
 
 	rev := p["rev"]
 	b.open(srv.URL + "/panels/" + id)

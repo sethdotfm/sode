@@ -80,7 +80,7 @@ export function gridHead(ui, count, { onCopy } = {}) {
   // shows never moves the grid. A result (res) shows over the "This panel was changed" banner.
   const res = page ? el('div', 'sode-gridpanel__res') : null;
   // The count of messages that a higher one held back (bannerStep), in the box's corner.
-  const held = page ? el('span', 'pb-badge sode-gridpanel__held') : null;
+  const held = page ? el('span', 'pb-badge sode-gridpanel__msg-held') : null;
   if (held) held.hidden = true;
   // One live region gets only each message's words, so a screen reader reads a result one time and never the buttons.
   const said = page ? el('div', 'pb-sr-only sode-gridpanel__said') : null;

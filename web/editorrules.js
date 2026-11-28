@@ -7,6 +7,7 @@ import { nameMismatch } from './panellook.js';
 import { isGridPanel } from './gridpaneledges.js';
 import { edgesOut } from './gridedgerefs.js';
 import { tiesKey } from './paneltierules.js';
+import { LINK_WORDS } from './routerlinkrules.js';
 
 // The Cell tab's lines about Default artwork. d is the item's default or null, and own is whether the cell sets
 // artwork of its own. routerName is the router's name for the cell's number now ('' when not known).
@@ -233,7 +234,7 @@ export function signInNote(step, err = '') {
     case 'refused':
       return { text: `Sign-in refused${err ? `: ${err}` : ''}.`, button: 'Sign in again' };
     case 'offline':
-      return { text: 'Sode is not answering. Reconnecting…', button: '' };
+      return { text: `${LINK_WORDS.server} Reconnecting…`, button: '' };
     default:
       return { text: '', button: '' };
   }

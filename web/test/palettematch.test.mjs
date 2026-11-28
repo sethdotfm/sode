@@ -14,7 +14,7 @@ const who = (more = {}) => ({ role: 'administrator', user: 'Ana', rights: null, 
 const guest = (more = {}) => who({ role: '', user: '', ...more });
 const SETTINGS = [
   { section: 'this-browser', sectionTitle: 'This browser', topic: 'Preferences', id: 'cfg-theme', label: 'Theme' },
-  { section: 'confirm', sectionTitle: 'Confirm', topic: 'Look and feel', id: 'cfg-dismiss', label: 'Success banner closes after (s)' },
+  { section: 'confirm', sectionTitle: 'Confirm', topic: 'Look and feel', id: 'cfg-dismiss', label: 'Close a success banner after (s)' },
   { section: 'routers', sectionTitle: 'Routers', topic: 'Routers', id: 'cfg-rt-address', label: 'Address' },
   { section: 'routers', sectionTitle: 'Routers', topic: 'Routers', id: 'cfg-rt-title', label: 'Router title' },
   { section: 'users', sectionTitle: 'Users', topic: 'Access', id: 'users-manage', label: 'Manage users', button: 'users-manage' },

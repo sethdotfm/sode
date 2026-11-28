@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"net"
 	"strings"
 	"testing"
@@ -208,7 +209,7 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 		if (t.hidden) return false;
 		const rs = [...t.querySelectorAll('.sode-statusinfo__router')];
 		const more = t.querySelector('.sode-statusinfo__more');
-		return /Server run time/.test(t.innerText) && rs.length === 7 && rs.map((r) => r.querySelector('.sode-statusinfo__label').textContent).join(',') === 'C Studio C,D Studio D,E Studio E,F Studio F,G Studio G,H Studio H,I Studio I'
+		return /Server run time/.test(t.innerText) && rs.length === 7 && rs.map((r) => r.querySelector('.sode-statusinfo__label').textContent).join(',') === 'Router C Studio C,Router D Studio D,Router E Studio E,Router F Studio F,Router G Studio G,Router H Studio H,Router I Studio I'
 			&& rs.every((r) => r.querySelector('.sode-routerlist__state').textContent === 'Never connected') && more?.textContent === 'And 2 more. Click the Routers icon to see all.'
 			&& t.lastElementChild === more;
 	})()`)
@@ -234,9 +235,9 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 		const name = (r) => r.querySelector('.sode-routerlist__name').textContent;
 		const st = (r) => r.querySelector('.sode-routerlist__state');
 		const lost = rows.slice(0, 7), ok = rows.slice(7);
-		return rows.length === 9 && lost.map(name).join(',') === 'C Studio C,D Studio D,E Studio E,F Studio F,G Studio G,H Studio H,I Studio I'
+		return rows.length === 9 && lost.map(name).join(',') === 'Router C Studio C,Router D Studio D,Router E Studio E,Router F Studio F,Router G Studio G,Router H Studio H,Router I Studio I'
 			&& lost.every((r) => st(r).textContent === 'Never connected' && st(r).dataset.state === 'error')
-			&& ok.map(name).join(',') === 'A Studio A,B Studio B' && ok.every((r) => st(r).textContent === 'Connected' && !st(r).dataset.state);
+			&& ok.map(name).join(',') === 'Router A Studio A,Router B Studio B' && ok.every((r) => st(r).textContent === 'Connected' && !st(r).dataset.state);
 	})()`)
 	if h := b.eval(`document.querySelector('#conn .sode-routerlist').getBoundingClientRect().height / innerHeight`).(float64); h > 0.61 {
 		t.Fatalf("the list is %.0f%% of the window, want a fixed height", h*100)
@@ -289,4 +290,44 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 			t.Errorf("page error: %s", e)
 		}
 	}
+}
+
+// The router list at 1920x1080 with two routers. It has a line over the list and under each router. The router names
+// start on the left edge of the Server labels, and each state is in their value column. An open router's rows use the
+// same two columns. No text is cut.
+func TestChromeRouterListLines(t *testing.T) {
+	b := startBrowser(t)
+	a := simRoutersApp(t, []string{startSim(t), startSim(t)})
+	srv := seamServer(t, a)
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("both routers connected", `document.getElementById('conn').classList.contains('sode__conn--ok')`)
+	b.eval(`document.querySelector('#conn .sode__conn-open').click(); true`)
+	b.waitFor("the list with two routers", routerListOpen+` && document.querySelectorAll('#conn .sode-routerlist__item').length === 2`)
+	b.waitFor("Server run time", `/Server run time\s*\d+ (second|minute)/.test(`+routerListText+`)`)
+	b.shot("list")
+	if !b.eval(`(() => {
+		const line = (e, side) => { const c = getComputedStyle(e); return c['border' + side + 'Style'] === 'solid' && parseFloat(c['border' + side + 'Width']) > 0; };
+		return line(document.querySelector('#conn .sode-routerlist'), 'Top') && [...document.querySelectorAll('#conn .sode-routerlist__item')].every((li) => line(li, 'Bottom'));
+	})()`).(bool) {
+		t.Error("the list has no line over it or under each router")
+	}
+	const (
+		server = "#conn > .sode-statusinfo:not(.sode-statusinfo--hover) > .sode-statusinfo__rows"
+		row    = "#conn .sode-routerlist__item:nth-child(%d) .sode-routerlist__%s"
+	)
+	b.sameLeft("router names on the Server labels' edge", server+" .sode-statusinfo__label", "#conn .sode-routerlist__name")
+	b.sameLeft("states in the Server values' column", server+" .sode-statusinfo__value", "#conn .sode-routerlist__state")
+	for i := 1; i <= 2; i++ {
+		b.sameMiddle(fmt.Sprintf("router %d's name and state on one line", i), fmt.Sprintf(row, i, "name"), fmt.Sprintf(row, i, "state"))
+	}
+	b.noClip("list text", server+" > * > *", "#conn .sode-routerlist__name", "#conn .sode-routerlist__state")
+
+	b.eval(`document.querySelector('#conn .sode-routerlist__head').click(); true`)
+	b.waitFor("router A's row opens", `/Address\s*127\.0\.0\.1:/.test(document.querySelector('#conn .sode-routerlist__body').innerText)`)
+	body := "#conn .sode-routerlist__body > .sode-statusinfo__rows"
+	b.sameLeft("the open row's labels on the same edge", server+" .sode-statusinfo__label", body+" .sode-statusinfo__label", "#conn .sode-routerlist__name")
+	b.sameLeft("the open row's values in the same column", server+" .sode-statusinfo__value", body+" .sode-statusinfo__value", "#conn .sode-routerlist__state")
+	b.shot("open")
+	b.check()
 }

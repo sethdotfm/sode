@@ -43,10 +43,19 @@
 .sode__hist-row > .pb-status {
   justify-self: start;
 }
+/* Each button has a track of one width, so Redo and Undo each make one column down the list whatever the Undo words
+   ("Undo", "Undo 3", "Undo all"). 5.25rem holds "Undo all"; a longer label ("Undo all 12", "Put TIE 1 back") widens
+   its column instead of being cut. */
 .sode__hist-actions {
-  display: flex;
+  display: grid;
   gap: var(--pb-space-3);
-  justify-content: flex-end;
+  grid-auto-columns: minmax(5.25rem, max-content);
+  grid-auto-flow: column;
+  justify-content: end;
+}
+.sode__hist-actions > .pb-btn {
+  justify-content: center;
+  width: 100%;
 }
 .sode-m__recent-status {
   align-items: center;
@@ -112,8 +121,11 @@
     inset var(--pb-accent-bar-w) 0 0 var(--pb-edge),
     0 0 0 var(--pb-border-w) var(--pb-accent);
 }
+/* A take in an open Group reaches into the Group row's right padding and border, so its buttons end on the Group's
+   button column. */
 .sode__hist-folder > .sode__hist-row {
   box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge);
+  margin-right: calc(-1 * (var(--pb-space-3) + var(--pb-border-w)));
   min-height: var(--pb-control-h-lg);
 }
 .sode__hist-before {
@@ -449,7 +461,7 @@
   gap: var(--pb-space-3);
   justify-content: flex-end;
 }
-.sode__filters .pb-modal__footer > :first-child {
+.sode__filters .pb-modal__footer > :first-child:not(:only-child) {
   margin-right: auto;
 }
 
@@ -464,7 +476,9 @@
   flex: 1 0 100%;
   font-size: var(--pb-text-lg);
 }
+/* Centred, so the run's room for its scroll bar does not stretch the All chip beside it. */
 .sode__sets {
+  align-items: center;
   display: flex;
   flex: 1;
   gap: var(--pb-space-2);
@@ -603,8 +617,10 @@
 .sode__search > .sode__hint:empty {
   display: none;
 }
+/* --sode-search-h is the height of the filter boxes and their clear button. It is set on .sode__search, so the clear
+   button gets it too: an action on the desktop patch page (base.css), patchbay's control height on a touch screen
+   (touch.css). With no value the boxes are small. */
 .sode__search-box {
-  --sode-search-h: var(--pb-control-h-sm);
   display: flex;
   flex: 0 1 15em;
   min-width: 0;
@@ -615,7 +631,7 @@
   border-color: transparent transparent var(--pb-edge-soft);
   flex: 1;
   font-size: var(--pb-text-sm);
-  height: var(--sode-search-h);
+  height: var(--sode-search-h, var(--pb-control-h-sm));
   min-width: 0;
 }
 .sode__search-box > .pb-input:hover,
@@ -628,7 +644,7 @@
   border-color: var(--pb-status-error);
 }
 .sode__search-box > .sode__menu {
-  top: var(--sode-search-h);
+  top: var(--sode-search-h, var(--pb-control-h-sm));
   z-index: var(--pb-z-dropdown);
 }
 @media (max-width: 599.98px) {
@@ -712,7 +728,7 @@ html[data-alt] .sode__chip-key {
   display: none;
 }
 .sode__search-box > .sode__key-note {
-  top: calc(var(--sode-search-h) / 2);
+  top: calc(var(--sode-search-h, var(--pb-control-h-sm)) / 2);
 }
 .pb-chip.sode__search-chip {
   font-size: var(--pb-text-xs);
@@ -739,6 +755,19 @@ html[data-alt] .sode__chip-key {
 .sode__presets .sode__set {
   font-size: var(--pb-text-sm);
   min-height: var(--pb-control-h);
+}
+/* The bookmark chips and filter set chips are pressed live, so on the desktop patch page they are an action high, as
+   the buttons beside them are (base.css). One text size for the chips and those buttons. Compact mode (desktop.css)
+   keeps its own smaller size. */
+:where(:root:not([data-layout="phone"]) #patch-view) :is(.sode__presets, .sode__sets-bar) .sode__set {
+  min-height: var(--sode-h-action);
+}
+/* Top, as the filter boxes are: centred, the run's scroll bar room would put Filters a pixel below them. */
+:where(:root:not([data-layout="phone"]) #patch-view) .sode__sets-bar {
+  align-items: flex-start;
+}
+:where(:root:not([data-layout="phone"]) #patch-view) :is(.sode__presets, .sode__sets-bar) :is(.sode__set, .sode__chipbtn) {
+  font-size: var(--pb-text-sm);
 }
 .sode__scrim > .sode__presets-dlg {
   width: 44rem;
@@ -791,9 +820,6 @@ html[data-alt] .sode__chip-key {
 .sode__preset-pop {
   display: flex;
   flex-direction: column;
-}
-.sode__preset-pop > .pb-modal__footer {
-  justify-content: flex-end;
 }
 .sode__preset-list {
   display: flex;

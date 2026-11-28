@@ -54,7 +54,7 @@ func TestChromeServiceWorkerOpensWithSodeDown(t *testing.T) {
 	// Sode down: the main page opens from the worker and says the Server link is lost.
 	down()
 	b.open(base + "/")
-	b.waitFor("the main page opens with Sode down", `!document.getElementById('conn-down').hidden && document.getElementById('conn-down').textContent.includes('Server link down')`)
+	b.waitFor("the main page opens with Sode down", `!document.getElementById('conn-down').hidden && document.getElementById('conn-down').textContent.includes('the Server link is down')`)
 	b.eval(`window.sodeStayed = 1`)
 	up()
 	b.waitFor("the main page connects with no reload", `document.documentElement.dataset.conn === 'up' && document.getElementById('conn-down').hidden && window.sodeStayed === 1`)

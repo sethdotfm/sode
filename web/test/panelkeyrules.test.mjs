@@ -61,7 +61,7 @@ test('making a link asks first only when an instance would end', () => {
 test('the two kinds of link say what they are', () => {
   assert.deepEqual(
     MODES.map(([, text]) => text),
-    ['Named link', 'Setup link, 1 hour'],
+    ['Link for one instance', 'Setup link (1 hour)'],
   );
   assert.ok(!JSON.stringify(MODES).includes('Standing'));
 });
@@ -84,7 +84,7 @@ test('a row says online or offline in words, and a pending setup link says when 
   assert.equal(keyRow(k, now).used, 'Last used 5 minutes ago');
   assert.equal(keyRow(k, now).created, 'Made 1 hour ago');
   assert.deepEqual(keyRow({ ...k, online: false, lastUsed: '0001-01-01T00:00:00Z' }, now).state, { kind: 'idle', text: 'Offline' });
-  assert.equal(keyRow({ ...k, online: false, lastUsed: '0001-01-01T00:00:00Z' }, now).used, 'Last used never');
+  assert.equal(keyRow({ ...k, online: false, lastUsed: '0001-01-01T00:00:00Z' }, now).used, 'Never used');
   const s = keyRow({ ...k, setup: true, expires: '2026-11-08T12:40:00Z' }, now);
   assert.deepEqual(s.state, { kind: 'idle', text: 'Setup link waiting' });
   assert.equal(s.used, 'Expires in 40 minutes');

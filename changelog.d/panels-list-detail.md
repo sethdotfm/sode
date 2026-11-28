@@ -1,0 +1,7 @@
+- Panels: every row of the panel list has one height, with each picture in the middle of its slot. A Grid panel's picture in the list shows the Medium size at most.
+- Panels: a panel with no open instance reads "Not open" in place of "All Offline". The other states read "All online", "Some online" and "All offline".
+- Panels: the line under a panel name reads "You · User sign-in" (or "API key", "Key or sign-in", "Public"). The "Acts as", "Owner" and "Shared with" values are full sentences, and "Only you" shows when you own the panel.
+- Panels: in a narrow window the action buttons go onto more rows, and no label is cut. The panel picture starts on the title's edge, with no frame, and the key hints on Launch and Edit take the button's colors.
+- Panels: the rows of Open now share their columns. "Notify me" comes after Reload, the panel's box reads "Notify me when this panel is offline", and the address of a page with no key reads "from" and the address. The Assign to list shows its facts as sentences.
+- Panels: a second Delete press now reads "Press again to delete", and the button stays in the same place and size.
+- Panels: a Find with no hit says which text has no match and has a Clear button.

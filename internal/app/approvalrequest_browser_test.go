@@ -56,7 +56,7 @@ func TestChromeRequestApprovalCards(t *testing.T) {
 	asked(t, bo.askSave(7, map[string]any{"brandText": "Studio B"}))
 	b.waitFor("approver card", `(() => {
 		const c = document.querySelector('[data-approval-card]');
-		return !!c?.offsetParent && c.textContent.includes('Bo asks') && c.textContent.includes('Studio B') && /\d:\d\d left/.test(c.textContent);
+		return !!c?.offsetParent && c.textContent.includes('Bo, from ') && c.textContent.includes('Studio B') && /\d:\d\d left/.test(c.textContent);
 	})()`)
 	b.eval(`const c = document.querySelector('[data-approval-card]'); c.querySelector('input').value = '1234';
 		c.querySelector('[data-approval-approve]').click(); true`)

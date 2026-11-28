@@ -6,6 +6,7 @@
 import { el, S } from './core.js';
 import { btn, check } from './formbits.js';
 import { question } from './modal.js';
+import { routerDisplay } from './routerlistrules.js';
 import { churnKey, lockoutMs } from './lockrules.js';
 import { freeLines, freeButton } from './protectlistrules.js';
 
@@ -17,7 +18,7 @@ export function askFreeSode(rows, routers, only, linked, back) {
   const key = churnKey();
   const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
   let ready = false;
-  const go = btn('sode-btn--primary', '', () => ready && !go.disabled && q.close([...ticked]));
+  const go = btn('sode-btn--primary sode__confirm-ok', '', () => ready && !go.disabled && q.close([...ticked]));
   go.id = 'protects-free-go';
   const cancel = btn('pb-btn--outline', 'Cancel', () => q.close(null));
   const many = routers.length > 1;
@@ -25,7 +26,7 @@ export function askFreeSode(rows, routers, only, linked, back) {
     'div',
     'sode__pfree-list',
     ...lines.map((l) => {
-      const name = many ? `${l.router.prefix} ${l.router.title}` : l.router.title || 'Router';
+      const name = many ? routerDisplay(l.router) : l.router.title || 'Router';
       const c = check(name, {
         checked: l.ticked,
         onChange: (on) => {
@@ -54,7 +55,7 @@ export function askFreeSode(rows, routers, only, linked, back) {
       el('p', null, 'Sode frees each Protect that it set, for every user, API client and panel. The Protects of other devices and Router locks stay.'),
       list,
       el('div', 'sode__prompt', 'Press', keyEl, 'to confirm'),
-      el('p', 'sode__hint', 'Sode asks your PIN again after this step.'),
+      el('p', 'sode__hint', 'Sode asks for your PIN again after this step.'),
     ],
     foot: [cancel, go],
   });

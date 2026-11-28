@@ -1,1 +1,0 @@
-- On a desktop window wider than 2400 px, all text and controls are larger, up to 125% at 3840 px. This is for a big screen with no OS scale. The Grid panel page grows the same way from its 90%, up to 112.5%.

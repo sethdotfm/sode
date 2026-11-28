@@ -3,7 +3,7 @@
 
 // Patchbay draws a data-pb-tip as a CSS ::after under its element. A box that clips (a modal, a scroller) cuts that
 // tip off, and in a scroller it makes the box scroll. So base.css removes the ::after (content: none). This module shows
-// the tip in a fixed element on document.body, where only the window can cut it. placeTip keeps it inside the window. The ::after rules still give the tip's look and place: tipLook reads them from the computed style of the
+// the tip in a fixed element on document.body, where only the window can cut it. placeTip keeps it inside the window and off its control's field. The ::after rules still give the tip's look and place: tipLook reads them from the computed style of the
 // ::after. Thus pb-tip--top, pb-tip--start and pb-tip--end keep working. So do a page's own rules (a wrapped tip, a
 // tip that opens below) and rules that hide a tip (display: none).
 const tip = document.createElement('div');
@@ -16,21 +16,37 @@ let tipFor = null,
   last = '';
 
 // The tip's place in the window: under its element (over it when up), centred or lined up with one edge (align
-// 'start' or 'end'). Without room on its own side it goes to the other side, and with room on neither, to the side
-// with more room. It always stays a gap inside the window. r is the element's box; w and h the tip's size.
-export function placeTip({ r, w, h, vw, vh, align = 'center', up = false, gap = 4 }) {
+// 'start' or 'end'). It goes on the first side with room that keeps it off avoid (see fieldBox). Else it goes on the
+// first side with room. With room on neither, it goes to the side with more room. It always stays a gap inside the
+// window. r is the element's box; w and h the tip's size.
+export function placeTip({ r, w, h, vw, vh, align = 'center', up = false, gap = 4, avoid = null }) {
   const x = align === 'start' ? r.left : align === 'end' ? r.right - w : r.left + (r.width - w) / 2;
+  const left = Math.max(gap, Math.min(x, vw - gap - w));
   const below = r.bottom + gap,
     above = r.top - gap - h;
-  const fitsBelow = below + h <= vh - gap,
-    fitsAbove = above >= gap;
-  let top;
-  if (up ? fitsAbove : fitsBelow) top = up ? above : below;
-  else if (up ? fitsBelow : fitsAbove) top = up ? below : above;
-  else top = r.top > vh - r.bottom ? above : below;
+  const sides = up ? [above, below] : [below, above];
+  const fits = (top) => top >= gap && top + h <= vh - gap;
+  const clear = (top) => !avoid || left + w <= avoid.left || left >= avoid.right || top + h <= avoid.top || top >= avoid.bottom;
+  const top = sides.find((t) => fits(t) && clear(t)) ?? sides.find(fits) ?? (r.top > vh - r.bottom ? above : below);
+  return { left, top: Math.max(gap, Math.min(top, vh - gap - h)) };
+}
+
+// The box that a tip must not cover: the parts of the element's field that do not hold the element. A field is a label
+// and its box, a main page box under its head, or a wizard section under its heading. Null when there is no field.
+const FIELD = '.sode__field, .sode__box, .sode-setup__section';
+function fieldBox(t) {
+  const f = t.closest(FIELD);
+  if (!f) return null;
+  const rs = [...f.children]
+    .filter((c) => !c.contains(t))
+    .map((c) => c.getBoundingClientRect())
+    .filter((q) => q.width && q.height);
+  if (!rs.length) return null;
   return {
-    left: Math.max(gap, Math.min(x, vw - gap - w)),
-    top: Math.max(gap, Math.min(top, vh - gap - h)),
+    left: Math.min(...rs.map((q) => q.left)),
+    top: Math.min(...rs.map((q) => q.top)),
+    right: Math.max(...rs.map((q) => q.right)),
+    bottom: Math.max(...rs.map((q) => q.bottom)),
   };
 }
 
@@ -58,12 +74,22 @@ function paintTip(text) {
   const gap = gapPx();
   // A one-line tip wider than its max-width (about the window, .pb-tip) wraps, so it stays whole.
   if (tip.scrollWidth > tip.clientWidth) tip.style.whiteSpace = 'normal';
-  const { left, top } = placeTip({ r: tipFor.getBoundingClientRect(), w: tip.offsetWidth, h: tip.offsetHeight, vw: innerWidth, vh: innerHeight, gap, ...look });
+  const { left, top } = placeTip({
+    r: tipFor.getBoundingClientRect(),
+    w: tip.offsetWidth,
+    h: tip.offsetHeight,
+    vw: innerWidth,
+    vh: innerHeight,
+    gap,
+    avoid: fieldBox(tipFor),
+    ...look,
+  });
   tip.style.left = `${left}px`;
   tip.style.top = `${top}px`;
 }
 
-function hideTip() {
+// Closes the tip now. A control calls it when it opens a menu over the place of its own tip (the Lock menu).
+export function hideTip() {
   tip.hidden = true;
   tipFor = null;
   cancelAnimationFrame(frame);

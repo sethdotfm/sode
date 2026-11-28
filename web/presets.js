@@ -153,8 +153,8 @@ const asRow = el(
   'sode__filters-set',
   labeled('Name of the copy', asName),
   labeled('Save the copy for', el('span', 'pb-select-wrap', asScope), 'sode__filters-scope'),
-  btn('pb-btn--commit', 'Save', () => saveAs()),
-  btn('pb-btn--ghost', 'Cancel', () => closeSaveAs()),
+  btn('sode-btn--primary', 'Save', () => saveAs()),
+  btn('pb-btn--outline', 'Cancel', () => closeSaveAs()),
 );
 asRow.hidden = true;
 // Only presets on the server have an Item link: a This browser preset is in no other browser.

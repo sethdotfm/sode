@@ -59,6 +59,11 @@ test('the columns are those of the old Download CSV', () => {
   assert.equal(LOG_COLS[17], 'bytes');
 });
 
+test('the reason and result columns use the words of the page heads', () => {
+  assert.equal(LOG_COLS[10], 'reason');
+  assert.equal(LOG_COLS[12], 'result');
+});
+
 test('a router message row', () => {
   const text = logCSV([connect], { off: 1, level: (n) => (n === 1 ? 'Video' : '') });
   assert.equal(lines(text)[1], "2026-11-19T10:00:02Z,2,Connect,0x02,Video,0,4,'=SUM(A1),5,CAM 5,Take,10.0.0.5,ack,1,,,1.5,02 00");

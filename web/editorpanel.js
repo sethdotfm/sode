@@ -88,7 +88,7 @@ export function createPanelTab(ed) {
     el('span', 'sode__hint', '%'),
   );
   const titleBar = toggle('titleBar', 'Show the title bar');
-  const sizeRow = el('div', 'sode-side__sizerow', titleBar, sizeField, sizeNote);
+  const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
   const theme = select('ed-set-theme', [
     ['auto', 'Follow the browser'],
     ['light', 'Light'],
@@ -97,6 +97,7 @@ export function createPanelTab(ed) {
   theme.select.addEventListener('change', () => set('theme', theme.select.value));
   const appearance = section(
     'Appearance',
+    titleBar,
     sizeRow,
     el('div', 'sode__field', Object.assign(el('label', null, 'Theme'), { htmlFor: 'ed-set-theme' }), theme.node),
   );
@@ -140,7 +141,7 @@ export function createPanelTab(ed) {
   const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', putLevels(ed.fields().settings?.levels, routerData('').uid, v?.length ? v : null)) });
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node);
   const fixed = createFixedField(ed);
-  const multi = toggle('multi', 'Stage several Destinations at the same time');
+  const multi = toggle('multi', 'Stage more than one destination');
   const multiNote = el('span', 'sode__hint');
   multiNote.id = 'ed-multi-note';
   multi.append(multiNote);
@@ -171,7 +172,7 @@ export function createPanelTab(ed) {
   const router = section('Router', ...followSwitches.map((f) => f.node));
 
   const feel = featureSupport(navigator);
-  const fullscreenField = toggle('fullscreen', 'Automatically enter fullscreen');
+  const fullscreenField = toggle('fullscreen', 'Go to full screen at the first press');
   const fullscreenHint = el('span', 'sode__hint');
   fullscreenHint.id = 'ed-fullscreen-note';
   fullscreenField.append(fullscreenHint);
@@ -181,7 +182,7 @@ export function createPanelTab(ed) {
     'Device and feedback',
     wake,
     fullscreenField,
-    toggle('landscape', 'Enforce landscape orientation', LANDSCAPE_HINT),
+    toggle('landscape', 'Keep the page in landscape', LANDSCAPE_HINT),
     toggle('askInstanceName', 'Ask users to set an instance name'),
   );
 
@@ -208,7 +209,7 @@ export function createPanelTab(ed) {
         f.input.checked = grid && !Array.isArray(ed.fields()[f.key]?.members);
         f.input.disabled = ro;
       }
-      ident.replaceChildren(...(p ? [`Id ${p.id}`, el('br'), `Owned by user "${p.owner}"`] : ['Not saved yet.']));
+      ident.replaceChildren(...(p ? [`ID ${p.id}`, el('br'), `Owner: ${p.owner}`] : ['Not saved yet.']));
       const want = p ? `${p.id}|${p.acts}|${p.slug || ''}` : '';
       if (want !== linkOf) {
         linkOf = want;

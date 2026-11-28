@@ -365,7 +365,7 @@ const searchSrc = (more = {}) =>
       { id: 'x2', name: 'Wall', type: 'grid' },
     ],
     settings: [
-      { section: 'panels', sectionTitle: 'Panels', topic: 'Access', id: 'cfg-np', label: 'New-panel Authentication mode' },
+      { section: 'panels', sectionTitle: 'Panels', topic: 'Access', id: 'cfg-np', label: 'Authentication mode for new panels' },
       { section: 'this-browser', sectionTitle: 'This browser', topic: 'Preferences', id: 'cfg-theme', label: 'Theme' },
     ],
     who: who({ role: 'administrator' }),

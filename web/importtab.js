@@ -372,7 +372,7 @@ export function importTab({ setNote, setReview, backup, own = false }) {
 
   function render() {
     keepFocus(panel, () => {
-      if (step === 'file') panel.replaceChildren(fileInput);
+      if (step === 'file') panel.replaceChildren(el('p', 'sode__hint', 'Choose a Sode export file. You see what it holds before anything changes.'), fileInput);
       else if (step === 'list') panel.replaceChildren(...listView(), fileInput);
       else if (step === 'review') panel.replaceChildren(...reviewView());
       else panel.replaceChildren(...doneView());

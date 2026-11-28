@@ -131,6 +131,13 @@ export function groupRows(rows, placeOf) {
   return topics;
 }
 
+// unsavedWords: the Exit warning for the names of the sections with changes, with what to do.
+export function unsavedWords(names) {
+  if (!names.length) return '';
+  const list = names.length < 2 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  return `${list} ${names.length === 1 ? 'has' : 'have'} unsaved changes. Save, or press Discard and exit.`;
+}
+
 export function saveLabel(save, keep) {
   if (!save) return 'Nothing to save';
   if (keep) return `Save ${save}, keep ${keep} unsaved`;

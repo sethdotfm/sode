@@ -13,6 +13,7 @@ import {
   expectOf,
   stepsOf,
   ago,
+  destsWord,
   changedText,
   countUp,
   TICK_MS,
@@ -587,4 +588,10 @@ test('each choice has one state that a person reads at a glance, and the best ch
   // A part that Sode cannot see makes the count open.
   const unknown = { ...route, paths: [path('t6', {}, { unknown: [{ router: 'b', why: 'down' }] })] };
   assert.deepEqual(choiceLook(pickState(unknown), 0, choices(pickState(unknown), 0)[0]), { state: 'change', text: 'Unknown change', best: true });
+});
+
+test('the destinations head says Routers when they are on more than one router', () => {
+  assert.equal(destsWord(1, ['A']), 'Destination on Router A');
+  assert.equal(destsWord(2, ['B']), 'Destinations on Router B');
+  assert.equal(destsWord(3, ['A', 'B']), 'Destinations on Routers A, B');
 });

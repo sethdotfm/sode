@@ -3,7 +3,7 @@
 // are up. Red while every router is lost.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { routerLink, barMark, listRows, listName, rowState, degradedNote, wholeState, FIND_FROM } from '../routerlinkrules.js';
+import { routerLink, barMark, listRows, listName, routerName, rowState, degradedNote, wholeState, FIND_FROM } from '../routerlinkrules.js';
 
 const up = { wsState: 'up' };
 const P = (i) => (i < 26 ? String.fromCharCode(65 + i) : 'A' + String.fromCharCode(39 + i));
@@ -93,8 +93,26 @@ test('wholeState agrees with the color of the icon', () => {
   }
 });
 
-test('the name of a router in the list: prefix and title, no prefix with one router', () => {
-  assert.equal(listName({ prefix: 'B', title: 'Studio B' }, 4), 'B Studio B');
+test('routerName: one name for a router on every page, never doubled', () => {
+  assert.equal(routerName({ prefix: 'A', title: 'Router A' }), 'Router A');
+  assert.equal(routerName({ prefix: 'A', title: '' }), 'Router A');
+  assert.equal(routerName({ prefix: 'A' }), 'Router A');
+  assert.equal(routerName({ prefix: 'B', title: 'Router B (studio 2)' }), 'Router B (studio 2)');
+  assert.equal(routerName({ prefix: 'C', title: ' MCR ' }), 'Router C MCR');
+  assert.equal(routerName({ prefix: 'A', title: 'Router AB' }), 'Router A Router AB', 'only the whole prefix counts');
+});
+
+test('routerName: a title that starts with the name, in any case and with any non-alphanumeric next character, is not doubled', () => {
+  for (const t of ['Router B, studio 2', 'Router B(MCR)', 'router b', 'ROUTER B - MCR', 'Router B']) {
+    assert.equal(routerName({ prefix: 'B', title: t }), t);
+  }
+  assert.equal(routerName({ prefix: 'B', title: 'Router B2' }), 'Router B Router B2');
+  assert.equal(routerName({ prefix: 'B', title: 'Router Bar' }), 'Router B Router Bar');
+});
+
+test('the name of a router in the list: routerName, no prefix with one router', () => {
+  assert.equal(listName({ prefix: 'B', title: 'Studio B' }, 4), 'Router B Studio B');
+  assert.equal(listName({ prefix: 'B', title: 'Router B (studio 2)' }, 4), 'Router B (studio 2)');
   assert.equal(listName({ prefix: 'B', title: '' }, 4), 'Router B');
   assert.equal(listName({ prefix: 'B', title: 'Router B' }, 4), 'Router B', 'the prefix is not said twice');
   assert.equal(listName({ prefix: 'A', title: 'Main' }, 1), 'Main');
@@ -117,12 +135,13 @@ test('the find box: from FIND_FROM routers, by prefix, title or address', () => 
   const list = routers(fill(24, () => 'up'));
   assert.deepEqual(
     listRows(list, 'studio k').map((x) => x.name),
-    ['K Studio K'],
+    ['Router K Studio K'],
   );
   assert.deepEqual(
     listRows(list, '10.0.0.24').map((x) => x.r.prefix),
     ['X'],
   );
+  assert.equal(listRows(list, 'router').length, 0, 'the word Router in every name is not a match');
   assert.equal(listRows(list, '  ').length, 24, 'blank text finds every router');
   assert.equal(listRows(list, 'nothing').length, 0);
 });

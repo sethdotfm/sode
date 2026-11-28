@@ -2,16 +2,27 @@
 // Live Editor too) and /log. The Lock bar floats at its left (lock.css). Then come the site name, a rule, the icon
 // links, a gap, Inbox, a rule and the status. Off Home the title goes to the bar's middle and the rule stays only
 // after the Lock bar. bar.css lays it out. Panel pages keep their own.
-import { el, icon, on, emit } from './core.js';
+import { $, el, icon, on, emit, connState, renderDown } from './core.js';
 import { connBox, paintConn } from './connview.js';
 import { keyLabel, ariaKeys } from './keys.js';
 import { HOME_CHORD } from './homekeyrules.js';
 
-// core.js's on() has no unsubscribe, so one subscription paints every bar's status.
+// core.js's on() has no unsubscribe, so one subscription paints every bar's status. A page whose bar makes its own
+// status also gets the Lost link banner, #conn-down. Home draws its own banner (desktop.js, mobile.js).
 const conns = new Set();
+let banner = false;
 on('conn', () => {
   for (const c of conns) paintConn(c);
+  if (banner) paintDown();
 });
+
+function paintDown() {
+  const box = $('conn-down');
+  if (!box) return;
+  const c = connState();
+  document.documentElement.dataset.conn = c.down ? 'down' : 'up';
+  renderDown(box, c);
+}
 
 // A ghost icon link with its tip, as on the Grid head row.
 export function iconLink(cls, name, label, href) {
@@ -152,6 +163,8 @@ export function panelsBar(head, opts = {}) {
     paintConn(box);
     head.append(box.root);
     conn = box.root;
+    banner = true;
+    paintDown();
   }
   conn.before(rule('sode-bar__rule--end'));
   return tools;

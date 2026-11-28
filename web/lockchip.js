@@ -4,6 +4,7 @@
 import { el, icon, on } from './core.js';
 import { keyLabel } from './keys.js';
 import { buildChangePin } from './changepin.js';
+import { hideTip } from './tooltip.js';
 
 // Long enough to cross the gap from the button to the drop-down without it closing; short enough to feel direct.
 const OPEN_MS = 120;
@@ -59,7 +60,7 @@ export function buildChip(api) {
   // what Ctrl+Shift+L's Confirm says.
   const out = item('lock-chip-signout', () => api.signOut());
   out.ico.append(icon('log-out'));
-  out.label.append('Sign out', el('span', 'sode-lock__menu-note', 'Every tab that shares this sign-in'));
+  out.label.append('Sign out', el('span', 'sode-lock__menu-note', 'Signs out every tab that shares this sign-in'));
   out.hint.textContent = keyLabel('ctrl+shift+l');
   const step = item('lock-chip-stepin', () => (api.stepped() ? api.stepOut() : api.stepIn()));
   const group = el('div', 'sode-lock__who-lock', slot, menu);
@@ -103,6 +104,8 @@ export function buildChip(api) {
       menu.hidden = false;
       lockBtn.setAttribute('aria-expanded', 'true');
       root.classList.add('is-menu');
+      // The open tip would sit on the first item. lock.css hides it from now on, but a tip that shows is not read again.
+      hideTip();
       document.addEventListener('pointerdown', outside, true);
     }
     if (focusFirst) items()[0]?.focus();

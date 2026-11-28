@@ -5,7 +5,8 @@ import { $, el, on } from './core.js';
 import { lockout } from './lockout.js';
 import { churnKey } from './lockrules.js';
 
-// verb(plan) is the word for the title and button; summary(plan, { prot, spaceHint }) the body nodes. spaceHint: the
+// verb(plan) is the word for the title and button; summary(plan, { prot, spaceHint }) the body nodes; prompt(key, plan)
+// the foot's nodes. spaceHint: the
 // undo's follows box says Space ticks it. enter(): Enter also confirms. cfg(): settings with confirmLockoutMs, else
 // S.cfg. viaKeys: answered from the keyboard. refocus: a close puts focus back where it was.
 // The open confirm, which a Lock closes.
@@ -47,7 +48,7 @@ export function keyConfirm({ prompt, verb: verbOf, summary, enter = () => false,
       const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
       const verb = verbOf(plan);
       $('confirm-title').textContent = `Confirm ${verb}`;
-      $('confirm-body').replaceChildren(...summary(plan, { prot, spaceHint }), el('div', 'sode__prompt', ...prompt(keyEl)));
+      $('confirm-body').replaceChildren(...summary(plan, { prot, spaceHint }), el('div', 'sode__prompt', ...prompt(keyEl, plan)));
       $('confirm-ok').textContent = `${verb[0].toUpperCase()}${verb.slice(1)} (${key.toUpperCase()})`;
       $('confirm-ok').disabled = true;
       $('confirm').hidden = false;
