@@ -1807,10 +1807,6 @@ body {
 .sode-side__sizerow {
   flex-wrap: wrap;
 }
-.sode-side__sizerow > .sode-side__inline:not(:first-child) {
-  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
-  padding-inline-start: var(--pb-space-4);
-}
 .sode__field.sode-side__inline {
   flex-direction: row;
 }

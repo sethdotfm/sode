@@ -88,7 +88,7 @@ export function createPanelTab(ed) {
     el('span', 'sode__hint', '%'),
   );
   const titleBar = toggle('titleBar', 'Show the title bar');
-  const sizeRow = el('div', 'sode-side__sizerow', titleBar, sizeField, sizeNote);
+  const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
   const theme = select('ed-set-theme', [
     ['auto', 'Follow the browser'],
     ['light', 'Light'],
@@ -97,6 +97,7 @@ export function createPanelTab(ed) {
   theme.select.addEventListener('change', () => set('theme', theme.select.value));
   const appearance = section(
     'Appearance',
+    titleBar,
     sizeRow,
     el('div', 'sode__field', Object.assign(el('label', null, 'Theme'), { htmlFor: 'ed-set-theme' }), theme.node),
   );
