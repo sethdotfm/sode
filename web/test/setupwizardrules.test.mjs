@@ -15,6 +15,7 @@ import {
   keptAnswers,
   refillAnswers,
   connectionTitle,
+  doneParts,
 } from '../setupwizardrules.js';
 
 const filled = () => ({
@@ -179,4 +180,22 @@ test('the Connection heading names the first router on first run only', () => {
   assert.equal(connectionTitle(false), 'Connection: Add your first router');
   assert.equal(connectionTitle(undefined), 'Connection: Add your first router');
   assert.equal(connectionTitle(true), 'Connection');
+});
+
+const plain = (parts) => parts.map((p) => (typeof p === 'string' ? p : p.br ? '\n' : (p.strong ?? p.mono))).join('');
+
+test('Done says Congratulations, then who, which router and which preset', () => {
+  const parts = doneParts('Seth', '127.0.0.1:8910', 'Open access', true);
+  assert.equal(plain(parts), 'Congratulations!\nYou are signed in as Seth and connected to the router at 127.0.0.1:8910 with Open access permissions.');
+  assert.deepEqual(
+    parts.filter((p) => typeof p !== 'string'),
+    [{ br: true }, { strong: 'Seth' }, { mono: '127.0.0.1:8910' }],
+  );
+});
+
+test('Done before the router answers says Sode keeps trying', () => {
+  assert.equal(
+    plain(doneParts('Seth', '10.0.0.5:8910', 'Secured access', false)),
+    'Congratulations!\nYou are signed in as Seth with Secured access permissions. The router at 10.0.0.5:8910 has not answered yet, and Sode keeps trying.',
+  );
 });

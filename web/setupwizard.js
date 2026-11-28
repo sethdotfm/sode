@@ -28,6 +28,7 @@ import {
   keptAnswers,
   refillAnswers,
   connectionTitle,
+  doneParts,
 } from './setupwizardrules.js';
 import { readTab, writeTab } from './store.js';
 
@@ -169,16 +170,12 @@ function sheet() {
 }
 
 function doneText() {
-  const addr = () => el('span', { class: 'pb-text-mono' }, d.router.trim());
-  const linked = routerLine(d.router, routerData('').link, routerData('').srcs.length, routerData('').dsts.length)?.ok;
-  return [
-    'You are signed in as ',
-    strong(d.name.trim()),
-    ...(linked ? [' and connected to the router at ', addr(), '.'] : ['. The router at ', addr(), ' has not answered yet, and Sode keeps trying.']),
-    ' You chose ',
-    strong(presetName()),
-    '.',
-  ];
+  const linked = !!routerLine(d.router, routerData('').link, routerData('').srcs.length, routerData('').dsts.length)?.ok;
+  return doneParts(d.name.trim(), d.router.trim(), presetName(), linked).map((p) => {
+    if (typeof p === 'string') return p;
+    if (p.br) return el('br');
+    return p.mono != null ? el('span', { class: 'pb-text-mono' }, p.mono) : strong(p.strong);
+  });
 }
 
 // The Level numbering guide: the main page's level chips for the typed count, display only.

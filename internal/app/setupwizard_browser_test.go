@@ -134,8 +134,9 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(next + `.click(); true`)
 
 	b.waitFor("Done", `document.getElementById('setup-title').textContent === 'Sode is set up'`)
-	b.waitFor("the paragraph names user, router and preset", `(() => { const t = document.getElementById('setup-done-text').textContent;
-		return t.includes('signed in as Ada') && t.includes('connected to the router at `+sim+`') && t.includes('Standard access'); })()`)
+	b.waitFor("Congratulations, then a line that names user, router and preset", `(() => { const p = document.getElementById('setup-done-text');
+		return p.innerText === 'Congratulations!\nYou are signed in as Ada and connected to the router at `+sim+` with Standard access permissions.'
+			&& p.querySelector('.pb-text-strong')?.textContent === 'Ada' && p.querySelector('.pb-text-mono')?.textContent === '`+sim+`'; })()`)
 	b.waitFor("earlier steps lock", `!document.querySelector('#setup-steps [data-go]')`)
 	b.waitFor("Finish drops the kept answers", `sessionStorage.getItem('sode-setup-answers') === null`)
 	c := loadFile(t, a.cfgPath)

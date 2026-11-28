@@ -1,0 +1,1 @@
+- Setup wizard: the Done page says "Congratulations!", then who is signed in, the router and the access preset in one sentence.

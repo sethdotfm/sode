@@ -231,7 +231,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-17: Done page text
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Done step. web/setupwizard.js:155-167 (`doneText`), :259 (`#setup-done-text`), :359-362 (`paintDone`), web/setup.css:269-272.
 - **Reported:** Text: "You are signed in as Seth and connected to the router at 127.0.0.1:8910. You chose Open access." → "Congratulations!</br>You are signed in as Seth and connected to the router at 127.0.0.1:8910 with Open access permissions." Wanted text, as two lines:
   - Congratulations!
@@ -241,7 +241,13 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: Two lines: "Congratulations!", then "You are signed in as **Seth** and connected to the router at `addr` with Open access permissions." Keep the bold name and mono address. The full preset name as GLOSSARY.md:251 says ("Standard access permissions", "Secured access permissions"). Router not answered yet: "You are signed in as **Seth** with Open access permissions. The router at `addr` has not answered yet, and Sode keeps trying."
 - **Open questions:** none.
 - **Proof:** Node test of `doneText` (or a rules function) for linked and not-linked cases. Screenshot of the Done page at 1920x1080.
+  - Reproduced on 8e9c6761 with swp08sim and a new config, run to Done: "You are signed in as Seth and connected to the router at 127.0.0.1:8960. You chose Standard access." in one run of text (before-done.png).
+  - Given: node tests "Done says Congratulations, then who, which router and which preset" and "Done before the router answers says Sode keeps trying" (web/test/setupwizardrules.test.mjs) for the new `doneParts`; before the fix the file fails to load: `SyntaxError: The requested module '../setupwizardrules.js' does not provide an export named 'doneParts'`. `TestChromeSetupWizard` (internal/app/setupwizard_browser_test.go) checks the drawn text is the two lines, with the name bold and the address mono. Before the fix: `setupwizard_browser_test.go:137: timed out waiting for Congratulations, then a line that names user, router and preset`. Both pass after.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-17/: before-done.png, after-done.png.
 - **Notes:**
+  - What changed: the text is a pure rule, `doneParts(name, address, preset, linked)` (web/setupwizardrules.js:71): "Congratulations!", a line break, then "You are signed in as **name** and connected to the router at `addr` with <preset> permissions." Before the router answers: "You are signed in as **name** with <preset> permissions. The router at `addr` has not answered yet, and Sode keeps trying." The preset name is the full name the server sends ("Open access", "Standard access", "Secured access"). `doneText` (web/setupwizard.js:172) draws the parts: a `br`, a bold name, a mono address.
+  - Checks: `go test -short ./...` all ok; `go vet ./...` ok; `node --test 'web/test/*.test.mjs'` # pass 2004, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChromeSetupWizard$'` ok.
+  - Commit: this commit.
 
 ### AB-18: Done page next links: remove backup and tablet links, add useful ones
 

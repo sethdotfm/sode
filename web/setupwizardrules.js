@@ -66,6 +66,21 @@ export function refillAnswers(d, kept) {
 // The Router step's Connection heading. Run setup again edits the router that is there, so it adds no first router.
 export const connectionTitle = (again) => (again ? 'Connection' : 'Connection: Add your first router');
 
+// The Done step's text, as parts for setupwizard.js to draw: a plain string, {strong} (the name), {mono} (the address)
+// or {br}. preset is the full preset name, as "Open access".
+export function doneParts(name, address, preset, linked) {
+  const who = [{ strong: name }];
+  const addr = { mono: address };
+  const rights = ` with ${preset} permissions.`;
+  return [
+    'Congratulations!',
+    { br: true },
+    'You are signed in as ',
+    ...who,
+    ...(linked ? [' and connected to the router at ', addr, rights] : [rights, ' The router at ', addr, ' has not answered yet, and Sode keeps trying.']),
+  ];
+}
+
 // '' when SODE_* did not fill it.
 export function envHint(setup, key) {
   const name = setup?.env?.[key];
