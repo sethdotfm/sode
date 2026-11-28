@@ -11,8 +11,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The layout and words of Settings > Routers > Routers at 1920x1080 with three routers: the detail head, the hints and
-// fields of each group, the facts rows, the level chips, the count line, the remove note and the bar's words.
+// The layout and words of Settings > Routers > Routers at 1920x1080 with three routers. It checks the detail head, the
+// hints and fields, the facts rows and the level chips. It also checks the count line, the remove note and the bar.
 func TestChromeSettingsRoutersLayout(t *testing.T) {
 	b := startBrowser(t)
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})

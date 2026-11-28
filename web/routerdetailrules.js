@@ -239,8 +239,8 @@ export function countLine(keys, added = 0) {
   return `${head} ${parts.join(', ')}.${more}`;
 }
 
-// tryWhy: the operator words for why an Address try failed, from the server's error text, or '' when Sode has no words
-// for it (the page then shows the error text as it is). The Go dial errors are not operator words.
+// tryWhy: the operator words for why an Address try failed, from the server's error text. It is '' when Sode has no
+// words for it; the page then shows the error text. The Go dial errors are not operator words.
 export function tryWhy(err) {
   const e = String(err || '');
   if (/connection refused/i.test(e)) return 'The router refused the connection.';

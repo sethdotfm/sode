@@ -21,8 +21,8 @@ const box = () => $('cfg-rt-address-try');
 // keyOf: the values that a try reads. A change of one of them starts a new try.
 const keyOf = (v) => JSON.stringify([String(v.address || '').trim(), v.matrix, v.nameRequests, v.nameLength]);
 
-// A failed try shows why in operator words, with the server's error text in the title; an error that has no words shows
-// as it is.
+// A failed try shows why in operator words, with the server's error text in the title. An error with no words shows as
+// it is.
 function show(line, err) {
   const b = box();
   if (!line) return void b.replaceChildren();

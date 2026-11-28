@@ -25,7 +25,10 @@ test('usesNote: what Remove router breaks', () => {
     { kind: 'tieLine', name: 'TIE 4', owner: '' },
   ];
   assert.deepEqual(usesNote('B', ties), { head: 'If you remove router B, Sode removes 2 tie lines:', lines: ['Tie line TIE 3', 'Tie line TIE 4'] });
-  assert.equal(usesNote('B', [{ kind: 'preset', name: 'Stage', owner: '' }, ties[0]]).head, 'If you remove router B, Sode makes 1 preset Broken and removes 1 tie line:');
+  assert.equal(
+    usesNote('B', [{ kind: 'preset', name: 'Stage', owner: '' }, ties[0]]).head,
+    'If you remove router B, Sode makes 1 preset Broken and removes 1 tie line:',
+  );
 });
 
 test('the router keys: section routers, and Add, Remove, Address and Matrix are Critical', () => {
