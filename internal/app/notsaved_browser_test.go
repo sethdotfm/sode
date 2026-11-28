@@ -28,6 +28,7 @@ func TestChromeEnvOnlySettingsNotSaved(t *testing.T) {
 	})()`)
 	b.shot("settings")
 	b.waitFor("the banner's link is a button, not a chip", `[...document.querySelectorAll('[data-notsaved-fix]')].every((a) => a.matches('a.pb-btn.pb-btn--outline:not(.pb-chip):not(.pb-btn--sm)') && !!a.href)`)
+	b.waitFor("the banner's button has no fill of its own", `[...document.querySelectorAll('[data-notsaved-fix]')].every((a) => getComputedStyle(a).backgroundColor === 'rgba(0, 0, 0, 0)')`)
 	b.waitFor("the Degraded note is a warn alert box", `['conn-degraded', 'm-degraded'].every((id) => document.getElementById(id).matches('.pb-alert.pb-alert--warn'))`)
 	b.check()
 }

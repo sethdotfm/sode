@@ -1,6 +1,6 @@
-import { LINK_WORDS } from '../routerlinkrules.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { LINK_WORDS } from '../routerlinkrules.js';
 import {
   panelIdFrom,
   keyFromHash,

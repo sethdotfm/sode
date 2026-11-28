@@ -102,6 +102,14 @@ test('routerName: one name for a router on every page, never doubled', () => {
   assert.equal(routerName({ prefix: 'A', title: 'Router AB' }), 'Router A Router AB', 'only the whole prefix counts');
 });
 
+test('routerName: a title that starts with the name, in any case and with any non-alphanumeric next character, is not doubled', () => {
+  for (const t of ['Router B, studio 2', 'Router B(MCR)', 'router b', 'ROUTER B - MCR', 'Router B']) {
+    assert.equal(routerName({ prefix: 'B', title: t }), t);
+  }
+  assert.equal(routerName({ prefix: 'B', title: 'Router B2' }), 'Router B Router B2');
+  assert.equal(routerName({ prefix: 'B', title: 'Router Bar' }), 'Router B Router Bar');
+});
+
 test('the name of a router in the list: routerName, no prefix with one router', () => {
   assert.equal(listName({ prefix: 'B', title: 'Studio B' }, 4), 'Router B Studio B');
   assert.equal(listName({ prefix: 'B', title: 'Router B (studio 2)' }, 4), 'Router B (studio 2)');
@@ -133,6 +141,7 @@ test('the find box: from FIND_FROM routers, by prefix, title or address', () => 
     listRows(list, '10.0.0.24').map((x) => x.r.prefix),
     ['X'],
   );
+  assert.equal(listRows(list, 'router').length, 0, 'the word Router in every name is not a match');
   assert.equal(listRows(list, '  ').length, 24, 'blank text finds every router');
   assert.equal(listRows(list, 'nothing').length, 0);
 });

@@ -9,7 +9,7 @@ import { buildChanged } from './buildrules.js';
 import { routerLinks, wholeState, lost, routerName, LINK_WORDS, lostTitle } from './routerlinkrules.js';
 
 // A send or a pending answer with no Server link.
-export const LINK_DOWN = 'Server link down.';
+export const LINK_DOWN = LINK_WORDS.server;
 
 export const $ = (id) => document.getElementById(id);
 

@@ -68,6 +68,24 @@ func TestChromeLostLinkOnEveryPage(t *testing.T) {
 	up()
 	b.waitFor("/panels goes back with no banner", noBanner)
 
+	// A phone: the banner takes at most a quarter of the screen and the page does not scroll sideways. The phone keeps
+	// native scroll bars, so nothing here draws one.
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 375, "height": 812, "deviceScaleFactor": 1, "mobile": true})
+	const phone = `(() => {
+		const h = document.getElementById('conn-down').getBoundingClientRect().height;
+		return h > 0 && h <= innerHeight / 4 && document.documentElement.scrollWidth <= innerWidth;
+	})()`
+	b.open(base + "/log")
+	b.waitFor("the phone /log runs with no banner", noBanner)
+	down()
+	b.waitFor("the phone /log banner is at most a quarter of the screen, with no sideways scroll", banner+` && `+phone)
+	b.shot("log-phone")
+	up()
+	b.open(base + "/panels")
+	b.waitFor("the phone /panels runs with no banner", `!document.documentElement.dataset.sodeLock && !!document.getElementById('panels-new') && `+noBanner)
+	down()
+	b.waitFor("the phone /panels banner is at most a quarter of the screen, with no sideways scroll", banner+` && `+phone)
+
 	// The refused connections while Sode is down are the point of the test; anything else is a real error.
 	for _, e := range b.problems() {
 		if !strings.Contains(e, "ERR_CONNECTION_REFUSED") && !strings.Contains(e, "WebSocket") && !strings.Contains(e, "/ws") {
