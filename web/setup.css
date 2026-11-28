@@ -1,18 +1,26 @@
+/* Setup shows the bar of Settings and /log with only the site name and the status: no user exists yet, so no links
+   and no Lock. */
 [data-sode-setup] .sode > :not(#setup, #home-bar),
-[data-sode-setup] .sode-home-bar > :not(.sode__conn) {
+[data-sode-setup] .sode-home-bar > :not(.sode-panels__title, .sode-panels__spacer, .sode__conn),
+[data-sode-setup] .sode-lock__who {
   display: none !important;
+}
+:root[data-sode-setup] .sode-home-bar > .sode-panels__title {
+  display: flex;
+}
+:root[data-sode-setup] .sode-home-bar {
+  padding-inline-start: 0;
 }
 [data-sode-setup] .sode {
   max-width: none;
+  padding-inline: 0;
 }
-/* .sode centres its children, so without a width the dialog shrinks to its title. */
+/* The steps and the dialog have the bar's edges. Keep the edge in step with .sode-home-bar in bar.css. .sode centres
+   its children, so the stretch keeps the dialog from shrinking to its title. */
 .sode-setup {
-  width: min(100%, 76rem);
-  margin: 2.5rem auto 4rem;
-}
-.sode-setup .sode__mark {
-  text-align: center;
-  margin-bottom: var(--pb-space-6);
+  align-self: stretch;
+  --sode-head-edge: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x));
+  margin: 0 var(--sode-head-edge) 4rem;
 }
 .sode-setup .pb-modal {
   position: static;

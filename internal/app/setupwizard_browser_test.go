@@ -51,7 +51,18 @@ func TestChromeSetupWizard(t *testing.T) {
 	stepsFit("Style & User")
 
 	type_("setup-brandText", "Studio B")
-	b.waitFor("the name shows live", `document.querySelector('#setup .sode__mark').textContent === 'Studio B'`)
+	b.waitFor("the name shows live in the bar", `(() => { const t = document.querySelector('#home-bar .sode-panels__title'); return !!t.offsetParent && t.textContent.trim() === 'Studio B'; })()`)
+	b.waitFor("the bar of Settings and /log: site name and status, no links, no Lock, no big name", `(() => {
+		const bar = document.getElementById('home-bar');
+		const shown = (n) => !!n && getComputedStyle(n).display !== 'none';
+		return shown(bar.querySelector('.sode__conn')) && !shown(bar.querySelector('.sode-bar__tools'))
+			&& ![...document.querySelectorAll('.sode-lock__who')].some(shown) && !document.querySelector('#setup .sode__mark');
+	})()`)
+	b.waitFor("the dialog has the bar's edges", `(() => {
+		const bar = document.getElementById('home-bar').getBoundingClientRect();
+		const dialog = document.getElementById('setup-dialog').getBoundingClientRect();
+		return Math.abs(bar.left - dialog.left) <= 1 && Math.abs(bar.right - dialog.right) <= 1;
+	})()`)
 	b.waitFor("each color has its name, and no retired color shows", `[...document.querySelectorAll('.sode-setup__swatch-name')].map((n) => n.offsetParent && n.textContent).join(' ') === 'Off Blue Teal Sky Slate Violet Custom'`)
 	b.eval(`(() => { const c = document.querySelector('input[name="brandBorder"][type="color"]'); c.value = '#e05050'; c.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	b.waitFor("a custom color near a state color shows the caution note", `!!document.getElementById('setup-brand-caution')?.offsetParent`)

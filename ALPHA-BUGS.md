@@ -106,7 +106,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-10: Setup top bar is not the global header
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Setup page header. web/setup.css:1-7, web/index.html:36-45 (`#home-bar`), web/bar.css (`.sode-bar`, `.sode-home-bar`:351-370), web/desktop.css:3-9 (`.sode__mark`), web/homebar.js, web/panelsbar.js.
 - **Reported:** "This does not match the global style header."
 - **Now:** In setup, `html[data-sode-setup]` hides every child of `#home-bar` except `.sode__conn` (web/setup.css:2-4), so the title, Inbox, Grid button, Settings button and links are gone. Only the lock chip, the Server and Router status, the address and the line under the bar remain (see the capture). The page's own title is a separate large centered `h1.sode__mark` "Sode" inside `#setup` (web/index.html:68; web/setup.css:13-16), not the bar's `.sode-panels__title`. On Home the bar's title is hidden (bar.css:360) and the big mark carries the name. On /panels, /log and Settings the bar shows the name and links. The bar is placed by `--sode-head-edge` (bar.css:351-358), while the setup dialog uses `width: min(100%, 76rem)` (web/setup.css:9-12), so their edges do not line up (the bar is 1160px wide at x=309; the dialog at x=293).
@@ -114,7 +114,14 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: Use the bar that Settings and /log use: site name on the left (live from the Server Name box), status on the right, nav links and Lock hidden (no user exists yet). Drop the big centered `h1.sode__mark`; line the dialog up with `--sode-head-edge`. The main page bar is not the model, since it hides the site name (bar.css:360).
 - **Open questions:** none.
 - **Proof:** Screenshots at 1920x1080 of the setup header next to the Settings or /log header. A TestChrome* check that the bar's left and right edges equal the dialog's, if that is the wish.
+  - Reproduced on 8e9c6761 with swp08sim and a new config: the setup bar showed only a lock button and the Server and Router status, with a big centered "Studio B" under it; the bar spans x=369 to 1529, the dialog x=341 to 1557 (before-setup.png). The Settings bar (compare-settings.png) and the /log bar (compare-log-header.png) have the site name at the left and the status at the right.
+  - Given: `TestChromeSetupWizard` (internal/app/setupwizard_browser_test.go): the bar's site name is visible and follows the Name box ("the name shows live in the bar"), the status shows, the links and the Lock bar do not, there is no `#setup .sode__mark`, and the left and right edges of `#setup-dialog` equal the bar's within 1px. Before the fix: `setupwizard_browser_test.go:54: timed out waiting for the name shows live in the bar`. Passes after.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-10/: before-setup.png, after-setup.png, after-setup-router.png, compare-settings.png, compare-log-header.png.
 - **Notes:**
+  - What changed: web/setup.css:1-24. In setup the bar keeps its site name (`.sode-panels__title`, which homebar.js already fills from each `brand` event, so it follows the Name box), its spacer and its status, and hides the links, the rules, Inbox and the Lock bar (`.sode-lock__who`). The bar's start padding for the Lock goes. The big `h1.sode__mark` is gone from `#setup` (web/index.html). `.sode-setup` stretches and has margins of `--sode-head-edge`, the same calc as `.sode-home-bar` in bar.css (a keep-in-step comment), with `.sode`'s side padding off in setup. No change to bar.css.
+  - Run setup again uses the same `data-sode-setup`, so it also shows this bar and hides the Lock bar while its steps are open. `TestChromeRunSetupAgain`, `TestChromeSetupRestore` and `TestChromeSetupWaitPage` pass.
+  - Checks: `go test -short ./...` all ok; `go vet ./...` ok; `node --test 'web/test/*.test.mjs'` # pass 1998, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChrome(SetupWizard|RunSetupAgain|SetupRestore|SetupWaitPage)$'` ok.
+  - Commit: this commit.
 
 ### AB-11: Theme color: the heading and label words, and the choices look too alike
 
