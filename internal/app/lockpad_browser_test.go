@@ -202,9 +202,13 @@ func TestChromeLockPadLayout(t *testing.T) {
 	b.eval(`import('/approval.js').then((m) => m.askApproval('Saving these changes', 'Administrator', () => true))`)
 	b.waitFor("the Approval list is open", `!document.getElementById('approval-name-list')?.hidden && !!document.getElementById('approval-name-list').offsetParent`)
 	nameRight := `document.getElementById('approval-name').getBoundingClientRect().right`
+	b.waitFor("the Approval body has no scroll gutter with the list open", `!document.getElementById('approval-name').closest('.pb-modal__body').style.paddingRight`)
 	open := b.eval(nameRight).(float64)
 	b.eval(`document.getElementById('approval-name').blur()`)
 	b.waitFor("the Approval list closed", `document.getElementById('approval-name-list').hidden`)
+	// The big scroll bar decides on the next frames after the list closes; let it settle before measuring.
+	b.eval(`new Promise((r) => setTimeout(r, 400))`)
+	b.waitFor("the Approval body has no scroll gutter", `!document.getElementById('approval-name').closest('.pb-modal__body').style.paddingRight`)
 	near("the Approval Name box's right edge, list open against closed", open, b.eval(nameRight).(float64))
 	b.eval(`document.getElementById('approval-name').focus()`)
 	b.waitFor("the Approval list open again", `!document.getElementById('approval-name-list').hidden`)
