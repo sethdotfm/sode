@@ -389,12 +389,14 @@
       <legend>Confirm and results</legend>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-lockout" data-pb-tip="Delay before the Confirm letter and OK work.">Confirm lockout (ms)</label>
+          <label for="cfg-lockout">Confirm lockout (ms)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
+          <span class="sode__hint">Delay before the Confirm letter and OK work.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-dismiss" data-pb-tip="0 = stays open. Failures always stay.">Success banner closes after (s)</label>
+          <label for="cfg-dismiss">Success banner closes after (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
+          <span class="sode__hint">0 keeps it open. A failure banner always stays.</span>
         </div>
       </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms takes</span></label>
@@ -623,16 +625,18 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field" data-find="lock-pages" data-label="Page locks">
-          <span class="sode__label" id="cfg-locks-label" data-pb-tip="Needs a user with a PIN">Page locks</span>
+          <span class="sode__label" id="cfg-locks-label">Page locks</span>
           <div role="group" aria-labelledby="cfg-locks-label">
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Main page</span></label>
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Communication Log</span></label>
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-panel"><span class="pb-check__label">Panels</span></label>
           </div>
+          <span class="sode__hint">Needs a user with a PIN.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-auto-lock" data-pb-tip="0 = off">Auto-lock after (min)</label>
+          <label for="cfg-auto-lock">Auto-lock after (min)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
+          <span class="sode__hint">0 is off.</span>
         </div>
       </div>
       <div class="sode__field sode__field--half">
@@ -672,8 +676,9 @@
         <label class="pb-check" data-pb-tip="Off: commands, refusals and key events only"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>
       </div>
       <div class="sode__field sode__field--half">
-        <label for="api-rate" data-pb-tip="0 = off">Rate limit (requests/min per key)</label>
+        <label for="api-rate">Rate limit (requests/min per key)</label>
         <span class="pb-number-wrap"><input type="number" id="api-rate" class="pb-input" min="0" max="100000"></span>
+        <span class="sode__hint">0 is off.</span>
       </div>
       <div class="sode__field sode__field--half">
         <label for="api-cap">API takes in flight (max)</label>
