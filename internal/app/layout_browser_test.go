@@ -11,7 +11,8 @@ import (
 // Layout checks for browser checks: shared edges, centre lines, heights, token gaps and clipped text, each within
 // layoutTol. Every selector takes all the elements it matches, in document order. An element that does not show is
 // left out: one with no box (display: none, hidden) and one with visibility: hidden. A selector that finds no shown
-// element fails, and so does a check that finds too few in all, so it never passes on nothing.
+// element fails, and so does a check that finds too few in all, so it never passes on nothing. boxesAny is the one
+// way to measure an element that is visibility: hidden by design, such as a size probe.
 // docs/agents/browser-checks.md says how to call them.
 
 // layoutTol is half a CSS pixel: less than that is rounding, more is a step a person can see at 2x.
@@ -26,11 +27,12 @@ type box struct {
 func (x box) height() float64  { return x.Bottom - x.Top }
 func (x box) middleY() float64 { return (x.Top + x.Bottom) / 2 }
 
-// layoutJS gives the boxes of every shown element the selectors match. clip adds the text overflow test. It finds
+// layoutJS gives the boxes of every shown element the selectors match. clip adds the text overflow test. hidden also
+// takes an element with visibility: hidden that has a box. It finds
 // content that is wider or taller than its box. It also finds text past the padding box of the element or of an
 // ancestor that clips (overflow not visible). Text is tested sideways by its range. Up and down, it is tested by the
 // middle of each line. A glyph box can be taller than its line box and still show whole.
-const layoutJS = `((sels, clip) => {
+const layoutJS = `((sels, clip, hidden) => {
 	const name = (e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + [...e.classList].map((c) => '.' + c).join('')
 		+ ' "' + (e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 24) + '"';
 	const pad = (e) => {
@@ -42,7 +44,7 @@ const layoutJS = `((sels, clip) => {
 	for (const sel of sels) {
 	let shown = 0;
 	for (const e of document.querySelectorAll(sel)) {
-		if (!e.getClientRects().length || !e.checkVisibility({ visibilityProperty: true })) continue;
+		if (!e.getClientRects().length || !e.checkVisibility({ visibilityProperty: !hidden })) continue;
 		shown++;
 		const r = e.getBoundingClientRect();
 		const x = { name: name(e), left: r.left, top: r.top, right: r.right, bottom: r.bottom };
@@ -84,8 +86,14 @@ type clipBox struct {
 // One selector that finds nothing must fail even when the others find enough, else a check passes on a typo.
 func (b *tab) layoutBoxes(sels []string, clip bool) ([]clipBox, string) {
 	b.t.Helper()
+	return b.layoutMeasure(sels, clip, false)
+}
+
+// layoutMeasure is layoutBoxes. hidden also takes elements with visibility: hidden (boxesAny).
+func (b *tab) layoutMeasure(sels []string, clip, hidden bool) ([]clipBox, string) {
+	b.t.Helper()
 	arg, _ := json.Marshal(sels)
-	raw, _ := json.Marshal(b.eval(fmt.Sprintf(layoutJS, layoutTol) + `(` + string(arg) + `, ` + fmt.Sprint(clip) + `)`))
+	raw, _ := json.Marshal(b.eval(fmt.Sprintf(layoutJS, layoutTol) + `(` + string(arg) + `, ` + fmt.Sprint(clip) + `, ` + fmt.Sprint(hidden) + `)`))
 	var out struct {
 		Boxes []clipBox
 		Empty []string
@@ -94,7 +102,11 @@ func (b *tab) layoutBoxes(sels []string, clip bool) ([]clipBox, string) {
 		b.t.Fatalf("layout boxes %v: %v", sels, err)
 	}
 	if len(out.Empty) > 0 {
-		return out.Boxes, "no shown element for " + strings.Join(out.Empty, ", ")
+		what := "no shown element for "
+		if hidden {
+			what = "no element with a box for "
+		}
+		return out.Boxes, what + strings.Join(out.Empty, ", ")
 	}
 	return out.Boxes, ""
 }
@@ -118,6 +130,23 @@ func (b *tab) boxes(sels ...string) []box {
 	if msg != "" {
 		b.shot("layout")
 		b.t.Fatalf("boxes %v: %s", sels, msg)
+	}
+	return out
+}
+
+// boxesAny is boxes for an element that is visibility: hidden by design, such as a size probe or the ghost that sizes
+// a slot. It takes those too, but still leaves out an element with no box (display: none, hidden). It stops the test
+// when a selector finds no element with a box. Use boxes for anything a person sees.
+func (b *tab) boxesAny(sels ...string) []box {
+	b.t.Helper()
+	xs, msg := b.layoutMeasure(sels, false, true)
+	if msg != "" {
+		b.shot("layout")
+		b.t.Fatalf("boxesAny %v: %s", sels, msg)
+	}
+	out := make([]box, 0, len(xs))
+	for _, x := range xs {
+		out = append(out, x.box)
 	}
 	return out
 }
@@ -362,6 +391,12 @@ func TestChromeLayoutHelper(t *testing.T) {
 	bad(msg, "no shown element for .ghost")
 	_, msg = b.layoutBoxes([]string{".fits", ".nothing"}, true)
 	bad(msg, ".nothing")
+	// boxesAny takes a visibility: hidden element, but not one with no box.
+	if xs := b.boxesAny(".ghost"); len(xs) != 1 || xs[0].height() <= 0 {
+		t.Errorf("boxesAny(.ghost) = %v, want one box", xs)
+	}
+	_, msg = b.layoutMeasure([]string{".ghost", "[hidden]"}, false, true)
+	bad(msg, "no element with a box for [hidden]")
 	// An unset property and a selector that finds nothing do not resolve to 0 px.
 	msg, _ = b.tokenPxErr(".row > .a", "--unset")
 	bad(msg, "--unset is not set")

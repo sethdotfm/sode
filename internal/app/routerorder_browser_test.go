@@ -78,7 +78,7 @@ func TestChromeSettingsRouterReorder(t *testing.T) {
 	b.eval(`document.getElementById('settings-exit').click(); true`)
 	b.waitFor("Home", `document.documentElement.dataset.view !== 'settings'`)
 	b.eval(`document.querySelector('#conn-routers > .sode__conn-open').click(); true`)
-	b.waitFor("the status bar lists the routers in the new order", `[...document.querySelectorAll('#conn .sode-routerlist__item .sode-routerlist__name')].map((n) => n.textContent).join('|') === 'B Stage 2|A Studio A|C MCR'`)
+	b.waitFor("the status bar lists the routers in the new order", `[...document.querySelectorAll('#conn .sode-routerlist__item .sode-routerlist__name')].map((n) => n.textContent).join('|') === 'Router B Stage 2|Router A Studio A|Router C MCR'`)
 	b.check()
 }
 

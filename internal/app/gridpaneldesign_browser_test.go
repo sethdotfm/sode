@@ -43,10 +43,10 @@ func TestChromeGridPanelDesign(t *testing.T) {
 	rem := px(`parseFloat(getComputedStyle(document.documentElement).fontSize)`)
 
 	// The prototype's sizes (C2-44): crosspoints 4.5rem, the Destination bar 13rem wide, the Source bar 7rem high.
-	probe := b.boxes(".sode-gridpanel__probe")
+	probe := b.boxesAny(".sode-gridpanel__probe")
 	near("the Destination bar's width", probe[0].Right-probe[0].Left, 13*rem)
 	near("the Source bar's height", probe[0].height(), 7*rem)
-	xp := b.boxes(".sode-gridpanel__probe-xp")
+	xp := b.boxesAny(".sode-gridpanel__probe-xp")
 	near("a crosspoint", xp[0].Right-xp[0].Left, 4.5*rem)
 	sm := b.tokenPx(".sode-gridpanel__deck", "--pb-text-sm")
 	for _, sel := range []string{".sode-gridpanel__find-input", "#panel-lvl-all", ".sode-gridpanel__chip", "#panel-levels .sode__box-head", ".sode-gridpanel__label"} {

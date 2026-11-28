@@ -41,7 +41,8 @@ func TestChromeMainPatchRow(t *testing.T) {
 	for _, k := range []string{"src", "dst"} {
 		slot := `[data-last="` + k + `"]`
 		b.gapX(k+": Last to Next", "--pb-space-3", slot+" > .sode__last", slot+" .sode__next")
-		b.sameLeft(k+": the closed Next chip fills its slot", slot+" .sode__next-size", slot+" .sode__next")
+		// The ghost that sizes the slot is visibility: hidden by design.
+		b.layoutFail(sameLeftErr(k+": the closed Next chip fills its slot", append(b.boxesAny(slot+" .sode__next-size"), b.boxes(slot+" .sode__next")...)))
 	}
 	chips := `[data-last] .pb-chip.sode__last:not(.sode__next-size)`
 	for _, x := range b.boxes(chips) {
