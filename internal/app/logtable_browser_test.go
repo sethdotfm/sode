@@ -93,6 +93,16 @@ func TestChromeLogTableLayout(t *testing.T) {
 		t.Errorf("fonts: %s", bad)
 	}
 
+	// The divider before Problems only is a drawn line as high as the chips, not a typed character.
+	if bad := b.eval(`(() => {
+		const sep = document.querySelector('#log-kinds .sode-log__sep');
+		const w = parseFloat(getComputedStyle(sep).borderInlineStartWidth);
+		return sep.textContent === '' && w > 0 ? '' : 'text ' + JSON.stringify(sep.textContent) + ', line ' + w + ' px';
+	})()`).(string); bad != "" {
+		t.Errorf("Show divider: %s", bad)
+	}
+	b.sameHeight("Show divider and chips", "#log-kinds .sode-log__sep", "#log-kinds button")
+
 	// The reason column takes the spare width, so the other columns keep their width when the rows on show change.
 	timeW := `document.querySelector('.sode-log__table th[data-sort="time"]').getBoundingClientRect().width`
 	before := b.eval(timeW).(float64)

@@ -52,9 +52,11 @@
   font-size: var(--pb-text-xs);
   padding: var(--pb-space-1) var(--pb-space-3);
 }
+/* The line before Problems only, as high as the chips (log.js). */
 .sode-log__sep {
-  color: var(--pb-text-muted);
-  padding: 0 var(--pb-space-1);
+  align-self: stretch;
+  border-inline-start: var(--pb-border-w) solid var(--pb-edge-soft);
+  margin: 0 var(--pb-space-2);
 }
 .sode-log__expr {
   flex: 0 1 16rem;

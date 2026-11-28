@@ -97,7 +97,7 @@ function initFilters() {
   const problemsChip = chip('Problems only', () => {
     filter.problems = !filter.problems;
   });
-  const bar = el('span', 'sode-log__sep', '|');
+  const bar = el('span', 'sode-log__sep');
   bar.setAttribute('aria-hidden', 'true');
   const sync = () => {
     const all = allKinds(filter.kinds);
