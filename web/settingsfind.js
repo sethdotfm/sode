@@ -40,7 +40,7 @@ export function initFind({ sections, toc, routers }) {
       return { id, label };
     });
   }
-  const OUTSIDE = [{ secId: 'history', id: 'open-log', label: 'View Logs', node: $('open-log') }];
+  const OUTSIDE = [{ secId: 'history', id: 'open-log', label: 'Communication Log', node: $('open-log') }];
   const makeIndex = () =>
     buildIndex(
       sections.flatMap((sec, i) => {
