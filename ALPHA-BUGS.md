@@ -204,7 +204,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-19: Lock action belongs in the Lock drop-down
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Lock bar: `web/lockchip.js` (`buildChip`, `lockBtn`, `more`, `menu`, `item`), `web/lock.css` (`.sode-lock__who-*`). Same actions in Settings > My user (`web/changepin.js`).
 - **Reported:** "Add the lock action to the lock dropdown. It is not immediately clear that clicking lock is a separate action." (annotation 22; the screenshot is the open-lock icon.)
 - **Now:** The open-lock icon is its own button; a click calls `api.lock()` and the tip says "Lock (Ctrl+L)" (`lockchip.js:19-24`). The drop-down is opened by a separate chevron (`lockchip.js:29-36`) or by hover and focus. It holds only Sign out (`lockchip.js:58-61`) and Step in or Step out (`lockchip.js:62`, shown by `open()` at lines 93-99). Lock is not an item.
@@ -212,7 +212,14 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: One menu button: the Lock icon and the chevron are one button that opens the menu. "Lock" is the first item with its Ctrl+L hint, then Sign out. No one-click lock on the icon; Ctrl+L stays the fast path. Rewrite the comment at web/lockchip.js:28 and update TestChromeChipMenu.
 - **Open questions:** none.
 - **Proof:** Screenshot of the open drop-down before and after at 1920×1080. Extend `TestChromeChipMenu` (`internal/app/chipmenu_browser_test.go`): the Lock item exists, locks the page and keeps the Ctrl+L hint.
+  - Reproduced on r2-topbar 8e9c6761 with one simulator (:8940) and Sode (:8380), Ana signed in: the hover drop-down holds only Sign out; the open-lock icon is a button apart that locks on a click.
+  - Given: `TestChromeChipMenu` (internal/app/chipmenu_browser_test.go:96) rewritten. One menu button (`#lock-chip-more`, aria-haspopup, no second button); a click opens it and does not lock; a guest gets Lock only; signed in the items are Lock, Sign out, Step in…; the Lock item has hint `Ctrl+l` (keyLabel) and aria-keyshortcuts `Control+L`; arrows go Lock, Sign out, Step in…; stepped in it is Lock, Step out; the Lock item locks and the name holds its place; Ctrl+L still locks. Before the fix (web/lockchip.js and web/lock.css stashed) it fails: `chipmenu_browser_test.go:99: timed out waiting for one menu button, no lock button apart`.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-19/: before-lock-not-in-drop-down.png (and -clip: Sign out only), after-lock-first-item.png (and -clip: Lock with Ctrl+l, then Sign out).
 - **Notes:**
+  - What changed: web/lockchip.js:19-33: the lock icon and the chevron are one button (`#lock-chip-more`, tip and aria-label "Lock menu") that opens the drop-down on a click or tap, Tab focus or mouse hover. web/lockchip.js:53: Lock (`#lock-chip-lock`, lucide `lock`, hint Ctrl+L, `api.lock`, so `localLock`) is the first item. A guest's drop-down has Lock only (Sign out and Step in need a user); stepped in it has Lock and Step out. `setLocked` swaps only the lock icon inside the button. The comment at the old line 28 is gone; the new comment says why there is one button. web/lock.css: the button is the slot's `.sode-lock__more` with auto width; the lock status icon sits where the button's lock icon is (`justify-self: start`), so the cross-fade under the Lock does not move it and the name holds still.
+  - Other checks that click the lock icon to lock: none besides TestChromeChipMenu. `TestChromeChipSignInForGuest` and `TestChromeMainCompact` find `.sode-lock__who .pb-btn` only for its place or focus, and that is now the menu button; `TestChromeChipSignOut` hovers it.
+  - Docs: docs/agents/users-locks.md (Chip, Phone chip), docs/agents/browser-checks.md (chipmenu), docs/reference.md (Lock again), changelog.d/lock-in-lock-menu.md.
+  - Checks: `go test -short ./...` ok (internal/app 68.7s, config, swp08, tieplan ok); `go vet ./...` clean; staticcheck 2026.2.2 clean (run with GOTOOLCHAIN=go1.27.0, since the default switch picks go1.26 here); `node --test 'web/test/*.test.mjs'`: tests 1996, pass 1996, fail 0; gofmt -l empty; prettier "All matched files use Prettier code style!"; eslint web clean. Browser checks, alone: `--- PASS: TestChromeChipMenu (13.36s)`, `--- PASS: TestChromeChipSignOut (10.61s)`, `--- PASS: TestChromeChipSignInForGuest (3.05s)`, `--- PASS: TestChromePanelLockBarFloats (5.02s)`, `--- PASS: TestChromeMainCompact (13.24s)`.
 
 ### AB-20: Status bar tooltips no longer show router and server status with history
 

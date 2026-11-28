@@ -1,0 +1,1 @@
+- The Lock bar: the lock icon and its chevron are now one button that opens the drop-down. Lock is the first item of the drop-down, with its Ctrl+L hint, then Sign out. A click on the lock icon no longer locks the page. Ctrl+L still locks.

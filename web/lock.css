@@ -301,16 +301,19 @@
   opacity: 0;
   pointer-events: none;
 }
-.sode-lock__who-slot > .pb-btn,
-.sode-lock__who-ico {
+/* The lock status icon sits where the button's lock icon is, so the cross-fade does not move it. */
+.sode-lock__who-ico,
+.sode-lock__more-ico {
   align-items: center;
   aspect-ratio: 1;
   display: inline-flex;
   flex: none;
   height: var(--pb-control-h-sm);
   justify-content: center;
-  padding: 0;
   width: var(--pb-control-h-sm);
+}
+.sode-lock__who-ico {
+  justify-self: start;
 }
 .sode-lock__who-name:empty,
 .sode-lock__who-signin[hidden] {
@@ -330,30 +333,22 @@
 [data-sode-pick] .sode-lock__who-user {
   color: inherit;
 }
-/* The lock button, its chevron and the drop-down under them. Under the Lock (is-hand) the chevron fades with the lock
-   button and keeps its box, so the name holds still. */
+/* The menu button (lock icon and chevron) and the drop-down under it. Under the Lock (is-hand) the button fades and
+   keeps its box, so the name holds still. */
 .sode-lock__who-lock {
   display: flex;
   flex: none;
   position: relative;
 }
-.sode-lock__more {
+.sode-lock__who-slot > .sode-lock__more {
+  gap: 0;
   height: var(--pb-control-h-sm);
-  padding: 0;
-  transition: opacity var(--sode-lock-out) var(--pb-ease);
-  width: calc(var(--pb-control-h-sm) * 0.75);
+  justify-content: start;
+  padding: 0 var(--pb-space-1) 0 0;
+  width: auto;
 }
-.sode-lock__more[hidden],
-.sode-lock__menu[hidden],
-[data-layout="phone"] .sode-lock__more {
+.sode-lock__menu[hidden] {
   display: none;
-}
-[data-sode-lock-on] .sode-lock__more {
-  transition-duration: var(--sode-lock-motion);
-}
-.sode-lock__who.is-hand .sode-lock__more {
-  opacity: 0;
-  pointer-events: none;
 }
 .sode-lock__more > .pb-icon {
   transition: transform var(--pb-motion-fast) var(--pb-ease);
