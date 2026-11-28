@@ -5,22 +5,25 @@ import { emptyText, bannerStep } from '../gridpanelhead.js';
 test('a grid with no sources or no destinations says so, and how to add them', () => {
   assert.equal(emptyText({ srcs: 3, dsts: 2, canEdit: true }), null);
   assert.deepEqual(emptyText({ srcs: 0, dsts: 0, canEdit: true }), {
-    title: 'This panel shows no sources or destinations',
+    title: 'This panel has no sources or destinations.',
     msg: '',
     edit: true,
+    none: true,
   });
-  assert.equal(emptyText({ srcs: 0, dsts: 4, canEdit: false }).title, 'This panel shows no sources');
-  assert.equal(emptyText({ srcs: 4, dsts: 0, canEdit: false }).msg, 'Only its owner can add them.');
+  assert.equal(emptyText({ srcs: 0, dsts: 4, canEdit: false }).title, 'This panel has no sources.');
+  assert.equal(emptyText({ srcs: 0, dsts: 4, canEdit: false }).none, false);
+  assert.equal(emptyText({ srcs: 4, dsts: 0, canEdit: false, owner: 'Ana' }).msg, 'Ask Ana to add them.');
+  assert.equal(emptyText({ srcs: 4, dsts: 0, canEdit: false, owner: '' }).msg, 'Ask its owner to add them.');
 });
 
 test('banner: a result that went well never takes the place of an error, and counts as held back', () => {
   const err = bannerStep(null, { text: 'Rec B is protected', kind: 'error', key: 'Rec B is protected', held: true }).shown;
-  const ok = bannerStep(err, { text: 'Taken: 1 route', kind: 'ok', key: '5' });
+  const ok = bannerStep(err, { text: '1 route taken', kind: 'ok', key: '5' });
   assert.equal(ok.shown, err);
   assert.equal(ok.back, true);
   // After its X closes it, the next result shows.
-  const after = bannerStep({ ...err, gone: true }, { text: 'Taken: 1 route', kind: 'ok', key: '6' });
-  assert.equal(after.shown.title, 'Taken: 1 route');
+  const after = bannerStep({ ...err, gone: true }, { text: '1 route taken', kind: 'ok', key: '6' });
+  assert.equal(after.shown.title, '1 route taken');
 });
 
 test('banner: a held state goes when it clears; a closed message does not come back', () => {
@@ -40,6 +43,6 @@ test('banner: errors of one group join; another error takes the place', () => {
   s = bannerStep(s, { text: 'Sode did not answer', kind: 'error', key: '4' }).shown;
   assert.equal(s.title, 'Sode did not answer (2 times)');
   // A good result replaces the good result before it.
-  const a = bannerStep(null, { text: 'Taken: 1 route', kind: 'ok', key: '7' }).shown;
-  assert.equal(bannerStep(a, { text: 'Taken: 2 routes', kind: 'ok', key: '8' }).shown.title, 'Taken: 2 routes');
+  const a = bannerStep(null, { text: '1 route taken', kind: 'ok', key: '7' }).shown;
+  assert.equal(bannerStep(a, { text: '2 routes taken', kind: 'ok', key: '8' }).shown.title, '2 routes taken');
 });

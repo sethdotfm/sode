@@ -105,7 +105,7 @@ func TestChromeGridPanelLiveUpdate(t *testing.T) {
 	b.eval(gridXp(12, 2) + `.click(); true`)
 	gridKey(b, "Enter")
 	gridConfirm(b)
-	b.waitFor("the take's result shows in the box with the main page's countdown bar, and the grid did not move", gridMessage+`.startsWith('Taken') && (() => {
+	b.waitFor("the take's result shows in the box with the main page's countdown bar, and the grid did not move", gridMessage+`.includes(' taken') && (() => {
 		const n = document.querySelector('.sode-gridpanel__msg .sode__banner'), bar = n.querySelector('.sode__banner-bar');
 		return !!n.querySelector('.pb-alert--ok') && !!n.querySelector('.sode__banner-x') && !!bar && getComputedStyle(bar).animationName === 'sode-countdown';
 	})() && `+still)

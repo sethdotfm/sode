@@ -2,6 +2,7 @@
 // A staged entry is { dst, level, src }. Staging is keyed by destination and level, so a breakaway goes in one take
 // (video from one source, audio from another). A route (GLOSSARY.md) is one destination and one source with its levels.
 // Instant mode holds nothing staged: a press, a Diagonal or a Drawn line sends at once, with no confirm.
+import { plural } from './gridmodel.js';
 
 // The server accepts 200 routes in one take; the Grid panel stops well under it.
 export const STAGE_MAX = 128;
@@ -29,6 +30,18 @@ export function routesOf(st) {
 }
 
 export const stagedCount = (st) => routesOf(st).length;
+
+// The sources and destinations with a staged route, for the bands through a staged crosspoint. One answer for each
+// staged list, since a paint asks it for every crosspoint that shows.
+const ends = new WeakMap();
+export function stagedEnds(st) {
+  let e = ends.get(st.staged);
+  if (!e) {
+    e = { srcs: new Set(st.staged.map((x) => x.src)), dsts: new Set(st.staged.map((x) => x.dst)) };
+    ends.set(st.staged, e);
+  }
+  return e;
+}
 
 const fail = (st, code, message = '') => ({ ...st, error: { code, message } });
 
@@ -90,6 +103,9 @@ export function stageText(err) {
       return '';
   }
 }
+
+// The result line of a take that Sode answered, count first. An Undo keeps the Buttons panel's "Undone:" form.
+export const resultText = (n, undo) => (undo ? `Undone: ${plural(n, 'route')}` : `${plural(n, 'route')} taken`);
 
 export const startSend = (st) => ({ ...st, busy: true, error: null });
 

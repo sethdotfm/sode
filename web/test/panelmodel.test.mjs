@@ -17,6 +17,7 @@ import {
   destinationState,
   currentSource,
   resultOf,
+  resultShown,
   errorOf,
   RESULT_MS,
   ERROR_MS,
@@ -331,4 +332,37 @@ test('a live update keeps the viewed destination when the new copy still has it,
   assert.deepEqual(kept.view, { dst: 4, levels: [2] });
   assert.equal(carryView(next, { ...next, view: { dst: 4, levels: null } }, [D(5)]).view, null);
   assert.equal(carryView(next, next, [D(4)]), next);
+});
+
+test('Clear drops a failed Result with the plan', () => {
+  const e = env();
+  let st = pressSource(pressDestination(createState(), D(1), e, T0), S(5), e, T0);
+  st = finishTake(startTake(st, e).state, { results: [{ dst: 1, src: 5, result: 'failed' }] }, T0);
+  assert.equal(resultOf(st, 1, T0 + RESULT_MS * 10), 'failed');
+  assert.equal(resultOf(clear(st), 1, T0 + RESULT_MS * 10), null);
+});
+
+test('a failed Result stays, with its words, until the next press on that destination or on Take', () => {
+  const e = env();
+  let st = pressSource(pressDestination(createState(), D(1), e, T0), S(5), e, T0);
+  st = pressSource(pressDestination(st, D(0), e, T0), S(6), e, T0);
+  st = startTake(st, e).state;
+  st = finishTake(
+    st,
+    {
+      results: [
+        { dst: 1, src: 5, result: 'failed', error: 'no confirmation from router: level 1 still on CG3; level 2 still on CG3' },
+        { dst: 0, src: 6, result: 'connected' },
+      ],
+    },
+    T0,
+  );
+  const late = T0 + RESULT_MS * 10;
+  assert.equal(resultOf(st, 0, late), null);
+  assert.deepEqual(resultShown(st, 1, late), { result: 'failed', word: 'Failed', text: 'Failed: no confirmation from router' });
+  assert.equal(resultOf(pressDestination(st, D(0), e, late), 1, late), 'failed', 'a press on another destination keeps it');
+  assert.equal(resultOf(pressDestination(st, D(1), e, late), 1, late), null);
+  assert.equal(resultOf(startTake(st, e).state, 1, late), null);
+  const bare = finishTake(createState(), { results: [{ dst: 2, src: 5, result: 'failed' }] }, T0);
+  assert.equal(resultShown(bare, 2, late).text, 'Failed');
 });

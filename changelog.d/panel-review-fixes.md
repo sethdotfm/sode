@@ -1,0 +1,1 @@
+- Panel pages: Clear now also removes a "Failed" mark, even when that cell's router is down. A Buttons panel keeps its cell size when a status line shows. The Grid take confirm no longer says "X replaces X".

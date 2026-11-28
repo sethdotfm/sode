@@ -54,7 +54,7 @@ func TestChromeGridPanelInstant(t *testing.T) {
 	tallyHas(t, a, ana, 11, 3)
 	tallyHas(t, a, ana, 13, 5)
 	asked("a Diagonal across a protected row")
-	b.waitFor("the banner names the skipped Rec B and is an error", gridMessage+`.startsWith('Taken: 2 routes') && `+gridMessage+`.includes('Rec B') && !!document.querySelector('.sode-gridpanel__msg .pb-alert--error')`)
+	b.waitFor("the banner names the skipped Rec B and is an error", gridMessage+`.startsWith('2 routes taken') && `+gridMessage+`.includes('Rec B') && !!document.querySelector('.sode-gridpanel__msg .pb-alert--error')`)
 	b.waitFor("a screen reader gets the banner's words", `document.querySelector('.sode-gridpanel__said[role="status"]').textContent === `+gridMessage)
 	gridKey(b, "Escape")
 	b.waitFor("Esc drops the picks", `!document.querySelector('.sode-gridpanel__src[data-picked]')`)
@@ -62,12 +62,12 @@ func TestChromeGridPanelInstant(t *testing.T) {
 	b.eval(gridXp(6, 14) + `.click()`)
 	tallyHas(t, a, ana, 14, 6)
 	b.waitFor("the take that went well waits behind the error, counted in the corner", `(() => {
-		const n = document.querySelector('.sode-gridpanel__held');
+		const n = document.querySelector('.sode-gridpanel__msg-held');
 		return `+gridMessage+`.includes('Rec B') && !n.hidden && n.textContent === '1 message not shown';
 	})()`)
 	b.shot("instant-held")
 	b.eval(`document.querySelector('.sode-gridpanel__msg .sode__banner:not(.sode__banner--out) .sode__banner-x').click(); true`)
-	b.waitFor("the X clears the error and the count", gridMessage+` === '' && document.querySelector('.sode-gridpanel__held').hidden`)
+	b.waitFor("the X clears the error and the count", gridMessage+` === '' && document.querySelector('.sode-gridpanel__msg-held').hidden`)
 
 	gridShow(b, 7, 0)
 	px := b.eval(`(() => { const r = ` + gridXp(7, 0) + `.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`).([]any)

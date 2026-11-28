@@ -2,7 +2,7 @@ import { icon } from './core.js';
 import { kioskNow, headHidden, leavesKiosk, fullscreenWords, kioskWords } from './panelchromerules.js';
 import { enterFullscreen, exitFullscreen } from './panelfeel.js';
 
-// Remembered per browser.
+// Remembered per browser. No value is Full width.
 const KEY = 'sode-panel-full';
 
 function setIcon(button, { icon: name, label }) {
@@ -11,19 +11,19 @@ function setIcon(button, { icon: name, label }) {
   button.dataset.pbTip = label;
 }
 
-function initWidth(button, main) {
+// paint is apply() in initChrome, which forces Full width where the button cannot show. stored() is the choice.
+function initWidth(button, paint) {
   const set = (on) => {
-    main.classList.toggle('sode-panels--full', on);
     button.setAttribute('aria-pressed', String(on));
     setIcon(button, { icon: on ? 'chevrons-right-left' : 'chevrons-left-right', label: on ? 'Normal width' : 'Full width' });
+    paint();
   };
-  let on = false;
+  let on = true;
   try {
-    on = localStorage.getItem(KEY) === '1';
+    on = localStorage.getItem(KEY) !== '0';
   } catch {
     // Blocked storage only costs the memory of the choice.
   }
-  set(on);
   button.addEventListener('click', () => {
     on = !on;
     set(on);
@@ -33,6 +33,34 @@ function initWidth(button, main) {
       // See above.
     }
   });
+  return { stored: () => on, set: () => set(on) };
+}
+
+// A Buttons panel's grid is never higher than the window (panels.css). --sode-panel-chrome is the page height that is
+// not the grid: all above it plus the page's bottom padding. Nothing above the grid takes its size from the grid, so
+// the measure does not loop. Returns the measure, for a change that moves the grid without a resize.
+function fitHeight(main, grid, foot) {
+  if (!grid) return () => {};
+  const measure = () => {
+    // A Grid panel's height does not come from this property, and on main it would restyle every crosspoint.
+    if (grid.classList.contains('sode-gridpanel')) return;
+    const mainStyle = getComputedStyle(main);
+    const top = grid.getBoundingClientRect().top - document.documentElement.getBoundingClientRect().top;
+    const pad = parseFloat(mainStyle.paddingBottom) || 0;
+    // The status line and banner box is out of the page while empty, and in it when a line shows. Reserve one line for
+    // it, so a refusal does not resize the cells. A kiosk fixes the box, so it never moves the grid.
+    let room = 0;
+    if (foot && !document.documentElement.hasAttribute('data-sode-kiosk') && getComputedStyle(foot).display === 'none') {
+      const status = foot.querySelector('.sode-panel__status');
+      const line = status ? parseFloat(getComputedStyle(status).lineHeight) : 0;
+      room = (line || 0) + (parseFloat(mainStyle.rowGap) || 0);
+    }
+    main.style.setProperty('--sode-panel-chrome', `${Math.ceil(top + pad + room)}px`);
+  };
+  const seen = new ResizeObserver(measure);
+  for (const n of main.children) if (n !== grid) seen.observe(n);
+  addEventListener('resize', measure);
+  return measure;
 }
 
 // Follows the browser's own state: Esc leaves without a click here. Returns its stop.
@@ -55,7 +83,8 @@ export function initScreen(button) {
 // Kiosk for this open page only. The panel setting and #kiosk=1 give the starting state, and a reload goes back to them.
 // apply() alone hides the header, the Panels link and the Lock bar.
 export function initChrome(ui) {
-  initWidth(ui.full, ui.main);
+  const width = initWidth(ui.full, () => apply());
+  const fit = fitHeight(ui.main, ui.grid, ui.foot);
   initScreen(ui.screen);
   let override = null;
   let base = false;
@@ -73,8 +102,12 @@ export function initChrome(ui) {
     document.documentElement.toggleAttribute('data-sode-kiosk', kiosk); // hides the Lock bar too (panels.css)
     setIcon(ui.kiosk, kioskWords(kiosk));
     ui.kiosk.setAttribute('aria-pressed', String(kiosk));
+    // Without the header there is no Full width button, so the page is full width.
+    ui.main.classList.toggle('sode-panels--full', width.stored() || ui.head.hidden);
+    fit();
     return kiosk;
   };
+  width.set();
   const toggle = () => {
     override = !kioskNow(override, base);
     apply();

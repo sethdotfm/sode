@@ -96,7 +96,7 @@ func TestChromeGridPanelKeys(t *testing.T) {
 	b.waitFor("a second Ctrl+? closes it", `document.getElementById('keys').hidden`)
 
 	realKey(b, "Enter", "Enter", 13)
-	b.waitFor("the confirm lists all three", `document.getElementById('confirm-body').textContent.includes('3 destinations')`)
+	b.waitFor("the confirm lists all three", `document.getElementById('confirm-body').textContent.startsWith('Take 3 routes?')`)
 	gridConfirm(b)
 	tallyHas(t, a, ana, 0, 1)
 	tallyHas(t, a, ana, 1, 2)

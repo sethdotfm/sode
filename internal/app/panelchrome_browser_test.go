@@ -48,13 +48,13 @@ func TestChromePanelHeaderChrome(t *testing.T) {
 	}
 	const kiosk = `document.documentElement.hasAttribute('data-sode-kiosk')`
 
-	b.waitFor("Kiosk, Full screen and Full width are icon buttons of one size, in that order, and the header holds no Panels link",
+	b.waitFor("Kiosk, Full screen and Normal width (Full width is the default) are icon buttons of one size, in that order, and the header holds no Panels link",
 		`(() => {
 			const ids = ['panel-kiosk', 'panel-screen', 'panel-full'];
 			const r = ids.map((i) => document.getElementById(i).getBoundingClientRect());
 			const sameSize = r.every((x) => x.width > 0 && Math.abs(x.width - r[2].width) < 1 && Math.abs(x.height - r[2].height) < 1);
 			const ordered = r[0].left < r[1].left && r[1].left < r[2].left;
-			const icons = ids.every((i) => document.querySelector('#' + i + ' use')?.getAttribute('href') === '#pb-i-' + ({'panel-kiosk': 'monitor', 'panel-screen': 'maximize', 'panel-full': 'chevrons-left-right'}[i]));
+			const icons = ids.every((i) => document.querySelector('#' + i + ' use')?.getAttribute('href') === '#pb-i-' + ({'panel-kiosk': 'monitor', 'panel-screen': 'maximize', 'panel-full': 'chevrons-right-left'}[i]));
 			return sameSize && ordered && icons && !document.querySelector('.sode-panels__head a');
 		})()`)
 	b.waitFor("the Panels link is an icon at the bottom left of the window",

@@ -14,6 +14,7 @@ export function pageUi() {
     signin: $('panels-signin'),
     device: $('panel-device'),
     name: $('panel-instance'),
+    foot: $('panel-foot'),
     status: $('panel-status'),
     update: $('panel-update'),
     updateText: $('panel-update-text'),
