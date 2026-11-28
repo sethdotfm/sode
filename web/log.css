@@ -81,6 +81,11 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
+/* The reason column takes all the spare width, so the other columns keep their content width when the rows on show
+   change. A fixed layout would cancel the min-width above and cut hex bytes. */
+.sode-log__table th[data-sort="why"] {
+  width: 100%;
+}
 .sode-log__time,
 .sode-log__hex {
   font-family: var(--pb-font-mono);

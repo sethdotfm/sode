@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"math"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -58,5 +59,16 @@ func TestChromeLogTableLayout(t *testing.T) {
 		t.Errorf("the Log table is wider than the page: %s", fit)
 	}
 	b.noClip("Bytes column", "#log-rows td.sode-log__hex")
+
+	// The reason column takes the spare width, so the other columns keep their width when the rows on show change.
+	timeW := `document.querySelector('.sode-log__table th[data-sort="time"]').getBoundingClientRect().width`
+	before := b.eval(timeW).(float64)
+	b.eval(`const chip = (w) => [...document.querySelectorAll('#log-kinds button')].find((x) => x.textContent === w);
+		chip('All').click(); chip('Commands').click(); true`)
+	b.waitFor("only the command rows", `document.querySelectorAll('#log-rows tr').length === 6`)
+	b.shot("short-rows")
+	if after := b.eval(timeW).(float64); math.Abs(after-before) > layoutTol {
+		t.Errorf("Time column %.1f px with every row, %.1f px with only short rows", before, after)
+	}
 	b.check()
 }
