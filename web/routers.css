@@ -69,18 +69,16 @@
   border-color: var(--pb-accent);
   box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-accent);
 }
-.sode__rrow:focus-visible {
-  outline: 2px solid var(--pb-accent);
-  outline-offset: 2px;
-}
 .sode__rrow[data-removed] .sode__rrow-title {
   text-decoration: line-through;
 }
+/* A drop place is an accent bar on the chip's side. The chip has no focus rule: patchbay's ring for [tabindex] is the
+   one every other control has. */
 .sode__rrow[data-drop="before"] {
-  box-shadow: inset 3px 0 0 var(--pb-accent);
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-accent);
 }
 .sode__rrow[data-drop="after"] {
-  box-shadow: inset -3px 0 0 var(--pb-accent);
+  box-shadow: inset calc(-1 * var(--pb-accent-bar-w)) 0 0 var(--pb-accent);
 }
 .sode__rrow-prefix {
   color: var(--pb-text-strong);
