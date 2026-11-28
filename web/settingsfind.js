@@ -1,7 +1,7 @@
 // Settings search. A pick of a hit scrolls to it, focuses a control and outlines it with a pulse. Esc clears the box
 // first; a second Esc leaves Settings.
 
-import { $, el, on } from './core.js';
+import { $, el, on, labelText } from './core.js';
 import { buildIndex, find, hitWhere } from './settingsindex.js';
 import { resultStep } from './keys.js';
 
@@ -14,10 +14,10 @@ export function sectionSettings(sec) {
     if (id && label && !out.has(id)) out.set(id, { id, label, node });
   };
   for (const lab of sec.querySelectorAll('label[for]')) {
-    if (!lab.closest('.pb-btn-group')) add(lab.htmlFor, lab.textContent, lab.closest('.sode__field') || lab);
+    if (!lab.closest('.pb-btn-group')) add(lab.htmlFor, labelText(lab), lab.closest('.sode__field') || lab);
   }
-  for (const lab of sec.querySelectorAll('.sode__field-label[id]')) add(lab.id.replace(/-label$/, ''), lab.textContent, lab.closest('.sode__field') || lab);
-  for (const chk of sec.querySelectorAll('.pb-check')) add(chk.querySelector('input')?.id, chk.querySelector('.pb-check__label')?.textContent, chk);
+  for (const lab of sec.querySelectorAll('.sode__field-label[id]')) add(lab.id.replace(/-label$/, ''), labelText(lab), lab.closest('.sode__field') || lab);
+  for (const chk of sec.querySelectorAll('.pb-check')) add(chk.querySelector('input')?.id, labelText(chk.querySelector('.pb-check__label')), chk);
   for (const f of sec.querySelectorAll('[data-find]')) add(f.dataset.find, f.dataset.label || f.textContent, f);
   return [...out.values()];
 }

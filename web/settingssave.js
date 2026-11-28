@@ -2,7 +2,7 @@
 // savereview.js. A change is a difference from the form as opened or last saved. Each save source (savesources.js,
 // and formSource here for the form) gives its own changes. data-apart inputs are not counted.
 
-import { $, el, S, on, onMsg, wsSend, sentence, LINK_DOWN } from './core.js';
+import { $, el, S, on, onMsg, wsSend, sentence, labelText, LINK_DOWN } from './core.js';
 import { fmtTime } from './device.js';
 import { layout } from './layout.js';
 import { askRecheck } from './recheck.js';
@@ -100,8 +100,8 @@ const fieldset = (key) =>
   topFieldset(srcOf(key).node?.(key)) || topFieldset(keyNode(key)) || form.querySelector(`:scope > fieldset[data-section="${sectionOfKey(key)}"]`);
 const sections = () => [...form.querySelectorAll(':scope > fieldset[data-section]')];
 const sectionName = (fs) => fs.querySelector(':scope > legend').firstChild.textContent.trim();
-const checkText = (node) => node?.closest('.pb-check')?.querySelector('.pb-check__label')?.textContent;
-const forText = (node) => node && form.querySelector(`label[for="${node.id}"]`)?.textContent;
+const checkText = (node) => labelText(node?.closest('.pb-check')?.querySelector('.pb-check__label'));
+const forText = (node) => node && labelText(form.querySelector(`label[for="${node.id}"]`));
 
 function place(r) {
   const fs = fieldset(r.key);

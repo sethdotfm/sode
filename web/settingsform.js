@@ -1,7 +1,7 @@
 // Settings form fields: fill from S.cfg, read back for the one Save, check before save, and the live notes and
 // previews beside the fields. settingssave.js wraps the form as formSource, a save source of the one Save.
 
-import { $, el, S, icon, routerData } from './core.js';
+import { $, el, S, icon, routerData, labelText } from './core.js';
 import { levelColor } from './levelview.js';
 import { resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
@@ -110,7 +110,7 @@ export function formProblem(c) {
   const hidden = parseFilter(c.hiddenDsts);
   if (hidden.error) return { text: `Hidden destinations in History: ${hidden.error}.`, node: $('cfg-hidden') };
   const bad = [...fields()].find((f) => intProblem([{ key: f.dataset.key, type: f.dataset.type, value: f.value }]));
-  if (bad) return { text: `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`, node: bad };
+  if (bad) return { text: `${labelText(form.querySelector(`label[for="${bad.id}"]`)) || 'A number field'} must be a whole number.`, node: bad };
   return null;
 }
 

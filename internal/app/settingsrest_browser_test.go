@@ -197,6 +197,18 @@ func TestChromeSettingsRest(t *testing.T) {
 	}
 	b.gapX("Locks grid columns", "--pb-space-5", `[data-section="locks"] .sode__fields > .sode__field`)
 	b.sameMiddle("Main page badge on its check", "#cfg-lock-main + .pb-check__label", "#cfg-lock-main + .pb-check__label .sode__preset-mark")
+
+	// The badge is not part of the setting's name: the Save review's Setting column and the search index leave it out.
+	b.eval(`document.getElementById('settings-save').click(); true`)
+	b.waitFor("the review", `!!document.getElementById('review')?.offsetParent`)
+	if got := text(`[...document.querySelectorAll('#review tbody tr')].map((r) => r.cells[0]).filter((c) => c && c.tagName === 'TD')
+		.map((c) => c.textContent).filter((t) => t.includes('Secured access')).join('|')`); got != "" {
+		t.Errorf("review Setting cells hold the badge text: %q", got)
+	}
+	if got := text(`[...document.querySelectorAll('#review tbody tr')].map((r) => r.cells[0]).find((c) => c?.tagName === 'TD' && c.textContent.startsWith('Main page'))?.textContent || ''`); got != "Main page" {
+		t.Errorf("review row for the Main page lock: %q, want %q", got, "Main page")
+	}
+	b.eval(`[...document.querySelectorAll('#review button')].find((x) => x.textContent === 'Keep editing').click(); true`)
 	b.check()
 }
 
