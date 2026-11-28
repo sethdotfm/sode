@@ -15,3 +15,6 @@
 
 # local hook config written by the impeccable skill installer
 /.github/hooks/impeccable.json
+
+# overnight skill run files
+.scratch/
