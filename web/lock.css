@@ -12,7 +12,7 @@
 }
 
 .sode-lock {
-  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 6.5)); /* the pad and the name box */
+  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 8.5)); /* the pad and the name box: a 24-character name fits */
   align-items: center;
   -webkit-backdrop-filter: blur(0);
   backdrop-filter: blur(0);
@@ -142,8 +142,7 @@
   flex-direction: column;
   flex: none;
   gap: var(--pb-space-2);
-  max-width: calc(100vw - var(--pb-space-9) * 2); /* the lock's own padding */
-  width: calc(var(--pb-control-h-lg) * 8.5);
+  width: var(--sode-lock-w);
 }
 .sode-lock__namefield[hidden] {
   display: none;
