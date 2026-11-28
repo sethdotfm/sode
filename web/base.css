@@ -1443,9 +1443,9 @@ html {
 .sode__field .pb-select-wrap {
   width: 100%;
 }
-/* Short values: the control takes half the column. */
+/* Short values: the control ends on the first column edge of a .sode__fields grid (its column gap is --pb-space-5). */
 :root:not([data-layout="phone"]) .sode__field--half > :is(.pb-input, .pb-select-wrap, .pb-number-wrap) {
-  width: 50%;
+  width: calc(50% - var(--pb-space-5) / 2);
 }
 /* The down arrow is ::before, so the positioned input paints over it. Lift both glyphs. */
 .pb-number-wrap::before,
