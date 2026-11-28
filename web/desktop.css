@@ -44,6 +44,9 @@
   grid-row: 1 / span 2;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: subgrid;
+  /* .sode__group is also the Settings fieldset, with a row gap. A subgrid's own gap moves its second row down, so the
+     routes under Destination would start lower than those under Source. */
+  row-gap: 0;
 }
 .sode__group--dst > .sode__box {
   grid-row: 1;
