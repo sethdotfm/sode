@@ -1525,9 +1525,6 @@ html {
   color: var(--pb-accent-hover);
   text-decoration: none;
 }
-.sode__names--start {
-  justify-content: flex-start;
-}
 .sode__acct {
   margin-bottom: var(--pb-space-3);
   color: var(--pb-text-strong);
@@ -1550,6 +1547,10 @@ html {
   flex-wrap: wrap;
   gap: var(--pb-space-5);
   justify-content: space-between;
+}
+/* After .sode__names, so the modifier wins. */
+.sode__names--start {
+  justify-content: flex-start;
 }
 .sode__savebar {
   background: var(--pb-surface-base);
