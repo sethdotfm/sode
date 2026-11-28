@@ -599,3 +599,8 @@
 [data-layout="phone"] .pb-btn.sode__back {
   margin-left: calc((var(--pb-space-5) + var(--pb-border-w)) * -1);
 }
+
+/* Edit and All presets sit together at the right of the Bookmarks head, not Edit alone in the middle. */
+[data-layout="phone"] .sode__presets > .sode__label {
+  margin-inline-end: auto;
+}

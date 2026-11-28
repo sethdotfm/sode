@@ -1,8 +1,12 @@
 /* Touch screens (pointer: coarse). Last in the cascade on every page, overriding base.css and history.css.
 Patchbay gives pb- fields a 16px floor here (--pb-field-text-min); mobile.css covers the phone's other fields. */
 @media (pointer: coarse) {
-  .sode__search-box {
+  .sode__search {
     --sode-search-h: var(--pb-control-h);
+  }
+  .sode__search > [data-search-clear] {
+    height: var(--sode-search-h);
+    width: var(--sode-search-h);
   }
 }
 

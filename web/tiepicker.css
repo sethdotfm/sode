@@ -1,8 +1,10 @@
 /* The Tie line picker (tiepicker.js). It fills a large part of the screen. Tie lines use --pb-tieline only
    (docs/color-roles.md): the lit wire of each chosen tie line. A Protected or Reserved choice is grey. The state bar
    of a choice is routed or caution. */
+/* The height of what it holds, so Cancel and Take stay near the choices when there are few. */
 #tiepick > .pb-modal {
-  height: min(80vh, 60rem);
+  height: auto;
+  max-height: min(80vh, 60rem);
   width: min(90vw, 90rem);
 }
 .sode-tiepick__body {
@@ -48,6 +50,7 @@
   flex-wrap: wrap;
   gap: var(--pb-space-3);
   justify-content: space-between;
+  margin-bottom: var(--pb-space-3);
 }
 /* The chosen tie line that the take protects: the shield and the words. */
 .sode-tiepick__protect {
@@ -105,11 +108,6 @@
 }
 .sode-tiepick__choice--change {
   box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-status-warn);
-}
-/* The best choice of a step: a neutral double outline and the word Best. It can have any other state. */
-.sode-tiepick__choice--best {
-  outline: calc(var(--pb-border-w) * 3) double var(--pb-text);
-  outline-offset: var(--pb-border-w);
 }
 .sode-tiepick__tierow {
   align-items: center;

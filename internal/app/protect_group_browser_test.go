@@ -61,11 +61,11 @@ func TestChromeProtectGroupInHistory(t *testing.T) {
 	b.waitFor("32 picked", `document.getElementById('protpick-go').textContent === 'Protect 32'`)
 	b.eval(`document.getElementById('protpick-go').click(); true`)
 	confirm("Confirm protect")
-	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('32 Protected')`)
+	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('32 destinations Protected')`)
 	if n := sodeRows(); n != 32*17 {
 		t.Fatalf("Sode's Protect on %d levels, want 32 × 17", n)
 	}
-	b.waitFor("one History row for the 32", top+`.length === 1 && (() => { const r = `+topRow+`; return r.chip === 'Protect' && r.dst === '32 destinations' && r.status === 'ok'; })()`)
+	b.waitFor("one History row for the 32", top+`.length === 1 && (() => { const r = `+topRow+`; return r.chip === 'Protect' && r.dst === '32 destinations' && r.status === 'OK'; })()`)
 	b.eval(`document.querySelector('#history > .sode__hist-row [aria-controls^="hist-folder-"]').click(); true`)
 	b.waitFor("it opens to 32 rows", `document.querySelectorAll('#history .sode__hist-folder > .sode__hist-row').length === 32`)
 	b.waitFor("the Group's destination has the weight of a row's destination chip, not bold", `(() => {
@@ -80,7 +80,7 @@ func TestChromeProtectGroupInHistory(t *testing.T) {
 	b.waitFor("2 picked", `document.getElementById('protpick-go').textContent === 'Protect 2'`)
 	b.eval(`document.getElementById('protpick-go').click(); true`)
 	confirm("Confirm protect")
-	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protected')`)
+	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 destinations Protected')`)
 	b.waitFor("the two actions fold into one row", top+`.length === 1 && (() => { const r = `+topRow+`; return r.dst === '34 destinations' && r.note.includes('2 actions'); })()`)
 
 	// The Group that folded the new action stays open. Undo all, pressed at once, frees all 34 in one Confirm: the

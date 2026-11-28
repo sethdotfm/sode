@@ -78,6 +78,14 @@
 .sode-bar > .sode-inbox__slot[hidden] + .sode-bar__rule--end {
   display: none;
 }
+/* A lost link hides the status (base.css), and the rule before it goes too. */
+[data-conn="down"] .sode-bar > .sode-bar__rule--end {
+  display: none;
+}
+/* With two or more routers the address is empty. As a flex item it still took a gap at the bar's right end. */
+.sode__conn-addr:empty {
+  display: none;
+}
 .sode-bar__panels .sode-panels__logo {
   margin: 0;
 }

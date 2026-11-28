@@ -1,0 +1,8 @@
+- The History filter boxes have the height of the buttons beside them, on the desktop and on the phone. On the phone, Edit sits beside All presets.
+- The Bookmarks strip and the History tools have one height and one text size in each row.
+- In History, Redo and Undo each make one column down the list, also in an open Group.
+- Approval cards keep off the page's scroll bar.
+- The Tie line picker marks Best with its badge only, has more room under each step head, and takes the height of what it holds.
+- Under Destination, a Router lock and a Protect show the badge beside the level strip. Protect and Free are buttons with words.
+- The Protect picker list shows whole rows.
+- Status and result texts read as sentences. Examples: "OK" and "Failed" in History, "2 destinations Protected" and "Inbox is empty". The Tie line picker says "Router A", and a search with no match shows one sentence.

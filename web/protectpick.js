@@ -78,7 +78,7 @@ export function openProtectPick() {
     el('kbd', null, keyLabel('shift+click')),
     ' picks a range. ',
     el('kbd', null, keyLabel('enter')),
-    ' goes on.',
+    ' continues.',
   );
 
   const q = question({

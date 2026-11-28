@@ -14,6 +14,9 @@
 // a tie take). from, to and only make the picker one question of a take (fitQuestion). It shows the steps from to to,
 // and only names the router that the step from must go to.
 
+// destsWord is the head of the destinations of one question: "Router" is plural when the destinations are on more than one.
+export const destsWord = (n, routers) => `${n > 1 ? 'Destinations' : 'Destination'} on ${routers.length > 1 ? 'Routers' : 'Router'} ${routers.join(', ')}`;
+
 // tieOf is the tie line id that hop h of path p feeds, or '' for the last hop.
 const tieOf = (p, h) => p.hops[h]?.tie?.id || '';
 

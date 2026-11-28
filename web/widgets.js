@@ -81,7 +81,7 @@ export function combobox(
     foot.hidden = !long;
     if (!long) return;
     const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${keyLabel('mod+j')}/k`));
+    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${keyLabel('mod+j')} ${keyLabel('mod+k')}`));
   }
 
   function render() {

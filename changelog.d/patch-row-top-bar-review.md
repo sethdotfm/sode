@@ -1,0 +1,8 @@
+- On the main page, the routes under Source and under Destination start on one line.
+- The Last and Next chips are larger, with body text, and have a gap between them. "Last 0–10" fits in the Levels box also on a narrow window.
+- The space from Destination's + to Levels is the space from Source to Destination. Levels has the row's gap to Take. On a very wide window the Levels box stops at 14rem.
+- Select All ends under Clear, with its words on one line.
+- Out of keyboard mode, a long name runs to the edge of its box.
+- A disabled outline button, such as Clear, has the same disabled look as a disabled Take.
+- In the top bar, Inbox has the text size of the status, and the status ends on the bar's right edge. When the link is lost, the line before the status goes too.
+- The Server hover box shows a router error's reason first, such as "connection refused (127.0.0.1:18911)".

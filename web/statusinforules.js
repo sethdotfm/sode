@@ -39,3 +39,13 @@ export function hoverRows(list, max = HOVER_ROWS) {
 
 // The last line of a capped hover box. It points to the router list, which has every router.
 export const moreText = (n) => `And ${n} more. Click the Routers icon to see all.`;
+
+// A router error for the hover box, which cuts a long line at its end (bar.css). Go puts the reason last ("dial tcp
+// 127.0.0.1:18911: connect: connection refused"), so the reason goes first and the router's address after it.
+export function errText(err) {
+  const i = err.lastIndexOf(': ');
+  if (i < 0) return err;
+  const head = err.slice(0, i);
+  const addr = [...head.matchAll(/[\w.-]+:\d+|\[[^\]]+\]:\d+/g)].pop()?.[0];
+  return `${err.slice(i + 2)} (${addr || head})`;
+}

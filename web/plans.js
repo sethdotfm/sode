@@ -298,7 +298,7 @@ export function planBlocked(plan) {
   if (down != null) {
     // With two or more routers the text names the router, the first one too.
     const named = down || (S.routers.length > 1 && S.ws && S.wsState === 'up');
-    const text = named ? `Sode is not connected to router ${routerData(down).prefix}.` : 'Sode is not connected to the router.';
+    const text = named ? `Sode is not connected to Router ${routerData(down).prefix}.` : 'Sode is not connected to the router.';
     return { block: { kind: 'error', title: 'Not connected', text }, prot };
   }
   if (plan.protect) return { block: null, prot };
