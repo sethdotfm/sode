@@ -58,7 +58,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		if name == "" {
 			name = "index.html"
 		}
-		if r.URL.Path != "/" && fs.ValidPath(name) {
+		if static != nil && r.URL.Path != "/" && fs.ValidPath(name) {
 			if _, err := fs.Stat(static, name); errors.Is(err, fs.ErrNotExist) {
 				notFound(w, r)
 				return
@@ -123,6 +123,9 @@ func (a *App) Handler(static fs.FS) http.Handler {
 // goes up one step for each segment of the path, so the link works behind a proxy path too. API paths and callers that
 // do not ask for HTML (scripts, curl) keep the plain reply.
 func notFoundPage(static fs.FS) http.HandlerFunc {
+	if static == nil {
+		return http.NotFound
+	}
 	body, err := fs.ReadFile(static, "notfound.html")
 	const base = `<base href="./">`
 	if err != nil || !bytes.Contains(body, []byte(base)) {
