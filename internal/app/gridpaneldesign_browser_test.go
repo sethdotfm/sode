@@ -93,8 +93,8 @@ func TestChromeGridPanelDesign(t *testing.T) {
 		t.Error("the Destination bar's names do not start at one x past a number column with a --pb-space-3 gap")
 	}
 
-	// The deck's stacks (C2-45): each rule has the same room on both sides, the Levels box and Select all are one
-	// pick high as the search boxes are, and the Filter switch has no box of its own.
+	// The deck's stacks (C2-45). Each rule has the same room on its two sides. The Levels box and Select all are one
+	// pick high, as the search boxes are. The Filter switch has no box of its own.
 	bx := b.boxes("#panel-lvl", ".sode-gridpanel__rule--1", `.sode-gridpanel__find[data-kind="srcs"]`, ".sode-gridpanel__find-mode",
 		".sode-gridpanel__rule--3", ".sode-gridpanel__msg", ".sode-gridpanel__rule--2", "#panel-clear")
 	if len(bx) != 8 {

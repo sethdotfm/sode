@@ -1,6 +1,6 @@
 - The Grid panel page has the sizes of the prototype: larger crosspoints, names, level picks and Take. No text in the deck is smaller than the names.
-- A staged crosspoint on the Grid panel page is a full ring you can see across the room, and its row and column have a band.
+- On the Grid panel page, a staged crosspoint is a full ring that you can see across the room. Its row and its column have a band.
 - On the Grid panel page, the numbers in the Destination bar are one column with a gap before the names.
-- The Grid panel deck has equal room round each rule, the Levels box and Select all line up with the search boxes, and the Find and Filter switch has no box.
+- The Grid panel deck has equal room on each side of a rule. The Levels box and Select all line up with the search boxes. The Find and Filter switch has no box.
 - The Grid panel page says "2 routes taken" after a take, in larger text.
-- A protected row on the Grid panel page is a grey field with its grid lines, so it no longer looks like a hole in the grid.
+- On the Grid panel page, a protected row is a grey field with its grid lines. It no longer looks like a hole in the grid.
