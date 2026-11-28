@@ -397,7 +397,8 @@ html:has(.sode-gridpanel) {
    (amber, as Take), with the word. A pick's wash keeps it. */
 .sode-gridpanel__held {
   color: var(--pb-status-warn);
-  font-size: var(--pb-text-xs);
+  font-size: var(--pb-text-sm);
+  font-weight: var(--pb-weight-bold);
 }
 .sode-gridpanel__dst[data-picked] > .sode-gridpanel__held {
   color: inherit;
@@ -1455,14 +1456,14 @@ html:has(.sode-gridpanel) {
   font-size: var(--pb-text-md);
 }
 /* The count of messages held back (bannerStep), in the box's bottom corner, over the result. */
-.sode-gridpanel__held {
+.sode-gridpanel__msg-held {
   align-self: end;
   font-size: var(--pb-text-sm);
   justify-self: end;
   margin: var(--pb-space-1);
   z-index: 1;
 }
-.sode-gridpanel__held[hidden] {
+.sode-gridpanel__msg-held[hidden] {
   display: none;
 }
 .sode-gridpanel__msg:has(.sode__banner:not(.sode__banner--out)) > .sode-panel__update {

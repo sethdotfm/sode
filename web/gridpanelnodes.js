@@ -180,7 +180,7 @@ export function paintDstMarks(n, d, view) {
   setData(prot, 'pbTip', hold?.tip);
   // Protected wins: a protected destination has nothing staged. Then a press policy's mark (gridpaneladd.js).
   const marked = !p && !view.held(d) && !!view.marks?.dsts.has(d);
-  const heldText = p ? '' : marked ? view.marks.words.name : view.held(d) ? 'staged' : '';
+  const heldText = p ? '' : marked ? view.marks.words.name : view.held(d) ? 'Staged' : '';
   const h = !!heldText;
   setText(held, heldText);
   setData(held, 'mark', marked ? '' : undefined);

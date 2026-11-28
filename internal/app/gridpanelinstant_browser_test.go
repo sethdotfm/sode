@@ -62,12 +62,12 @@ func TestChromeGridPanelInstant(t *testing.T) {
 	b.eval(gridXp(6, 14) + `.click()`)
 	tallyHas(t, a, ana, 14, 6)
 	b.waitFor("the take that went well waits behind the error, counted in the corner", `(() => {
-		const n = document.querySelector('.sode-gridpanel__held');
+		const n = document.querySelector('.sode-gridpanel__msg-held');
 		return `+gridMessage+`.includes('Rec B') && !n.hidden && n.textContent === '1 message not shown';
 	})()`)
 	b.shot("instant-held")
 	b.eval(`document.querySelector('.sode-gridpanel__msg .sode__banner:not(.sode__banner--out) .sode__banner-x').click(); true`)
-	b.waitFor("the X clears the error and the count", gridMessage+` === '' && document.querySelector('.sode-gridpanel__held').hidden`)
+	b.waitFor("the X clears the error and the count", gridMessage+` === '' && document.querySelector('.sode-gridpanel__msg-held').hidden`)
 
 	gridShow(b, 7, 0)
 	px := b.eval(`(() => { const r = ` + gridXp(7, 0) + `.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`).([]any)

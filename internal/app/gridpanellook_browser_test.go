@@ -203,7 +203,13 @@ func TestChromeGridPanelLook(t *testing.T) {
 	})()`)
 	held := `[...document.querySelectorAll('.sode-gridpanel__held:not([hidden])')].map((n) => n.parentNode.dataset.dst + ':' + n.textContent).join(',')`
 	note := `[...document.querySelectorAll('.sode-gridpanel__note > :not([hidden])')].map((n) => n.textContent).join('|')`
-	b.waitFor("the staged destination says so, and the note counts it with no help words", held+` === '3:staged' && `+note+` === '1 staged'`)
+	b.waitFor("the staged destination says so, and the note counts it with no help words", held+` === '3:Staged' && `+note+` === '1 staged'`)
+	// The row word is not the banner's held count: it keeps no corner placement and is bold at text-sm.
+	sm := b.tokenPx(".sode-gridpanel__dst", "--pb-text-sm")
+	b.waitFor("the Staged word is bold text-sm in the name's flow", fmt.Sprintf(`(() => {
+		const s = getComputedStyle(document.querySelector('.sode-gridpanel__dst[data-dst="3"] > .sode-gridpanel__held'));
+		return Math.abs(parseFloat(s.fontSize) - %f) < 0.5 && Number(s.fontWeight) >= 600 && s.justifySelf !== 'end' && s.zIndex === 'auto';
+	})()`, sm))
 	// Over a crosspoint the cursor is a ring. All three count from time zero (gridpanelnodes.js joinPulse).
 	b.eval(`(() => {
 		const r = ` + gridXp(6, 5) + `.getBoundingClientRect();
