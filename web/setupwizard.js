@@ -29,6 +29,7 @@ import {
   refillAnswers,
   connectionTitle,
   doneParts,
+  FIRE_MODE_TIP,
 } from './setupwizardrules.js';
 import { readTab, writeTab } from './store.js';
 
@@ -94,10 +95,21 @@ function choice(name, label, opts, hint = '') {
 }
 
 const section = (title, sub, ...inner) => sectionAs(null, title, sub, ...inner);
+// title is the heading text, or [text, a node after the heading] such as a help button.
 function sectionAs(id, title, sub, ...inner) {
-  const h = el('h3', { class: 'sode-setup__h', id }, title);
-  return el('div', { class: 'sode-setup__section' }, h, sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
+  const [text, after] = Array.isArray(title) ? title : [title, null];
+  const h = el('h3', { class: 'sode-setup__h', id }, text);
+  const head = after ? el('div', { class: 'sode-setup__head' }, h, after) : h;
+  return el('div', { class: 'sode-setup__section' }, head, sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
 }
+
+// A help button: it takes focus, so its tip shows from the keyboard too.
+const helpButton = (id, label, tip) =>
+  el(
+    'button',
+    { type: 'button', class: 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__help', id, 'aria-label': label, 'data-pb-tip': tip },
+    icon('circle-help'),
+  );
 const row = (...kids) => el('div', { class: 'sode-setup__row' }, ...kids);
 const row3 = (...kids) => el('div', { class: 'sode-setup__row sode-setup__row--3' }, ...kids);
 const strong = (text) => el('span', { class: 'pb-text-strong' }, text);
@@ -242,7 +254,7 @@ const VIEW = {
     ),
     sectionAs(
       'setup-fireMode-label',
-      'Multi destination take behavior',
+      ['Multi destination take behavior', helpButton('setup-fireMode-help', 'About Multi destination take behavior', FIRE_MODE_TIP)],
       'Some routers support staging changes for taking many routes simultaneously.',
       row(
         choice(

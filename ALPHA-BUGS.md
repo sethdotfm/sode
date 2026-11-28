@@ -200,7 +200,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-15: Multi destination take behavior needs a help icon with a tooltip
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Router step. web/setupwizard.js:229-247 (`sectionAs('setup-fireMode-label', 'Multi destination take behavior', ...)`, `choice('fireMode', ...)`), web/importremap.js:152 (a help icon with a tip), web/vendor/patchbay/icons, web/tooltip.js, docs/agents/salvos.md.
 - **Reported:** "Add question mark icon with tooltip explaining the difference."
 - **Now:** The heading is a plain `h3` with the sub text "Some routers support staging changes for taking many routes simultaneously." The two choices are "One after another" (`sequential`) and "Router salvo" (`native`). Nothing explains the difference between them. The only help icon pattern in the code is `icon('circle-help')` with `pb-tip--end` (web/importremap.js:152). The facts for a tip are in docs/reference.md:115 and docs/agents/salvos.md: sequential sends one connect after another (about 16 ms each on the Ultrix); native uses the router's own salvos, a group send that needs a router that supports it, and a salvo group number that nothing else uses.
@@ -208,7 +208,17 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: A real focusable button (`pb-btn--ghost pb-btn--icon`, help icon) after the heading, with a `data-pb-tip` that says what each mode does. The same button goes next to the setting in Settings > Routers (web/index.html:524). The only help icon today (web/importremap.js:152) is a span that takes no focus; do not copy it. The agent writes the tip in STE; the owner checks the words at review.
 - **Open questions:** none.
 - **Proof:** Screenshot of the Router step with the tip open at 1920x1080. TestChromeSetupWizard check that the icon exists, is focusable, and its tip is not clipped (ties to AB-09). ste_test passes on the new words.
+  - Reproduced on 8e9c6761 with swp08sim and a new config: the Router step's "Multi destination take behavior" is a plain heading with nothing that says how "One after another" and "Router salvo" differ (before-router.png). Settings > Routers > Takes has the same gap at "Multi destination".
+  - Built on r2-tips (AB-09, 68eea7da): this branch was rebased on it before this entry, so the tip is the fixed tip on the body.
+  - Given: `TestChromeSetupFireModeHelp` (new, internal/app/setupwizard_browser_test.go, with `mouseFlags`). In the wizard and in Settings > Routers: the help button sits right after its heading or label, is a `pb-btn--ghost pb-btn--icon` button with the circle-help icon, takes focus, and on hover its tip shows whole inside the window and narrower than a third of it (`tipShows` from tooltip_browser_test.go). Before the fix: `setupwizard_browser_test.go:246: timed out waiting for the help button sits after the heading`. Passes after.
+  - Given: node test "Settings > Routers has the same Multi destination help tip as the wizard" (web/test/setupwizardrules.test.mjs). `TestSTE` passes on the new words.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-15/: before-router.png, after-router-help-tip.png (the tip open, past the bottom of the modal's body and not cut), after-settings-help-tip.png.
 - **Notes:**
+  - What changed: `helpButton` (web/setupwizard.js:107) is a focusable `pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__help` button with `icon('circle-help')` (already in the vendored lucide sprite, so nothing to copy), an `aria-label` and a `data-pb-tip`. `sectionAs` takes `[text, node]` to put it after the heading in a `.sode-setup__head` row (web/setup.css). Settings: the fireMode field's label line now holds the label and the same button in `.sode__label-help` (web/index.html:523); the label keeps `for` and gets `sode__field-label` for its look. web/base.css:1426: `.sode__label-help`, and `.sode__help` with a negative block margin (so the line keeps its height) and a 22rem wrapped tip, as Export & Import's help does.
+  - Tip words (STE, `FIRE_MODE_TIP`, web/setupwizardrules.js:86): "One after another: Sode sends each route as its own connect, about 16 ms each. Router salvo: the router keeps every route, then switches them all together on one command. Use Router salvo only on a router that has router salvos, with a router salvo group that nothing else uses." From docs/reference.md:115 and docs/agents/salvos.md. The owner checks the words at review. index.html has its own copy (static HTML); the node test keeps the two the same.
+  - docs/agents/browser-checks.md lists the new setup checks of AB-08, AB-18 and this entry.
+  - Checks: `go test -short ./...` all ok (run with -count=1); `go vet ./...` ok; staticcheck ok; `node --test 'web/test/*.test.mjs'` # pass 2007, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChrome(SetupFireModeHelp|SetupWizard|TipsOverModalEdge|SetupDoneNextSteps|SetupTakeControlKeepsAnswers|SetupWaitPage|RunSetupAgain|SetupRestore|BrandAccent|BrandBorderSwatchPicker)$'` ok.
+  - Commit: this commit.
 
 ### AB-16: Access step: less spacing, alternating row colors
 

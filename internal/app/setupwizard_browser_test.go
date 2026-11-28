@@ -196,3 +196,65 @@ func TestChromeSetupDoneNextSteps(t *testing.T) {
 		<-done
 	}
 }
+
+// Multi destination take behavior has a help button in the wizard and next to the setting in Settings > Routers. Its
+// tip says what each choice does. The button takes focus, and its tip shows whole inside the window (tipShows,
+// tooltip_browser_test.go).
+func TestChromeSetupFireModeHelp(t *testing.T) {
+	b := startBrowser(t, mouseFlags...)
+	sim := startSim(t)
+	a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = sim })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	type_ := func(id, text string) {
+		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	}
+	next := `document.getElementById('setup-next')`
+	helpOK := func(where, id string) {
+		b.waitFor(where+": a focusable help button with the tip", `(() => {
+			const h = document.getElementById('`+id+`');
+			if (!h || h.tagName !== 'BUTTON' || h.tabIndex < 0 || !h.classList.contains('pb-btn--ghost') || !h.classList.contains('pb-btn--icon')) return false;
+			if (!h.querySelector('use[href$="circle-help"]') || !/One after another/.test(h.dataset.pbTip) || !/Router salvo/.test(h.dataset.pbTip)) return false;
+			h.focus();
+			return document.activeElement === h;
+		})()`)
+		b.waitFor(where+": the help button in the window", `(() => {
+			const h = document.getElementById('`+id+`');
+			h.blur();
+			h.scrollIntoView({ block: 'center', behavior: 'instant' });
+			const r = h.getBoundingClientRect();
+			return r.top >= 0 && r.bottom <= innerHeight;
+		})()`)
+		mouseTo(b, "#"+id)
+		b.waitFor(where+": the tip shows whole, wrapped in a column", tipShows("#"+id)+` && document.querySelector('body > .sode__tip').getBoundingClientRect().width < innerWidth / 3`)
+	}
+
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("Welcome", `document.getElementById('setup-title')?.textContent === 'Set up Sode'`)
+	type_("setup-name", "Ada")
+	type_("setup-pin", "2468")
+	type_("setup-pin2", "2468")
+	b.waitFor("Next", `!`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("Router", `!!document.getElementById('setup-router')`)
+	b.waitFor("the help button sits after the heading", `document.getElementById('setup-fireMode-label').nextElementSibling?.id === 'setup-fireMode-help'`)
+	helpOK("wizard", "setup-fireMode-help")
+	b.shot("setup-firemode-help")
+
+	b.waitFor("Router answers", `!`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("Access", next+`.textContent === 'Finish' && !`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("Done", `!!document.getElementById('setup-open')?.offsetParent`)
+	b.eval(`document.querySelector('.sode-setup__next a[data-section="routers"]').click(); true`)
+	b.waitFor("Settings > Routers", `document.documentElement.dataset.view === 'settings' && !!document.getElementById('cfg-rt-fireMode')?.offsetParent`)
+	b.waitFor("the help button sits after the Multi destination label", `document.querySelector('label[for="cfg-rt-fireMode"]').nextElementSibling?.id === 'cfg-rt-fireMode-help'`)
+	helpOK("Settings", "cfg-rt-fireMode-help")
+	b.check()
+}

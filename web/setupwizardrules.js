@@ -81,6 +81,11 @@ export function doneParts(name, address, preset, linked) {
   ];
 }
 
+// The help tip of Multi destination take behavior, in the wizard and in Settings > Routers (web/index.html,
+// cfg-rt-fireMode-help, which a node test keeps the same). Facts: docs/reference.md (SODE_FIRE_MODE), docs/agents/salvos.md.
+export const FIRE_MODE_TIP =
+  'One after another: Sode sends each route as its own connect, about 16 ms each. Router salvo: the router keeps every route, then switches them all together on one command. Use Router salvo only on a router that has router salvos, with a router salvo group that nothing else uses.';
+
 // '' when SODE_* did not fill it.
 export function envHint(setup, key) {
   const name = setup?.env?.[key];

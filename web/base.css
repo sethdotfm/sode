@@ -1422,6 +1422,21 @@ html {
   color: var(--pb-text);
   font-weight: var(--pb-weight-medium);
 }
+/* A field label with a help button after it (Multi destination in Settings > Routers). */
+.sode__label-help {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+/* A help button keeps the line height of the label or heading it follows. */
+.sode__help {
+  margin-block: calc(-1 * var(--pb-space-3));
+}
+/* A help button's tip is a few sentences: it wraps in a column, as Export & Import's help does. */
+.sode__help[data-pb-tip]::after {
+  white-space: normal;
+  width: 22rem;
+}
 .sode__field .pb-input,
 .sode__field .pb-select,
 .sode__field .pb-number-wrap,

@@ -149,6 +149,12 @@
   color: var(--pb-text-strong);
   margin: 0;
 }
+/* A heading with a help button after it. */
+.sode-setup__head {
+  display: flex;
+  align-items: center;
+  gap: var(--pb-space-2);
+}
 .sode-setup__sub {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-sm);

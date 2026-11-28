@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   STEPS,
   startAnswers,
@@ -16,6 +17,7 @@ import {
   refillAnswers,
   connectionTitle,
   doneParts,
+  FIRE_MODE_TIP,
 } from '../setupwizardrules.js';
 
 const filled = () => ({
@@ -198,4 +200,13 @@ test('Done before the router answers says Sode keeps trying', () => {
     plain(doneParts('Seth', '10.0.0.5:8910', 'Secured access', false)),
     'Congratulations!\nYou are signed in as Seth with Secured access permissions. The router at 10.0.0.5:8910 has not answered yet, and Sode keeps trying.',
   );
+});
+
+test('Settings > Routers has the same Multi destination help tip as the wizard', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const m = html.match(/id="cfg-rt-fireMode-help"[^>]*data-pb-tip="([^"]*)"/);
+  assert.ok(m, 'no help button by Multi destination');
+  assert.equal(m[1], FIRE_MODE_TIP);
+  assert.ok(FIRE_MODE_TIP.includes('One after another'));
+  assert.ok(FIRE_MODE_TIP.includes('Router salvo'));
 });
