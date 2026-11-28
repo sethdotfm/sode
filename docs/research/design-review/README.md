@@ -29,7 +29,7 @@ Fix these first. Each one clears entries in several slices.
 7. **Router names are built in three places.** That gives "Router A Router A" in the Lost link banner and doubled names on /log (A2-08, C1-12).
 8. **The lock Name box is 80px wider than the PIN pad** (A1-02, C1-26).
 9. **Facts kept only in tooltips.** Tips are not shown on touch screens, and some tips cover the field they describe (B2-22, B2-23, A1-14, C1-10).
-10. **4K.** The root font stops growing at 1920, so at 3840 the text is 16px and Settings is a 640px column (A2-06, B2-27, B1-32, A1-15, A1-27, C2-37). The build measures a 100% root, but AGENTS.md says 125%.
+10. **4K at DPR 1.** The root is 100% up to 2400px wide, then grows to 125% (20px) at 3840 (`base.css:5-20`, as AGENTS.md says). A 4K desk monitor at 200% (the 4k2x shots) looks right. A wall TV or a big monitor with no OS scaling (3840 CSS px) gets 16.25px text and an 800px Settings column (A2-06, B1-32, A1-15, A1-27, C2-37). See owner call 1.
 
 ## The worst problems, by slice
 
@@ -40,20 +40,29 @@ Fix these first. Each one clears entries in several slices.
 - **C1:** the Log table is wider than the page, so Bytes is cut (C1-01). With the Server link down, /log, /panels and the editor show only a red icon (C1-02). The uptime bars add 288 Tab stops (C1-03).
 - **C2:** a staged Grid crosspoint is a faint arc, and "Take" on an armed Buttons panel is 2:1 contrast (C2-42, C2-34). A failed take shows a 14px cross for 2 seconds (C2-35). The Grid is 11 to 40% smaller than the prototype, with 9.9px text (C2-44).
 
+## Second pass
+
+A second Fable pass checked the findings against the code (`second-pass.md`). It confirmed 18 of the high entries. It corrected or dropped others: wrong token or class names (A2-17, B1-09, C1-17), glossary clashes (C2-05, C2-24), and B2-27's 4K numbers. It found conflicts between entries, 15 groups of duplicates to merge, gaps in coverage, and file overlaps in the plan. Read `second-pass.md` before you start any stream. It takes priority over the slice files where they disagree.
+
 ## Settled without the owner
 
-- The owner's own words win over a reviewer's rewording: AB-11's heading "Sode Server Name and Theme Color" stays (not A1-16's "Site name…"), and AB-17's "Congratulations!" Done text stays (not A1-18's rewrite).
-- The Grid matches the `prototype/panels` sizes (owner's rule), so C2-44 goes ahead. Check the speed at 2500x750 after it.
-- Glossary terms stay. Where a reviewer renames a glossary term (for example C2-24 "Take guard"), the glossary wins unless the owner says otherwise.
+- The owner's words win over a reviewer's rewording. These stay: AB-11's heading "Sode Server Name and Theme Color", AB-17's Done text, AB-14's "Connection: Add your first router", AB-12's "This user will be the administrator.", and AB-23's "Connected: N sources and M destinations discovered." Drop the A1-16 rename, those three lines of A1-18, and B1-19's rewording (its error mapping stays).
+- AB-22 and AB-25 are settled. Drop B1-16's move of Find, and A2-21's new Router button label.
+- Glossary terms stay: drop C2-24's "Ask for an instance name", C2-05's "Sign-in" and C2-39's "Name of this screen". "Take guard" (C2-24) is not a glossary term, but it is a new wording with no need behind it, so drop it.
+- Dialog footers: a lone Close or Done goes on the right, with one rule in `web/modal.js` (`:only-child { margin-inline-start: auto }`), not per dialog. This replaces C2-14 and B2-18.
+- `pb-btn--sm` stays full height, by design (`base.css:109-117`). Drop it only from standalone buttons (B2-15), not B1-14's option 2.
+- Disabled buttons use patchbay's own disabled look (A1-12 over A2-22).
+- A1-10's drop-down name list goes ahead, with a check that the pad still fits at 1366x768. Its order is A1-10, A1-11, A1-28.
+- The Grid matches the `prototype/panels` sizes (owner's rule), so C2-44 goes ahead after owner call 1. Check the speed at 2500x750 after it.
 
-## Owner calls (two)
+## Owner calls, with Fable's recommendation
 
-1. **4K scaling.** Make the root font grow with the viewport (B2-27: `clamp(100%, 0.42vw + 0.5rem, 200%)`, about 24px at 3840), or keep 125% fixed and widen only the columns (B1-32, A1-15)? This one change touches every page.
-2. **Buttons panel width.** Default to full width on panel pages, so a wall panel fills a 4K screen, with "Narrow" as the header button (C2-37)?
+1. **4K scaling: keep scaling by the root font, and make the existing rule steeper.** Do not use B2-27's clamp. The root becomes 150% at 3840x2160 (24px; Grid 21.6px). It stays 16px up to 2400, and ultrawides are bounded by height. Change `web/base.css:13-20` to `clamp(100%, 100% + (min(100vw, 177.78vh) - 2400px) / 180, 150%)` (Grid: `clamp(90%, 90% + (min(100vw, 177.78vh) - 2400px) / 200, 135%)`). Update AGENTS.md, docs/agents/web-layout.md, docs/panels-design.md and `gridpanelscale_browser_test.go`. Check at 2560x1440, 3440x1440 and 3840x2160.
+2. **Buttons panel width: full width by default, fitted to the window height.** A kiosk or a panel with no title bar has no button today, so wall panels are stuck at the 1600px cap. Default `sode-panel-full` to on when it has no value (the key and its values do not change). Force it on in kiosk mode and with no title bar. Cap the grid's width by the window height so it does not scroll. Let cell text grow with the cell, with the panel's Font size as the multiplier. Keep the existing "Normal width" and "Full width" words. Then do C2-36.
 
 ## Proposed parallel work
 
-Each workstream owns its files, so agents can run at the same time. Run stream 1 first, or merge it first, since it touches `base.css` rules the others build on.
+Stream 1 must merge before the others start. It also takes `modal.js`, `tooltip.js`, the `--sm` decision, a test that every `var(--pb-*)` is defined, the 4K rule and `routerName` (A2-08 and C1-12). The streams still share some files (`base.css`, `index.html`, `lock.css`, `history.css`, `panels.css`, `settingssave.js`, `setupwizardrules.js`), so give each shared entry to one stream as `second-pass.md` lists, and expect a few hand merges. Streams that change Go (A1-18 `pin.go`, C1-13, C1-25) run `go test -short ./...`. Each stream greps `TestChrome*` and `web/test` for the strings and selectors it changes, runs the STE and vocabulary tests, and adds a `changelog.d` fragment.
 
 | # | Stream | Entries | Main files |
 | --- | --- | --- | --- |
@@ -67,4 +76,6 @@ Each workstream owns its files, so agents can run at the same time. Run stream 1
 | 8 | Panels list, dialogs, editor | C2-01 to C2-33 | web/panels*.js, editor*.js, panels.css |
 | 9 | Panel pages: Buttons and Grid | C2-34 to C2-53 | web/panelview.js, gridpanel*.js, gridpanel.css |
 
-Streams 3 and 6 both edit `web/lock.css`, in different parts. Merge them one after the other.
+| 10 | Gap captures and review | 2560x1440, 3440x1440, 1280x800 and 1366x768 touch, phone Settings and History, dark contrast, keyboard focus order, reduced motion, features with no finding (second-pass.md, Gaps) | scratchpad only; findings go in this folder |
+
+Run stream 10 while streams 4 to 9 run, so its findings land in the same round.
