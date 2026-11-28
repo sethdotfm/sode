@@ -122,7 +122,7 @@ export function initDeviceSettings({ form, reindex }) {
   let acctUser = '';
   let lastAccess = null;
   let noUsers = false;
-  function paintAccount(L) {
+  function paintMyUser(L) {
     acctUser = L.user || '';
     noUsers = !L.user && !S.users?.length;
     const acct = !!L.user || signInOffered(L) || noUsers;
@@ -141,11 +141,11 @@ export function initDeviceSettings({ form, reindex }) {
   }
   on('access', (L) => {
     lastAccess = L;
-    paintAccount(L);
+    paintMyUser(L);
   });
   // The user list comes with the hello, which can come after the access state.
   on('hello', () => {
-    if (lastAccess && noUsers !== (!lastAccess.user && !S.users?.length)) paintAccount(lastAccess);
+    if (lastAccess && noUsers !== (!lastAccess.user && !S.users?.length)) paintMyUser(lastAccess);
   });
   $('lock-btn').addEventListener('click', () => emit('localLock'));
   $('account-pin').addEventListener('click', () => emit('changePin'));

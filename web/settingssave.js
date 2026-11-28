@@ -189,7 +189,9 @@ function paintPresetMarks() {
     done.add(at);
     const mark = el('span', 'pb-badge sode__preset-mark', name);
     // In the label: next to a field or a check, the badge would be one more grid or flex item and break the row.
-    const host = src.node ? (at.matches('.pb-check') ? at.querySelector('.pb-check__label') : at.querySelector(':scope > label, :scope > .sode__label')) || at : at;
+    const host = src.node
+      ? (at.matches('.pb-check') ? at.querySelector('.pb-check__label') : at.querySelector(':scope > label, :scope > .sode__label')) || at
+      : at;
     host.append(mark);
   }
 }

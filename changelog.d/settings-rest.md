@@ -1,0 +1,6 @@
+- In Settings, an Access preset badge sits next to its label, and the Locks grid keeps its two columns.
+- In Settings search, the selected result does not move sideways, and "No match" does not push the list of sections down.
+- Settings shows key facts as hints under their control, not in tips. For example, Page locks needs a user with a PIN, and 0 turns Auto-lock off. A bad level color shows its message at once.
+- In This browser, the my-default buttons are outline buttons: Save for me, and Clear mine where you have a default.
+- The Clear History confirm buttons have the usual gap, the theme color preview boxes are one size, and the foot link says Communication Log.
+- With no users, My user says how to add one and shows no Lock. A guest's My user says that a guest acts with Guest Rights.

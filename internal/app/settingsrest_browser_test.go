@@ -13,9 +13,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The rest of the Settings form at 1920x1080: Access preset badges, the search list, the theme color preview, the
-// hints that hold key facts, the level color error, the my-default buttons, the Clear History confirm and the
-// Communication Log link.
+// The rest of the Settings form at 1920x1080, signed out and then as an Administrator.
 func TestChromeSettingsRest(t *testing.T) {
 	b := startBrowser(t)
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
@@ -190,7 +188,8 @@ func TestChromeSettingsRest(t *testing.T) {
 			if (p.matches('.sode__fields, [role="group"]')) out.push(m.textContent + ' in ' + (p.className || p.getAttribute('role')));
 		}
 		const g = document.querySelector('[data-section="locks"] .sode__fields');
-		const cols = getComputedStyle(g).gridTemplateColumns.split(' ').length;
+		// auto-fit gives an empty track 0px.
+		const cols = getComputedStyle(g).gridTemplateColumns.split(' ').filter((w) => parseFloat(w) > 0).length;
 		if (cols !== 2) out.push('Locks grid has ' + cols + ' columns');
 		return out.join('; ');
 	})()`); got != "" {
