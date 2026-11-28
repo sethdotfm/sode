@@ -339,5 +339,15 @@ func TestChromeGridPanelScale(t *testing.T) {
 			document.querySelector('.sode-gridpanel__scroll').scrollLeft === window.__left;
 	})()`)
 	b.shot("scale-pins")
+	// The Grid page's root is 90% and grows to 135% at 3840 by 2160, bound by the window height (base.css). It comes last,
+	// since the grid keeps the nodes a big window needed.
+	for _, s := range []struct {
+		w, h int
+		px   float64
+	}{{1280, 800, 14.4}, {2500, 750, 14.4}, {2560, 1440, 15.2}, {3440, 1440, 15.2}, {3840, 2160, 21.6}} {
+		sizeTo(b, s.w, s.h)
+		rootIs(b, fmt.Sprintf("the Grid page at %dx%d", s.w, s.h), s.px)
+	}
+	b.shot("scale-3840x2160")
 	b.check()
 }
