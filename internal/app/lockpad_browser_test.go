@@ -68,6 +68,20 @@ func TestChromeLockPadLayout(t *testing.T) {
 		}
 	}
 
+	// The list's big scroll bar shows on top of the list, not under it.
+	barOnTop := func(what, list string) {
+		t.Helper()
+		bar := fmt.Sprintf(`document.querySelector(%q).parentElement.querySelector(':scope > .sode-bigscroll')`, list)
+		b.waitFor(what+": the list's scroll bar shows", `!(`+bar+`)?.hidden`)
+		if got := b.eval(`(() => {
+			const bar = ` + bar + `;
+			const r = bar.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+			return bar.contains(hit) ? '' : 'under ' + (hit?.className || hit?.tagName);
+		})()`); got != "" {
+			t.Errorf("%s: the list's scroll bar: %v", what, got)
+		}
+	}
+
 	column := func(where string) {
 		t.Helper()
 		pad, name := one(".sode-lock__pad"), one(".sode-lock .sode-lock__name")
@@ -161,6 +175,7 @@ func TestChromeLockPadLayout(t *testing.T) {
 		if shown := list.height() / item.height(); shown < rows {
 			t.Errorf("%s: the list shows %.1f rows, want %.1f or more", where, shown, rows)
 		}
+		barOnTop(where, "#lock-name-list")
 		b.eval(`document.getElementById('lock-name').blur()`)
 		b.waitFor(where+": the list closed", `!`+listOpen)
 	}
@@ -170,6 +185,33 @@ func TestChromeLockPadLayout(t *testing.T) {
 	size(1366, 768)
 	column("1366x768")
 	listDrops("1366x768", 5)
+
+	// A2-07: the Approval popup's list is not cut by the dialog.
+	size(1920, 1080)
+	b.eval(`document.querySelector('.sode-lock__cancel').click()`)
+	b.waitFor("the Lock is gone", `document.querySelector('.sode-lock').hidden`)
+	b.eval(`import('/approval.js').then((m) => m.askApproval('Saving these changes', 'Administrator', () => true))`)
+	b.waitFor("the Approval list is open", `!document.getElementById('approval-name-list')?.hidden && !!document.getElementById('approval-name-list').offsetParent`)
+	if cut := b.eval(`(() => {
+		const l = document.getElementById('approval-name-list'), r = l.getBoundingClientRect(), out = [];
+		for (let a = l.parentElement; a; a = a.parentElement) {
+			const s = getComputedStyle(a);
+			if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+			const p = a.getBoundingClientRect();
+			if (r.top < p.top - 0.5 || r.bottom > p.bottom + 0.5 || r.left < p.left - 0.5 || r.right > p.right + 0.5) out.push(a.className);
+		}
+		return out.join('; ');
+	})()`); cut != "" {
+		t.Errorf("the Approval name list is cut by %v", cut)
+	}
+	if n := b.eval(`document.getElementById('approval-name-list').children.length`); n != float64(12) {
+		t.Errorf("the Approval list has %v names, want 12", n)
+	}
+	barOnTop("Approval", "#approval-name-list")
+	// The body does not scroll for the list, so it shows no bar of its own.
+	if n := b.eval(`[...document.getElementById('approval-name').closest('.pb-modal').querySelectorAll(':scope > .sode-bigscroll')].filter((x) => x.getClientRects().length).length`); n != float64(0) {
+		t.Errorf("the Approval body shows %v scroll bars for the open list, want none", n)
+	}
 
 	// C1-26: the phone keeps the one width.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": true})
