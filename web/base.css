@@ -449,34 +449,17 @@ html {
 .sode__brand-caution[hidden] {
   display: none;
 }
-/* tooltip.js moves a tip that would be cut off by the window or a box that clips: sideways by --sode-tip-x, and to the
-   other side with data-sode-tip-flip. It measures the tip's text in .sode__tip-measure, so that copy has the tip's font
-   and padding. */
+/* tooltip.js draws every data-pb-tip in a fixed element on the body (.sode__tip), so no modal or scroller cuts it off.
+   So patchbay's ::after makes no box. Its rules stay, since tooltip.js reads the tip's side, edge and wrap from them,
+   and a rule with display: none on the ::after hides the tip. The .sode__tip copies the font of the patchbay tip. */
 [data-pb-tip]::after {
-  translate: var(--sode-tip-x, 0px) 0;
+  content: none;
 }
-[data-pb-tip][data-sode-tip-flip]:not(.pb-tip--top)::after {
-  bottom: calc(100% + var(--pb-space-2));
-  top: auto;
-}
-.pb-tip--top[data-pb-tip][data-sode-tip-flip]::after {
-  bottom: auto;
-  top: calc(100% + var(--pb-space-2));
-}
-/* No room on either side: the floating tip shows it. */
-[data-pb-tip][data-sode-tip-float]::after {
-  display: none;
-}
-.pb-tip.sode__tip-measure {
+.pb-tip.sode__tip {
   font-family: var(--pb-font);
   font-weight: var(--pb-weight-normal);
-  left: 0;
   letter-spacing: normal;
-  max-width: none;
   text-transform: none;
-  top: 0;
-  visibility: hidden;
-  white-space: nowrap;
 }
 /* A tip set from a value that came out blank draws no empty bubble (web/test/tips.test.mjs keeps blank literals out). */
 [data-pb-tip=""]::after {

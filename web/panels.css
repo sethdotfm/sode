@@ -1541,10 +1541,6 @@ body {
   margin: 0;
   padding: 0;
 }
-/* Tips here are placed by tooltip.js: the list scrolls, and a CSS tip would make it overflow. */
-.sode-pages__list [data-pb-tip]::after {
-  display: none;
-}
 .sode-pages__row {
   background: var(--pb-surface-raised);
   border: var(--pb-border-w) solid var(--pb-edge-soft);

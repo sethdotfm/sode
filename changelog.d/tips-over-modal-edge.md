@@ -1,0 +1,1 @@
+- Tooltips: every tip now shows over the page, so the edge of a dialog, a list or a popup does not cut it off. A tip stays inside the window, and a tip that changes while it shows changes in place.
