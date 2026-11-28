@@ -234,13 +234,13 @@
   flex-wrap: wrap;
   gap: var(--pb-space-1);
 }
-/* Every chip of the row has the width of its widest label (--sode-rchip-ch, its characters), so the columns line up. */
+/* Every chip of the row has the width of its widest label (--sode-rchip-ch, its characters), so the columns line up. Its
+   least size and its height are the slot's of Look and feel > Level colors. */
 .sode__rchips > .sode__slot {
-  height: 1.5rem;
   justify-content: center;
   min-width: 0;
   padding: 0;
-  width: max(1.5rem, calc(var(--sode-rchip-ch, 1) * 1ch + var(--pb-space-2)));
+  width: max(calc(var(--pb-space-8) + var(--pb-space-1)), calc(var(--sode-rchip-ch, 1) * 1ch + var(--pb-space-2)));
 }
 .sode__rfacts {
   align-items: center;
