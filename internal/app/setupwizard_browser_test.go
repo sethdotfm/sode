@@ -103,6 +103,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("the paragraph names user, router and preset", `(() => { const t = document.getElementById('setup-done-text').textContent;
 		return t.includes('signed in as Ada') && t.includes('connected to the router at `+sim+`') && t.includes('Standard access'); })()`)
 	b.waitFor("earlier steps lock", `!document.querySelector('#setup-steps [data-go]')`)
+	b.waitFor("Finish drops the kept answers", `sessionStorage.getItem('sode-setup-answers') === null`)
 	c := loadFile(t, a.cfgPath)
 	if ada, ok := c.FindUserByName("Ada"); !ok || ada.Role != config.RoleAdministrator || c.Routers[0].Address != sim || c.Routers[0].Title != "Studio Ultrix" || !c.PinWaits || c.BrandBorder != "teal" {
 		t.Fatalf("after Finish: %+v", c)

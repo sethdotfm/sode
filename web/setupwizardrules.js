@@ -47,6 +47,22 @@ export function startAnswers(cfg = {}, setup = {}) {
   };
 }
 
+// Each tab keeps its answers in sessionStorage, so a tab that lost setup to Take control gets them back when it takes
+// control again. sessionStorage, not localStorage: two tabs of one browser share localStorage, and a shared machine
+// would keep a name and a router address. Never the PINs.
+export const KEPT_KEY = 'sode-setup-answers';
+const KEPT = ['brandText', 'brandBorder', 'name', 'routerTitle', 'router', 'levels', 'levelNumbering', 'numberOffset', 'fireMode', 'group', 'preset'];
+
+export const keptAnswers = (d) => Object.fromEntries(KEPT.map((k) => [k, d[k]]));
+
+// The start answers with each kept answer put back; anything that is not a kept string is left out.
+export function refillAnswers(d, kept) {
+  const out = { ...d };
+  if (!kept || typeof kept !== 'object') return out;
+  for (const k of KEPT) if (typeof kept[k] === 'string') out[k] = kept[k];
+  return out;
+}
+
 // '' when SODE_* did not fill it.
 export function envHint(setup, key) {
   const name = setup?.env?.[key];

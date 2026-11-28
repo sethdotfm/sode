@@ -24,7 +24,11 @@ import {
   routerLine,
   guideLevels,
   envHint,
+  KEPT_KEY,
+  keptAnswers,
+  refillAnswers,
 } from './setupwizardrules.js';
+import { readTab, writeTab } from './store.js';
 
 const root = document.documentElement;
 let d = null; // the answers; null while the wizard is closed
@@ -44,6 +48,16 @@ let free = false; // the browser that ran setup closed.
 let again = null; // Run setup again (mode 'again'): {finish(d), cancel()} from setupagain.js
 
 const max = () => pinMax(S.cfg || {});
+// Run setup again keeps nothing: Cancel drops its answers.
+const keep = () => d && !d.again && writeTab(KEPT_KEY, JSON.stringify(keptAnswers(d)));
+const dropKept = () => writeTab(KEPT_KEY, null);
+function readKept() {
+  try {
+    return JSON.parse(readTab(KEPT_KEY));
+  } catch {
+    return null;
+  }
+}
 const hint = (key, ...more) => [...more, envHint(filled, key)].filter(Boolean).join(' ');
 
 // h: el with attributes; a false or null attribute is left out.
@@ -367,6 +381,7 @@ $('setup-body').addEventListener('input', (e) => {
   if (!d || !k) return;
   if (t.type === 'radio' && !t.checked) return;
   d[k] = t.value;
+  keep();
   if (k === 'brandText' || k === 'brandBorder') showBrand(d.brandText, d.brandBorder);
   // The color input keeps its picker open, so the note changes in place and not by a render.
   if (k === 'brandBorder' && $('setup-brand-caution')) $('setup-brand-caution').hidden = !brandCaution(d.brandBorder, S.brandColors);
@@ -388,6 +403,7 @@ $('setup-body').addEventListener('click', (e) => {
   const cell = e.target.closest('[data-preset]');
   if (cell && d && d.preset !== cell.dataset.preset) {
     d.preset = cell.dataset.preset;
+    keep();
     render();
     return;
   }
@@ -444,6 +460,7 @@ onMsg('setupFinishResult', (m) => {
     return;
   }
   keepSignInToken(m);
+  dropKept();
   finished = true;
   at = reached = DONE;
   render();
@@ -478,9 +495,12 @@ function startWizard() {
     levelNumbering: r0.levelNumbering,
     numberOffset: r0.numberOffset,
   };
-  d = startAnswers({ ...S.cfg, ...router, fireMode: r0.fireMode, salvoGroup: r0.salvoGroup }, S.setup);
+  d = refillAnswers(startAnswers({ ...S.cfg, ...router, fireMode: r0.fireMode, salvoGroup: r0.salvoGroup }, S.setup), readKept());
   filled = S.setup;
-  sentRouter = d.router.trim();
+  sentRouter = (r0.address || '').trim();
+  // A kept address the server does not try now: move the link to it, as typing it would.
+  if (d.router.trim() !== sentRouter) tryRouter();
+  showBrand(d.brandText, d.brandBorder);
   at = reached = 0;
   finished = finishing = false;
   render();
@@ -488,18 +508,17 @@ function startWizard() {
 
 function waitPage() {
   const phone = layout() === 'phone';
-  $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup runs in another browser';
+  $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup is running in another browser';
   const kids = [];
-  if (taken && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers are lost.'));
+  if (taken && !phone)
+    kids.push(
+      el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers stay in this browser until you take control again.'),
+    );
   else if (free && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
   if (phone) kids.push(desktopOnly('set it up'));
   else {
     kids.push(
-      el(
-        'button',
-        { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take', 'data-pb-tip': "Discards the other browser's answers" },
-        'Take control',
-      ),
+      el('button', { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take', 'data-pb-tip': 'The other browser keeps its answers' }, 'Take control'),
     );
   }
   $('setup-wait-body').replaceChildren(...kids);
@@ -570,6 +589,7 @@ on('hello', () => {
     return;
   }
   // Another browser finished setup: this one has nothing to save any more.
+  dropKept();
   if (mode && !finished && !finishing && !restoring()) openSode();
   paintDone();
 });

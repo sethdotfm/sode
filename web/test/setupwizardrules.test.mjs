@@ -12,6 +12,8 @@ import {
   guideLevels,
   envHint,
   restorePinProblem,
+  keptAnswers,
+  refillAnswers,
 } from '../setupwizardrules.js';
 
 const filled = () => ({
@@ -149,4 +151,25 @@ test('the Router step refuses a Router title longer than 32 characters', () => {
   const at = STEPS.findIndex(([k]) => k === 'router');
   assert.equal(stepProblem({ ...filled(), routerTitle: 'x'.repeat(33) }, at), 'A Router title has at most 32 characters.');
   assert.equal(stepProblem({ ...filled(), routerTitle: '' }, at), '');
+});
+
+test('a tab keeps its answers but never the PINs, and gets them back after Take control', () => {
+  const d = { ...filled(), pin2: '2468', routerTitle: 'Studio Ultrix', brandText: 'Studio B' };
+  const kept = keptAnswers(d);
+  assert.equal('pin' in kept, false);
+  assert.equal('pin2' in kept, false);
+  assert.equal(kept.name, ' Ada ');
+  const back = refillAnswers(startAnswers({ router: '10.0.0.9:8910' }), JSON.parse(JSON.stringify(kept)));
+  assert.equal(back.name, ' Ada ');
+  assert.equal(back.routerTitle, 'Studio Ultrix');
+  assert.equal(back.router, '10.0.0.5:8910');
+  assert.equal(back.pin, '');
+  assert.equal(back.pin2, '');
+});
+
+test('kept answers that are missing or not strings change nothing', () => {
+  const start = startAnswers({ router: '10.0.0.9:8910', levels: 4 });
+  assert.deepEqual(refillAnswers(start, null), start);
+  assert.deepEqual(refillAnswers(start, 'x'), start);
+  assert.deepEqual(refillAnswers(start, { levels: 9, pin: '1111', again: true, router: '10.0.0.1:1' }), { ...start, router: '10.0.0.1:1' });
 });
