@@ -90,7 +90,7 @@ test('a problem is a mistake only once its field has text; before that it is a h
   assert.equal(problemIsMistake({ ...blank, name: 'Ada', pin: '24a' }, 0, 8), true, 'a letter in the PIN');
   assert.equal(problemIsMistake({ ...blank, name: 'Ada', pin: '123456789' }, 0, 8), true, 'too many digits');
   assert.equal(problemIsMistake({ ...d, pin2: '2469' }, 0, 8), true, 'PINs that differ');
-  assert.equal(problemIsMistake({ ...d, pin2: '2' }, 0, 8), true, 'Repeat your PIN has text');
+  assert.equal(problemIsMistake({ ...d, pin2: '2' }, 0, 8), true, 'Repeat PIN has text');
   assert.equal(problemIsMistake({ ...d, name: 'x'.repeat(25) }, 0, 8), true, 'a name too long');
   assert.equal(problemIsMistake({ ...d, router: '' }, 1), false, 'no address yet');
   assert.equal(problemIsMistake({ ...d, levels: '' }, 1), false, 'no levels yet');
@@ -154,7 +154,7 @@ test('level numbering reads from the level count', () => {
   ]);
 });
 
-test('Finish sends the answers once, without Repeat your PIN', () => {
+test('Finish sends the answers once, without Repeat PIN', () => {
   const m = finishMessage({ ...filled(), fireMode: 'native', group: '120' }, 4);
   assert.equal(m.t, 'setupFinish');
   assert.equal(m.id, 4);

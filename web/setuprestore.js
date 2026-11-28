@@ -98,7 +98,7 @@ function askPin(file, text) {
     return [el('div', 'sode__field', lab, pinShow(input)), input];
   };
   const [pinBox, pin] = field('setup-restore-pin', 'New PIN');
-  const [pin2Box, pin2] = field('setup-restore-pin2', 'Repeat your PIN');
+  const [pin2Box, pin2] = field('setup-restore-pin2', 'Repeat PIN');
   const problem = () => restorePinProblem(pin.value, pin2.value, hooks.max());
   const check = () => ($('setup-next').disabled = busy || !!problem());
   const go = () => {

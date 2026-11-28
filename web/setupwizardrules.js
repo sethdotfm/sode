@@ -86,7 +86,7 @@ export function doneParts(name, address, preset, linked) {
 // The help tip of Multi destination take behavior, in the wizard and in Settings > Routers (web/index.html,
 // cfg-rt-fireMode-help, which a node test keeps the same). Facts: docs/reference.md (SODE_FIRE_MODE), docs/agents/salvos.md.
 export const FIRE_MODE_TIP =
-  'One after another: Sode sends each route as its own connect, about 16 ms each. Router salvo: the router keeps every route, then switches them all together on one command. Use Router salvo only on a router that has router salvos, with a router salvo group that nothing else uses.';
+  'One after another: Sode sends each route alone, about 16 ms apart. Router salvo: the router holds all the routes and switches them together. The router must have router salvos, and the router salvo group must be free.';
 
 // '' when SODE_* did not fill it.
 export function envHint(setup, key) {
@@ -145,7 +145,7 @@ export function problemIsMistake(d, i, max = 8) {
   return false;
 }
 
-// A PIN problem is a mistake once Repeat your PIN has text, or the PIN has a letter or too many digits.
+// A PIN problem is a mistake once Repeat PIN has text, or the PIN has a letter or too many digits.
 export const pinMistake = (pin, pin2, max = 8) => !!restorePinProblem(pin, pin2, max) && (pin2 !== '' || !/^\d*$/.test(pin) || pin.length > max);
 
 // The restore page when some stores outside the config were not written.
@@ -173,7 +173,7 @@ export function numberingChoices(n) {
   return ['1', '0', 'va'].map((mode) => [mode, numberingRange(top, mode)]);
 }
 
-// Repeat your PIN stays on the page.
+// Repeat PIN stays on the page.
 export function finishMessage(d, id) {
   return {
     t: 'setupFinish',

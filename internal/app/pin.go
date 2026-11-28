@@ -32,6 +32,19 @@ const (
 	userPinMaxWait = 5 * time.Minute
 )
 
+// inWords is a wait as the lock shows it ("30 seconds", "5 minutes"), not a Go duration such as "1m30s". It rounds
+// up, so a short wait never reads as 0 seconds.
+func inWords(d time.Duration) string {
+	s := int((d + time.Second - 1) / time.Second)
+	switch {
+	case s <= 1:
+		return "1 second"
+	case s < 120:
+		return fmt.Sprintf("%d seconds", s)
+	}
+	return fmt.Sprintf("%d minutes", (s+59)/60)
+}
+
 // userPinWait: first is App.pinFirstWait, which tests shorten.
 func userPinWait(first time.Duration, n int) time.Duration {
 	return doubling(first, min(userPinMaxWait, first<<10), n)
@@ -96,7 +109,7 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	switch left := time.Until(p.until); {
 	case left > 0 && p.wait != nil:
 		a.mu.Unlock()
-		return fmt.Errorf("too many wrong PINs; try again in %s", left.Round(time.Second))
+		return fmt.Errorf("too many wrong PINs; try again in %s", inWords(left))
 	case p.busy:
 		a.mu.Unlock()
 		return errors.New("another PIN is being checked; try again")
@@ -120,7 +133,7 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 		p.until = time.Time{}
 	} else if w := p.wait(p.n); w > 0 {
 		p.until = time.Now().Add(w)
-		return fmt.Errorf("wrong PIN; try again in %s", w)
+		return fmt.Errorf("wrong PIN; try again in %s", inWords(w))
 	}
 	return errors.New("wrong PIN")
 }
