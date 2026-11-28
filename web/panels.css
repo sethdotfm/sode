@@ -1576,10 +1576,11 @@ body {
 }
 /* The Pages bar (editorpagebar.js) and the open Pages side by side (editorpageview.js). Frames sit at their Page's
    place through order, set in code. */
+/* One gap with .sode-ed__frame, so the first Page row starts on the grid's top line. */
 .sode-pages {
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-3);
+  gap: var(--pb-space-2);
   min-width: 0;
 }
 .sode-pages__title,
