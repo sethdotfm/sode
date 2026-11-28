@@ -218,7 +218,8 @@ test('wrongFeedback: Incorrect for a plain wrong PIN, server waits kept as text'
   assert.deepEqual(wrongFeedback(''), { text: 'Incorrect', ms: WRONG_MS, note: '' });
   assert.deepEqual(wrongFeedback('wrong PIN; try again in 30 seconds'), { text: 'Incorrect', ms: WRONG_MS, note: 'Try again in 30 seconds' });
   const w = wrongFeedback('too many wrong PINs; try again in 25 seconds');
-  assert.equal(w.text, 'Too many wrong PINs; try again in 25 seconds');
+  assert.equal(w.text, 'Too many wrong PINs');
+  assert.equal(w.note, 'Try again in 25 seconds');
   assert.equal(w.ms, 0);
   assert.equal(wrongFeedback('another PIN is being checked; try again').ms, 0);
 });
@@ -354,6 +355,7 @@ test('pad: Step in lists other users with a PIN, sends a stepIn and prefills not
   const s = { user: 'Ana', lens: [4, 0] };
   const p = padOf(step);
   assert.equal(p.send, 'stepIn');
+  assert.equal(p.go, 'Step in');
   assert.deepEqual(
     p.users(s, users).map((u) => u.name),
     ['Bo'],
@@ -373,6 +375,7 @@ test('pad: every other view signs in, lists every user and sends at once for a u
   for (const v of [PAGE_VIEW, lockView(PAGE_VIEW, false), startSignIn(PAGE_VIEW, false)]) {
     const p = padOf(v);
     assert.equal(p.send, 'signIn');
+    assert.equal(p.go, 'Sign in');
     assert.equal(p.users(s, users), users);
     assert.equal(p.prefill(s, 'ana', users), 'Ana');
     assert.equal(p.pickSends(s, users[1]), true);

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -31,19 +32,6 @@ const (
 	pinMaxWait     = time.Hour
 	userPinMaxWait = 5 * time.Minute
 )
-
-// inWords is a wait as the lock shows it ("30 seconds", "5 minutes"), not a Go duration such as "1m30s". It rounds
-// up, so a short wait never reads as 0 seconds.
-func inWords(d time.Duration) string {
-	s := int((d + time.Second - 1) / time.Second)
-	switch {
-	case s <= 1:
-		return "1 second"
-	case s < 120:
-		return fmt.Sprintf("%d seconds", s)
-	}
-	return fmt.Sprintf("%d minutes", (s+59)/60)
-}
 
 // userPinWait: first is App.pinFirstWait, which tests shorten.
 func userPinWait(first time.Duration, n int) time.Duration {
@@ -100,6 +88,29 @@ func (a *App) livePinMu(hit *config.User) (config.User, bool) {
 	return live, ok && live.Pin == hit.Pin
 }
 
+// waitWords gives a wait in words, rounded up to whole seconds so it never reads 0. Past 60 seconds it counts minutes
+// ("5 minutes", "1 minute 30 seconds"). The lock shows the error as it is (wrongFeedback in web/lockrules.js), so a Go
+// duration such as "1m30s" would reach the user.
+func waitWords(d time.Duration) string {
+	n := int(math.Ceil(d.Seconds()))
+	if n <= 1 {
+		return "1 second"
+	}
+	if n <= 60 {
+		return fmt.Sprintf("%d seconds", n)
+	}
+	words := func(n int, unit string) string {
+		if n == 1 {
+			return "1 " + unit
+		}
+		return fmt.Sprintf("%d %ss", n, unit)
+	}
+	if n%60 == 0 {
+		return words(n/60, "minute")
+	}
+	return words(n/60, "minute") + " " + words(n%60, "second")
+}
+
 // check runs with mu free, since hashing is slow; a caller that needs a stable state checks again under its own lock.
 func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	a.mu.Lock()
@@ -109,7 +120,7 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	switch left := time.Until(p.until); {
 	case left > 0 && p.wait != nil:
 		a.mu.Unlock()
-		return fmt.Errorf("too many wrong PINs; try again in %s", inWords(left))
+		return fmt.Errorf("too many wrong PINs; try again in %s", waitWords(left))
 	case p.busy:
 		a.mu.Unlock()
 		return errors.New("another PIN is being checked; try again")
@@ -133,7 +144,7 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 		p.until = time.Time{}
 	} else if w := p.wait(p.n); w > 0 {
 		p.until = time.Now().Add(w)
-		return fmt.Errorf("wrong PIN; try again in %s", inWords(w))
+		return fmt.Errorf("wrong PIN; try again in %s", waitWords(w))
 	}
 	return errors.New("wrong PIN")
 }

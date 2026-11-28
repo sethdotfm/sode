@@ -12,7 +12,7 @@
 }
 
 .sode-lock {
-  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 6.5)); /* the pad and the name box */
+  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 8.5)); /* the pad and the name box: a 24-character name fits */
   align-items: center;
   -webkit-backdrop-filter: blur(0);
   backdrop-filter: blur(0);
@@ -51,6 +51,11 @@
     -webkit-backdrop-filter var(--sode-lock-motion) var(--pb-ease),
     border-width var(--sode-lock-motion) var(--pb-ease);
 }
+/* The lock's site name starts where the page's site name is, so the page's own copy hides while the overlay is on and
+   does not show blurred through it. visibility keeps its box, which lockbrand.js measures for the way out. */
+[data-sode-lock-on] :is(.sode__mark, .sode-m__mark, .sode-bar__site) {
+  visibility: hidden;
+}
 
 /* Offline wins over the Lock's colors, in either order (html[data-conn="down"], set by desktop.js, panelrun.js and panelsbar.js).
    The border is the offline red and stays still, as the main page's outline does. lock.js shows "Offline, locked". */
@@ -84,8 +89,8 @@
   display: none;
 }
 
-/* The pad shrinks (to keys of --sode-h-action) before the Lock scrolls, so the open name list
-   pushes the pad down and everything still fits a 768 px screen. main and body pass the space down. */
+/* The pad shrinks (to keys of --sode-h-action) before the Lock scrolls, so a short window still shows it whole.
+   main and body pass the space down. */
 .sode-lock__main {
   align-items: center;
   display: flex;
@@ -115,6 +120,7 @@
   font-weight: var(--pb-weight-bold);
   letter-spacing: var(--pb-tracking-label);
   margin: 0;
+  padding-inline-start: var(--pb-tracking-label); /* letter-spacing also follows the last letter: this centres the text */
   white-space: nowrap;
 }
 /* Phone: lock.js scales a long site name to one line (fitBrand); one too long even then wraps, centred. */
@@ -127,6 +133,7 @@
 /* The words ("Incorrect", "Welcome, <name>") carry the status; the color only backs them. */
 .sode-lock__dots.is-text {
   letter-spacing: normal;
+  padding-inline-start: 0;
   max-width: 100%;
   text-align: center;
 }
@@ -142,8 +149,7 @@
   flex-direction: column;
   flex: none;
   gap: var(--pb-space-2);
-  max-width: calc(100vw - var(--pb-space-9) * 2); /* the lock's own padding */
-  width: calc(var(--pb-control-h-lg) * 8.5);
+  width: var(--sode-lock-w);
 }
 .sode-lock__namefield[hidden] {
   display: none;
@@ -159,11 +165,10 @@
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.4);
 }
-/* On the Lock the list is in flow: it pushes the pad down and never covers it. */
+/* On the Lock the list drops over the pad, as in a dialog, so no key moves between the pick and the first digit.
+   A pick closes it, so it never covers a key the user needs. */
 .sode-lock__namefield .sode-namepick__list {
-  margin-top: var(--pb-space-1);
-  max-height: calc(var(--sode-h-action) * 3.5);
-  position: static;
+  max-height: min(calc(var(--sode-h-action) * 6.5), 40vh); /* the half row says the list scrolls */
 }
 .sode-lock .sode-namepick__list .pb-menu__item {
   font-size: var(--pb-text-lg);
@@ -189,6 +194,10 @@
 .sode-namepick__list[hidden] {
   display: none;
 }
+/* The list's own scroll bar (bigscroll.js, a sibling) sits on the list's layer, not under it. */
+.sode-namepick__list ~ .sode-bigscroll {
+  z-index: calc(var(--pb-z-dropdown) + 1);
+}
 .sode-lock__state {
   color: var(--pb-text-muted);
   margin: 0;
@@ -199,6 +208,7 @@
   font-size: var(--pb-text-xl);
   letter-spacing: var(--pb-space-4);
   min-height: calc(var(--pb-text-xl) * 1.6);
+  padding-inline-start: var(--pb-space-4); /* as the site name's: the dots are centred */
 }
 .sode-lock__msg {
   margin: 0;
@@ -217,8 +227,8 @@
   flex: 0 1 auto;
   gap: var(--pb-space-5);
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(4, minmax(var(--sode-h-action), calc(var(--pb-control-h-lg) * 1.6))) var(--pb-control-h-lg);
-  min-height: calc(var(--sode-h-action) * 4 + var(--pb-control-h-lg) + var(--pb-space-5) * 4);
+  grid-template-rows: repeat(5, minmax(var(--sode-h-action), calc(var(--pb-control-h-lg) * 1.6)));
+  min-height: calc(var(--sode-h-action) * 5 + var(--pb-space-5) * 4);
   width: var(--sode-lock-w);
 }
 .pb-btn.sode-lock__key {
@@ -230,7 +240,6 @@
   font-size: var(--pb-text-md);
 }
 .pb-btn.sode-lock__key--go {
-  font-size: var(--pb-text-xl);
   grid-column: 1 / -1;
 }
 .sode-lock__cancel:not([hidden]) + .sode-lock__key--go {
@@ -474,6 +483,13 @@
 /* Why the prompt asks, in body text: it is the reason, not a hint. */
 .sode__pinprompt-why {
   margin: 0;
+}
+
+/* The name list drops out of the popup whole, as it drops over the Lock's pad: while it is open, neither the body nor
+   the popup clips it. */
+.sode__pinprompt:has(.sode-namepick__list:not([hidden])),
+.sode__pinprompt:has(.sode-namepick__list:not([hidden])) .pb-modal__body {
+  overflow: visible;
 }
 .sode__users-list {
   display: flex;

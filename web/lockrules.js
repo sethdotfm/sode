@@ -113,12 +113,14 @@ export const WELCOME_MS = 600;
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// Plain wrong PIN: "Incorrect" for WRONG_MS, then the dots; with a wait ("try again in 30 seconds")
-// the wait is `note` under the field. Any other refusal stays whole in the field (ms 0 = until
-// the next key). Always text, never color alone.
+// Plain wrong PIN: "Incorrect" for WRONG_MS, then the dots. A wait ("try again in 30 seconds") is the `note`
+// under the field. A long wait in the field would wrap and move the pad. "Too many wrong PINs" stays in
+// the field until the next key (ms 0), and so does any other refusal. Always text, never color alone.
 export function wrongFeedback(err) {
   const e = String(err || '').trim();
   const m = /^wrong pin(?:[;.]\s*(.*))?$/i.exec(e);
+  const many = /^too many wrong pins(?:[;.]\s*(.*))?$/i.exec(e);
+  if (many) return { text: 'Too many wrong PINs', ms: 0, note: many[1] ? cap(many[1]) : '' };
   if (!e || m) return { text: 'Incorrect', ms: WRONG_MS, note: m?.[1] ? cap(m[1]) : '' };
   return { text: cap(e), ms: 0, note: '' };
 }
@@ -260,13 +262,14 @@ export const prefillName = (s, last, users) => (asksName(s) && last ? users?.fin
 export const focusName = (s, name) => asksName(s) && !name.trim();
 
 // What the pad does in a view: one entry for Step in, one for every other pad (the Lock's and a sign-in's). lock.js
-// reads these and has no mode checks of its own. send: the message kind lock.js sends. note: the line under the site
-// name ('' = none). label and offLabel: the overlay's name, online and offline. offline: the offline line. users: the
-// names the box lists. prefill: the name the box starts with. pickSends: a pick sends at once (a user with no PIN).
+// reads these and has no mode checks of its own. send: the message kind lock.js sends. go: the word on the last key.
+// note: the line under the site name ('' = none). label and offLabel: the overlay's name, online and offline. offline:
+// the offline line. users: the names the box lists. prefill: the name the box starts with. pickSends: a pick sends at once (a user with no PIN).
 // lapses: the pad can stop being offered while it shows, so a hello or a layout change looks again (stepInKept).
 const PADS = Object.freeze({
   signIn: Object.freeze({
     send: 'signIn',
+    go: 'Sign in',
     note: '',
     label: 'Locked',
     offLabel: 'Offline, locked',
@@ -278,6 +281,7 @@ const PADS = Object.freeze({
   }),
   stepIn: Object.freeze({
     send: 'stepIn',
+    go: 'Step in',
     note: 'Step in: this tab only',
     label: 'Step in',
     offLabel: 'Step in, offline',
