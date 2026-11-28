@@ -56,7 +56,7 @@ func TestChromePanelsListLayout(t *testing.T) {
 	b.eval(`document.activeElement.blur(); true`)
 	b.shot("detail")
 
-	// C2-02: one row height, with the pictures in the middle of one slot.
+	// One row height, with the pictures in the middle of one slot.
 	b.sameHeight("list rows", ".sode-ov__item")
 	b.sameLeft("names in the list", ".sode-ov__item .sode-ov__who")
 	if !b.eval(`[...document.querySelectorAll('.sode-ov__item > .sode-ov__thumb')].every((t) => {
@@ -66,7 +66,7 @@ func TestChromePanelsListLayout(t *testing.T) {
 		t.Error("a list picture is not in the middle of its 6rem slot or is higher than 3.75rem")
 	}
 
-	// C2-03, C2-04, C2-05: the words.
+	// The words.
 	text := func(sel string) string {
 		v, _ := b.eval(`document.querySelector('` + sel + `')?.textContent ?? ''`).(string)
 		return v
@@ -84,7 +84,7 @@ func TestChromePanelsListLayout(t *testing.T) {
 		t.Errorf("facts %q", got)
 	}
 
-	// C2-06, C2-07: the Open now rows share columns, and each watch box follows its Reload.
+	// The Open now rows share columns, and each watch box follows its Reload.
 	b.sameLeft("instance names", "#panels-open .sode-ov__inst > .sode-ov__name")
 	b.sameLeft("instance badges", "#panels-open .sode-ov__inst > .pb-badge")
 	b.sameLeft("Reload buttons", "#panels-open [data-reload-instance]")
@@ -101,20 +101,20 @@ func TestChromePanelsListLayout(t *testing.T) {
 		t.Errorf("panel watch box %q", got)
 	}
 
-	// C2-08: the keyless page's address has a word.
+	// The keyless page's address has a word.
 	if got := text(`#panels-open li:last-child .sode-ov__instnote`); got != "from 10.0.0.7" {
 		t.Errorf("keyless row note %q", got)
 	}
 
-	// C2-09: the picture starts on the title's edge, with no frame.
+	// The picture starts on the title's edge, with no frame.
 	b.sameLeft("picture on the title's edge", ".sode-ov__title", ".sode-ov__big .sode-ov__thumb > i:first-child")
 
-	// C2-11: the key hint takes the button's colors.
+	// The key hint takes the button's colors.
 	if !b.eval(`[...document.querySelectorAll('.sode-ov__kbd')].every((k) => { const c = getComputedStyle(k), p = getComputedStyle(k.parentElement); return c.backgroundColor === 'rgba(0, 0, 0, 0)' && c.color === p.color && c.borderTopStyle === 'solid'; })`).(bool) {
 		t.Error("a key hint has its own background or color")
 	}
 
-	// C2-10: the armed Delete says what the next press does, in the same place and size. It is outline, not danger:
+	// The armed Delete says what the next press does, in the same place and size. It is outline, not danger:
 	// red is for a failure only (docs/color-roles.md).
 	del := `document.querySelector('#panels-detail [data-act="delete"]')`
 	before := b.boxes("#panels-detail [data-act=\"delete\"]")
@@ -126,7 +126,7 @@ func TestChromePanelsListLayout(t *testing.T) {
 	}
 	b.noClip("armed Delete", "#panels-detail [data-act=\"delete\"]")
 
-	// C2-12: a Find with no match says so on the Find box's edge and offers Clear.
+	// A Find with no match says so on the Find box's edge and offers Clear.
 	b.eval(`(() => { const f = document.getElementById('panels-find'); f.value = 'zzz'; f.dispatchEvent(new Event('input', { bubbles: true })); })()`)
 	b.waitFor("no match", `document.querySelector('.sode-ov__empty')?.firstChild?.textContent === 'No panel has "zzz" in its name.' && !!document.querySelector('.sode-ov__empty [data-clear-find]')`)
 	b.shot("find-empty")
@@ -134,7 +134,7 @@ func TestChromePanelsListLayout(t *testing.T) {
 	b.eval(`document.querySelector('.sode-ov__empty [data-clear-find]').click(); true`)
 	b.waitFor("Clear brings the rows back", `document.querySelectorAll('.sode-ov__item').length === 5 && document.getElementById('panels-find').value === '' && document.activeElement?.id === 'panels-find'`)
 
-	// C2-01: in a 960 px window the action buttons wrap and keep their words.
+	// In a 960 px window the action buttons wrap and keep their words.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 960, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
 	b.eval(row(studio) + `.click(); true`)
 	b.waitFor("Delete disarmed", del+`?.textContent.trim() === 'Delete'`)

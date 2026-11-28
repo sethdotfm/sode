@@ -86,7 +86,7 @@ func TestChromePanelDialogsLayout(t *testing.T) {
 	}
 	tabGap := "--pb-space-4"
 
-	// Share > Link with key (C2-13, C2-16).
+	// Share > Link with key.
 	act("share")
 	b.waitFor("three key rows", `document.querySelectorAll('#panel-key .sode-ov__keyitem').length === 3 && document.getElementById('tab-key').getAttribute('aria-selected') === 'true'`)
 	b.eval(`document.activeElement.blur(); true`)
@@ -110,7 +110,7 @@ func TestChromePanelDialogsLayout(t *testing.T) {
 		t.Error("Save networks is as wide as the field")
 	}
 
-	// Share > People (C2-13, C2-18).
+	// Share > People.
 	b.eval(`document.getElementById('tab-people').click(); true`)
 	b.waitFor("People", `document.getElementById('tab-people').getAttribute('aria-selected') === 'true' && !!document.querySelector('#panel-people .sode__qr')`)
 	b.shotOf("people", ".sode-ov__share")
@@ -126,7 +126,7 @@ func TestChromePanelDialogsLayout(t *testing.T) {
 	}
 	closeModal()
 
-	// Push (C2-13, C2-17).
+	// Push.
 	act("push")
 	b.waitFor("Push list", `document.querySelectorAll('#panel-push input[data-panel]').length === 9`)
 	b.eval(`document.activeElement.blur(); true`)
@@ -152,7 +152,7 @@ func TestChromePanelDialogsLayout(t *testing.T) {
 	b.gapY("Restore parts", tabGap, "#panel-restore > :not(.sode-bigscroll)")
 	closeModal()
 
-	// Assign to (C2-15).
+	// Assign to.
 	act("assign")
 	b.waitFor("two instances", `document.querySelectorAll('#assign-list .sode-ov__cp').length === 2`)
 	b.eval(`document.activeElement.blur(); true`)
@@ -169,7 +169,7 @@ func TestChromePanelDialogsLayout(t *testing.T) {
 	}
 	closeModal()
 
-	// The editor's side tabs (C2-13).
+	// The editor's side tabs.
 	b.open(srv.URL + "/panels/editor?panel=" + studio)
 	b.waitFor("the sidebar", `!!document.querySelector('#ed-side .pb-tab') && document.getElementById('ed-name').value === 'Studio A'`)
 	for _, id := range []string{"ed-panel", "ed-access"} {

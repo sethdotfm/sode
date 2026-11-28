@@ -25,12 +25,12 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 	near := func(a, c float64) bool { return a-c < layoutTol && c-a < layoutTol }
 	b.shot("editor")
 
-	// C2-19: the first Page row and the grid start on one line.
+	// The first Page row and the grid start on one line.
 	if r, g := px(`document.querySelector('#ed-pages .sode-pages__row').getBoundingClientRect().top`), px(`document.getElementById('ed-grid').getBoundingClientRect().top`); !near(r, g) {
 		t.Errorf("the first Page row starts at %.1f, the grid at %.1f", r, g)
 	}
 
-	// C2-20: one sidebar width on every tab, and the same room above as at the sides.
+	// One sidebar width on every tab, and the same room above as at the sides.
 	tabTo := func(id string) {
 		b.eval(`document.getElementById('tab-` + id + `').click(); true`)
 		b.waitFor(id, `document.getElementById('tab-`+id+`').getAttribute('aria-selected') === 'true'`)
@@ -47,7 +47,7 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 		t.Errorf("the sidebar has %.1f px above and %.1f px at the side", top, side)
 	}
 
-	// C2-21, C2-22: the Info cell's Cell tab.
+	// The Info cell's Cell tab.
 	b.eval(`(() => { const sq = document.querySelector('#ed-grid .sode-ed__sq[data-r="1"][data-c="1"]'), r = sq.getBoundingClientRect();
 		const at = { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 };
 		sq.dispatchEvent(new PointerEvent('pointerdown', at)); document.dispatchEvent(new PointerEvent('pointerup', at)); })(); true`)
@@ -66,7 +66,7 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 		t.Errorf("caption label %q", got)
 	}
 
-	// C2-23, C2-24: the Panel tab.
+	// The Panel tab.
 	tabTo("ed-panel")
 	b.eval(`document.activeElement.blur(); true`)
 	b.shotOf("panel", "#ed-side")
@@ -87,13 +87,13 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 		}
 	}
 
-	// C2-24, C2-25: the Access tab.
+	// The Access tab.
 	tabTo("ed-access")
 	b.waitFor("the client table", `!!document.querySelector('#panel-ed-access .sode-side__table th')`)
 	b.eval(`document.activeElement.blur(); true`)
 	b.shotOf("access", "#ed-side")
 	accessText := text(`document.getElementById('panel-ed-access').textContent`)
-	for _, want := range []string{"API client: Panel " + id + ". Its Rights:", "Limit the Rights of this panel", "Shared with: Only the owner"} {
+	for _, want := range []string{"API client: Panel " + id + ". Its Rights:", "Limit the Rights of this panel", "Shared with: Only you"} {
 		if !strings.Contains(accessText, want) {
 			t.Errorf("the Access tab lacks %q in %q", want, accessText)
 		}
@@ -113,12 +113,12 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 		t.Errorf("a Rights value has a %v px rule under it", w)
 	}
 
-	// C2-26: icons on the toolbar buttons, and Save stays at the right when the bar wraps.
+	// icons on the toolbar buttons, and Save stays at the right when the bar wraps.
 	if !b.eval(`['ed-name-btn', 'ed-templates', 'ed-share', 'ed-copylink', 'ed-open', 'ed-live'].every((id) => !!document.getElementById(id).querySelector('svg'))`).(bool) {
 		t.Error("a toolbar button has no icon")
 	}
 
-	// C2-27: at 960 px the Info cell's lines stay in its square, under its icon.
+	// At 960 px the Info cell's lines stay in its square, under its icon.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 960, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
 	b.waitFor("the narrow layout", `innerWidth === 960`)
 	b.shot("narrow")
@@ -134,7 +134,7 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 		t.Error("the Info cell's icon or text is past its square")
 	}
 
-	// C2-28: the Live Editor's bar.
+	// The Live Editor's bar.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
 	b.eval(`document.getElementById('ed-live').click(); true`)
 	b.waitFor("the Live Editor", `!!document.getElementById('ed-live-bar')?.offsetParent`)

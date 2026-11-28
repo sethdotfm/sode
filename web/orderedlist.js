@@ -78,7 +78,7 @@ export function createOrderedList(opts) {
     const li = el('li', opts.rowClass, ...(grip ? [grip] : []), ...(r.body || []), tools);
     li.dataset.id = r.id;
     if (!readOnly && !fixed) dragRow(li, i, grip && [grip, ...(r.body || [])]);
-    else if (grip) grip.classList.add('is-off');
+    else if (grip) grip.classList.add(fixed && opts.bareFixed ? 'is-gone' : 'is-off');
     return li;
   }
 

@@ -59,6 +59,10 @@ func TestChromeGridPanelEditorListLines(t *testing.T) {
 		const gone = (id) => { const e = document.getElementById('ed-sources-sel-' + id); return e.hidden || getComputedStyle(e).visibility === 'hidden'; };
 		return none && ['top', 'up', 'down', 'end', 'remove'].every(gone) && !gone('pin');
 	})()`)
+	b.waitFor("following: the rows' grip is hidden but keeps its width", `(() => {
+		const g = document.querySelector('#ed-sources-list li[data-id="3"] .sode-grip');
+		return !!g && getComputedStyle(g).visibility === 'hidden' && g.getBoundingClientRect().width > 0;
+	})()`)
 	b.sameLeft("following: the bar's Pin is over the rows' Pin", "#ed-sources-sel-pin", `#ed-sources-list li [data-act="pin"]`)
 	b.waitFor("the Sources note is under its heading, in the list's column", `(() => {
 		const n = document.getElementById('ed-sources-following');
@@ -71,4 +75,5 @@ func TestChromeGridPanelEditorListLines(t *testing.T) {
 	b.shot("lines")
 	b.eval(`document.getElementById('tab-ed-cell').click(); true`)
 	b.waitFor("with no row selected, the Cell tab says how to set artwork", `[...document.querySelectorAll('#panel-ed-cell .sode__hint')].some((p) => !p.hidden && p.textContent === 'Select a source or destination in a list to set its artwork.')`)
+	b.check()
 }

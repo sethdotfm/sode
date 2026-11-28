@@ -171,7 +171,7 @@ export function openPush(panel, ctx) {
     const s = sets?.find((x) => x.id === setId);
     setPush.disabled = busy || !s;
     setDel.disabled = busy || !s || !s.canEdit;
-    setDel.lastChild.textContent = armed ? ' Delete? Press again' : ' Delete set';
+    setDel.lastChild.textContent = armed ? ' Press again to delete' : ' Delete set';
     saveSet.disabled = busy || !canSaveSet(nameIn.value, new Set([...selected, ...(incl.input.checked ? [panel.id] : [])]));
     saveHint.textContent = selected.size ? '' : 'Tick panels on the Push tab first.';
   }
