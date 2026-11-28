@@ -487,7 +487,10 @@ body {
   margin: var(--pb-space-4) 0 var(--pb-space-2);
   text-transform: uppercase;
 }
+/* One row height: the picture has a 6rem slot and is never higher than --sode-ov-thumb-h, the row less its padding and
+   line (panelslist.js thumb). */
 .sode-ov__item {
+  --sode-ov-thumb-h: calc(4.5rem - 2 * var(--pb-space-3) - var(--pb-border-w));
   align-items: center;
   background: none;
   border: 0;
@@ -496,10 +499,14 @@ body {
   cursor: pointer;
   display: grid;
   gap: var(--pb-space-3);
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 6rem 1fr auto;
+  min-height: 4.5rem;
   padding: var(--pb-space-3);
   text-align: left;
   width: 100%;
+}
+.sode-ov__item > .sode-ov__thumb {
+  justify-self: center;
 }
 .sode-ov__item[aria-current="true"] {
   background: var(--pb-surface-control);
@@ -524,7 +531,11 @@ body {
   color: var(--pb-text-muted);
 }
 .sode-ov__empty {
-  padding: var(--pb-space-3);
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-3) 0;
 }
 .sode-ov__title {
   color: var(--pb-text-strong);
@@ -537,7 +548,7 @@ body {
   gap: var(--pb-space-5);
   grid-template-columns: minmax(0, 24rem) 1fr;
 }
-@media (max-width: 52rem) {
+@media (max-width: 64rem) {
   .sode-ov__big {
     grid-template-columns: 1fr;
   }
@@ -553,32 +564,35 @@ body {
   gap: var(--pb-space-3);
   margin-bottom: var(--pb-space-3);
 }
+/* Both rows have one set of columns, each at least 12rem, so the buttons line up and a narrow window wraps them
+   before a label is cut. Delete stays apart in the last column of the first row. */
+.sode-ov__acts-main,
+.sode-ov__acts-more {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+}
 .sode-ov__acts .pb-btn {
   height: var(--sode-h-action);
   min-width: 0;
 }
-/* Both rows share two equal columns, so a key hint or a long label does not change a width. Delete stays apart
-   at the end of the first row. */
-.sode-ov__acts-main,
-.sode-ov__acts-more {
-  --sode-ov-act: minmax(0, 13rem);
-  align-items: center;
-  display: grid;
-  gap: var(--pb-space-3);
-  grid-template-columns: repeat(2, var(--sode-ov-act));
-}
-.sode-ov__acts-main {
-  grid-template-columns: repeat(2, var(--sode-ov-act)) 1fr;
-}
-.sode-ov__delete {
-  grid-column: 3;
+/* The armed Delete reads "Press again to delete"; the min-width (the column's) holds both labels, so it does not move. */
+.sode-ov__acts .sode-ov__delete {
+  grid-column: -2 / -1;
+  justify-content: flex-end;
   justify-self: end;
+  min-width: 12rem;
 }
+/* The hint takes the button's own colors, so it is not the strongest mark on a filled button. */
 .sode-ov__kbd {
-  color: var(--pb-text-muted);
+  background: transparent;
+  border: var(--pb-border-w) solid currentColor;
+  color: inherit;
   font-family: var(--pb-font-num);
-  font-size: var(--pb-text-2xs);
+  font-size: var(--pb-text-xs);
   margin-inline-start: var(--pb-space-2);
+  opacity: 0.8;
 }
 .sode-ov__kv {
   display: grid;
@@ -643,6 +657,12 @@ body {
   padding: var(--pb-space-1);
   width: 6rem;
 }
+/* The large picture starts on the title's edge, with no frame. */
+.sode-ov__thumb:not(.sode-ov__thumb--sm) {
+  --sode-ov-bw: 0px;
+  border: 0;
+  padding: 0;
+}
 .sode-ov__thumb {
   position: relative;
 }
@@ -650,19 +670,24 @@ body {
   background: var(--pb-surface-control);
 }
 /* A Grid panel's picture has three sizes with one square size (--sode-ov-sq): the picture grows with its squares
-   (--sode-ov-cols). The width counts the gaps, padding and border (border-box). In the list the Large picture is 6rem
-   and a margin pads the others to it, so the names line up. */
+   (--sode-ov-cols). The width counts the gaps, padding and border (border-box). The list shows Medium at most
+   (gridThumb), and its Medium picture is --sode-ov-thumb-h high. */
 .sode-ov__thumb--grid {
   --sode-ov-sq: 2rem;
   --sode-ov-gap: var(--pb-space-1);
   --sode-ov-pad: var(--pb-space-2);
-  --sode-ov-w: calc(var(--sode-ov-cols) * var(--sode-ov-sq) + (var(--sode-ov-cols) - 1) * var(--sode-ov-gap) + 2 * var(--sode-ov-pad) + 2 * var(--pb-border-w));
+  --sode-ov-w: calc(
+    var(--sode-ov-cols) * var(--sode-ov-sq) + (var(--sode-ov-cols) - 1) * var(--sode-ov-gap) + 2 * var(--sode-ov-pad) + 2 *
+      var(--sode-ov-bw, var(--pb-border-w))
+  );
   width: var(--sode-ov-w);
+}
+.sode-ov__thumb--grid:not(.sode-ov__thumb--sm) {
+  --sode-ov-pad: 0px;
 }
 .sode-ov__thumb--sm.sode-ov__thumb--grid {
   --sode-ov-pad: var(--pb-space-1);
-  --sode-ov-sq: calc((6rem - 10 * var(--pb-space-1) - 2 * var(--pb-border-w)) / 9);
-  margin-inline-end: calc(6rem - var(--sode-ov-w));
+  --sode-ov-sq: calc((var(--sode-ov-thumb-h) - 7 * var(--pb-space-1) - 2 * var(--pb-border-w)) / 6);
 }
 .sode-ov__thumb .sode-ov__k-source {
   background: var(--pb-current-idle);
