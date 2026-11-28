@@ -112,9 +112,33 @@ func TestChromeLockPadLayout(t *testing.T) {
 	padMiddle := (pad.Left + pad.Right) / 2
 	near("the dots' centre", glyphMiddle(".sode-lock__dots"), padMiddle)
 	near("the site name's centre", glyphMiddle(".sode-lock__brand"), padMiddle)
+	// A1-10: the list drops over the pad and moves nothing. A1-28: six and a half rows of twelve.
+	listDrops := func(where string, rows float64) {
+		t.Helper()
+		brand, pad := one(".sode-lock__brand"), one(".sode-lock__pad")
+		b.eval(`document.getElementById('lock-name').focus()`)
+		b.waitFor(where+": the list open", listOpen)
+		near(where+": the site name's top with the list open", one(".sode-lock__brand").Top, brand.Top)
+		near(where+": the pad's top with the list open", one(".sode-lock__pad").Top, pad.Top)
+		list, item := one("#lock-name-list"), one("#lock-name-list-0")
+		if list.Bottom <= pad.Top {
+			t.Errorf("%s: the list ends at %.1f, above the pad (%.1f): it does not drop over it", where, list.Bottom, pad.Top)
+		}
+		if h := b.eval(`innerHeight`).(float64); list.Bottom > h {
+			t.Errorf("%s: the list ends at %.1f, below the window (%.0f)", where, list.Bottom, h)
+		}
+		if shown := list.height() / item.height(); shown < rows {
+			t.Errorf("%s: the list shows %.1f rows, want %.1f or more", where, shown, rows)
+		}
+		b.eval(`document.getElementById('lock-name').blur()`)
+		b.waitFor(where+": the list closed", `!`+listOpen)
+	}
+	listDrops("1920x1080", 3.5)
+
 	// The pad still fits 1366x768, with the list open too.
 	size(1366, 768)
 	column("1366x768")
+	listDrops("1366x768", 3.5)
 
 	// C1-26: the phone keeps the one width.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": true})
