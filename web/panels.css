@@ -984,7 +984,7 @@ body {
   gap: var(--pb-space-3);
 }
 .sode-tpl__name {
-  font-weight: 600;
+  font-weight: var(--pb-weight-bold);
 }
 .sode-tpl__row > .pb-btn:first-of-type {
   margin-left: auto;
@@ -1587,7 +1587,7 @@ body {
 .sode-ed__frame-title {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-sm);
-  font-weight: 600;
+  font-weight: var(--pb-weight-bold);
   margin: 0;
 }
 .sode-pages__list {
@@ -1959,16 +1959,23 @@ body {
   margin: 0;
   text-align: end;
 }
+/* The Rights table reads as label and value pairs on the text's edge, with no rules. */
 .sode-side__table {
-  width: auto;
+  width: max-content;
 }
-.sode-side__table th {
+.sode-side__table tbody th {
+  color: var(--pb-text-muted);
   font-weight: var(--pb-weight-normal);
-  padding-inline-end: var(--pb-space-5);
+  padding-inline: 0 var(--pb-space-5);
+}
+.sode-side__table tbody td {
+  border: 0;
+  padding-inline: 0;
 }
 .sode-side__people {
+  list-style: none;
   margin: 0;
-  padding-inline-start: var(--pb-space-5);
+  padding: 0;
 }
 .sode-ed__side .sode__tabs {
   gap: var(--pb-space-4);

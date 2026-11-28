@@ -101,7 +101,13 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 	if n := px(`document.querySelectorAll('#panel-ed-access .sode-side__people li').length`); n != 0 {
 		t.Errorf("one sharing choice shows as a list of %v", n)
 	}
-	b.gapX("Rights label and value", "--pb-space-5", "#panel-ed-access .sode-side__table tr:first-child th", "#panel-ed-access .sode-side__table tr:first-child td")
+	// The values start one gap after the longest label's words.
+	if gap, want := px(`(() => { const t = document.querySelector('#panel-ed-access .sode-side__table'), r = document.createRange();
+		const ends = [...t.querySelectorAll('th')].map((th) => { r.selectNodeContents(th); return r.getBoundingClientRect().right; });
+		return t.querySelector('td').getBoundingClientRect().left - Math.max(...ends); })()`), b.tokenPx("#panel-ed-access .sode-side__table", "--pb-space-5"); !near(gap, want) {
+		t.Errorf("the Rights values start %.1f px after the longest label, want %.1f", gap, want)
+	}
+	b.sameLeft("Rights values on one edge", "#panel-ed-access .sode-side__table td")
 	b.sameLeft("Rights labels on the text edge", "#panel-ed-access .sode-side__rights", "#panel-ed-access .sode-side__table th")
 	if w := px(`parseFloat(getComputedStyle(document.querySelector('#panel-ed-access .sode-side__table td')).borderBottomWidth)`); w != 0 {
 		t.Errorf("a Rights value has a %v px rule under it", w)
