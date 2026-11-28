@@ -87,7 +87,7 @@ const dlg = modal({
   title: 'Manage users',
   cls: 'sode__filters sode__users-dlg',
   body: [tabs.node, usersPanel, clientsTab.node, rightsPanel.node, err],
-  foot: [note, btn('pb-btn--outline', 'Done', () => closeUsers())],
+  foot: [note, btn('pb-btn--outline', 'Close', () => closeUsers())],
   onEsc: () => closeUsers(),
 });
 

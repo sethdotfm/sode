@@ -41,7 +41,7 @@ export function askCopyTo(pages, from, back) {
     title: `Copy Page ${from + 1} to`,
     rootId: 'ed-copyto',
     body: [labeled('ed-copyto-page', 'Page', el('span', 'pb-select-wrap', pick)), warn],
-    foot: [go, btn('pb-btn--outline', 'Cancel', () => q.close(null), 'ed-copyto-cancel')],
+    foot: [btn('pb-btn--outline', 'Cancel', () => q.close(null), 'ed-copyto-cancel'), go],
   }));
   pick.focus();
   return q.answer;
