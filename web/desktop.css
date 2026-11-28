@@ -348,12 +348,17 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
 .sode__box--levels .sode__levels--odd > .sode__pick:first-child {
   height: auto;
 }
+/* Select All takes the rest of the row, so it ends under Clear and its two words fit on one line. In a narrow box it
+   keeps --sode-all-w and its words go on two lines. */
 .sode__box--levels .pb-btn.sode__all {
-  flex: none;
+  align-content: center;
+  column-gap: var(--pb-space-2);
+  flex: 1 1 var(--sode-all-w);
+  flex-direction: row;
+  flex-wrap: wrap;
   height: calc(2 * var(--sode-pick-w) + var(--sode-pick-gap));
   min-height: 0;
   padding: 0;
-  width: var(--sode-all-w);
 }
 
 .sode__under {
