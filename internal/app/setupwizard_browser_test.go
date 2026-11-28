@@ -29,11 +29,26 @@ func TestChromeSetupWizard(t *testing.T) {
 		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	}
 	next := `document.getElementById('setup-next')`
+	// Each step name shows on one line inside the steps row, and the dialog starts below the row.
+	stepsFit := func(step string) {
+		b.waitFor(step+": the step names fit the steps row", `(() => {
+			const row = document.getElementById('setup-steps').getBoundingClientRect();
+			const dialog = document.getElementById('setup-dialog').getBoundingClientRect();
+			const labels = [...document.querySelectorAll('#setup-steps .sode-setup__label')];
+			return labels.length === 4 && labels.every((l) => {
+				const r = l.getBoundingClientRect();
+				const line = parseFloat(getComputedStyle(l).lineHeight) || r.height;
+				return r.left >= row.left - 0.5 && r.right <= row.right + 0.5 && r.top >= row.top - 0.5 && r.bottom <= row.bottom + 0.5
+					&& l.getClientRects().length === 1 && r.height <= line * 1.5;
+			}) && row.bottom < dialog.top;
+		})()`)
+	}
 
 	b.open(srv.URL + "/")
 	b.waitFor("the wizard", `!document.getElementById('setup').hidden && document.documentElement.hasAttribute('data-sode-setup')`)
 	b.waitFor("the patch page is hidden", `getComputedStyle(document.getElementById('patch-view')).display === 'none'`)
 	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Set up Sode'`)
+	stepsFit("Style & User")
 
 	type_("setup-brandText", "Studio B")
 	b.waitFor("the name shows live", `document.querySelector('#setup .sode__mark').textContent === 'Studio B'`)
@@ -53,6 +68,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(next + `.click(); true`)
 
 	b.waitFor("Router, filled from the config", `document.getElementById('setup-router')?.value === '`+sim+`'`)
+	stepsFit("Router")
 	b.waitFor("Router title, with the default title of Add router", `document.getElementById('setup-routerTitle')?.value === 'Router A'
 		&& document.querySelector('label[for="setup-routerTitle"]').textContent === 'Router title'`)
 	b.waitFor("Level numbering shows the real ranges, as the detail view does", `(() => { const n = +document.getElementById('setup-levels').value;
@@ -75,6 +91,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(next + `.click(); true`)
 
 	b.waitFor("Access, Standard preselected", `document.querySelector('.sode-setup__sheet thead th.is-picked')?.dataset.preset === 'standard'`)
+	stepsFit("Access")
 	b.waitFor("Finish", next+`.textContent === 'Finish'`)
 	b.eval(`document.querySelector('[data-go="0"]').click(); true`)
 	b.waitFor("a chip goes back and keeps the answers", `document.getElementById('setup-name')?.value === 'Ada'`)

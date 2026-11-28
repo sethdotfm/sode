@@ -106,7 +106,7 @@ function swatches() {
     const input = el('input', { type: 'radio', name: 'brandBorder', value: c.name, 'aria-label': c.label });
     input.checked = d.brandBorder === c.name;
     box.append(
-      item('sode-setup__swatch', el('span', { class: 'sode-setup__chip', 'data-brand': c.name || null }, input, c.name ? null : icon('ban')), c.label),
+      item('sode-setup__swatch', el('span', { class: 'sode-setup__swatch-box', 'data-brand': c.name || null }, input, c.name ? null : icon('ban')), c.label),
     );
   }
   // A custom color is #rrggbb, the form the native picker gives. Run setup again leaves the swatch out: it writes
@@ -115,7 +115,7 @@ function swatches() {
   if (!d.again) {
     const pick = el('input', { type: 'color', name: 'brandBorder', 'aria-label': 'Custom color' });
     pick.value = own ? d.brandBorder : '#5fb2e8';
-    box.append(item(`sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, el('span', { class: 'sode-setup__chip' }, pick), 'Custom'));
+    box.append(item(`sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, el('span', { class: 'sode-setup__swatch-box' }, pick), 'Custom'));
   }
   const note = el(
     'p',

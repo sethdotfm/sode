@@ -46,7 +46,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-07: Setup steps row stacks and clips its labels; needs space below it
 
-- **Status:** ready
+- **Status:** done
 - **Area:** First-run wizard steps row. web/setup.css (`.sode-setup__steps`, `.sode-setup__chip`, `.sode-setup__label`, `.sode-setup__line`), web/setupwizard.js (`renderSteps`, `swatches`).
 - **Reported:** "Stacked and clipping content." "View screenshot to see the design horror." "Add padding below this before the modal." The screenshots show the step names ("Style & User", "Router", "Access", "Done") wrapped one word per line and cut off by the dialog's top edge. The connector lines meet the step boxes at odd places, and the step boxes have a double border.
 - **Now:** The class `sode-setup__chip` has two meanings. web/setupwizard.js:291 uses it for the step button (a column with a 5rem width, `all: unset`, web/setup.css:46-54). web/setupwizard.js:109 and :118 use it for the color swatch box. The swatch rule at web/setup.css:166-175 comes later with the same selector. It sets `display: grid`, `width: 2.25rem`, `height: 2.25rem`, a border and a background. So it overrides the step button: the button is 2.25rem wide and 2.25rem high, the label wraps in 2.25rem, and the 2rem dot sits inside a bordered box (the double border). The labels spill below the box and the next block covers them. The steps row has `margin-bottom: var(--pb-space-7)` (web/setup.css:34), which does not cover the spilled label. This looks like a regression from the swatch work, not a missing margin. The wait page (AB-08) has no steps row.
@@ -54,7 +54,13 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: Scope the step-button rules (`.sode-setup__steps .sode-setup__chip`) or rename the swatch class, whichever keeps identAllow clean; one patchbay space token below the row, enough that the dialog never touches the labels.
 - **Open questions:** none.
 - **Proof:** Screenshot before and after at 1920x1080 of each step (Style & User, Router, Access). A TestChrome* check (extend TestChromeSetupWizard) that every `.sode-setup__label` has a bounding box inside the steps row and one line high, and that the row's bottom is above the dialog's top.
+  - Reproduced on 8e9c6761 with swp08sim and a new config (the wizard runs first): "Style & User" wraps one word per line under a 2.25rem box with a double border, and the dialog's top edge covers it. "Router", "Access" and "Done" are cut off the same way (before-style-user.png).
+  - Given: `TestChromeSetupWizard` (internal/app/setupwizard_browser_test.go), new `stepsFit` on the Style & User, Router and Access steps: each `.sode-setup__label` is one line, inside the box of `#setup-steps`, and the row's bottom is above the top of `#setup-dialog`. Before the fix: `setupwizard_browser_test.go:34: timed out waiting for Style & User: the step names fit the steps row`. Passes after.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-07/: before-style-user.png, before-router.png, before-access.png, after-style-user.png, after-router.png, after-access.png.
 - **Notes:**
+  - What changed: the color swatch box has its own class, `sode-setup__swatch-box` (web/setupwizard.js:109 and :118, web/setup.css:166), so the swatch rule no longer overrides the step button `.sode-setup__chip`. The step button now has `min-width: 5rem` in place of a fixed width, and the step name has `white-space: nowrap` (web/setup.css:46, :87), so a long name keeps one line. The row keeps its one token below it, `--pb-space-7`: with the labels inside the row, that gap is between the names and the dialog. A rename was cleaner than a scoped selector: two meanings for one class was the cause. No identAllow change (class names are strings).
+  - Checks: `go test -short ./...` all ok; `go vet ./...` ok; staticcheck ok (with GOTOOLCHAIN=go1.27.0); `node --test 'web/test/*.test.mjs'` # pass 1996, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChromeSetupWizard$'` ok.
+  - Commit: this commit.
 
 ### AB-08: "Another browser took control" loses the answers with no warning
 
