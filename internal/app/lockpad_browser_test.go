@@ -141,12 +141,12 @@ func TestChromeLockPadLayout(t *testing.T) {
 		b.eval(`document.getElementById('lock-name').blur()`)
 		b.waitFor(where+": the list closed", `!`+listOpen)
 	}
-	listDrops("1920x1080", 3.5)
+	listDrops("1920x1080", 6.4)
 
 	// The pad still fits 1366x768, with the list open too.
 	size(1366, 768)
 	column("1366x768")
-	listDrops("1366x768", 3.5)
+	listDrops("1366x768", 5)
 
 	// C1-26: the phone keeps the one width.
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": true})

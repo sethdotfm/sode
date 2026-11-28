@@ -168,7 +168,7 @@
 /* On the Lock the list drops over the pad, as in a dialog, so no key moves between the pick and the first digit.
    A pick closes it, so it never covers a key the user needs. */
 .sode-lock__namefield .sode-namepick__list {
-  max-height: calc(var(--sode-h-action) * 3.5);
+  max-height: min(calc(var(--sode-h-action) * 6.5), 40vh); /* the half row says the list scrolls */
 }
 .sode-lock .sode-namepick__list .pb-menu__item {
   font-size: var(--pb-text-lg);
