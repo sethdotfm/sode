@@ -1443,6 +1443,10 @@ html {
 .sode__field .pb-select-wrap {
   width: 100%;
 }
+/* A column field stretches its children. A button keeps its text width. */
+.sode__field > .pb-btn {
+  align-self: flex-start;
+}
 /* Short values: the control ends on the first column edge of a .sode__fields grid (its column gap is --pb-space-5). */
 :root:not([data-layout="phone"]) .sode__field--half > :is(.pb-input, .pb-select-wrap, .pb-number-wrap) {
   width: calc(50% - var(--pb-space-5) / 2);
