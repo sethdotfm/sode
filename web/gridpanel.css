@@ -505,15 +505,15 @@ html:has(.sode-gridpanel) {
   pointer-events: none;
   width: 100%;
 }
-.sode-gridpanel__xp[data-staged-row]::before {
+.sode-gridpanel__xp[data-staged-row]:not([data-s="staged"])::before {
   background-image: linear-gradient(color-mix(in oklab, var(--pb-dest) 55%, transparent), color-mix(in oklab, var(--pb-dest) 55%, transparent));
   background-size: 100% 30%;
 }
-.sode-gridpanel__xp[data-staged-col]::before {
+.sode-gridpanel__xp[data-staged-col]:not([data-s="staged"])::before {
   background-image: linear-gradient(color-mix(in oklab, var(--pb-source) 55%, transparent), color-mix(in oklab, var(--pb-source) 55%, transparent));
   background-size: 30% 100%;
 }
-.sode-gridpanel__xp[data-staged-row][data-staged-col]::before {
+.sode-gridpanel__xp[data-staged-row][data-staged-col]:not([data-s="staged"])::before {
   background-image: linear-gradient(color-mix(in oklab, var(--pb-dest) 55%, transparent), color-mix(in oklab, var(--pb-dest) 55%, transparent)),
     linear-gradient(color-mix(in oklab, var(--pb-source) 55%, transparent), color-mix(in oklab, var(--pb-source) 55%, transparent));
   background-size:
@@ -521,12 +521,15 @@ html:has(.sode-gridpanel) {
     30% 100%;
 }
 /* The staged ring: a full ring 4 px wide in the strong text color with a light wash, 80% of the crosspoint, so a staged
-   crosspoint reads from across the room whatever its levels. It takes the place of the bands on its own crosspoint. */
+   crosspoint reads from across the room whatever its levels. The bands leave its own crosspoint to it. */
 .sode-gridpanel__xp[data-s="staged"]::before {
-  background: color-mix(in oklab, var(--pb-text-strong) 12%, transparent);
-  border: calc(var(--pb-border-w) * 4) solid var(--pb-text-strong);
-  border-radius: 50%;
-  box-sizing: border-box;
+  /* A gradient, not a border: patchbay has no border-radius. The cursor ring is drawn the same way. */
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--pb-text-strong) 12%, transparent) calc(100% - 4 * var(--pb-border-w)),
+    var(--pb-text-strong) calc(100% - 4 * var(--pb-border-w))
+  );
+  clip-path: circle(50%);
   content: "";
   grid-area: 1 / 1;
   height: 80%;

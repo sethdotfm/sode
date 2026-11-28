@@ -68,8 +68,8 @@ func TestChromeGridPanelDesign(t *testing.T) {
 	b.waitFor("the staged ring is whole and strong, and the pie in it is not faded", `(() => {
 		const x = `+gridXp(5, 3)+`, ring = getComputedStyle(x, '::before'), stage = getComputedStyle(x.querySelector('.sode-gridpanel__stage'));
 		const p = document.createElement('i'); p.style.color = 'var(--pb-text-strong)'; x.append(p); const strong = getComputedStyle(p).color; p.remove();
-		return ring.borderTopWidth === '4px' && ring.borderTopStyle === 'solid' && ring.borderTopColor === strong && ring.borderRadius === '50%' &&
-			ring.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(stage.opacity) === 1;
+		const g = ring.backgroundImage;
+		return g.startsWith('radial-gradient') && g.includes(strong) && g.includes('4px') && ring.clipPath.startsWith('circle') && parseFloat(stage.opacity) === 1;
 	})()`)
 	b.waitFor("the staged row and column have bands, a crosspoint elsewhere has none", `(() => {
 		const band = (x) => getComputedStyle(x, '::before').backgroundImage;
