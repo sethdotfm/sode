@@ -1637,6 +1637,10 @@ body {
   cursor: default;
   opacity: 0.4;
 }
+/* Hidden, not removed, so the names keep their place when a list follows the router. */
+.sode-grip.is-gone {
+  visibility: hidden;
+}
 /* The drag image (orderedlist.js): under the pointer for one moment, since the browser copies it at dragstart. */
 .sode-drag-chip {
   gap: var(--pb-space-2);

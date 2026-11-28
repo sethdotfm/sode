@@ -1,5 +1,5 @@
 // The server decides who is allowed to set up a client (ADR 0006): a Trusted user, within their own Rights.
-import { $, el, routerData } from './core.js';
+import { $, el, on, routerData } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, segmented } from './formbits.js';
 import { openShare } from './panelshare.js';
@@ -15,6 +15,12 @@ const LISTS = [
   ['levels', 'Levels', '1, 2'],
   ['presets', 'Presets', 'One name per line'],
 ];
+
+// The signed-in user, so the owner's own panel reads "Only you", as on the panels list.
+let me = '';
+on('access', (a) => {
+  me = a.user || '';
+});
 
 const api = jsonCall(sessionFetch, { failed: (s) => `Sode answered ${s}` });
 
@@ -170,7 +176,11 @@ export function createAccessTab(ed, ctx) {
       // Named users are a list; any other choice is one line.
       const named = p?.share?.mode === 'named' && p.share.users?.length ? p.share.users : [];
       const lead = listedOnly ? 'Listed on the panels page for:' : 'Shared with:';
-      shareLine.textContent = !p ? 'Save the panel first, then choose who can use it.' : named.length ? lead : `${lead} ${shareLabel(p.share)}`;
+      shareLine.textContent = !p
+        ? 'Save the panel first, then choose who can use it.'
+        : named.length
+          ? lead
+          : `${lead} ${shareLabel(p.share, !!me && p.owner?.toLowerCase() === me.toLowerCase())}`;
       shareList.replaceChildren(...named.map((u) => el('li', null, u)));
       shareList.hidden = !named.length;
       shareBtn.disabled = !stored;
