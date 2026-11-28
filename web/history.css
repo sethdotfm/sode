@@ -43,10 +43,18 @@
 .sode__hist-row > .pb-status {
   justify-self: start;
 }
+/* Each button has a track of one width, so Redo and Undo each make one column down the list whatever the Undo words
+   ("Undo", "Undo 3", "Undo all"). 5.25rem holds "Undo all". */
 .sode__hist-actions {
-  display: flex;
+  display: grid;
   gap: var(--pb-space-3);
-  justify-content: flex-end;
+  grid-auto-columns: 5.25rem;
+  grid-auto-flow: column;
+  justify-content: end;
+}
+.sode__hist-actions > .pb-btn {
+  justify-content: center;
+  width: 100%;
 }
 .sode-m__recent-status {
   align-items: center;
@@ -112,8 +120,11 @@
     inset var(--pb-accent-bar-w) 0 0 var(--pb-edge),
     0 0 0 var(--pb-border-w) var(--pb-accent);
 }
+/* A take in an open Group reaches into the Group row's right padding and border, so its buttons end on the Group's
+   button column. */
 .sode__hist-folder > .sode__hist-row {
   box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge);
+  margin-right: calc(-1 * (var(--pb-space-3) + var(--pb-border-w)));
   min-height: var(--pb-control-h-lg);
 }
 .sode__hist-before {
