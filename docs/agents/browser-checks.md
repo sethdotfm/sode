@@ -135,6 +135,7 @@ Add a check:
 5. Keep checks few: each costs a Chrome start.
 
 The simulator starts with destination d routed from source d on every level (`SIM_*` options: docs/reference.md).
+- `tooltip_browser_test.go`: `TestChromeTipsClearOfTheirControl` (with `mouseFlags`, 1920 by 1080). The Lock menu's tip closes when the drop-down opens on hover and does not come back. The Last chip's tip opens over the chip, clear of the Destination box, and a press leaves no focus on the chip. The Confirm lockout label's tip in Settings opens over the label, clear of its box. `tipClearOf` tests that the tip covers none of a list of elements.
 - `stepin_browser_test.go`: `TestChromeStepInWritesNoSessionKeys`, Ana (persistent) steps in as Bo from Settings > My user. The five session keys stay as they were, although Bo's profile reaches the page. A reload is Ana again, and so is Step out.
 - `stepin_browser_test.go`: `TestChromeStepInBorderAndLabel`, the step-in border is not the Branding colour. "Bo stepped in" with Step out shows in Bo's Compact view and on the phone layout. The typed source stays across Step in and Step out.
 - `stepin_browser_test.go`: `TestChromeStepInReviewNamesAuthor`, Administrator Bo steps in at Trusted Ana's browser and stages a Branding and a Locks edit. After Step out, the review names Bo and shows the Locks edit only as a count. Save sends Branding only.

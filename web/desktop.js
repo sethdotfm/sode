@@ -265,7 +265,10 @@ function renderLast() {
     if (last[k]) {
       const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', 'Last'), el('span', 'sode__last-text', ...last[k]));
       b.dataset.pbTip = `Last ${what} (${keyLabel(`ctrl+${key}`)})`;
-      b.addEventListener('click', () => useLast(k));
+      b.addEventListener('click', () => {
+        useLast(k);
+        b.blur();
+      });
       chips.push(b);
     }
     if (k !== 'lvl' && next[k]) {
@@ -276,7 +279,10 @@ function renderLast() {
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]))),
       );
       b.dataset.pbTip = `Next ${what} (${keyLabel(`ctrl+shift+${key}`)})`;
-      b.addEventListener('click', () => useLast(k, true));
+      b.addEventListener('click', () => {
+        useLast(k, true);
+        b.blur();
+      });
       // The closed chip's room stays in the slot so nothing in the row moves.
       chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next'), b));
     }

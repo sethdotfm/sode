@@ -103,11 +103,12 @@ function sectionAs(id, title, sub, ...inner) {
   return el('div', { class: 'sode-setup__section' }, head, sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
 }
 
-// A help button: it takes focus, so its tip shows from the keyboard too.
+// A help button: it takes focus, so its tip shows from the keyboard too. It sits after a heading, so its tip opens
+// from the button's left edge over the heading (tooltip.js keeps it off the section).
 const helpButton = (id, label, tip) =>
   el(
     'button',
-    { type: 'button', class: 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__help', id, 'aria-label': label, 'data-pb-tip': tip },
+    { type: 'button', class: 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start sode__help', id, 'aria-label': label, 'data-pb-tip': tip },
     icon('circle-help'),
   );
 const row = (...kids) => el('div', { class: 'sode-setup__row' }, ...kids);
@@ -530,7 +531,11 @@ function waitPage() {
   if (phone) kids.push(desktopOnly('set it up'));
   else {
     kids.push(
-      el('button', { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take', 'data-pb-tip': 'The other browser keeps its answers' }, 'Take control'),
+      el(
+        'button',
+        { type: 'button', class: 'pb-btn pb-btn--outline pb-tip--start', id: 'setup-take', 'data-pb-tip': 'The other browser keeps its answers' },
+        'Take control',
+      ),
     );
   }
   $('setup-wait-body').replaceChildren(...kids);
