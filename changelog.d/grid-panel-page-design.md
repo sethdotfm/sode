@@ -1,0 +1,1 @@
+- The Grid panel page has the sizes of the prototype: larger crosspoints, names, level picks and Take. No text in the deck is smaller than the names.

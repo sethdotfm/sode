@@ -157,8 +157,8 @@ func TestChromeGridPanelLook(t *testing.T) {
 			arrows === '#pb-i-arrow-left,#pb-i-arrow-down';
 	})()`)
 
-	b.waitFor("the Grid page's root is 90%: 58 px crosspoints with 12 px names", `getComputedStyle(document.documentElement).fontSize === '14.4px' && `+
-		`Math.round(document.querySelector('.sode-gridpanel__probe-xp').getBoundingClientRect().width) === 58 && `+
+	b.waitFor("the Grid page's root is 90%: 65 px crosspoints (the prototype's 4.5rem) with 12 px names", `getComputedStyle(document.documentElement).fontSize === '14.4px' && `+
+		`Math.round(document.querySelector('.sode-gridpanel__probe-xp').getBoundingClientRect().width) === 65 && `+
 		`getComputedStyle(document.querySelector('.sode-gridpanel__src')).fontSize === '11.7px'`)
 
 	b.eval(bandRects)

@@ -4,11 +4,12 @@
    corner holds what is pinned on both axes. */
 .sode-panel__grid.sode-gridpanel {
   display: block;
-  /* At the Grid page's 90% root (base.css): 57.6 px crosspoints, a 161 by 86 px corner. The scroll bars are Sode's
-     own big ones (bigscroll.js), the same on both axes; the phone scrolls by touch and keeps thin native ones. */
-  --sode-xp: 4rem;
-  --sode-name-w: 11.2rem;
-  --sode-name-h: 6rem;
+  /* The prototype's sizes (branch prototype/panels). At the Grid page's 90% root (base.css): 64.8 px crosspoints, a
+     187 by 101 px corner. The scroll bars are Sode's own big ones (bigscroll.js), the same on both axes; the phone
+     scrolls by touch and keeps thin native ones. */
+  --sode-xp: 4.5rem;
+  --sode-name-w: 13rem;
+  --sode-name-h: 7rem;
   --sode-line: color-mix(in oklab, var(--pb-text) 22%, transparent);
   /* The patch field: light in a light theme, dark in a dark one, with no per-theme CSS. */
   --sode-patch-field: var(--pb-surface-sunken);
@@ -304,9 +305,9 @@ html:has(.sode-gridpanel) {
   padding: var(--pb-space-1);
   text-align: center;
 }
-/* 13 px: text-xs at the desktop root, text-sm at the phone's. The names stay text-sm on the desktop, 16 px. */
+/* As the names: text-sm. */
 :root:not([data-layout="phone"]) .sode-gridpanel__find-input {
-  font-size: var(--pb-text-xs);
+  font-size: var(--pb-text-sm);
 }
 .sode-gridpanel__src,
 .sode-gridpanel__src:hover {
@@ -460,7 +461,7 @@ html:has(.sode-gridpanel) {
   padding: 0 var(--pb-space-1);
   position: absolute;
 }
-/* 48 px in a 72 px crosspoint. */
+/* Two thirds of the crosspoint. */
 .sode-gridpanel__pie {
   clip-path: circle(50%);
   height: calc(100% * 2 / 3);
@@ -1128,7 +1129,7 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__deck {
   /* One pick (--sode-pick): the picks, the search boxes, Clear and Take line up with it. The Levels box is four
      picks wide, with Select all under it. */
-  --sode-pick: calc(var(--pb-space-10) + var(--pb-space-1));
+  --sode-pick: 2.6rem;
   --sode-lvl-w: calc(4 * var(--sode-pick) + 3 * var(--pb-space-1));
   --sode-all-h: var(--pb-control-h-sm);
   align-items: stretch;
@@ -1140,7 +1141,7 @@ html:has(.sode-gridpanel) {
     "picks input r1   fsrc mode .    r2   clear take"
     "picks input r1   fdst mode .    r2   clear take";
   /* The search boxes are as wide as their words need; the room left is the empty column before Clear and Take. */
-  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto 1fr auto 5rem 7rem;
+  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto 1fr auto 5rem 12rem;
   grid-template-rows: auto auto var(--sode-pick) var(--sode-pick);
   /* The top matches the Lock chip's, so the title lines up with the chip's button. */
   padding: var(--pb-space-4) var(--pb-space-5) var(--pb-space-3);
@@ -1207,7 +1208,7 @@ html:has(.sode-gridpanel) {
   padding: var(--pb-space-1) var(--pb-space-3);
 }
 :root:not([data-layout="phone"]) .sode-gridpanel__slot .sode__banner-body {
-  font-size: var(--pb-text-xs);
+  font-size: var(--pb-text-sm);
   line-height: var(--pb-leading-tight);
   white-space: nowrap;
 }
@@ -1244,6 +1245,19 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels .sode__levels {
   grid-area: picks;
 }
+/* The prototype's picks: 2.6rem, numbers in the number font. The box sets its own pick size, so the deck's is set
+   again on it. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels {
+  --sode-pick: 2.6rem;
+  --sode-picks-h: calc(2 * var(--sode-pick) + var(--pb-space-1));
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels .sode__pick {
+  font-family: var(--pb-font-num);
+}
+/* No text under text-sm on the desktop: the deck's note and chip, and the words in the grid's corner. */
+:root:not([data-layout="phone"]) :is(.sode-gridpanel__deck .sode-gridpanel__note, .sode-gridpanel__deck .sode-gridpanel__chip, .sode-gridpanel__label) {
+  font-size: var(--pb-text-sm);
+}
 /* As on the main page: a tall box with large words, here with Select all under it, both in the picks' height. */
 :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels > .sode__input {
   align-self: start;
@@ -1257,7 +1271,7 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels .sode__all {
   align-self: end;
   flex-direction: row;
-  font-size: var(--pb-text-xs);
+  font-size: var(--pb-text-sm);
   gap: var(--pb-space-2);
   grid-area: input;
   height: var(--sode-all-h);
@@ -1272,7 +1286,7 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__note {
   align-items: end;
   align-self: end;
-  height: calc(var(--pb-text-xs) + 2 * var(--pb-space-2) + 2 * var(--pb-border-w));
+  height: calc(var(--pb-text-sm) + 2 * var(--pb-space-2) + 2 * var(--pb-border-w));
   justify-content: end;
   grid-area: note;
   min-width: 100%;
@@ -1286,7 +1300,7 @@ html:has(.sode-gridpanel) {
 }
 :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__take {
   align-self: stretch;
-  font-size: var(--pb-text-lg);
+  font-size: var(--pb-text-xl);
   grid-area: take;
   height: auto;
   justify-self: stretch;
@@ -1327,7 +1341,7 @@ html:has(.sode-gridpanel) {
     "lab   lab   .    .    .    .    .    note note  note"
     "picks input r1   fsrc mode r3   msg  r2   clear take"
     "picks input r1   fdst mode r3   msg  r2   clear take";
-  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto auto minmax(10rem, 1fr) auto 5rem 7rem;
+  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto auto minmax(10rem, 1fr) auto 5rem 12rem;
 }
 .sode-gridpanel__rule--3 {
   grid-area: r3;
@@ -1365,7 +1379,7 @@ html:has(.sode-gridpanel) {
 /* The count of messages held back (bannerStep), in the box's bottom corner, over the result. */
 .sode-gridpanel__held {
   align-self: end;
-  font-size: var(--pb-text-xs);
+  font-size: var(--pb-text-sm);
   justify-self: end;
   margin: var(--pb-space-1);
   z-index: 1;
@@ -1377,7 +1391,7 @@ html:has(.sode-gridpanel) {
   visibility: hidden;
 }
 :root:not([data-layout="phone"]) .sode-gridpanel__msg .pb-alert {
-  font-size: var(--pb-text-xs);
+  font-size: var(--pb-text-sm);
   gap: var(--pb-space-1) var(--pb-space-2);
   line-height: var(--pb-leading-tight);
   margin: 0;
@@ -1406,7 +1420,7 @@ html:has(.sode-gridpanel) {
     "lab   lab   .    .    .    .    note note  note"
     "picks input r1   fsrc mode .    r2   clear take"
     "picks input r1   fdst mode .    r2   clear take";
-  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto 1fr auto 5rem 7rem;
+  grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto 1fr auto 5rem 12rem;
   grid-template-rows: auto auto var(--sode-pick) var(--sode-pick);
 }
 /* In the Live Editor the Filter switch sits beside the two search boxes at one box's height, with no box of its own. */
@@ -1463,6 +1477,15 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__tools:has(> :is(#panel-screen, #ed-live-screen)[hidden]) > .sode-gridpanel__toolrule,
 :root[data-layout="phone"] :is(.sode-gridpanel__namerule, .sode-gridpanel__toolrule, .sode-gridpanel__edit, .sode-gridpanel__copy, .sode-gridpanel__msg) {
   display: none;
+}
+/* Below 1440 px Take is narrower than the prototype's 12rem, so the message box keeps room for the banner. */
+@media (max-width: 89.9rem) {
+  :root:not([data-layout="phone"]) .sode-gridpanel__deck {
+    grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto 1fr auto 5rem 7rem;
+  }
+  :root:not([data-layout="phone"]) .sode-gridpanel__deck:has(> .sode-gridpanel__msg) {
+    grid-template-columns: auto var(--sode-lvl-w) auto minmax(8rem, 14rem) auto auto minmax(10rem, 1fr) auto 5rem 7rem;
+  }
 }
 /* Below 1280 px the controls row is tight: a smaller gap and Take, and a Levels box that gives way past the search
    boxes' least width (5rem), with smaller words so the placeholder still fits. */
