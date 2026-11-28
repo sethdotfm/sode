@@ -236,8 +236,8 @@ function groupStatus(f) {
       f.entries.every((e) => e.found),
       title,
     );
-  if (!bad) return { tone: 'ok', text: 'ok', title };
-  if (bad === got) return { tone: 'error', text: 'failed', title };
+  if (!bad) return { tone: 'ok', text: 'OK', title };
+  if (bad === got) return { tone: 'error', text: 'Failed', title };
   return { tone: 'warn', text: `${bad}/${got} failed`, title };
 }
 
@@ -253,7 +253,7 @@ export function statusNode(row) {
       ? { tone: 'info', text: 'External follow', title: 'Changed with this take, probably because of it' }
       : row.e.ext
         ? extStatus(row.e.found)
-        : { tone: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
+        : { tone: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'OK' : 'Failed' };
   const node = statusText(st.tone, el('span', 'sode__status-text', st.text));
   if (row.e && !row.e.ok) node.title = row.e.err || '';
   if (st.title) node.title = st.title;

@@ -128,7 +128,7 @@ test('Last of a take on router B keeps its levels', () => {
 
 test('with two routers, a take on a first router that is down names it', () => {
   sock.onmessage({ data: JSON.stringify({ t: 'status', router: 'down', routerUid: 'aaa' }) });
-  assert.equal(planBlocked(patchPlan(srcItem(0), [dstItem(2)], [1])).block?.text, 'Sode is not connected to router A.');
+  assert.equal(planBlocked(patchPlan(srcItem(0), [dstItem(2)], [1])).block?.text, 'Sode is not connected to Router A.');
   sock.onmessage({ data: JSON.stringify({ t: 'status', router: 'up', routerUid: 'aaa' }) });
 });
 

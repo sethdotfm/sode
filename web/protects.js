@@ -154,7 +154,7 @@ const sourceWord = (groups) => (groups.length > 1 ? 'Sources' : 'Source');
 // stands where the source is, and its detail lists the sources on the destination when it ran (prev).
 export const PROTECT_ENTRY = {
   route: (e) => ({ lead: chipOf(e), src: null, dst: entryDst(e), many: null, notes: [] }),
-  disc: (e, groups) => sourceWord(groups),
+  disc: () => 'Before',
   detail: (e, dst, groups) => `${sourceWord(groups)} on ${dst.label}`,
   actions(e) {
     const dst = entryDst(e);
@@ -245,13 +245,17 @@ function oneSummary(plan) {
   ];
 }
 
-// The badge row of each hold on dst, then the button the route view offers. confirm opens the Confirm with a plan;
-// none means badges only.
+// The badge row of each hold on dst, with the button the route view offers. confirm opens the Confirm with a plan;
+// none means badges only. Each badge stands beside its level strip. Free goes under the badge of the Sode Protect it
+// frees, since the column has no room for it beside the badge. Protect has a row of its own.
 export function protectNodes(dst, confirm = null) {
   const p = stateOf(dst);
-  const rows = p.holds.map((h) => el('div', 'sode__route', levelBar(h.levels, routerOfItem(dst)), holdBadge(h)));
   const b = confirm && protectButton(dst, confirm);
-  if (b) rows.push(el('div', 'sode__route sode__protect', b));
+  const at = b?.dataset.protect === 'clear' ? p.holds.findIndex((h) => h.sode) : -1;
+  const rows = p.holds.map((h, i) =>
+    el('div', 'sode__route sode__hold', levelBar(h.levels, routerOfItem(dst)), el('div', 'sode__hold-what', holdBadge(h), ...(i === at ? [b] : []))),
+  );
+  if (b && at < 0) rows.push(el('div', 'sode__route sode__protect', b));
   return rows;
 }
 
@@ -259,7 +263,7 @@ function protectButton(dst, confirm) {
   const offer = protectOfferOf(dst.n, routerOfItem(dst));
   if (!offer) return null;
   const set = offer === 'set';
-  const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon(set ? 'shield' : 'shield-off'));
+  const b = el('button', 'pb-btn pb-btn--ghost', icon(set ? 'shield' : 'shield-off'), set ? 'Protect' : 'Free');
   b.type = 'button';
   b.dataset.protect = offer;
   const tip = set ? `Protect ${dst.label} on every level` : `Free the Protect on ${dst.label}`;
@@ -359,8 +363,8 @@ function onResult(m) {
   const n = rest.length - failed.length;
   if (dsts.length === 1)
     return failed.length ? say('error', fail, failed[0]) : say('done', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
-  const head = on ? `${n} Protected` : `${n} Protects freed`;
-  if (!failed.length) return say('done', head, 'Every level.');
+  const head = on ? `${n} ${n === 1 ? 'destination' : 'destinations'} Protected` : `${n} Protects freed`;
+  if (!failed.length) return say('done', head, 'On every level.');
   say(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, failed.join(' '));
 }
 

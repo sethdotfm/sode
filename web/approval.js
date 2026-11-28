@@ -50,7 +50,7 @@ export function askApproval(what, who, sendFn, req = null) {
   ask = { what, who, sendFn, req };
   requestRow.hidden = !req;
   paintRequest();
-  prompt.open(`${what}: Approval from ${who}.`);
+  prompt.open(`${what} needs Approval from ${who}.`);
 }
 
 on('approvers', paintRequest);

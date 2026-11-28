@@ -46,7 +46,7 @@ func TestChromeMainStackedRow(t *testing.T) {
 		const sq = getComputedStyle(badge, '::before').content;
 		badge.remove();
 		const shown = (n) => !!n && n.getClientRects().length > 0;
-		return (!shown(s.querySelector('.pb-dot')) && s.textContent.trim() === 'ok' && sq === 'none' && shown(document.getElementById('conn-srv-dot'))) || [s.textContent, sq].join('|');
+		return (!shown(s.querySelector('.pb-dot')) && s.textContent.trim() === 'OK' && sq === 'none' && shown(document.getElementById('conn-srv-dot'))) || [s.textContent, sq].join('|');
 	})()`); got != true {
 		t.Fatalf("status squares: %v, want no square in the row's status or a badge and the Server glyph shown", got)
 	}

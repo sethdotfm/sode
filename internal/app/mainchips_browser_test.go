@@ -35,7 +35,7 @@ func TestChromeMainChips(t *testing.T) {
 	b.waitFor("History has the take", `!!document.querySelector('#history .sode__end--dst.sode__end--pick')`)
 	b.waitFor("Last destination chip", `!!document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)')`)
 
-	// Last is a compact chip (--sode-h-compact) with the full edge of every other chip, and no key hint. Both boxes
+	// Last is an action chip (--sode-h-action) with the full edge of every other chip, and no key hint. Both boxes
 	// end Last and Next at the box's right edge. History's route ends are compact chips too.
 	if got := b.eval(`(() => {
 		const last = document.querySelector('[data-last="dst"] button.sode__last:not(.sode__next)');
@@ -48,10 +48,10 @@ func TestChromeMainChips(t *testing.T) {
 		});
 		const hist = [...document.querySelectorAll('#history .sode__end')].map((n) => n.getBoundingClientRect().height);
 		const compact = (h) => Math.abs(h - 2 * rem) < 0.5;
-		const ok = edge && compact(r.height) && hist.length > 0 && hist.every(compact) && !last.querySelector('kbd') && ends[0] === ends[1];
+		const ok = edge && Math.abs(r.height - 2.5 * rem) < 0.5 && hist.length > 0 && hist.every(compact) && !last.querySelector('kbd') && ends[0] === ends[1];
 		return ok || [c.borderTopColor, c.borderTopWidth, r.height, hist.join('/'), !!last.querySelector('kbd'), ends].join(' ');
 	})()`); got != true {
-		t.Fatalf("Last chip or a History chip is not a compact chip with a full edge, or the boxes end Last apart: %v", got)
+		t.Fatalf("Last chip is not an action chip, or a History chip not a compact chip, with a full edge, or the boxes end Last apart: %v", got)
 	}
 
 	// Ctrl-click: a click with ctrlKey, or on a Mac the contextmenu that a Ctrl-click fires instead.

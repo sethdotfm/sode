@@ -278,7 +278,7 @@ function renderLast() {
       b.dataset.pbTip = `Next ${what} (${keyLabel(`ctrl+shift+${key}`)})`;
       b.addEventListener('click', () => useLast(k, true));
       // The closed chip's room stays in the slot so nothing in the row moves.
-      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next'), b));
+      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', el('span', 'sode__tag', 'Next')), b));
     }
     for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';

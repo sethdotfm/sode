@@ -57,7 +57,7 @@ import {
   usedLast,
   choiceLook,
 } from './tiepickrules.js';
-import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText, chainWords, feedingHop } from './tiepickrules.js';
+import { withOneOffs, oneOffEnds, addOneOff, chooseOneOff, storedText, chainWords, feedingHop, destsWord } from './tiepickrules.js';
 import { mayProtect } from './protects.js';
 import { reasonText } from './tietakerules.js';
 
@@ -180,8 +180,8 @@ function showOneOff(show) {
 // resetOneOff clears the form for the route of a new picker.
 function resetOneOff(route) {
   const { one } = ui;
-  one.from.label.textContent = `Destination on router ${prefix(route.src.router)}`;
-  one.to.label.textContent = `Source on router ${prefix(route.dst.router)}`;
+  one.from.label.textContent = `Destination on Router ${prefix(route.src.router)}`;
+  one.to.label.textContent = `Source on Router ${prefix(route.dst.router)}`;
   one.from.input.value = '';
   one.to.input.value = '';
   one.why.textContent = '';
@@ -447,7 +447,7 @@ function reasonsNode(route) {
 }
 
 function endNode(word, it, cls, marked = false) {
-  const word2 = el('span', 'sode-tiepick__word', `${word}, router ${prefix(it.router || '')}`);
+  const word2 = el('span', 'sode-tiepick__word', `${word} on Router ${prefix(it.router || '')}`);
   return el('div', `sode-tiepick__end ${cls}`, word2, labelNode(it), ...(marked ? [changedMark()] : []));
 }
 
@@ -457,7 +457,7 @@ function dstsNode(st) {
   const { o } = cur;
   if (!o.members?.length) return endNode('Destination', dstOf(st.route.dst), 'sode-tiepick__end--dst', st.marks?.end);
   const routers = [...new Set(o.members.map((x) => prefix(x.dst.router || '')))];
-  const word = el('span', 'sode-tiepick__word', `${o.members.length > 1 ? 'Destinations' : 'Destination'}, router ${routers.join(', ')}`);
+  const word = el('span', 'sode-tiepick__word', destsWord(o.members.length, routers));
   const rows = o.members.map((x, i) => {
     const marked = i === 0 ? st.marks?.end : cur.hits.includes(x.at);
     return el('div', 'sode-tiepick__dst', labelNode(x.dst), ...(marked ? [changedMark()] : []));
@@ -475,7 +475,7 @@ function stepNode(s, src) {
   const next = p.hops[s + 1];
   const list = el('div', 'sode-tiepick__choices');
   list.setAttribute('role', 'listbox');
-  list.setAttribute('aria-label', `Tie lines from router ${prefix(hop.router)} to router ${prefix(next.router)}`);
+  list.setAttribute('aria-label', `Tie lines from Router ${prefix(hop.router)} to Router ${prefix(next.router)}`);
   const cs = choices(st, s);
   for (const c of cs) list.append(choiceNode(s, c, c.tie === hop.tie.id, src, cs));
   const node = el(
@@ -484,7 +484,7 @@ function stepNode(s, src) {
     el(
       'div',
       'sode-tiepick__stephead',
-      el('span', 'sode-tiepick__word', `Step ${s + 1}: router ${prefix(hop.router)} to router ${prefix(next.router)}`),
+      el('span', 'sode-tiepick__word', `Step ${s + 1}: Router ${prefix(hop.router)} to Router ${prefix(next.router)}`),
       ...(mayShield() ? [shieldNode(s, hop)] : []),
     ),
     list,
@@ -552,10 +552,13 @@ function choiceNode(s, c, on, src, cs) {
     changed.dataset.changed = h.changed;
     changed.dataset.before = h.before ? '1' : '0';
   }
+  // The wire has no words of its own, so its tip says what a lit wire means.
+  const wire = el('span', 'sode-tiepick__wire');
+  wire.dataset.pbTip = on ? 'Chosen tie line' : 'Choose this tie line';
   const b = el(
     'button',
     'sode-tiepick__choice',
-    el('span', 'sode-tiepick__wire'),
+    wire,
     el('span', 'sode-tiepick__tierow', el('span', 'sode-tiepick__tie', c.name), ...lookNodes(look)),
     el('span', 'sode-tiepick__now', `Now ${chainText(h.now)}`),
     el('span', 'sode-tiepick__will', will),

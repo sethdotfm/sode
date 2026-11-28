@@ -1,0 +1,2 @@
+- The router list has a line over it and between the routers again. Router names now start on the edge of the Server labels, and each router's state shows in the same column as the Server values.
+- The panel list on /panels has its lines between panels and around each preview again.

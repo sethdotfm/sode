@@ -60,7 +60,8 @@ html {
   transform: translateX(calc(var(--sode-switch-w, 2rem) - 2 * var(--pb-border-w) - 0.75rem - 2 * var(--sode-knob-gap)));
 }
 /* A field is a sunken well with a bright edge. A button is a filled control (an outline button too) whose edge shows
-   on hover. Text has no edge and no fill. Only the resting edge changes: focus, invalid and disabled keep patchbay's. */
+   on hover. Text has no edge and no fill. Only the resting edge changes: focus and invalid keep patchbay's, and an off
+   button has patchbay's disabled look (below). */
 :is(.pb-input, .pb-select, .pb-textarea, .pb-chip-input) {
   --pb-edge: var(--pb-text-muted);
 }
@@ -71,6 +72,12 @@ html {
 .pb-btn--outline:hover {
   background-color: var(--pb-surface-hover);
   border-color: var(--pb-text-muted);
+}
+/* Sode's outline button is filled, so off it takes patchbay's disabled look for a filled button, as Take does.
+   Patchbay's own outline look (an edge and no fill) drew an off button brighter than an on one. */
+.pb-btn--outline:is(:disabled, .disabled) {
+  background-color: var(--pb-surface-control);
+  border-color: transparent;
 }
 /* Patchbay's chip edge is a dark overlay, which shows nothing on a dark page: a chip gets the full edge of a field. */
 .pb-chip:not(.pb-chip--selected, [aria-pressed="true"]) {
@@ -124,7 +131,9 @@ html {
 :where(:root:not([data-layout="phone"]) #patch-view) .pb-btn--icon:where(:not(#history *)) {
   width: var(--sode-h-action);
 }
-:where(:root:not([data-layout="phone"]) #patch-view) .sode__search-box {
+/* The History filter boxes and their clear button are an action high, as Filters is. Not in :where(), so the touch
+   screen height (touch.css) does not take them below the row's buttons. */
+:root:not([data-layout="phone"]) #patch-view .sode__search {
   --sode-search-h: var(--sode-h-action);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -551,6 +560,25 @@ html {
   font-size: var(--pb-text-md);
   gap: var(--pb-space-4);
 }
+/* A Protect or Router lock (protects.js): the badge stays beside its level strip and its words wrap, so every hold
+   has one layout. Free sits under the badge, on its left edge. */
+.sode__route.sode__hold {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.sode__hold > .sode__bar {
+  flex: none;
+}
+.sode__hold-what {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode__hold-what > .sode__hold-chip {
+  white-space: normal;
+}
 /* Every text box with a role color edge: the main page's Source, Destination and Levels boxes, the phone's one box and a
    Grid panel's search boxes. The edge is a background strip inside the border, so the border and the focus ring run
    all the way round. Not patchbay's pb-rolebar, whose edge replaces the left border. */
@@ -682,6 +710,10 @@ html {
 }
 .pb-toast:not([class*="pb-toast--"]) {
   --pb-toast-role: var(--pb-text-muted);
+}
+/* Cards keep off the page's big scroll bar, as the status in the corner does (.sode__conn). */
+.pb-toast-stack {
+  right: calc(var(--pb-space-5) + var(--sode-page-bar));
 }
 /* Every churning-letter Confirm button ("Take (X)", "Delete (X)", "Confirm (X)") has one size on every page, so the
    letter reads the same everywhere. It is higher than an action button, so it stays the clear target, but lower than
@@ -1734,6 +1766,7 @@ html {
    the label and Last and Next, and the heads of the row keep one height. */
 .pb-btn.sode__box-router {
   align-self: flex-start;
+  font-size: var(--pb-text-xs);
   height: var(--sode-h-compact);
   margin-top: calc(var(--pb-space-1) - var(--pb-space-2));
   min-height: 0;
@@ -1761,13 +1794,14 @@ html {
   gap: var(--pb-space-3);
   justify-content: flex-end;
 }
-/* On the desktop Last and Next are compact chips with the full edge of every other chip: they take the free width of
-   the row (a long name is cut only when the row is full), and both boxes end them at the box's right edge. */
+/* On the desktop Last and Next are pressed live, so they are action chips with body text and the full edge of every
+   other chip: they take the free width of the row (a long name is cut only when the row is full), and both boxes end
+   them at the box's right edge. The box heads keep their height (desktop.css). */
 :root:not([data-layout="phone"]) .pb-chip.sode__last {
   background: transparent;
   border-color: var(--pb-edge);
-  font-size: var(--pb-text-sm);
-  height: var(--sode-h-compact);
+  font-size: var(--pb-text-md);
+  height: var(--sode-h-action);
   line-height: var(--pb-leading-tight);
   padding: 0 var(--pb-space-3);
 }
@@ -1790,7 +1824,9 @@ html {
 .sode__next-size {
   visibility: hidden;
 }
+/* The closed chip is as wide as its ghost (the same chip with the tag only): no flex gap before the closed value. */
 .pb-chip.sode__next {
+  gap: 0;
   max-width: 18rem;
 }
 .sode__next {
@@ -1838,6 +1874,9 @@ html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+}
+.sode__next-in > .sode__last-text {
+  padding-left: var(--pb-space-2);
 }
 :is(.sode__next-slot:hover > .sode__next, .sode__next:focus-visible) > .sode__next-open,
 html[data-shift] .sode__next > .sode__next-open {

@@ -100,17 +100,17 @@ export function renderStrips() {
   const { list } = shownBookmarks();
   const rows = rowsNow();
   for (const box of document.querySelectorAll('[data-presets]')) {
-    const edit = el('button', { type: 'button', class: 'pb-btn pb-btn--ghost pb-btn--sm sode__chipbtn', 'aria-haspopup': 'dialog' }, 'Edit');
+    const edit = el('button', { type: 'button', class: 'pb-btn pb-btn--ghost sode__chipbtn', 'aria-haspopup': 'dialog' }, 'Edit');
     edit.addEventListener('click', () => emit('bookmarkEditor'));
     // Edit and All presets are the same button, beside the heading, so the strip is one row with or without bookmarks.
     // All presets has the name of the Presets popup it opens: the popup lists presets, not bookmarks.
     const more = el(
       'button',
-      { type: 'button', class: 'pb-btn pb-btn--ghost pb-btn--sm sode__chipbtn sode__presets-all', 'aria-haspopup': 'dialog' },
+      { type: 'button', class: 'pb-btn pb-btn--ghost sode__chipbtn sode__presets-all', 'aria-haspopup': 'dialog' },
       icon('list'),
       'All presets',
     );
-    if (document.documentElement.dataset.pbLayout !== 'phone') more.dataset.pbTip = `All Presets (${keyLabel('mod+g')})`;
+    if (document.documentElement.dataset.pbLayout !== 'phone') more.dataset.pbTip = `All presets (${keyLabel('mod+g')})`;
     more.addEventListener('click', () => emit('presetPopup'));
     const sep = el('span', { class: 'sode__sets-sep', 'aria-hidden': 'true' }, '|');
     const chips = list.map((b, i) => chip(b, i, rows));

@@ -113,7 +113,7 @@ test('a take on the second router needs its link; routes across routers open the
     bDst = dstItem(2, '', 'bbb');
   assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block, null);
   send({ t: 'status', router: 'down', addr: '10.0.0.2:8910', routerUid: 'bbb' });
-  assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block?.text, 'Sode is not connected to router B.');
+  assert.equal(planBlocked(patchPlan(bSrc, [bDst], [1])).block?.text, 'Sode is not connected to Router B.');
   assert.equal(planBlocked(patchPlan(srcItem(0), [dstItem(2)], [1])).block, null, 'the first router is still up');
   send({ t: 'status', router: 'up', addr: '10.0.0.2:8910', routerUid: 'bbb' });
   const one = planBlocked(patchPlan(srcItem(0), [bDst], [1]));

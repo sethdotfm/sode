@@ -179,10 +179,11 @@
   flex-direction: column;
   gap: var(--pb-space-2);
 }
+/* A whole number of rows (each row is --pb-control-h), so the last one is never cut in half over the key hint. */
 .sode-protpick__list {
   display: flex;
   flex-direction: column;
-  max-height: min(55vh, calc(100dvh - 18rem));
+  max-height: round(down, min(55vh, calc(100dvh - 18rem)), var(--pb-control-h));
   overflow-y: auto;
 }
 .sode-protpick__row {

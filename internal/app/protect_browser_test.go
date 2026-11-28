@@ -191,7 +191,7 @@ func TestChromePaletteProtectPick(t *testing.T) {
 		t.Fatalf("Confirm asks %q", got)
 	}
 	confirm("Confirm protect")
-	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 Protected')`)
+	b.waitFor("the result", `document.getElementById('result')?.textContent.includes('2 destinations Protected')`)
 	if n := sodeRows(); n != 34 {
 		t.Fatalf("Sode's Protect on %d levels, want 2 × 17", n)
 	}

@@ -589,3 +589,7 @@
 [data-layout="phone"] .sode__pickbar-controls .sode__hint {
   flex: 1 1 auto;
 }
+/* Edit and All presets sit together at the right of the Bookmarks head, not Edit alone in the middle. */
+[data-layout="phone"] .sode__presets > .sode__label {
+  margin-inline-end: auto;
+}

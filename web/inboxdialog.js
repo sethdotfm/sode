@@ -19,7 +19,7 @@ const buttons = [];
 
 function headButton(slot) {
   const count = el('span', 'pb-badge sode-inbox__count');
-  const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-inbox__btn', icon('inbox'), el('span', 'sode-inbox__word', 'Inbox'), count);
+  const b = el('button', 'pb-btn pb-btn--ghost sode-inbox__btn', icon('inbox', false), el('span', 'sode-inbox__word', 'Inbox'), count);
   b.type = 'button';
   b.dataset.inboxButton = '';
   b.addEventListener('click', () => openDialog());
@@ -123,7 +123,7 @@ function sentRow(c) {
 function drawLists() {
   if (!open || reviewing) return;
   const cards = inbox.cards.map(cardRow);
-  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'Inbox empty')]));
+  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'Inbox is empty')]));
   // Newest first, as the server sends them oldest first.
   const sent = [...inbox.sent].reverse().map(sentRow);
   sentList.replaceChildren(...(sent.length ? sent : [el('p', 'sode__hint', 'None sent (30 days)')]));
