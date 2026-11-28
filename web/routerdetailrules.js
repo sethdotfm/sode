@@ -239,6 +239,15 @@ export function countLine(keys, added = 0) {
   return `${head} ${parts.join(', ')}.${more}`;
 }
 
+// tryWhy: the operator words for why an Address try failed, from the server's error text, or '' when Sode has no words
+// for it (the page then shows the error text as it is). The Go dial errors are not operator words.
+export function tryWhy(err) {
+  const e = String(err || '');
+  if (/connection refused/i.test(e)) return 'The router refused the connection.';
+  if (/i\/o timeout|timed out|deadline exceeded/i.test(e)) return 'No answer from this address.';
+  return '';
+}
+
 // findMatch: the find box matches the prefix, the Router title or the address.
 export const findMatch = (r, q) => !q.trim() || `${r.prefix} ${r.title} ${r.address}`.toLowerCase().includes(q.trim().toLowerCase());
 

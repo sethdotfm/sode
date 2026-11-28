@@ -8,6 +8,7 @@
 import { $, el, request } from './core.js';
 import { statusText } from './statustext.js';
 import { routerLine } from './setupwizardrules.js';
+import { tryWhy } from './routerdetailrules.js';
 
 const PAUSE_MS = 600;
 const RETRY_MS = 5000;
@@ -20,10 +21,14 @@ const box = () => $('cfg-rt-address-try');
 // keyOf: the values that a try reads. A change of one of them starts a new try.
 const keyOf = (v) => JSON.stringify([String(v.address || '').trim(), v.matrix, v.nameRequests, v.nameLength]);
 
+// A failed try shows why in operator words, with the server's error text in the title; an error that has no words shows
+// as it is.
 function show(line, err) {
   const b = box();
   if (!line) return void b.replaceChildren();
-  b.replaceChildren(statusText(line.ok ? 'ok' : 'warn', el('span', null, line.text)), ...(err ? [el('span', 'sode__hint sode__code', err)] : []));
+  const words = tryWhy(err);
+  const why = !err ? [] : words ? [el('span', { class: 'sode__hint', title: err }, words)] : [el('span', 'sode__hint sode__code', err)];
+  b.replaceChildren(statusText(line.ok ? 'ok' : 'warn', el('span', null, line.text)), ...why);
 }
 
 // tryRouterAddress follows the router in view: uid, its values v, and saved, the address that Sode connects to now (blank

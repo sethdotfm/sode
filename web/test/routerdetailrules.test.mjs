@@ -15,6 +15,7 @@ import {
   valueText,
   addText,
   countLine,
+  tryWhy,
   findMatch,
   hasProblem,
   rowMarks,
@@ -166,4 +167,11 @@ test('valueText: the review shows Default levels in the numbering of the router 
   assert.equal(valueText('defaultLevels', '1-17', { levels: 17, levelNumbering: '0' }), '0-16');
   assert.equal(valueText('defaultLevels', '2,4', { levels: 17, levelNumbering: '1' }), '2, 4');
   assert.equal(valueText('defaultLevels', '', { levels: 17, levelNumbering: 'va' }), 'Every level');
+});
+
+test('tryWhy: operator words for a failed Address try', () => {
+  assert.equal(tryWhy('dial tcp 127.0.0.1:1: connect: connection refused'), 'The router refused the connection.');
+  assert.equal(tryWhy('dial tcp 10.0.0.50:8910: i/o timeout'), 'No answer from this address.');
+  assert.equal(tryWhy('no answer from the router: check the address and the port'), '');
+  assert.equal(tryWhy(''), '');
 });
