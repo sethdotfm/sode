@@ -21,6 +21,8 @@ import {
   problemIsMistake,
   stopAt,
   chipGoes,
+  chipDone,
+  chipName,
   numberingChoices,
   finishMessage,
   routerLine,
@@ -321,15 +323,15 @@ const steps = () => (d?.again ? STEPS.slice(0, DONE) : STEPS);
 function renderSteps() {
   const list = [];
   const all = steps();
-  all.forEach(([, name], i) => {
+  all.forEach(([key, name], i) => {
     const now = i === at;
-    const done = !now && (i < at || i <= reached);
+    const done = chipDone(i, at, reached);
     const go = chipGoes(i, at, reached, finished);
     const chip = el(
       'button',
       { type: 'button', class: 'sode-setup__chip', 'data-go': go ? String(i) : null, tabindex: go ? null : '-1', 'aria-current': now ? 'step' : null },
       el('span', { class: 'sode-setup__dot' }, done ? icon('check') : String(i + 1)),
-      el('span', { class: 'sode-setup__label' }, name),
+      el('span', { class: 'sode-setup__label' }, chipName(key, name, d.again)),
     );
     list.push(el('li', { class: now ? 'is-now' : done ? 'is-done' : '' }, chip));
     if (i < all.length - 1) list.push(el('span', { class: `sode-setup__line ${i < Math.max(at, reached) ? 'is-done' : ''}` }));

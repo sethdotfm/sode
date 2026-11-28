@@ -157,6 +157,12 @@ export function stopAt(d, want, max) {
 // A chip moves to a visited step until Finish; after it every step is locked.
 export const chipGoes = (i, at, reached, finished) => !finished && i !== at && i <= reached;
 
+// A visited step is not a finished one: a chip shows its check only when a later step was reached.
+export const chipDone = (i, at, reached) => i !== at && i < Math.max(at, reached);
+
+// Run setup again has no Add a first user, so its first step is the style part of the owner's "Style & User" only.
+export const chipName = (key, name, again) => (again && key === 'welcome' ? 'Style' : name);
+
 // The three Level numbering buttons show the real range of the router, as its detail view in Settings > Routers does:
 // "1–17", "0–16" and "V, 1–16".
 export function numberingChoices(n) {

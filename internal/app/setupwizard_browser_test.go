@@ -180,6 +180,16 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("Finish", next+`.textContent === 'Finish'`)
 	b.eval(`document.querySelector('[data-go="0"]').click(); true`)
 	b.waitFor("a chip goes back and keeps the answers", `document.getElementById('setup-name')?.value === 'Ada'`)
+	b.waitFor("Access is visited, not finished: it keeps its number", `(() => {
+		const lis = [...document.querySelectorAll('#setup-steps li')];
+		return lis.map((li) => li.className || '-').join(' ') === 'is-now is-done - -'
+			&& lis[2].querySelector('.sode-setup__dot').textContent === '3' && !!lis[1].querySelector('.sode-setup__dot .pb-icon');
+	})()`)
+	b.waitFor("a done chip's check is 1rem, the weight of a digit", `(() => {
+		const r = document.querySelector('#setup-steps .is-done .sode-setup__dot .pb-icon').getBoundingClientRect();
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		return Math.abs(r.width - rem) <= 0.5 && Math.abs(r.height - rem) <= 0.5;
+	})()`)
 	b.eval(`document.querySelector('[data-go="2"]').click(); true`)
 	b.waitFor("and forward again", next+`.textContent === 'Finish'`)
 	b.eval(next + `.click(); true`)

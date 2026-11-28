@@ -41,6 +41,7 @@ func TestChromeRunSetupAgain(t *testing.T) {
 	b.waitFor("Welcome with the current name and no Add a first user", `document.getElementById('setup-brandText')?.value === 'Studio B' &&
 		!document.getElementById('setup-name') && document.getElementById('setup-restore').hidden && !`+next+`.disabled &&
 		document.querySelectorAll('#setup-body .sode-setup__section').length === 1 && !document.getElementById('setup-body').textContent.includes('null')`)
+	b.waitFor("the first chip says Style, since there is no user part", `[...document.querySelectorAll('#setup-steps .sode-setup__label')].map((l) => l.textContent).join(' | ') === 'Style | Router | Access'`)
 	b.eval(`(() => { const i = document.getElementById('setup-brandText'); i.value = 'Studio C'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	b.eval(next + `.click(); true`)
 	b.waitFor("Router with the current values", `document.getElementById('setup-router')?.value === '`+sim+`' && document.getElementById('setup-levelNumbering-va').checked`)

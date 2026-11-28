@@ -85,6 +85,11 @@
   font-weight: var(--pb-weight-bold);
   line-height: 1;
 }
+/* A done chip's check has the weight of the bold digits in the others. */
+.sode-setup__dot .pb-icon {
+  width: 1rem;
+  height: 1rem;
+}
 .sode-setup__steps .is-now .sode-setup__dot {
   background: var(--pb-accent);
   border-color: var(--pb-accent);

@@ -9,6 +9,8 @@ import {
   pinMistake,
   stopAt,
   chipGoes,
+  chipDone,
+  chipName,
   numberingChoices,
   finishMessage,
   routerLine,
@@ -114,6 +116,28 @@ test('chips move between visited steps until Finish', () => {
   assert.equal(chipGoes(1, 1, 2, false), false);
   assert.equal(chipGoes(0, 3, 3, true), false);
   assert.equal(STEPS.length, 4);
+});
+
+test('a chip is done only when a later step was reached: the furthest visited step keeps its number', () => {
+  // On Access, then back to Style & User: Router is done, Access is not, since Finish was not pressed.
+  assert.deepEqual(
+    [0, 1, 2, 3].map((i) => chipDone(i, 0, 2)),
+    [false, true, false, false],
+  );
+  assert.deepEqual(
+    [0, 1, 2, 3].map((i) => chipDone(i, 2, 2)),
+    [true, true, false, false],
+  );
+  assert.deepEqual(
+    [0, 1, 2, 3].map((i) => chipDone(i, 3, 3)),
+    [true, true, true, false],
+  );
+});
+
+test('Run setup again has no Add a first user, so its first chip says Style', () => {
+  assert.equal(chipName('welcome', 'Style & User', false), 'Style & User');
+  assert.equal(chipName('welcome', 'Style & User', true), 'Style');
+  assert.equal(chipName('router', 'Router', true), 'Router');
 });
 
 test('level numbering reads from the level count', () => {
