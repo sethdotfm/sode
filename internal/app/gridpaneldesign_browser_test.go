@@ -148,5 +148,43 @@ func TestChromeGridPanelDesign(t *testing.T) {
 	realKey(b, "Escape", "Escape", 27)
 	b.waitFor("Esc closes the key list", `document.getElementById('keys').hidden`)
 
+	// A narrow window (C2-47, 960 px): the Find and Filter words go and the switch keeps its tip. In a wider window
+	// the words are beside the switch, never over it.
+	modeParts := []string{`.sode-gridpanel__deck .sode-gridpanel__find-side[data-side="find"]`, ".sode-gridpanel__deck .sode-gridpanel__find-mode > .pb-switch__input",
+		`.sode-gridpanel__deck .sode-gridpanel__find-side[data-side="filter"]`}
+	apart := func(what string) {
+		t.Helper()
+		x := b.boxes(modeParts...)
+		if len(x) != 3 {
+			t.Fatalf("%s: %d of the 3 mode parts show", what, len(x))
+		}
+		for i := 1; i < 3; i++ {
+			if x[i].Left < x[i-1].Right-layoutTol {
+				t.Errorf("%s: %s overlaps %s", what, x[i].Name, x[i-1].Name)
+			}
+		}
+		mode := b.boxes(".sode-gridpanel__deck .sode-gridpanel__find-mode")[0]
+		if x[0].Left < mode.Left-layoutTol || x[2].Right > mode.Right+layoutTol {
+			t.Errorf("%s: the words are outside the switch's cell", what)
+		}
+	}
+	apart("at 1920 px")
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1280, "height": 800, "deviceScaleFactor": 1, "mobile": false})
+	b.waitFor("1280 px", `innerWidth === 1280`)
+	apart("at 1280 px")
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1100, "height": 800, "deviceScaleFactor": 1, "mobile": false})
+	b.waitFor("1100 px", `innerWidth === 1100`)
+	apart("at 1100 px")
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 960, "height": 800, "deviceScaleFactor": 1, "mobile": false})
+	b.waitFor("960 px", `innerWidth === 960`)
+	b.shot("narrow")
+	b.waitFor("at 960 px the words go and the switch keeps its tip", `(() => {
+		const m = document.querySelector('.sode-gridpanel__deck .sode-gridpanel__find-mode');
+		const sw = m.querySelector('.pb-switch__input').getBoundingClientRect(), r = m.getBoundingClientRect();
+		const box = document.querySelector('.sode-gridpanel__deck .sode-gridpanel__find[data-kind="srcs"]').getBoundingClientRect();
+		return [...m.querySelectorAll('.sode-gridpanel__find-side')].every((w) => !w.getClientRects().length) &&
+			sw.width > 0 && sw.left >= r.left - 0.5 && sw.right <= r.right + 0.5 && r.left >= box.right - 0.5 && !!m.dataset.pbTip;
+	})()`)
+
 	b.check()
 }

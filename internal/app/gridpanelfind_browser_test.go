@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"math"
 	"testing"
 )
 
@@ -60,6 +61,22 @@ func TestChromeGridPanelFind(t *testing.T) {
 	gridCursorOn(b, "the previous match button steps back", -1, 99)
 	b.waitFor("a step button gives the keys back to the box", `document.activeElement === `+gridFindBox("srcs"))
 	b.waitFor("the Destination bar box shows no step buttons", `[...document.querySelectorAll('.sode-gridpanel__find[data-kind="dsts"] .sode-gridpanel__find-step')].every((n) => n.hidden)`)
+	// The step buttons sit inside the box beside the count, so the box with text keeps the width of the empty one.
+	in := b.boxes(".sode-gridpanel__find-input")
+	if len(in) != 2 || math.Abs(in[0].Left-in[1].Left) > layoutTol || math.Abs(in[0].Right-in[1].Right) > layoutTol {
+		t.Errorf("the search boxes with and without text are not one width: %+v", in)
+	}
+	parts := b.boxes(`.sode-gridpanel__find[data-kind="srcs"] .sode-gridpanel__find-count`, `.sode-gridpanel__find[data-kind="srcs"] .sode-gridpanel__find-step`,
+		`.sode-gridpanel__find[data-kind="srcs"] .sode-gridpanel__find-key`)
+	for i, p := range parts {
+		if p.Left < in[0].Left-layoutTol || p.Right > in[0].Right+layoutTol {
+			t.Errorf("%s is outside the box", p.Name)
+		}
+		if i > 0 && p.Left < parts[i-1].Right-layoutTol {
+			t.Errorf("%s overlaps %s: %+v", p.Name, parts[i-1].Name, parts)
+		}
+	}
+	b.noClip("the count is whole", ".sode-gridpanel__find-count")
 	b.shot("find-best")
 	realKey(b, "Escape", "Escape", 27)
 	realKey(b, "s", "KeyS", 83)
