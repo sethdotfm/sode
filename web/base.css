@@ -330,6 +330,10 @@ html {
   font-size: var(--pb-text-sm);
   gap: var(--pb-space-4);
 }
+.sode__down-why > code {
+  /* Down with two or more routers: one reason for each router, one to a line. */
+  white-space: pre-line;
+}
 .sode__down-why > span {
   font-size: var(--pb-text-xs);
   font-weight: var(--pb-weight-bold);

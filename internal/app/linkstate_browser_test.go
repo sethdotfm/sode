@@ -67,8 +67,9 @@ func TestChromeDegradedRouter(t *testing.T) {
 	b.waitFor("Down: the banner has a node for each router", `(() => {
 		const box = document.getElementById('conn-down');
 		const nodes = [...box.querySelectorAll('.sode__down-node--down')].map((n) => n.textContent);
-		return !box.hidden && box.querySelector('.sode__down-title').textContent === 'Lost link: every Router link down' &&
-			nodes.length === 2 && nodes[0].startsWith('Router A') && nodes[1].startsWith('Router B') && document.getElementById('conn-degraded').hidden;
+		return !box.hidden && box.querySelector('.sode__down-title').textContent === 'Lost link: every Router link is down' &&
+			nodes.length === 2 && nodes[0].startsWith('Router A') && nodes[1].startsWith('Router B') && !nodes.some((n) => /Router (.) Router \1/.test(n)) &&
+			getComputedStyle(box.querySelector('.sode__down-why code')).whiteSpace === 'pre-line' && document.getElementById('conn-degraded').hidden;
 	})()`)
 	b.waitFor("Down: the full status shows in Compact view", `getComputedStyle(document.getElementById('conn-srv-dot').parentElement).opacity === '1'`)
 

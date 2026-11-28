@@ -77,12 +77,10 @@ export function wholeState(list) {
 // The router list shows a find box from this many routers.
 export const FIND_FROM = 8;
 
-// The name of a router in the router list: the prefix, then the Router title ("B Studio B"). A router with no title,
-// or a title that only repeats the prefix, is "Router B". With one router the prefix stays hidden.
+// The name of a router in the router list and the hover box: routerName. With one router the prefix stays hidden.
 export function listName(r, n) {
   if (n === 1) return r.title || 'Router';
-  if (!r.title || r.title === `Router ${r.prefix}`) return `Router ${r.prefix}`;
-  return `${r.prefix} ${r.title}`;
+  return routerName(r);
 }
 
 // The state of one row in words. state is the color of the word: none for Connected (dark cockpit). note: what to do.
@@ -113,9 +111,15 @@ export const DEGRADED_NAMES_MAX = 8;
 // Up to this many lost routers get one line each in the Degraded note. More get one sentence that names them.
 export const DEGRADED_LINES_MAX = 2;
 
-// A router's full name: Router, its prefix and its title. A title that only repeats the prefix ("Router B") is not
-// said twice.
-export const routerName = (r) => ['Router', r.prefix, r.title !== `Router ${r.prefix}` && r.title].filter(Boolean).join(' ');
+// A router's one name on every page (the Lost link banner, the hover box, the router list, /log): "Router B", then the
+// Router title. A title that starts with "Router B" is the name as it is, so the default title "Router B" and "Router B
+// (studio 2)" are not said twice.
+export const routerName = (r) => {
+  const head = ['Router', r.prefix].filter(Boolean).join(' ');
+  const t = (r.title || '').trim();
+  if (!t || t === head || t.startsWith(`${head} `)) return t || head;
+  return `${head} ${t}`;
+};
 
 // The Degraded note's line for one lost router. dsts: its destinations as the page shows them ({ label }), in number
 // order. A router that never connected gets the hint to check its address.

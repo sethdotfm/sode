@@ -1,0 +1,1 @@
+- Every page names a router one way: "Router A", or "Router B (studio 2)" when the Router title starts with "Router B". The Lost link banner no longer says "Router A Router A", and each router's reason in it has its own line. With the Server link down and two or more routers, the banner names every router.
