@@ -267,6 +267,9 @@
   column-gap: var(--pb-space-5);
   grid-template-columns: repeat(auto-fill, minmax(11.25rem, 1fr));
   grid-auto-rows: auto;
+  /* Each field's bottom margin parts the rows; the last row's margin is taken back, so the next block of the group is
+     one group gap away, as after a field outside the grid. */
+  margin-bottom: calc(-1 * var(--pb-space-4));
   row-gap: 0;
 }
 .sode__rgroup .sode__fields > .sode__field {
@@ -281,7 +284,8 @@
   margin-bottom: var(--pb-space-2);
 }
 .sode__rgroup .sode__fields > .sode__field > :is(.sode__hint, .sode__field-err) {
-  margin-top: var(--pb-space-1);
+  /* The gap of a .sode__field outside the grid. */
+  margin-top: var(--pb-space-2);
 }
 .sode__rlink .sode__code,
 .sode__rtry .sode__code {
