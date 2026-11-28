@@ -354,6 +354,7 @@ test('pad: Step in lists other users with a PIN, sends a stepIn and prefills not
   const s = { user: 'Ana', lens: [4, 0] };
   const p = padOf(step);
   assert.equal(p.send, 'stepIn');
+  assert.equal(p.go, 'Step in');
   assert.deepEqual(
     p.users(s, users).map((u) => u.name),
     ['Bo'],
@@ -373,6 +374,7 @@ test('pad: every other view signs in, lists every user and sends at once for a u
   for (const v of [PAGE_VIEW, lockView(PAGE_VIEW, false), startSignIn(PAGE_VIEW, false)]) {
     const p = padOf(v);
     assert.equal(p.send, 'signIn');
+    assert.equal(p.go, 'Sign in');
     assert.equal(p.users(s, users), users);
     assert.equal(p.prefill(s, 'ana', users), 'Ana');
     assert.equal(p.pickSends(s, users[1]), true);

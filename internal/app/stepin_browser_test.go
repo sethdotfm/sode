@@ -223,7 +223,8 @@ func TestChromeStepInReviewNamesAuthor(t *testing.T) {
 }
 
 // Esc and Cancel each close the Step in pad and leave Ana's page as it was: Settings open, the staged edit kept. A
-// wrong PIN keeps the pad in Step in mode. Shots in both themes at desktop width and at a phone's width.
+// wrong PIN keeps the pad in Step in mode, and its last key says Step in. Shots in both themes at desktop width and at
+// a phone's width.
 func TestChromeStepInCancelKeepsPage(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -250,6 +251,7 @@ func TestChromeStepInCancelKeepsPage(t *testing.T) {
 	openStepIn(b)
 	// The list has only other users with a PIN.
 	b.waitFor("Bo alone in the list", `[...document.querySelectorAll('#lock-name-list [role="option"]')].map((o) => o.textContent).join() === 'Bo'`)
+	b.waitFor("the last key says Step in", `document.querySelector('.sode-lock__key[data-key="enter"]').textContent === 'Step in'`)
 	b.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); true`)
 	b.waitFor("Esc left the page as it was", kept)
 	b.waitFor("focus back on Step in", `document.activeElement?.id === 'account-stepin'`)

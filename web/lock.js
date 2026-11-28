@@ -5,7 +5,7 @@
 // With no PIN lock, a Lock with nobody signed in (churning letter, behind the confirm lockout) can still go up. It
 // guards against keyboard mashing. It is page-local state, and a reload clears it.
 
-import { el, S, on, emit, onMsg, wsSend, LINK_DOWN } from './core.js';
+import { el, icon, S, on, emit, onMsg, wsSend, LINK_DOWN } from './core.js';
 import { heldUserKept, keepHeldUser, lastUser, keepLastUser, startHandshake, keepSignInToken, forgetTokens, forgetSignIn, onSessionToken } from './signin.js';
 import {
   padKey,
@@ -98,7 +98,7 @@ startHandshake(page);
 onSessionToken(() => !!L.user);
 
 let root = null;
-let brand, modeLine, dotsEl, msg, state, chip, checkKey;
+let brand, modeLine, dotsEl, msg, state, chip, checkKey, goWord;
 let nameField, nameInput, picker;
 let padBody, letterBody, letterKey, letterBtn, letterNote, signInAsBtn, signOutBtn, letterFoot;
 const owed = createOwed(wsSend); // a Lock the server has not got yet
@@ -157,10 +157,12 @@ function build() {
     b.addEventListener('click', () => press(k));
     return b;
   };
-  checkKey = key('✓', 'enter', 'sode-lock__key--go');
-  checkKey.setAttribute('aria-label', 'Submit PIN');
+  // The word follows the pad (Sign in or Step in, set in showLock).
+  goWord = el('span', null, padOf(PAGE_VIEW).go);
+  checkKey = key('', 'enter', 'sode-lock__key--word sode-lock__key--go');
+  checkKey.append(icon('check'), goWord);
   checkKey.disabled = true;
-  // Cancel shares the last row with ✓, so a sign-in adds no row to the Lock.
+  // Cancel shares the last row with the Sign in key, so a sign-in adds no row to the Lock.
   cancelBtn = el('button', 'pb-btn pb-btn--outline sode-lock__key sode-lock__key--word sode-lock__cancel', 'Cancel');
   cancelBtn.type = 'button';
   cancelBtn.hidden = true;
@@ -278,6 +280,7 @@ function showLock() {
   const body = viewBody(V, lockCovers(L));
   padBody.hidden = body !== 'pad';
   cancelBtn.hidden = !padAsked(V);
+  goWord.textContent = pad().go;
   modeLine.textContent = pad().note;
   modeLine.hidden = !pad().note;
   nameField.hidden = !asksName(L);

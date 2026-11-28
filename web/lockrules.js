@@ -260,13 +260,14 @@ export const prefillName = (s, last, users) => (asksName(s) && last ? users?.fin
 export const focusName = (s, name) => asksName(s) && !name.trim();
 
 // What the pad does in a view: one entry for Step in, one for every other pad (the Lock's and a sign-in's). lock.js
-// reads these and has no mode checks of its own. send: the message kind lock.js sends. note: the line under the site
-// name ('' = none). label and offLabel: the overlay's name, online and offline. offline: the offline line. users: the
-// names the box lists. prefill: the name the box starts with. pickSends: a pick sends at once (a user with no PIN).
+// reads these and has no mode checks of its own. send: the message kind lock.js sends. go: the word on the last key.
+// note: the line under the site name ('' = none). label and offLabel: the overlay's name, online and offline. offline:
+// the offline line. users: the names the box lists. prefill: the name the box starts with. pickSends: a pick sends at once (a user with no PIN).
 // lapses: the pad can stop being offered while it shows, so a hello or a layout change looks again (stepInKept).
 const PADS = Object.freeze({
   signIn: Object.freeze({
     send: 'signIn',
+    go: 'Sign in',
     note: '',
     label: 'Locked',
     offLabel: 'Offline, locked',
@@ -278,6 +279,7 @@ const PADS = Object.freeze({
   }),
   stepIn: Object.freeze({
     send: 'stepIn',
+    go: 'Step in',
     note: 'Step in: this tab only',
     label: 'Step in',
     offLabel: 'Step in, offline',

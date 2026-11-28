@@ -120,6 +120,23 @@ func TestChromeLockPadLayout(t *testing.T) {
 		}
 	}
 	b.gapY("the site name to the Name box is the column's gap", "--pb-space-7", ".sode-lock__brand", ".sode-lock__namefield")
+	// A1-12: Sign in in words with the check icon, as high as a digit, patchbay's own disabled look.
+	if got := b.eval(`(() => { const k = document.querySelector('.sode-lock__key[data-key="enter"]'); return [k.textContent.trim(), k.hasAttribute('aria-label'), !!k.querySelector('svg.pb-icon use[href="#pb-i-check"]'), k.disabled]; })()`).([]any); fmt.Sprint(got) != "[Sign in false true true]" {
+		t.Errorf("the last key (text, its own aria-label, check icon, off) is %v", got)
+	}
+	b.sameHeight("the Sign in key is as high as a digit", `.sode-lock__key[data-key="1"]`, `.sode-lock__key[data-key="enter"]`)
+	look := `(k) => { const s = getComputedStyle(k); return [s.opacity, s.color, s.backgroundColor, s.borderTopColor].join(' '); }`
+	if got, want := b.eval(`(`+look+`)(document.querySelector('.sode-lock__key[data-key="enter"]'))`), b.eval(`(() => {
+		const k = document.createElement('button');
+		k.className = 'pb-btn pb-btn--outline';
+		k.disabled = true;
+		document.querySelector('.sode-lock__pad').append(k);
+		const v = (`+look+`)(k);
+		k.remove();
+		return v;
+	})()`); got != want {
+		t.Errorf("the Sign in key off is %v, want patchbay's disabled outline button %v", got, want)
+	}
 	// A1-10: the list drops over the pad and moves nothing. A1-28: six and a half rows of twelve.
 	listDrops := func(where string, rows float64) {
 		t.Helper()
