@@ -153,8 +153,8 @@ function paintDestination(b, cell, { st, env, names, now }) {
   b.dataset.result = shown?.result || '';
   const cur = currentOfDestination(st, env, cell);
   const under = env.protectedDsts.has(cell.n) ? 'Protected' : cur >= 0 ? names.source(cur) : '';
-  const kids = [name, el('small', 'sode-panel__text', under)];
   const staged = st.staged.find((x) => x.dst === cell.n);
+  const kids = [name, el('small', `sode-panel__text${staged && cur >= 0 && under !== 'Protected' ? ' sode-panel__replaced' : ''}`, under)];
   if (staged) kids.push(el('span', 'sode-panel__staged sode-panel__text', `→ ${names.source(staged.src)}`));
   if (failed) kids.push(failed);
   fill(b, ...kids);

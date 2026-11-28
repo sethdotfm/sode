@@ -262,9 +262,12 @@ body {
   font-weight: var(--pb-weight-bold);
   opacity: 1;
 }
+/* Label cells: disabled, since a press does nothing, but not faded as a disabled control is. */
 .sode-panel__cell--current:disabled,
 .sode-panel__cell--panelName:disabled,
-.sode-panel__cell--instanceName:disabled {
+.sode-panel__cell--instanceName:disabled,
+.sode-panel__cell--pageName:disabled,
+.sode-panel__cell--info:disabled {
   background-color: var(--pb-surface-control);
   color: var(--pb-text-strong);
   opacity: 1;
@@ -289,9 +292,10 @@ body {
   color: var(--pb-text-on-accent);
 }
 
-/* No staged route: the Take cell is solid, not faded like a disabled control. */
+/* No staged route: the Take cell is solid, not faded like a disabled control, with the inset line of Clear and Undo. */
 .sode-panel__take:disabled {
   background-color: color-mix(in oklab, var(--pb-commit) 40%, var(--pb-surface-control));
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-edge);
   color: var(--pb-text-strong);
   opacity: 1;
 }
@@ -413,6 +417,17 @@ body {
    cell's width, since the cell is the container. */
 .sode-panel__cell span.sode-panel__text {
   font-size: min(max(1em, calc(var(--sode-grow) * 1cqi * var(--panel-fs, 1) * var(--cell-fs, 1))), 20cqi);
+}
+/* A staged destination: the staged source is smaller than the name, and the present source above it is struck through
+   (panelview.js). */
+.sode-panel__cell span.sode-panel__staged {
+  font-size: min(
+    max(calc(var(--pb-text-sm) * var(--panel-fs, 1) * var(--cell-fs, 1)), calc(var(--sode-grow) * 0.93cqi * var(--panel-fs, 1) * var(--cell-fs, 1))),
+    20cqi
+  );
+}
+.sode-panel__replaced {
+  text-decoration: line-through;
 }
 .sode-panel__take {
   --sode-grow: 10; /* the Take word is text-xl, about 1.6 times text-md */
