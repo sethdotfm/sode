@@ -7,6 +7,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 ---
 
 ### A2-01: Routes under Source and under Destination start at different heights
+- **Status:** Done in 6da2cf5c.
 - **Where:** main page with Source and Destination picked; `047-main-source-destination-picked-crop-boxes-4k2x.png`, `068-...-1080.png`, `080-...-1080.png`, `097-...-1080.png`, `099-...-1080.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -15,6 +16,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** `.sode__group--levels` gets the same 12 px row gap (computed `row-gap: 12px`); it has one row now, so nothing shows, but a second row would. A2-10 is the same class of fault on the column axis.
 
 ### A2-02: History filter boxes are 32 px, the buttons beside them 40 px
+- **Status:** Done in af401ed7.
 - **Where:** History tools row, every state; `037-main-empty-1080.png`, `072-...-crop-search-4k2x.png`, `074-...-1080.png`
 - **Kind:** alignment / bug
 - **Severity:** high
@@ -23,6 +25,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the phone view's search boxes (the variable is shared).
 
 ### A2-03: Last and Next chips touch
+- **Status:** Done in 2f11be5c.
 - **Where:** box heads after a take; `064-main-last-next-chips-empty-boxes-crop-boxes-4k2x.png`, `-crop-src-`, `-crop-dst-`
 - **Kind:** spacing
 - **Severity:** high
@@ -31,6 +34,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** Destination head (same code). Levels has no Next.
 
 ### A2-04: The "Lock menu" tip covers the first menu item
+- **Status:** Done in 339e3e5f.
 - **Where:** top bar, hover on the lock button; `041-topbar-lock-menu-hover-1080.png`, `-crop-menu-4k2x.png`
 - **Kind:** bug
 - **Severity:** high
@@ -39,6 +43,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** any other control that opens a popup on hover or click while its tip shows: the Routers status (its hover box replaces the tip, fine), Next chips, the `+` button.
 
 ### A2-05: Redo and Undo do not line up down the History list
+- **Status:** Done in f14fbb3b.
 - **Where:** History rows; `069-history-with-entries-*`, `071-...-1080.png`, `084-...-1080.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -47,6 +52,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the opened rows of a stacked entry (`091-...-1080.png`): their Undo ends at x=1513, 8 px left of the parent row's 1521, because the child rows are inset. Take the inset out of the right side so one Undo column runs down the list.
 
 ### A2-06: At 3840 px the page is small and the row has stranded parts
+- **Status:** Done in a1cf22c3.
 - **Where:** all pages at 4K with no OS scale; `037-main-empty-4k.png`, `069-history-with-entries-4k.png`
 - **Kind:** readability
 - **Severity:** high
@@ -55,6 +61,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** `AGENTS.md` says the UI scales with html font-size 125%; `web/base.css:5-7` says 100%. One of them is out of date.
 
 ### A2-07: The name list in the Approval popup is cut by the dialog
+- **Status:** Done in c8b3c1fc.
 - **Where:** Approval popup; `089-approval-popup-clear-history-crop-dialog-4k2x.png` (screenshot only)
 - **Kind:** bug
 - **Severity:** high
@@ -63,6 +70,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the lock screen's Name list (other reviewer) and the Step in popup, which use the same Name box.
 
 ### A2-08: Lost link banner says "Router A Router A" and runs the reasons together
+- **Status:** Done in dc4f5fd2.
 - **Where:** Lost link banner; `098-link-state-all-routers-down-lost-link-banner-crop-banner-4k2x.png`, `099-...-1080.png`, `100-link-state-server-down-1080.png`
 - **Kind:** text / bug
 - **Severity:** high
@@ -71,6 +79,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the phone banner uses the same node code.
 
 ### A2-09: Router list has no row lines, and its rows are 4 px off the lines above
+- **Status:** Done in b623d31a.
 - **Where:** click Routers; `040-topbar-router-list-open-crop-list-4k2x.png`, `096-link-state-degraded-router-list-crop-list-4k2x.png`
 - **Kind:** bug / alignment / design-language
 - **Severity:** medium
@@ -79,6 +88,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** run the token scan for the whole web folder: `--pb-border` was the only undefined `--pb-*` name in desktop, bar, base, history, tiepicker, approvalcards, palette and lock CSS.
 
 ### A2-10: Gap between the Levels box and Take is 9 px; the code says 14
+- **Status:** Done in 9b1c643e.
 - **Where:** patch row; `037-main-empty-crop-boxes-4k2x.png`
 - **Kind:** spacing
 - **Severity:** medium
@@ -87,6 +97,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the picker row under it uses the same subgrid.
 
 ### A2-11: Source and Destination keep 66 px free at the right for a key note that does not show
+- **Status:** Done in 6a66b633.
 - **Where:** patch boxes outside keyboard mode; all main page shots
 - **Kind:** edge case
 - **Severity:** medium
@@ -95,6 +106,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the Destination box's armed hint (`.sode__armed`, `right: 3em`, `desktop.css:182`) uses the same number.
 
 ### A2-12: One row holds controls of three or four heights
+- **Status:** Done in b394b4a6.
 - **Where:** Bookmarks strip and History tools; `037-main-empty-1080.png`, `061-...-crop-strip-4k2x.png`, `075-...-crop-sets-4k2x.png`
 - **Kind:** alignment / design-language
 - **Severity:** medium
@@ -103,6 +115,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the `|` separators in both strips are text characters with a transparent 2 px border for size (`history.css:567`); a `border-left: var(--pb-border-w) solid var(--pb-edge-soft)` rule of fixed height reads better and scales.
 
 ### A2-13: Last chips are compact while everything they sit over is large
+- **Status:** Done in 7e34b4fc.
 - **Where:** box heads; `064-...-crop-boxes-4k2x.png`, `068-...-crop-levels-4k2x.png`
 - **Kind:** readability
 - **Severity:** medium
@@ -111,6 +124,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the Levels Last chip has `min-width: 5rem` (`desktop.css:295`); at the larger text "Last 1–4" still fits (80 px now).
 
 ### A2-14: Approval cards sit on the page scroll bar
+- **Status:** Done in 10da1eaf.
 - **Where:** bottom right cards; `091-approval-card-on-approver-main-page-1080.png`, `090`, `093` (screenshot, plus computed variables)
 - **Kind:** bug
 - **Severity:** medium
@@ -119,6 +133,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** result toasts on other pages use the same stack.
 
 ### A2-15: The Last chip's tip opens over the text in the box
+- **Status:** Done in 339e3e5f.
 - **Where:** hover or focus on a Last chip; `065-main-last-chip-hover-clip-tip-4k2x.png`, `068-...-1080.png`, `070-...-1080.png`, `071-...-1080.png`
 - **Kind:** readability
 - **Severity:** medium
@@ -127,6 +142,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** "Clear the search" tip over the first History row (`076-...-1080.png`) and "Dismiss" under the result banner (`080`): both open down over content; `pb-tip--top` fits both.
 
 ### A2-16: Top bar: Inbox is a size smaller than its neighbours, and the right end is not flush
+- **Status:** Done in 38477ee6.
 - **Where:** top bar; `037-main-empty-crop-bar-4k2x.png`, `098-...-crop-bar-4k2x.png`, `100-...-crop-bar-4k2x.png`
 - **Kind:** alignment / design-language
 - **Severity:** medium
@@ -135,6 +151,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the lock button's icon is `pb-icon--sm` (14 px) beside 18 px tool icons; the four tool buttons are 32 px with 4 px gaps while the status items have a 6 px gap.
 
 ### A2-17: Dialog buttons are drawn four ways
+- **Status:** Done in 1fbdf2e4.
 - **Where:** `043-topbar-inbox-open`, `059-presets-popup-all`, `063-bookmarks-editor`, `078-history-filters-dialog`, `082-protect-picker-two-picked`, `054-tie-picker-a-to-b` (1080 shots)
 - **Kind:** design-language
 - **Severity:** medium
@@ -143,6 +160,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the Approval popup's disabled Approve has a double edge; other disabled buttons have a single one.
 
 ### A2-18: Tie line picker: five edges inside 12 px, and a mostly empty 80vh dialog
+- **Status:** Done in ddbd02fe.
 - **Where:** `054-tie-picker-a-to-b-1080.png`, `056-tie-picker-a-to-c-hop-1-crop-dialog-4k2x.png`
 - **Kind:** readability
 - **Severity:** medium
@@ -151,6 +169,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the same picker inside Panels (other slice).
 
 ### A2-19: Protected destination: loose level strips and an icon with no text
+- **Status:** Done in 08a9a219.
 - **Where:** `080-main-take-to-protected-refused-1080.png`, `084-main-destination-protected-by-sode-1080.png`, `-crop-dst-4k2x.png` (screenshots)
 - **Kind:** alignment / design-language
 - **Severity:** medium
@@ -159,6 +178,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the Protect picker's title bar has a lone shield icon at the right (`081`), also with no text.
 
 ### A2-20: Status and result texts
+- **Status:** Done in 56d9acf5.
 - **Where:** History rows, result banner, empty states, popups (file names in each line)
 - **Kind:** text
 - **Severity:** medium
@@ -180,6 +200,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the degraded note (`094-...-crop-note-4k2x.png`): `Router B is down. You cannot patch its 120 destinations now: B.1 PGM to B.120 MV 107.` Check "patch" against GLOSSARY.md; a shorter form: `Router B is down. Its 120 destinations (B.1 to B.120) cannot take a route.`
 
 ### A2-21: The Router button under a box can disagree with the box
+- **Status:** Dropped: the Router button label is settled (AB-25); a new label is an owner call (second pass).
 - **Where:** `097-link-state-degraded-box-on-lost-router-1080.png`, `049-main-router-button-under-destination-hover-crop-dst-4k2x.png`
 - **Kind:** readability
 - **Severity:** medium
@@ -188,6 +209,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the button is 11 px muted text in a ghost button with no edge, and Show all at the right is the same; both look like captions, not buttons, until hover. A `pb-btn--outline` edge would say they can be pressed.
 
 ### A2-22: Disabled buttons are drawn three ways
+- **Status:** Done in f9061fee.
 - **Where:** `037-main-empty-1080.png` (Clear, the search Clear), `099-link-state-take-while-down-1080.png` (Take, Redo, Undo)
 - **Kind:** design-language
 - **Severity:** low
@@ -196,6 +218,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** dark theme: `037-main-empty-dark.png`.
 
 ### A2-23: Select None is a stranded two-line button
+- **Status:** Done in 151df565.
 - **Where:** under the Levels box; `037-main-empty-crop-boxes-4k2x.png`
 - **Kind:** alignment
 - **Severity:** low
@@ -204,6 +227,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the same picker with 2 or 30 levels (`--sode-bar-cols`).
 
 ### A2-24: The Server hover box cuts the error with no way to read it there
+- **Status:** Done in e3a1797a.
 - **Where:** `095-link-state-degraded-routers-hover-crop-tip-4k2x.png`
 - **Kind:** readability
 - **Severity:** low
@@ -212,6 +236,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the uptime strip in the same box is all grey with one orange bar at the end and no legend; a first reading is "down all day". `Last 24 hours: 95.7% up, 2 drops` explains it, but grey for "no data yet" and orange for "now" are not named anywhere.
 
 ### A2-25: Protect picker cuts its last row in half
+- **Status:** Done in 9478a92c.
 - **Where:** `081-protect-picker-all-destinations-crop-dialog-4k2x.png`, `082-...-1080.png` (screenshot)
 - **Kind:** alignment
 - **Severity:** low
@@ -220,6 +245,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the Source "Show all" list (`046`), same pattern.
 
 ### A2-26: Space between the three groups of the patch row is 68 px and 34 px
+- **Status:** Done in 06520010.
 - **Where:** patch row; `037-main-empty-1080.png`
 - **Kind:** spacing
 - **Severity:** low
@@ -228,6 +254,7 @@ Not checked: keyboard mode key notes. `088-main-keyboard-mode-keys-*` shows no k
 - **Also check:** the flipped order (`data-flip`).
 
 ### A2-27: Not saved banner pushes the site name down and its link is a chip
+- **Status:** Done in 28320062.
 - **Where:** `101-banner-not-saved-env-only-mode-1080.png`, `-crop-top-4k2x.png`
 - **Kind:** design-language
 - **Severity:** low

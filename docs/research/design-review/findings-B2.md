@@ -7,6 +7,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 ---
 
 ### B2-01: Access preset badges break the Locks grid
+- **Status:** Done in 3cccaa60.
 - **Where:** Access > Locks after "Apply an Access preset" > Stage changes; 06-access-apply-preset-staged-1080.png, -secured-, -standard-
 - **Kind:** bug
 - **Severity:** high
@@ -15,6 +16,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** `.sode__refused` notes use the same `after()` at settingssave.js:164 and will also become grid items inside `.sode__fields` (Branding, Confirm and results, Locks). Give them `grid-column: 1 / -1`.
 
 ### B2-02: The Not saved banner covers the Settings search box
+- **Status:** Done in 28320062.
 - **Where:** env-only mode, Settings at scroll top; 15-envonly-first-view-1080.png
 - **Kind:** bug
 - **Severity:** high
@@ -23,6 +25,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** any other in-flow banner above the form (`.sode__noadmin`, `.sode__broken`) for the same overlap.
 
 ### B2-03: Manage users rows do not fit: clipped buttons and role select
+- **Status:** Done in 63b2ba6b.
 - **Where:** Manage users > Users tab; 08-users-manage-users-tab-1080.png, 08-users-bad-user-rows-1080.png, 08-users-remove-row-1080.png
 - **Kind:** alignment
 - **Severity:** high
@@ -31,6 +34,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** the same table below 50rem, where rows wrap.
 
 ### B2-04: Profile dialog has large empty blocks
+- **Status:** Done in 63b2ba6b.
 - **Where:** My profile and Edit Profile; 08-my-user-profile-1080.png, 08-users-edit-profile-trusted-1080.png, 08-users-people-edit-profile-1080.png
 - **Kind:** spacing
 - **Severity:** high
@@ -39,6 +43,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** the "Swap…" button touches the "No Broken or Name moved items" line (0px gap, y=1087.6): add `margin-top: var(--pb-space-3)`.
 
 ### B2-05: My user buttons: row 1 is spread, row 2 is packed
+- **Status:** Done in 5b651ca2.
 - **Where:** Preferences > My user; 01-preferences-my-user-buttons-crop-4k2x.png, 01-preferences-my-user-1080.png
 - **Kind:** spacing
 - **Severity:** high
@@ -47,6 +52,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** every other `.sode__names--start` user (grep shows the class is set in index.html:267 only).
 
 ### B2-06: Wrapped check rows are indented 12px and gaps differ
+- **Status:** Done in 6c45cf78.
 - **Where:** Access > Locks > Page locks, Access > API > Keyless scopes, Users > New user defaults; 06-access-locks-1080.png, 06-access-api-1080.png
 - **Kind:** alignment
 - **Severity:** high
@@ -55,6 +61,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** `.sode__preset-users` (B2-07), Manage users `.sode__users-opts .sode__checks`.
 
 ### B2-07: Access preset dialog: labels touch
+- **Status:** Done in 63b2ba6b.
 - **Where:** Apply an access preset; 06-access-apply-preset-dialog-1080.png
 - **Kind:** spacing
 - **Severity:** medium
@@ -63,6 +70,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** B2-06, same cause family (check groups with no gap rule).
 
 ### B2-08: Preferences grid: 4px column gap, label touches the select
+- **Status:** Done in 23ba6c41.
 - **Where:** Preferences > This browser; 01-preferences-this-browser-fields-crop-4k2x.png, 01-preferences-this-browser-4k.png
 - **Kind:** spacing
 - **Severity:** medium
@@ -71,6 +79,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** the Guest view (13-guest-first-view-1080.png), where the third column is empty and the select grows to 360px; give the select column a fixed `22rem`.
 
 ### B2-09: Half-width fields end 6px past the two-column grid edge
+- **Status:** Done in 09a6040c.
 - **Where:** Look and feel > History, Access > Locks (Guest role), API (Rate limit, API takes), Panels; 02-look-history-1080.png, 06-access-locks-1080.png
 - **Kind:** alignment
 - **Severity:** medium
@@ -79,6 +88,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** Routers > Status label (other slice) uses the same class.
 
 ### B2-10: Sidebar: sections are indented less than their topic
+- **Status:** Done in 89514b4e.
 - **Where:** Settings sidebar, every shot
 - **Kind:** alignment
 - **Severity:** medium
@@ -87,6 +97,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** the tabs are inset 4px in the 200px box (x=412.8) while the search input starts at 408.8.
 
 ### B2-11: Search list: selected row shifts 4px, "No match" moves the sidebar
+- **Status:** Done in d3b4988d.
 - **Where:** Settings search; 09-search-router-1080.png, 09-search-nomatch-1080.png, 09-search-keyboard-pick-1080.png
 - **Kind:** alignment
 - **Severity:** medium
@@ -95,6 +106,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** none.
 
 ### B2-12: Rights tab: fields touch, two gap rules
+- **Status:** Done in 63b2ba6b.
 - **Where:** Manage users > Rights; 08-users-rights-tab-1080.png, 08-users-edit-rights-operator-1080.png
 - **Kind:** spacing
 - **Severity:** medium
@@ -103,6 +115,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** the list inputs under "All" look disabled but show an example value "1-8, 12": set the placeholder only when the mode needs a list.
 
 ### B2-13: Export tree labels read "Everyone's defaults Trusted Approval"
+- **Status:** Done in 763d9edc.
 - **Where:** Server > Export & Import > Export, Settings expanded; 07-server-export-import-expanded-1080.png
 - **Kind:** bug
 - **Severity:** medium
@@ -111,6 +124,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** settingsindex.js and the save review, wherever a legend is read as a name.
 
 ### B2-14: Theme color preview: three boxes, two sizes
+- **Status:** Done in a3b439ce.
 - **Where:** Look and feel > Branding; 02-look-branding-custom-crop-crop-4k2x.png, 02-look-branding-crop-crop-4k2x.png
 - **Kind:** alignment
 - **Severity:** medium
@@ -119,6 +133,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** the setup wizard uses the same preview.
 
 ### B2-15: Mixed 11px and 13px buttons in one view
+- **Status:** Done in eac6d359.
 - **Where:** History (Clear History 13px) next to Level colors (Reset to default 11px); Users (Manage users 13px, Edit Profile 11px); Manage users (Add user, Add API client, Make key 11px; Done 13px); My API clients (Make key 13px)
 - **Kind:** design-language
 - **Severity:** medium
@@ -127,6 +142,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** B2-16.
 
 ### B2-16: Full-width buttons
+- **Status:** Done in 93682a1a.
 - **Where:** Access > Locks "Apply an Access preset…" (640px), Access > Users "Manage users" (640px), preset dialog "Tick all" (576px); 06-access-locks-1080.png
 - **Kind:** design-language
 - **Severity:** medium
@@ -135,6 +151,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** none.
 
 ### B2-17: Manage users jumps when the tab changes
+- **Status:** Done in 63b2ba6b.
 - **Where:** Manage users; 08-users-manage-users-tab-1080.png, 08-users-api-clients-tab-1080.png, 08-users-rights-tab-1080.png
 - **Kind:** readability
 - **Severity:** medium
@@ -143,6 +160,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** Export & Import (Export tab is 680px tall, Import tab is 180px).
 
 ### B2-18: Lone Close button is left in some dialogs and right in others
+- **Status:** Done in 27c7bd8f.
 - **Where:** My API clients (Close left, x=652), Manage users (Done right), Profile (Close right), Export & Import (Close left); 08-my-user-clients-1080.png, 08-users-manage-users-tab-1080.png
 - **Kind:** design-language
 - **Severity:** low
@@ -151,6 +169,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** every `foot:` with one button (editorlib.js:106).
 
 ### B2-19: My API clients: scopes come after the button that uses them
+- **Status:** Done in 63b2ba6b.
 - **Where:** My user > My API clients; 08-my-user-clients-1080.png
 - **Kind:** bug
 - **Severity:** medium
@@ -159,6 +178,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** none.
 
 ### B2-20: Copy this browser dialog says Copy, the button says Move
+- **Status:** Done in 763d9edc.
 - **Where:** My user > Copy this browser to My user; 08-my-user-copy-browser-1080.png
 - **Kind:** text
 - **Severity:** medium
@@ -167,6 +187,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** the My user button text (index.html:274).
 
 ### B2-21: Import tab is blank
+- **Status:** Done in 763d9edc.
 - **Where:** Export & Import > Import, both dialogs; 07-server-export-import-import-1080.png, 08-my-user-own-import-1080.png
 - **Kind:** readability
 - **Severity:** medium
@@ -175,6 +196,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** none.
 
 ### B2-22: Tooltip covers the field it describes
+- **Status:** Done in 339e3e5f.
 - **Where:** Look and feel > Confirm and results; 02-look-confirm-tip-1080.png. Also Access > Locks tips (06-access-locks-tip-1080.png)
 - **Kind:** readability
 - **Severity:** medium
@@ -183,6 +205,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** tooltip.js placement for labels: prefer `pb-tip--top`.
 
 ### B2-23: Invalid level color shows no message
+- **Status:** Done in f76faee7.
 - **Where:** Look and feel > Level colors; 02-look-level-colors-invalid-1080.png
 - **Kind:** edge case
 - **Severity:** medium
@@ -191,6 +214,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** the Hidden destinations error in settingsform.js:111 says "Globally hidden destinations", but the label is "Hidden destinations in History". Use the label text.
 
 ### B2-24: "Save as my default" does not look like a button
+- **Status:** Done in 456b47a1.
 - **Where:** Preferences > This browser; 01-preferences-this-browser-1080.png, 01-preferences-save-as-default-hover-1080.png
 - **Kind:** readability
 - **Severity:** medium
@@ -199,6 +223,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** column width in base.css:1998 after the text change.
 
 ### B2-25: Clear History confirm buttons are 3px apart
+- **Status:** Done in 4806e930.
 - **Where:** Look and feel > History, after Clear History; 02-look-history-clear-confirm-1080.png
 - **Kind:** spacing
 - **Severity:** low
@@ -207,6 +232,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** none.
 
 ### B2-26: Manage users column heads
+- **Status:** Done in 63b2ba6b.
 - **Where:** Manage users > Users; 08-users-manage-users-tab-1080.png
 - **Kind:** design-language
 - **Severity:** low
@@ -215,6 +241,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** lock.css:539 `.sode__profiles-h { font-size: 1rem }` is off the type scale (16px): use `var(--pb-text-lg)` or `--pb-text-md` bold, the same as section legends.
 
 ### B2-27: Settings at 3840x2160 is a 640px column
+- **Status:** Dropped: replaced by owner call 1 (steeper root-font rule bounded by height); its clamp is not used.
 - **Where:** every 4k shot; 01-preferences-this-browser-4k.png
 - **Kind:** readability
 - **Severity:** medium
@@ -223,6 +250,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** all pages; this is one change for the whole app. AGENTS.md says the root is 125%, the build measures 100%.
 
 ### B2-28: Env-only My user shows only a Lock button
+- **Status:** Done in 8c7e523b.
 - **Where:** env-only, Preferences > My user; 15-envonly-my-user-1080.png, 15-envonly-first-view-1080.png
 - **Kind:** edge case
 - **Severity:** low
@@ -231,6 +259,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** Lock with no users does nothing useful; hide it in this state.
 
 ### B2-29: Save review dialog: three left edges
+- **Status:** Done in 932bcfd5.
 - **Where:** Save > Review; 08-users-save-error-1080.png
 - **Kind:** alignment
 - **Severity:** low
@@ -239,6 +268,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** owned by the save flow; may overlap the Routers reviewer.
 
 ### B2-30: Text fixes
+- **Status:** Done in 8c7e523b.
 - **Where:** Settings labels and dialogs
 - **Kind:** text
 - **Severity:** medium
@@ -259,6 +289,7 @@ Not checked: phone layout, 200% zoom, the Import tab with a file loaded, and the
 - **Also check:** run `go test ./internal/app -run 'TestSTE|TestRetiredWords' -v` after the edits.
 
 ### B2-31: Uppercase micro labels used as field labels and as row names
+- **Status:** Done in 63b2ba6b.
 - **Where:** Access > Users profile rows (ADMINISTRATOR, TRUSTED, OPERATOR), Page locks, New user defaults, Keyless scopes; Profile dialog (THEME, LAYOUT …); 06-access-users-1080.png, 08-users-edit-profile-trusted-1080.png
 - **Kind:** design-language
 - **Severity:** low

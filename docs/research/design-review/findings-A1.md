@@ -10,6 +10,7 @@ Counts: 6 high, 15 medium, 8 low.
 ---
 
 ### A1-01: The site name and Theme color go back to "Sode" and blue during setup
+- **Status:** Done in 4e903152.
 - **Where:** Setup step 2 onward, after the Address changes. Visible in the owner's own shots: `012-setup-2-router-connected-1080.png` shows "Studio B" in teal; `014-setup-2-router-multi-destination-help-tip-1080.png`, `016-setup-3-access-standard-1080.png`, `017`, `018`, `019` show "Sode" in blue with the same answers.
 - **Kind:** bug
 - **Severity:** high
@@ -23,6 +24,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `mode === 'again'` returns at the top of the same handler, so a hello during Run setup again also resets a changed name or color. Add the same line before that `return`.
 
 ### A1-02: Lock screen: the Name box is 80px wider than the PIN pad
+- **Status:** Done in 4d3b65a6.
 - **Where:** Lock screen, every state. `029-lock-screen-name-list-1080.png`, `031-lock-screen-pin-partial-1080.png`, `032-lock-screen-wrong-pin-crop-main-4k2x.png`.
 - **Kind:** alignment
 - **Severity:** high
@@ -40,6 +42,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `.sode-lock__namefield` is a child of `.sode-lock`, where `--sode-lock-w` is set, so no other change is needed. The Step in pad uses the same nodes.
 
 ### A1-03: Lock screen: a blurred second copy of the site name shows above the real one
+- **Status:** Done in 21426763.
 - **Where:** Lock screen over the main page, every state, light and dark. `029`, `031`, `033`, `034`, `036` at 1080; `030-lock-screen-name-typed-dark.png`.
 - **Kind:** readability
 - **Severity:** high
@@ -55,6 +58,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** The other blurred shapes (Take button in orange, level chips in color) also read through the overlay. If the owner wants a calmer lock, raise `lock.css:46` from `78%` to `88%`.
 
 ### A1-04: Access step: column headings are left-aligned, their Yes and No are centred
+- **Status:** Done in 2c86e004.
 - **Where:** Setup step 3 and Run setup again step 3. `016-setup-3-access-standard-1080.png`, `017-setup-3-access-secured-picked-crop-sheet-4k2x.png`, `027`.
 - **Kind:** alignment
 - **Severity:** high
@@ -70,6 +74,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** none.
 
 ### A1-05: Access step: "Without sign-in:" sits 5px lower than the three preset names
+- **Status:** Done in 2c86e004.
 - **Where:** Setup step 3 heading row. `016-setup-3-access-standard-1080.png`, `016-setup-3-access-standard-crop-sheet-4k2x.png`.
 - **Kind:** alignment
 - **Severity:** high
@@ -78,6 +83,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** none.
 
 ### A1-06: Access step: row labels and their Yes or No are 1 to 2px apart, and it changes from row to row
+- **Status:** Done in 2c86e004.
 - **Where:** Setup step 3 body rows. `016-setup-3-access-standard-1080.png` (label y 277 against Yes y 276 in row 1, 305 against 303 in row 2).
 - **Kind:** alignment
 - **Severity:** medium
@@ -86,6 +92,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** After A1-04 the marks are left-aligned, so `display: flex` needs no `justify-content`.
 
 ### A1-07: Wizard footer: the error text sits 6.5px above the Next label
+- **Status:** Done in df2c91c2.
 - **Where:** Setup steps 1 and 2 footer with a problem shown. `009-setup-1-style-user-pin-mismatch-crop-foot-4k2x.png`, `008-setup-1-style-user-custom-color-caution-1080.png` ("Enter your name."), also "Saving…" and "Restoring…".
 - **Kind:** alignment
 - **Severity:** high
@@ -94,6 +101,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** "Saving…" and "Restoring…" use the same span in error red although they are not errors. In `setupwizard.js:462` and `setuprestore.js:27` add class `is-busy` and a rule `.sode-setup__err.is-busy { color: var(--pb-text-muted); }`, cleared when the text changes.
 
 ### A1-08: Theme color swatches: Custom is off the pitch of the others
+- **Status:** Done in 7f3c80ee.
 - **Where:** Setup step 1. `005-setup-1-style-user-empty-1080.png`, `009-setup-1-style-user-pin-mismatch-crop-dialog-4k2x.png`.
 - **Kind:** spacing
 - **Severity:** medium
@@ -102,6 +110,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `pickerColors` can add custom-named colors; a name longer than about 7 characters still overflows 3rem. Add a `.sode-setup__swatch-name` rule (the class has none today): `overflow: hidden; text-overflow: ellipsis; max-width: 100%;`.
 
 ### A1-09: Lock screen: the PIN dots are 4px left of centre
+- **Status:** Done in 43a1eb86.
 - **Where:** Lock screen with digits typed. `031-lock-screen-pin-partial-1080.png`, `031-lock-screen-pin-partial-crop-dots-4k2x.png`, `036`.
 - **Kind:** alignment
 - **Severity:** medium
@@ -110,6 +119,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `.sode-lock__brand` has `letter-spacing: var(--pb-tracking-label)` (5.28px at this size), so the site name is 2.6px left of centre for the same reason. Add `padding-inline-start: var(--pb-tracking-label);` at `lock.css:112`.
 
 ### A1-10: Lock screen: the site name, Name box and pad all jump 61px when the name list opens or closes
+- **Status:** Done in ae790208.
 - **Where:** Lock screen. Compare `029-lock-screen-name-list-1080.png` (brand top y 158) with `030` and `031` (brand top y 220).
 - **Kind:** spacing
 - **Severity:** medium
@@ -118,6 +128,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** The comment at `lock.css:87-88` says the list pushes the pad down so both fit a 768px screen. With a drop-down list the pad no longer has to shrink. At 1366x768 with the list open the keys shrink from 64px to 42px today (`A1work/out2.json`, "1366 open").
 
 ### A1-11: Lock screen: PIN feedback is above the Name box, with a 139px empty band
+- **Status:** Done in e7dbea5f.
 - **Where:** Lock screen. `033-lock-screen-wrong-pin-again-1080.png` (empty band), `034-lock-screen-lockout-wait-1080.png` ("Try again in 30s" alone in the band).
 - **Kind:** readability
 - **Severity:** medium
@@ -134,6 +145,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** Needs A1-10's drop-down list, or the open list would push the dots. The Step in pad (`modeLine`) uses the same body.
 
 ### A1-12: Lock screen: the Submit key is a text glyph, 40px high beside 64px keys, and almost invisible when off
+- **Status:** Done in 17f83954.
 - **Where:** Lock screen, bottom key. `029-lock-screen-name-list-crop-pad-4k2x.png`, `032-lock-screen-wrong-pin-crop-main-4k2x.png`, `030-lock-screen-name-typed-dark.png`.
 - **Kind:** design-language
 - **Severity:** medium
@@ -142,6 +154,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `sode-lock__cancel` shares that row and gets the new height too. In Step in mode the word should be "Step in" (`lockrules.js:280`).
 
 ### A1-13: Router step: the Multi destination buttons jump down 23.5px when Router salvo is picked
+- **Status:** Done in 7f3c80ee.
 - **Where:** Setup step 2. Compare `012-setup-2-router-connected-1080.png` (buttons y 746) with `015-setup-2-router-router-salvo-group-crop-dialog-4k2x.png` (buttons y 770).
 - **Kind:** bug
 - **Severity:** medium
@@ -156,6 +169,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** The tip "Must be unused on the router" is on the label only, where few users hover. Show it as the field's hint: "Use a group that nothing else on the router uses."
 
 ### A1-14: Two tips are badly placed: the help tip covers the buttons it explains, the Take control tip hangs outside the dialog
+- **Status:** Done in 339e3e5f.
 - **Where:** `014-setup-2-router-multi-destination-help-tip-1080.png`; `002-setup-wait-page-take-control-tip-1080.png`.
 - **Kind:** readability
 - **Severity:** medium
@@ -164,6 +178,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `cfg-rt-fireMode-help` in `web/index.html:530` has the same tip over a select; give it `pb-tip--top` too.
 
 ### A1-15: Wizard fields are far too wide, worst at 4K
+- **Status:** Done in 7f3c80ee.
 - **Where:** Steps 1 and 2. `005-setup-1-style-user-empty-4k.png`, `005-setup-1-style-user-empty-1080.png`, `012-setup-2-router-connected-1080.png`.
 - **Kind:** readability
 - **Severity:** medium
@@ -180,6 +195,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `.sode-setup__sheet` (Access table) is also about 2350px wide at 4K with labels 1500px from their marks; give it `max-width: 64rem;`. `setuprestore.js:95-96` stacks New PIN and Repeat your PIN at full width; put them in `sode-setup__row`.
 
 ### A1-16: The wizard names two settings differently from Settings
+- **Status:** Dropped: "Site name" is not a glossary term; renaming needs the owner and a glossary row (second pass).
 - **Where:** Step 1 heading and first label; step 2 last heading. `005-setup-1-style-user-empty-1080.png`, `012-setup-2-router-connected-1080.png`; Settings `web/index.html:340` and `:530`.
 - **Kind:** text
 - **Severity:** medium
@@ -188,6 +204,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** The chip label "Style & User" (`setupwizardrules.js:7`) names neither thing by its glossary word. Suggested: `'Site & user'`.
 
 ### A1-17: Access step: every row repeats "without signing in" under a heading that already says it
+- **Status:** Done in 2c86e004.
 - **Where:** Step 3 table. `016-setup-3-access-standard-1080.png`.
 - **Kind:** text
 - **Severity:** medium
@@ -204,6 +221,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `accesspreset.js` shows the same rows in Settings; change both from the one list.
 
 ### A1-18: Other wizard and lock text that is long or unclear
+- **Status:** Done in a8ecfe67.
 - **Where:** Steps 1, 2, Done, wait page, lock.
 - **Kind:** text
 - **Severity:** medium
@@ -222,6 +240,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `lockrules.js:116` comment quotes the old form. AB-17 set "Congratulations, then one sentence" in round 2, so the Done rewrite is the owner's call.
 
 ### A1-19: Step chips: Access gets a check mark before Finish, and Run setup again keeps "Style & User"
+- **Status:** Done in 1736c83b.
 - **Where:** `019-setup-1-style-user-revisited-crop-steps-4k2x.png`; `025-setup-again-1-style-1080.png`.
 - **Kind:** bug
 - **Severity:** medium
@@ -230,6 +249,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** The check icon in a done chip is a 14px light stroke in a 32px box beside 13px bold digits; add `.sode-setup__dot .pb-icon { width: 1rem; height: 1rem; }` so done and numbered chips have equal weight.
 
 ### A1-20: The footer shows a red error before the user has reached the field
+- **Status:** Done in df2c91c2.
 - **Where:** Step 1. `008-setup-1-style-user-custom-color-caution-1080.png` ("Enter your name." in red after only the site name and a color were set).
 - **Kind:** readability
 - **Severity:** medium
@@ -238,6 +258,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `role="alert"` on `#setup-err` (`index.html:81`) makes a screen reader speak on every key; `role="status"` fits a hint.
 
 ### A1-21: Restore from a backup with a new PIN: buttons move into the body and leave an empty footer
+- **Status:** Done in f708aec4.
 - **Where:** Setup, Restore from a backup, a file with no PINs (`setuprestore.js:71-110`). Not captured: `006-setup-restore-from-backup-1080.png` shows step 1 only, because the file dialog is native. Found by reading the code, not measured.
 - **Kind:** edge case
 - **Severity:** medium
@@ -246,6 +267,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `showFailed` ("Restored. 2 items not written: check panels and artwork.") has the same shape; its Open Sode button belongs in the footer's right slot. Text: "The restore is complete, but 2 items were not written. Check panels and artwork."
 
 ### A1-22: Router step: sections are only 8px further apart than fields
+- **Status:** Done in 7f3c80ee.
 - **Where:** Step 2. `012-setup-2-router-connected-1080.png`.
 - **Kind:** spacing
 - **Severity:** low
@@ -254,6 +276,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** The status line ("Connected…") is a sibling of the Address field at the same 8px gap as a new field, and looks the same for connected and no answer. Move it into the field as its last child so it sits 4px under the hint.
 
 ### A1-23: Done step: the Next steps column is not lined up with the text, and its links look disabled
+- **Status:** Done in 7f3c80ee.
 - **Where:** `020-setup-4-done-1080.png`, `021-setup-4-done-next-step-hover-crop-next-4k2x.png`.
 - **Kind:** alignment
 - **Severity:** low
@@ -262,6 +285,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `.sode-setup__next` uses `border-left` and `padding-left`; the file elsewhere uses logical properties (`padding-inline`).
 
 ### A1-24: Raw px in setup.css where a token exists
+- **Status:** Done in 7f3c80ee.
 - **Where:** `web/setup.css` lines 74, 210, 226 (`outline: 2px solid …; outline-offset: 2px`), 238 and 303 (`1px solid var(--pb-edge)`), 276 (`inset 0 3px 0`).
 - **Kind:** design-language
 - **Severity:** low
@@ -270,6 +294,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** `lock.css:502` `font-size: 0.875rem` and `:539` `font-size: 1rem` (users and profiles dialogs, same file) should be `var(--pb-text-md)` and `var(--pb-text-lg)`.
 
 ### A1-25: The color caution wraps to two lines in a 1136px dialog
+- **Status:** Done in 7f3c80ee.
 - **Where:** Step 1 with a custom color near a state color. `008-setup-1-style-user-custom-color-caution-1080.png`.
 - **Kind:** readability
 - **Severity:** low
@@ -278,6 +303,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** When the note appears the user section jumps down 45px while the native color picker is open. Reserve the line: in the wizard use `visibility: hidden` in place of `hidden` (`setupwizard.js:151`, `:399`).
 
 ### A1-26: Run setup again can show "Filled from SODE_ROUTER." for a value that is from the saved config
+- **Status:** Done in 7f3c80ee.
 - **Where:** `026-setup-again-2-router-1080.png` (the hint under Address).
 - **Kind:** bug
 - **Severity:** low
@@ -286,6 +312,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** none.
 
 ### A1-27: Lock screen at 4K: the pad is 8.5% of the screen width
+- **Status:** Dropped: closed as not needed, since owner call 1 scales the root and the lock pad needs no vmin.
 - **Where:** `029-lock-screen-name-list-4k.png`.
 - **Kind:** readability
 - **Severity:** low
@@ -294,6 +321,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** The "Name" label and state line stay 13px (16px at 4K) beside 22px input text; set `.sode-lock__namelabel { font-size: var(--pb-text-md); }`.
 
 ### A1-28: Lock screen name list with many users: 3.5 rows of 12, and the fourth is cut through its text
+- **Status:** Done in 7d3aa156.
 - **Where:** `A1work/lk-1920-open.png` (12 users, one with a 24-character name).
 - **Kind:** edge case
 - **Severity:** low
@@ -302,6 +330,7 @@ Counts: 6 high, 15 medium, 8 low.
 - **Also check:** A 24-character site name is 1036px wide on the lock at 66px and has no fit on desktop (`fitBrand` is phone only, `lockbrand.js:32`); under about 1090px of window it overflows and the lock scrolls sideways. Run `fitBrand` on every layout, or give the desktop brand `max-width: 100%; overflow-wrap: anywhere; white-space: normal; text-align: center;`. Tab order and focus rings on the pad are fine (2px accent outline on every key, measured).
 
 ### A1-29: Phone wait page: a box inside a box
+- **Status:** Done in 7f3c80ee.
 - **Where:** `003-setup-wait-page-phone-1080.png`.
 - **Kind:** design-language
 - **Severity:** low

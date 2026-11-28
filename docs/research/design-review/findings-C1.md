@@ -12,6 +12,7 @@ Counts: 5 high, 14 medium, 7 low.
 ---
 
 ### C1-01: The Log table is wider than the page, so the Bytes column is cut off
+- **Status:** Done in 4332de4a.
 - **Where:** `/log`, every width. `01-log-default-crop-rows-4k2x.png`, `06-log-uptime-bar-picked-1080.png` (Bytes reads `82 00 02 00 (`), `01-log-default-4k.png`, `25-log-phone-phone3x.png`.
 - **Kind:** alignment
 - **Severity:** high
@@ -28,6 +29,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** C1-07 (column widths). The phone needs more than this (C1-05).
 
 ### C1-02: With the Server link down, /log shows only a red icon
+- **Status:** Done in 96dc1eb3.
 - **Where:** `/log`, `/panels`, `/panels/editor` with Sode stopped. `902-log-server-down-1080.png`, `903-panels-server-down-1080.png`, `904-editor-server-down-1080.png`, against `900-…`, `901-…` and the main page.
 - **Kind:** design-language
 - **Severity:** high
@@ -52,6 +54,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** The panel pages' "Offline" cover is a different wording for the same state. That is the other reviewer's slice, so I only note it.
 
 ### C1-03: The uptime bars add 288 Tab stops before the filters
+- **Status:** Done in 86aa9c37.
 - **Where:** `/log` with 3 routers, 24 hours range. Not visible in a still shot.
 - **Kind:** bug
 - **Severity:** high
@@ -60,6 +63,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** The header cells are also Tab stops (8). That is correct.
 
 ### C1-04: The four control rows start at four different x positions
+- **Status:** Done in bebd1739.
 - **Where:** `/log` filters. `01-log-default-1080.png`, `01-log-default-crop-filters-4k2x.png`.
 - **Kind:** alignment
 - **Severity:** high
@@ -86,6 +90,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** The router head lines ("ROUTER A 98.0% up") can keep their own flow, since their label is a name.
 
 ### C1-05: /log has no phone layout
+- **Status:** Done in 86aa9c37.
 - **Where:** `/log` at 375x812. `25-log-phone-phone3x.png`.
 - **Kind:** alignment
 - **Severity:** high
@@ -119,6 +124,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** `/panels` on the phone uses the same bar. The other reviewer has it.
 
 ### C1-06: Rows with a level chip are 2px taller than the others
+- **Status:** Done in 9d47aeca.
 - **Where:** `/log` rows. `01-log-default-crop-rows-4k2x.png`, `07-log-all-kinds-1080.png`.
 - **Kind:** alignment
 - **Severity:** medium
@@ -143,6 +149,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** none.
 
 ### C1-07: Column widths change with the rows on show
+- **Status:** Done in 89ffb825 (by the measured Reason width).
 - **Where:** `/log`. Compare `01-log-default-1080.png` (Time 164px), `08-log-problems-only-1080.png` (Time 300px, one row) and my server-down shot (Time 341px).
 - **Kind:** alignment
 - **Severity:** medium
@@ -163,6 +170,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** `.sode-log__name { max-width: 16rem }` (log.css:86-90) has no effect in a fixed table and can go.
 
 ### C1-08: The picked bar loses its color
+- **Status:** Done in 86aa9c37.
 - **Where:** `/log` after a click on a bar. `06-log-uptime-bar-picked-1080.png`, my `C1work/sel.png`.
 - **Kind:** readability
 - **Severity:** medium
@@ -188,6 +196,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** In slot mode no range chip is pressed (measured: all four `aria-pressed="false"`), but the strip still shows the old range. Keep the chip of the strip's range pressed: `log.js:564`, use `slotMode?.prev.chip` before the default.
 
 ### C1-09: "No data" bars and their legend mark cannot be seen
+- **Status:** Done in 86aa9c37.
 - **Where:** `/log` uptime strip and legend, light and dark. `01-log-default-crop-uptime-4k2x.png`, `01-log-default-dark.png`.
 - **Kind:** readability
 - **Severity:** medium
@@ -203,6 +212,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** The small strip on `/panels` uses the same class.
 
 ### C1-10: The bar tooltip covers the next router and runs off the edge
+- **Status:** Done in 86aa9c37.
 - **Where:** `/log`, hover on a bar. `05-log-uptime-bar-tip-1080.png`, my `C1work/tip.png` and `tip-first.png`.
 - **Kind:** readability
 - **Severity:** medium
@@ -216,6 +226,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** Tips do not show on touch (touch.css:10-16), so on the phone a bar can only be read by a tap that filters the log.
 
 ### C1-11: On the phone each bar is 2.5px wide
+- **Status:** Done in 86aa9c37.
 - **Where:** `/log` phone. `25-log-phone-phone3x.png`.
 - **Kind:** readability
 - **Severity:** medium
@@ -224,6 +235,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** `gap: 1px` in base.css:2114 is a magic px value. Use `var(--pb-border-w)` halved or a token.
 
 ### C1-12: Router names are written three ways, two of them doubled
+- **Status:** Done in dc4f5fd2.
 - **Where:** `/log` uptime heads and Routers chips ("Router B Router B (studio 2)"), the status hover box ("B Router B (studio 2)"), the Lost link banner on the phone ("Router Router A 127.0.0.1:45010"). `01-log-default-crop-uptime-4k2x.png`, `25-log-phone-phone3x.png`, my `C1work/down-log-hover.png` and `down-phone-main.png`.
 - **Kind:** text
 - **Severity:** medium
@@ -240,6 +252,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** The `router` column of the download files uses the prefix only. That is fine.
 
 ### C1-13: API and refused rows show code names
+- **Status:** Done in 75515b1a.
 - **Where:** `/log` For column. `01-log-default-1080.png` ("uptime ::1", "log ::1"), `05-log-uptime-bar-tip-1080.png` ("panelKey"), `902-log-server-down-1080.png` ("keyCreate"), `16-log-settings-save-open-1080.png` ("panelDelete", "panelCreate").
 - **Kind:** text
 - **Severity:** medium
@@ -270,6 +283,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** The download CSV uses the same table, so it gets the words too.
 
 ### C1-14: The "Router" column holds the result, and "For" holds three things
+- **Status:** Done in 223efbba.
 - **Where:** `/log` table head. Every log shot.
 - **Kind:** text
 - **Severity:** medium
@@ -278,6 +292,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** GLOSSARY.md has no entry for either word, so no row changes.
 
 ### C1-15: Bars have no accessible name
+- **Status:** Done in 86aa9c37.
 - **Where:** `/log` uptime bars. Not visible.
 - **Kind:** bug
 - **Severity:** medium
@@ -286,6 +301,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** none.
 
 ### C1-16: Text in the For column is 4px off its header when the row has no reason
+- **Status:** Done in f3d74dec.
 - **Where:** `/log`, Router link and Sode rows. `902-log-server-down-1080.png`, `16-log-settings-save-open-1080.png` (the addresses "127.0.0.1:38912" sit right of "panelCreate").
 - **Kind:** alignment
 - **Severity:** medium
@@ -299,6 +315,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** none.
 
 ### C1-17: Wording around the uptime strip
+- **Status:** Done in 86aa9c37.
 - **Where:** `/log`. `06-log-uptime-bar-picked-1080.png`, `20-log-download-hover-…`, my `C1work/slot.png` and `7d.png`.
 - **Kind:** text
 - **Severity:** medium
@@ -312,6 +329,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** `#log-slot` has class `pb-note` but computes to no padding and no border, so it reads as loose text between the filters and the table. Give it `pb-note--info` or the padding of the other notes.
 
 ### C1-18: Phone main page: clear button 3px high, "Edit" alone in the middle
+- **Status:** Done in af401ed7.
 - **Where:** Main page, phone, top. My `C1work/p-main.png` (the owner's shots 146, 147 and 149 are one and the same view, scrolled to the end of History).
 - **Kind:** alignment
 - **Severity:** medium
@@ -327,6 +345,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** Shot 149 ("palette") shows no palette. The phone bar has no command key button, so the scene did nothing. That is a capture note, not a page fault.
 
 ### C1-19: Settings list: sections are 2px left of their topic
+- **Status:** Done in 89514b4e.
 - **Where:** Settings list, phone and desktop. `151-settings-phone-top-phone3x.png`.
 - **Kind:** alignment
 - **Severity:** medium
@@ -335,6 +354,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** On the phone the "Other settings need a computer." box starts at y 222.5, the same y where the list ends: 0px gap, while the box has 8px inside. Add `margin-top: var(--pb-space-4)` to `.sode__desktop-only` (base.css:1379). The list rows are also inset 4px (x 16 to 359) from the search field and the box (x 12 to 363).
 
 ### C1-20: "View Logs" names the Communication Log a second way
+- **Status:** Done in 0af0fa68.
 - **Where:** Settings foot, phone and desktop. `151-settings-phone-top-phone3x.png`.
 - **Kind:** text
 - **Severity:** low
@@ -343,6 +363,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** `settingsindex.js:361` finds the button by id, so search still works.
 
 ### C1-21: Numbers in the summary and the count use the text font
+- **Status:** Done in 2486dd68.
 - **Where:** `/log` uptime summaries and row count. `01-log-default-crop-uptime-4k2x.png`.
 - **Kind:** design-language
 - **Severity:** low
@@ -351,6 +372,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** none.
 
 ### C1-22: The problem stripe is 2px from the time
+- **Status:** Done in 3169d5af.
 - **Where:** `/log` problem rows. `01-log-default-1080.png`, `08-log-problems-only-crop-problem-rows-4k2x.png`.
 - **Kind:** spacing
 - **Severity:** low
@@ -359,6 +381,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** none.
 
 ### C1-23: A typed "|" stands in for a divider
+- **Status:** Done in 817c4c71.
 - **Where:** `/log` Show row, between "Settings saves" and "Problems only". `01-log-default-crop-filters-4k2x.png`.
 - **Kind:** design-language
 - **Severity:** low
@@ -374,6 +397,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** The bar's own rules (`.sode-bar__rule`) are drawn the same way.
 
 ### C1-24: Phone Settings foot: the path is cut and cannot be read
+- **Status:** Done in b9a5faa1.
 - **Where:** Settings, phone. `151-settings-phone-top-phone3x.png`.
 - **Kind:** edge case
 - **Severity:** low
@@ -382,6 +406,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** The gap from the Settings head to the search field is 44px on the phone, and the same 44px before the save bar. `var(--pb-space-7)` is enough on a phone.
 
 ### C1-25: Unknown paths answer with bare text
+- **Status:** Done in b9ef0573.
 - **Where:** `/no-such-page`. `161-route-not-found-1080.png`.
 - **Kind:** edge case
 - **Severity:** low
@@ -390,6 +415,7 @@ Counts: 5 high, 14 medium, 7 low.
 - **Also check:** `/healthz`, `/api/health`, `/manifest.webmanifest` and `/icon.png` are correct. Nothing user-visible is wrong there.
 
 ### C1-26: Lock screen name box on the phone
+- **Status:** Done in 4d3b65a6.
 - **Where:** `148-main-phone-signed-out-phone3x.png`, `22-log-signed-out-1080.png`.
 - **Kind:** alignment
 - **Severity:** low

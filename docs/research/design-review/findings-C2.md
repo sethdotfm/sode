@@ -11,6 +11,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 ## /panels (list and detail)
 
 ### C2-01: Action buttons clip and overlap at 200% zoom
+- **Status:** Done in e67877c9.
 - **Where:** /panels detail pane at a 960 px viewport (200% of 1920). My capture `C2work/z-panels.png`.
 - **Kind:** alignment / bug
 - **Severity:** high (at 200%)
@@ -21,6 +22,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** `.sode-ov__big` (`panels.css:534`) keeps two columns down to 52rem; at 960 px the right column is 190 px. Raise the one-column breakpoint to 64rem.
 
 ### C2-02: List rows have six different heights
+- **Status:** Done in e67877c9.
 - **Where:** /panels list; `26-panels-list-default-1080.png`, `-crop-list-4k2x.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -29,6 +31,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** the Grid thumbnails are left-aligned in a 96 px slot (`margin-inline-end: calc(6rem - var(--sode-ov-w))`), the Buttons ones fill it; centre the small ones with `margin-inline: calc((6rem - var(--sode-ov-w)) / 2)`.
 
 ### C2-03: "All Offline" for a panel that was never opened
+- **Status:** Done in a9fcf64f.
 - **Where:** /panels list, every row; `panelsrules.js:229-235`
 - **Kind:** text
 - **Severity:** medium
@@ -39,6 +42,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** the comment on line 229 ("No instance at all reads All Offline").
 
 ### C2-04: List subline is not a sentence and is cut
+- **Status:** Done in a9fcf64f.
 - **Where:** /panels list; "You, signs in as the user", "Ben, API client or the us…"; `panelsrules.js:189` (`actsShort`)
 - **Kind:** text
 - **Severity:** medium
@@ -47,6 +51,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** the same words in the detail (C2-05).
 
 ### C2-05: Detail facts read badly
+- **Status:** Done in a9fcf64f.
 - **Where:** /panels detail `dl`; `panelslist.js:157-159`, `panelsrules.js:144-151, 207`
 - **Kind:** text
 - **Severity:** medium
@@ -60,6 +65,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
   - `'Only the owner'` → `'Only you'` when the viewer is the owner.
 
 ### C2-06: Two "Notify when offline" boxes, one stranded at the far right
+- **Status:** Done in 2b0a8aec.
 - **Where:** /panels detail with an open instance; `42-panels-open-now-instances-1080.png`; `panelsmon.js:196, 232`
 - **Kind:** alignment / text
 - **Severity:** medium
@@ -67,6 +73,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `panelsmon.js:232` label → `Notify me when this panel is offline`; `panelsmon.js:196` label → `Notify me` with `data-pb-tip="Notify me when this instance is offline"`. In `web/panelmon.css` remove the `margin-inline-start: auto` on `.sode-ov__watchone` so it follows Reload at `var(--pb-space-3)`.
 
 ### C2-07: Open now rows do not share columns
+- **Status:** Done in 2b0a8aec.
 - **Where:** /panels Open now; `42-…-crop-detail-4k2x.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -75,6 +82,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** `h2.sode-ov__group` in `.sode-ov__openhead` is 2 px low (centre 413.4 against Reload all 411.4) from its `margin: space-4 0 space-2` (`panels.css:487`); add `.sode-ov__openhead > .sode-ov__group { margin: 0; }` in `panelmon.css`.
 
 ### C2-08: Raw address and "No key" need words
+- **Status:** Done in a9fcf64f.
 - **Where:** Open now row 2 ("No key  Desk  ::1  Reload  Offline"), Assign rows ("::1, Signed in as Ada, last seen 5 minutes ago")
 - **Kind:** text
 - **Severity:** low
@@ -82,6 +90,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** show the address as `from ::1` (`panelsmon.js` near line 148, `panelassignrules.js:54, 73`). Assign subline: `From ::1. Signed in as Ada. Last seen 5 minutes ago.`
 
 ### C2-09: Panel picture is inset from the title and caption
+- **Status:** Done in e67877c9.
 - **Where:** /panels detail left column
 - **Kind:** alignment
 - **Severity:** low
@@ -89,6 +98,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `.sode-ov__thumb:not(.sode-ov__thumb--sm) { border: 0; padding: 0; }`.
 
 ### C2-10: Delete confirm changes the button's place and size
+- **Status:** Done in a9fcf64f.
 - **Where:** /panels detail; `41-panels-delete-confirm-1080.png`; `panelslist.js:146`
 - **Kind:** readability / design-language
 - **Severity:** medium
@@ -96,6 +106,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `panelslist.js:146`: armed text `Press again to delete`; armed class `pb-btn--danger` in place of `pb-btn--ghost`. Give `.sode-ov__delete` `min-width: 11rem; justify-content: flex-end;` so the left edge of the words does not jump.
 
 ### C2-11: Keyboard hint chips in Launch and Edit are drawn two ways
+- **Status:** Done in e67877c9.
 - **Where:** /panels detail; `44-…-crop-buttons-4k2x.png`
 - **Kind:** design-language
 - **Severity:** low
@@ -103,6 +114,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `panels.css:577`: add `background: transparent; border: var(--pb-border-w) solid currentColor; color: inherit; opacity: 0.8; font-size: var(--pb-text-xs);`.
 
 ### C2-12: Find with no match leaves the page empty
+- **Status:** Done in a9fcf64f.
 - **Where:** `35-panels-find-empty-1080.png`
 - **Kind:** text / edge case
 - **Severity:** low
@@ -114,6 +126,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 ## /panels dialogs
 
 ### C2-13: Dead flex gaps inside tab panels (shared cause)
+- **Status:** Done in ceb3212e.
 - **Where:** Share > People, Share > Link with key, Push > Push, and the editor's side panel
 - **Kind:** spacing / bug
 - **Severity:** high
@@ -128,6 +141,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** `#panel-sets`, `#panel-restore`, the Live Editor drawer tabs.
 
 ### C2-14: Dialog footers place Cancel and Close three ways
+- **Status:** Done in 27c7bd8f.
 - **Where:** Share (Cancel at x 893.6, the middle), Send a copy (Close left at 672, Send right), Push, Assign, Templates (Close right at 1183); `panelshare.js:87`, `panelpush.js:198`, `panelassign.js:152`
 - **Kind:** design-language
 - **Severity:** high
@@ -135,6 +149,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `panelshare.js:87` → `foot: [btn('pb-btn--outline', 'Cancel', …), note, saveBtn]`; `panelpush.js:198` and `panelassign.js:152` → `foot: [btn('pb-btn--outline', 'Close', …), note]`. Same order in `editortemplates.js`.
 
 ### C2-15: Assign list rows are flush and their highlight has no padding
+- **Status:** Done in ceb3212e.
 - **Where:** `40-panels-assign-dialog-1080.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -144,6 +159,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
   - `This instance opens ${panel.name} immediately and shows the sign-in. The person there types their PIN. Its key for the panel it shows now stays valid.`
 
 ### C2-16: Key rows have a ragged middle column and odd words
+- **Status:** Done in ceb3212e.
 - **Where:** Share > Link with key; `164-panels-share-link-with-key-1080.png`; `panelkeyrules.js:52`, `panelkeytab.js:108, 314`
 - **Kind:** alignment / text
 - **Severity:** medium
@@ -151,6 +167,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `panels.css:977` `.sode-ov__keyname { flex: 0 0 12rem; }` and give the middle span `flex: 1 1 auto;` so it starts on one edge. Text: `Last used ${…, 'never'}` → `Never used.` when there is no use, else `Last used 57 minutes ago.`; `${n} of ${max} instances` → `${n} instances of ${max} at most`; label → `Allowed networks`, hint under it `One on each line. Empty lets all addresses in.`; `Save networks` → `pb-btn--sm`, `align-self: flex-start`. Mode labels (`panelkeyrules.js:13-14`): `Named link` → `Link for one instance`, `Setup link, 1 hour` → `Setup link (1 hour)`.
 
 ### C2-17: Push list is cut and has no words for what Push does
+- **Status:** Done in ceb3212e.
 - **Where:** `38-panels-push-dialog-1080.png`, `165-…`
 - **Kind:** readability
 - **Severity:** medium
@@ -158,6 +175,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** after C2-13 the cut goes. Add a hint above the list: `Push copies this panel's layout to the panels you tick. Each panel keeps a checkpoint of what it had.` Group rows by owner with the `sode-ov__group` heading instead of "(Ben)" after each name.
 
 ### C2-18: Share > People labels
+- **Status:** Done in ceb3212e.
 - **Where:** `37-panels-share-dialog-1080.png`; `panellinkrow.js:66`, share host field
 - **Kind:** text
 - **Severity:** low
@@ -169,6 +187,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 ## /panels/editor (Buttons)
 
 ### C2-19: Pages column is 2 px lower than the grid
+- **Status:** Done in eeed9976.
 - **Where:** editor main; `49-editor-buttons-panel-tab-1080.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -176,6 +195,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `web/panels.css` near 1536: the pages nav uses `gap: var(--pb-space-3)` (6 px) and the frame `var(--pb-space-2)` (4 px). Set both to `var(--pb-space-2)`.
 
 ### C2-20: Side panel changes width between tabs
+- **Status:** Done in bb367b32.
 - **Where:** editor side; `49-…` against `50-…`, `58-…`
 - **Kind:** alignment
 - **Severity:** medium
@@ -183,6 +203,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `panels.css:1641` `.sode-ed__side`: always keep the bar's room: `padding-inline-end: calc(var(--sode-bigscroll-w) + var(--pb-space-5));` (use the bigscroll width variable), and `padding-block-start: var(--pb-space-5)` to match the sides.
 
 ### C2-21: "Show" heading is three times the size of every other label
+- **Status:** Done in ec3225f0.
 - **Where:** Cell tab of an Info cell; `54-editor-buttons-cell-info-1080.png`
 - **Kind:** design-language
 - **Severity:** high
@@ -191,6 +212,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** every other `fieldset > legend.sode__field-label` in the editor and Share.
 
 ### C2-22: Cell tab heading is centred while all else is left
+- **Status:** Done in d2307f84.
 - **Where:** "Source at row 1, column 1"; `50-…-crop-side-4k2x.png`; `panels.css:1897`
 - **Kind:** alignment
 - **Severity:** low
@@ -198,6 +220,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** delete `.sode-side__kind { text-align: center; }` and make it the tab's heading: class `sode-side__h`, text `Source, row 1, column 1`.
 
 ### C2-23: Rule under controls, and the stray rule beside Font size
+- **Status:** Done in dbaa6c84.
 - **Where:** Panel tab; `49-…-crop-side-4k2x.png`
 - **Kind:** spacing
 - **Severity:** medium
@@ -205,6 +228,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `editorpanel.js`: put Font size on its own row under the checkbox and drop the divider class on `.sode-side__inline` (`panels.css`, the `border-inline-start` rule on `.sode-side__sizerow > .sode-side__inline`).
 
 ### C2-24: Editor labels
+- **Status:** Done in 2c92fc3d.
 - **Where:** Panel, Cell and Access tabs; `editorpanel.js:131-147, 211`, `editorslug.js:26`, `editorfixed.js:72`, `editorcell.js:41`, `editordefault.js:64`, `editoraccess.js:76, 154, 170`, `editorties.js`
 - **Kind:** text
 - **Severity:** medium
@@ -226,6 +250,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
   - Mode `Stage + Take` on a Buttons panel and `Stage + Take + Confirm` on a Grid: keep, the glossary names them.
 
 ### C2-25: Access tab table and token typo
+- **Status:** Done in b623d31a.
 - **Where:** `59-editor-api-access-tab-crop-side-4k2x.png`; `panels.css:1900-1906`
 - **Kind:** alignment / bug
 - **Severity:** medium
@@ -234,6 +259,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** `panels.css:937` and `:1533` use `font-weight: 600`; use `var(--pb-weight-bold)`.
 
 ### C2-26: Toolbar state and Save
+- **Status:** Done in 89c0d7ad.
 - **Where:** editor toolbar; `49-…`, `64-editor-buttons-unsaved-1080.png`, my `z-editor.png`
 - **Kind:** alignment / readability
 - **Severity:** low
@@ -241,6 +267,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `.sode-ed__bar > .sode-ed__grp:last-child { margin-inline-start: auto; }` so the pair stays right when it wraps; drop the icon from Rename or give Share, Copy link, Open panel and Live Editor their icons (`share-2`, `copy`, `external-link`, `play`).
 
 ### C2-27: Info cell text overflows its square
+- **Status:** Done in 4a72939a.
 - **Where:** editor grid, Info cell "Panel Name · Main · Instance Name"; 1080 fits in three lines, at 960 px (`z-editor.png`) it is cut top and bottom
 - **Kind:** edge case
 - **Severity:** medium
@@ -248,6 +275,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `.sode-ed__sq .sode-ed__text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }` and show the parts on lines, as the panel page does ("Studio A / Main / Desk"), not joined with " · ".
 
 ### C2-28: Live Editor of a Buttons panel
+- **Status:** Done in d0c34af5.
 - **Where:** `70-editor-buttons-live-editor-1080.png`
 - **Kind:** text / alignment
 - **Severity:** low
@@ -259,6 +287,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 ## /panels/editor (Grid)
 
 ### C2-29: List toolbar buttons do not sit over the row buttons
+- **Status:** Done in d51646dd.
 - **Where:** Sources and Destinations lists; `71-…-crop-lists-4k2x.png`, `76-…-crop-lists-4k2x.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -266,6 +295,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `panels.css:1350` `.sode-edge__acts`: `display: grid; grid-template-columns: 1fr repeat(8, var(--pb-control-h-sm)); padding-inline-end: calc(var(--sode-littlescroll-w) + var(--pb-border-w) * 2);` and order the buttons so pin, up, down and remove are the last four, over the row's four. Keep the gutter on the list always: `.sode-edge__list { scrollbar-gutter: stable; }` or the bigscroll equal.
 
 ### C2-30: Row numbers push the names off one edge
+- **Status:** Done in 64aeb2d8.
 - **Where:** Grid editor rows; "B.9 Replay A" name at x 91, "B.10 Replay B" at x 105 in the 2x crop
 - **Kind:** alignment
 - **Severity:** medium
@@ -274,6 +304,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** the router list under "Add from the router" has the same ragged names.
 
 ### C2-31: Heading row moves when the note shows
+- **Status:** Done in d08fe5a3.
 - **Where:** `71-…-1080.png` against `77-editor-grid-empty-1080.png`
 - **Kind:** alignment
 - **Severity:** low
@@ -281,6 +312,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** move the note under each heading as that list's hint, and shorten it: `Follows the router, in router order. Pins and artwork still apply.` (the Panel tab switch is already named "Sources follow the router").
 
 ### C2-32: Disabled list tools are a wall of faint icons
+- **Status:** Done in d08fe5a3.
 - **Where:** Follow-the-router lists; `71-…-crop-lists-4k2x.png`
 - **Kind:** readability
 - **Severity:** medium
@@ -288,6 +320,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `editorgridlist.js`: when the edge follows the router, do not make the up, down and remove buttons (keep their columns empty so pin stays in place) and hide the toolbar's move and remove groups.
 
 ### C2-33: Empty Grid editor text
+- **Status:** Open: the Cell to Artwork tab rename is not done. The rest is in d08fe5a3.
 - **Where:** `77-editor-grid-empty-1080.png`, `73-…-crop-side-4k2x.png`; `editorgridlist.js:78`, `editorcell.js:145`, `editorrouterlist.js:25`
 - **Kind:** text
 - **Severity:** low
@@ -298,6 +331,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 ## /panels/<id> Buttons panel
 
 ### C2-34: Text on armed, staged and pending cells fails contrast
+- **Status:** Done in 845c2bb6.
 - **Where:** `91-panel-buttons-staged-two-1080.png`, `173-…`, `90-panel-buttons-staged-dark.png`
 - **Kind:** readability
 - **Severity:** high
@@ -309,6 +343,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** the Grid page's `.sode-gridpanel__take.sode-panel__take--armed` (`gridpanel.css:962`) already has light text in light theme; keep the two in step.
 
 ### C2-35: A failed take shows a 14 px cross for 2.1 seconds
+- **Status:** Done in 845c2bb6.
 - **Where:** fault panel, destination 7 (no confirmation); my capture `C2work/fault-failed.png`; `panels.css:229`, `panelview.js` (statusIcon)
 - **Kind:** readability
 - **Severity:** high
@@ -317,6 +352,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** Protected refusal (`96-…`) shows the same ring with no reason.
 
 ### C2-36: Title is 175 px off the grid edge and 8 px below the user chip
+- **Status:** Done in f536219c.
 - **Where:** every Buttons panel page with a header; `87-panel-buttons-idle-1080.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -325,6 +361,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** the device-name row (`103-…`) starts at x 180 while the title above it is at 355.
 
 ### C2-37: Panel is capped at 1600 px on a 4K screen
+- **Status:** Dropped: replaced by owner call 2 (Full width by default, text grows with the cell).
 - **Where:** `87-panel-buttons-idle-4k.png`
 - **Kind:** readability (4K)
 - **Severity:** high (at 4K)
@@ -332,6 +369,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** make full width the default for a panel page: `.sode-panels:has(> .sode-panel__grid:not(.sode-gridpanel)) { max-width: none; }` and size cells from the viewport (`grid-auto-rows: minmax(0, calc((100dvh - 8rem) / var(--rows)))`), with cell text in `cqmin` units as the artwork badge already does (`panels.css:442`). Keep the header button as "Narrow".
 
 ### C2-38: Cells are drawn three ways
+- **Status:** Done in e0e6f24b.
 - **Where:** bottom row; my `C2work/pb-row.png`
 - **Kind:** design-language
 - **Severity:** medium
@@ -339,6 +377,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `panels.css:260` `.sode-panel__take:disabled`: add `box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-edge);`. Add `sode-panel__cell--info`, `--pageName` to the rule at `:232` that keeps label cells at `opacity: 1` with `color: var(--pb-text-muted)`.
 
 ### C2-39: Instance name prompt on a public kiosk
+- **Status:** Dropped: "Name of this screen" replaces the glossary term Instance; owner call (second pass).
 - **Where:** `111-panel-buttons-public-kiosk-1080.png`, `103-…`
 - **Kind:** text / alignment
 - **Severity:** medium
@@ -346,6 +385,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** label → `Name of this screen (shown on the panels page)`; placeholder `Lobby tablet` stays; add `Not now` beside Save. Limit the field to `max-width: 24rem`. Reserve nothing: show it as a `pb-banner` over the grid's top edge so the grid does not move.
 
 ### C2-40: Staged cell text
+- **Status:** Done in e0e6f24b.
 - **Where:** `90-…-crop-staged-cells-4k2x.png`
 - **Kind:** readability
 - **Severity:** low
@@ -353,6 +393,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** keep the layout; set the present source line to `text-decoration: line-through` while staged, and the staged line to `var(--pb-text-sm)`.
 
 ### C2-41: Router down shows nothing on the panel (screenshots only)
+- **Status:** Done in dd38a2f1.
 - **Where:** `166-panel-buttons-router-down-1080.png`, `167-panel-grid-router-down-1080.png`
 - **Kind:** edge case
 - **Severity:** medium (not reproduced)
@@ -364,6 +405,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 ## /panels/<id> Grid panel
 
 ### C2-42: A staged crosspoint is almost invisible
+- **Status:** Done in c0bcad0a.
 - **Where:** my `C2work/grid-two.png` (two staged, pointer away); `120-panel-grid-staged-two-1080.png`
 - **Kind:** readability
 - **Severity:** high
@@ -371,6 +413,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `gridpanel.css` after line 489: `.sode-gridpanel__xp[data-s="staged"]::before { border: calc(var(--pb-border-w) * 4) solid var(--pb-text-strong); border-radius: 50%; background: color-mix(in oklab, var(--pb-text-strong) 12%, transparent); content: ""; grid-area: 1 / 1; height: 80%; width: 80%; }` and keep the level pie inside it at full opacity (`opacity: 1` on `.sode-gridpanel__stage`, scale the pulse instead). Give the staged row and column the prototype's band (`ga-band-r`, `ga-band-c`: 30% role colour mixed into the field).
 
 ### C2-43: Number and name touch in the Destination bar
+- **Status:** Done in d642d405.
 - **Where:** `117-panel-grid-idle-1080.png`: "A.1PGM", "A.8Zoom Return"
 - **Kind:** spacing
 - **Severity:** high
@@ -378,6 +421,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** line 341: `margin-inline-end: var(--pb-space-3);`. For the column: `:root:not([data-layout="phone"]) .sode-gridpanel__dst { justify-content: flex-start; padding-inline-start: var(--pb-space-4); }` and `.sode-gridpanel__dst[data-num]::before { min-width: calc(var(--sode-num-ch, 5) * 1ch); text-align: end; }`.
 
 ### C2-44: Grid is smaller than the prototype everywhere
+- **Status:** Done in 3fe3b2c3.
 - **Where:** all Grid screenshots against `C2work/protoA.png`
 - **Kind:** design-language (owner's rule: match the prototype)
 - **Severity:** high
@@ -395,6 +439,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `gridpanel.css:9-11`: `--sode-xp: 4.5rem; --sode-name-w: 13rem; --sode-name-h: 7rem;` (at this root 64.8, 187 and 100.8 px). `gridpanel.css:297` find input: `font-size: var(--pb-text-sm)`. Deck columns (`:1145`, `:1332`): `… auto 5rem 7rem` → `… auto 5rem 12rem`. Take `font-size: var(--pb-text-xl)`. Set every `--pb-text-xs` in the deck to `--pb-text-sm`, and the level picks to `--sode-pick: 2.6rem` with `font-family: var(--pb-font-num)`. Check 2500 x 750 speed again after it (fewer nodes on screen, so it should not be slower).
 
 ### C2-45: Deck rules have unequal gaps and the stacks split at different heights
+- **Status:** Done in 8236b6aa.
 - **Where:** toolbar band; `119-panel-grid-staged-crop-header-4k2x.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -402,6 +447,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** delete lines 1335-1337. Make the input rows equal: `.sode__input` height `var(--sode-pick)` and `--sode-all-h: var(--sode-pick)` so both stacks are two rows of one height with `row-gap: var(--pb-space-1)`. Remove the box from the switch (`:1310-1318`: `background: none; border: 0;`).
 
 ### C2-46: Find box shrinks when it has matches
+- **Status:** Done in 2687a976.
 - **Where:** `129-panel-grid-filter-on-1080.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -410,6 +456,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Also check:** "CAM 1" also marks CAM 10, 11, 12. Count text "1 of 12" is right, but a person who types an exact name expects one match first. Sort exact matches first.
 
 ### C2-47: "Find" overlaps its switch at 200%
+- **Status:** Done in 2687a976.
 - **Where:** my `C2work/z-grid.png` (960 px)
 - **Kind:** alignment
 - **Severity:** medium (at 200%)
@@ -417,6 +464,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** give `.sode-gridpanel__find-mode` `min-width: max-content` and remove `overflow: visible` on the side words; at under 64rem hide the words and keep the switch with `data-pb-tip`.
 
 ### C2-48: Result banner text is 9.9 px in a 63 px box
+- **Status:** Done in 2f08683b.
 - **Where:** `122-panel-grid-taken-crop-banner-4k2x.png`
 - **Kind:** readability
 - **Severity:** medium
@@ -424,6 +472,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `gridpanel.css:1357` add `font-size: var(--pb-text-md);` to `.sode-gridpanel__res .pb-alert`; text → `1 route taken`. For more routes: `3 routes taken`.
 
 ### C2-49: `.sode-gridpanel__held` is one class for two things
+- **Status:** Done in 9a2c63c9.
 - **Where:** `gridpanel.css:380` (the "staged" word in a Destination name) and `:1366` (the count of held messages in the banner box)
 - **Kind:** bug / rules that fight
 - **Severity:** medium
@@ -431,6 +480,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** rename the banner one to `.sode-gridpanel__msg-held` (CSS `:1366-1375` and `gridpanelheadview.js`). Row word: `gridpanelnodes.js:180` `'staged'` → `'Staged'`; `gridpanel.css:380` `font-size: var(--pb-text-sm); font-weight: var(--pb-weight-bold);`.
 
 ### C2-50: Empty Grid panel keeps the corner labels and all controls
+- **Status:** Done in b887a1de.
 - **Where:** `139-panel-grid-empty-1080.png`; `gridpanelhead.js:8`
 - **Kind:** edge case / text
 - **Severity:** low
@@ -438,6 +488,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** hide `.sode-gridpanel__head` and disable the deck while empty. Text → `This panel has no sources or destinations.` with the button `Edit panel`; for a viewer who cannot edit: `Ask ${owner} to add them.`
 
 ### C2-51: Protected rows blend into the page
+- **Status:** Done in 373622a2.
 - **Where:** `117-…` (row A.13), `176-panel-grid-fault-protected-1080.png` (rows C.13, C.21), `138-…` (row B.13)
 - **Kind:** readability
 - **Severity:** medium
@@ -445,6 +496,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** `gridpanel.css:494-497`: `background: color-mix(in oklab, var(--pb-text) 8%, var(--sode-patch-field));` and keep the grid lines on it.
 
 ### C2-52: Take confirm box
+- **Status:** Done in 1d565320.
 - **Where:** `121-panel-grid-take-confirm-1080.png`
 - **Kind:** text / readability
 - **Severity:** low
@@ -452,6 +504,7 @@ Grid speed at 2900 x 990: 120 scroll steps of 400 px across and 150 px down gave
 - **Change:** list by destination number. Lead: `Take 2 routes?` Per route: `A.4 DSM2: A.12 Zoom 2 replaces A.12 Zoom 2 on levels 1-2` (levels as text; show the picker only when levels differ between routes). Foot: `Press F to take. Press Esc to cancel.`
 
 ### C2-53: Keyboard list wording
+- **Status:** Done in 888a2fcf.
 - **Where:** `180-panel-grid-keys-dialog-1080.png`
 - **Kind:** text
 - **Severity:** low

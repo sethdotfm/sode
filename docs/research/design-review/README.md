@@ -1,5 +1,15 @@
 # Design review, 2026-11-28
 
+## Status
+
+Date: 2026-11-28. Each entry in the findings files now has a status line.
+
+- Done: 190
+- Dropped: 7 (A1-16, A1-27, A2-21, B1-16, B2-27, C2-37, C2-39)
+- Open: 1 (C2-33: the Cell to Artwork tab rename is not done)
+
+Total: 198 entries.
+
 Branch reviewed: `alpha-round2` at 8e0969a7 (the Settings redesign plus Alpha Notes round 2).
 
 How: three Sonnet agents took about 1,955 headless Chrome screenshots of every page and state they could reach: 1920x1080, 3840x2160, 1920x1080 at 200%, dark, phone at 375x812. Six Fable agents then reviewed one slice each. They read the screenshots and the code, and measured layout with bounding boxes in a seeded copy of the app. Screenshots are not in git. They are in the session scratchpad under `review/A`, `review/B` and `review/C`, each with an `index.md`.
@@ -29,7 +39,7 @@ Fix these first. Each one clears entries in several slices.
 7. **Router names are built in three places.** That gives "Router A Router A" in the Lost link banner and doubled names on /log (A2-08, C1-12).
 8. **The lock Name box is 80px wider than the PIN pad** (A1-02, C1-26).
 9. **Facts kept only in tooltips.** Tips are not shown on touch screens, and some tips cover the field they describe (B2-22, B2-23, A1-14, C1-10).
-10. **4K at DPR 1.** The root is 100% up to 2400px wide, then grows to 125% (20px) at 3840 (`base.css:5-20`, as AGENTS.md says). A 4K desk monitor at 200% (the 4k2x shots) looks right. A wall TV or a big monitor with no OS scaling (3840 CSS px) gets 16.25px text and an 800px Settings column (A2-06, B1-32, A1-15, A1-27, C2-37). See owner call 1.
+10. **4K at DPR 1.** The root was 100% up to 2400px wide, then grew 1px per 360px to 125% (20px) at 3840 (`base.css:5-20`). AGENTS.md described that rule correctly. A 4K desk monitor at 200% (the 4k2x shots) looks right. A wall TV or a big monitor with no OS scaling (3840 CSS px) got 16.25px text and an 800px Settings column (A2-06, B1-32, A1-15, A1-27, C2-37). Owner call 1 steepens the rule: the root now reaches 150% (24px) at 3840x2160, bounded by window height so ultrawides do not over-scale. See second-pass.md, owner call 1.
 
 ## The worst problems, by slice
 

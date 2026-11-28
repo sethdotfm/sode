@@ -9,6 +9,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 ## Tie lines
 
 ### B1-01: Tie lines table heads do not sit over their columns
+- **Status:** Done in 73bd8b2e.
 - **Where:** Settings > Routers > Tie lines, every state with rows; `04-ties-overview-1080.png`, `04-ties-list-crop-crop-4k2x.png`, `12-many-tie-lines-1080.png`, `04-ties-add-duplicate-dark.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -17,6 +18,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `.sode__prow` (`base.css:1062`) ends in `minmax(5rem, auto)`. It lines up today only because Free (41px) is under 5rem. A wider last cell (the "Try again" button after a failed Free, `settingsprotects.js:129`) will shift that row's columns the same way. Make it a fixed `6rem`.
 
 ### B1-02: State text wraps with one orphan character
+- **Status:** Done in 73bd8b2e.
 - **Where:** Tie lines table rows; `04-ties-overview-1080.png`, `04-ties-list-crop-crop-4k2x.png`
 - **Kind:** readability
 - **Severity:** high
@@ -25,6 +27,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `.sode__tend-line` (number and name on one line, no ellipsis, `min-width: 0`): a 16-character name overflows the 125px column. Add `overflow: hidden; text-overflow: ellipsis; white-space: nowrap` to `.sode__tend-line` and `.sode__tend-title`, and a `title` attribute.
 
 ### B1-03: Add tie line button floats between two rows of tools
+- **Status:** Done in 842a5b1a.
 - **Where:** Tie lines tools bar; `04-ties-tools-crop-crop-4k2x.png`, `04-ties-overview-1080.png`, `12-many-tie-lines-1080.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -33,6 +36,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** Protects tools (`#protects-tools`) wrap the same way but have no button beside them, so they look right.
 
 ### B1-04: Suggested tie lines: Accept and Dismiss do not form a column
+- **Status:** Done in 848b5ab8.
 - **Where:** Suggested tie lines list; `04-ties-suggestions-crop-crop-4k2x.png`, `04-ties-overview-1080.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -41,6 +45,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** One-off tie lines in use (`#tielines-oneoffs-list`) uses the same row class.
 
 ### B1-05: Two Confirm button sizes in one page
+- **Status:** Done in fd572966.
 - **Where:** Tie line Remove confirm and Protects Free confirm; `04-ties-remove-confirm-crop-crop-4k2x.png`, `05-protects-free-one-confirm-1080.png`
 - **Kind:** design-language
 - **Severity:** medium
@@ -49,6 +54,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `settingsprotectsfree.js` (Free Sode's Protects dialog) and the Clear History confirm.
 
 ### B1-06: Tie line error shows twice, and the words are unclear
+- **Status:** Done in edcf1baa.
 - **Where:** Add tie line with a duplicate name; `04-ties-add-duplicate-1080.png`, `04-ties-add-duplicate-dark.png`
 - **Kind:** text
 - **Severity:** medium
@@ -57,6 +63,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `tielinerules.js:14` to `18`, `:51`: lower-case fragments after "Not saved:". "a tie line goes from one router to a different router" should be "From and To must be on different routers".
 
 ### B1-07: Tie line editor fields have unequal heights
+- **Status:** Done in 912e10ba.
 - **Where:** Add tie line editor, empty; `04-ties-add-empty-crop-crop-4k2x.png`
 - **Kind:** spacing
 - **Severity:** low
@@ -65,6 +72,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** Edit in the row (`04-ties-edit-crop-crop-4k2x.png`).
 
 ### B1-08: Tie lines intro and empty states
+- **Status:** Done in 6c5ebcd9.
 - **Where:** `11-one-tie-lines-crop-crop-4k2x.png`, `15-envonly-tie-lines-1080.png`, `04-ties-find-none-crop-crop-4k2x.png`
 - **Kind:** text
 - **Severity:** low
@@ -75,6 +83,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 ## Routers
 
 ### B1-09: Multi destination label is 2px lower than the labels beside it, and its help button overlaps the select
+- **Status:** Done in dffa6361.
 - **Where:** Router detail > Takes; `03-routers-A-group-takes-crop-crop-4k2x.png`, `03-routers-A-group-levels-1080.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -83,6 +92,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** every other `.sode__help` (Export & Import, Access).
 
 ### B1-10: Router name and its action buttons share no centre line
+- **Status:** Done in 755d4bb9.
 - **Where:** Router detail head; `03-routers-detail-head-crop-4k2x.png`, `03-routers-overview-A-1080.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -91,6 +101,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** New router head ("Router D (new)" with Cancel, `03-routers-add-new-1080.png`), one-router head.
 
 ### B1-11: A long Router title wraps in a 208px box while the buttons keep 419px
+- **Status:** Done in 755d4bb9.
 - **Where:** Router detail head with a 32-character title (live test, title "Studio A Core Main Production XYZ")
 - **Kind:** edge case
 - **Severity:** medium
@@ -99,6 +110,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** the chip handles it (title max 14rem with ellipsis), but the chip has no `title` attribute, so a cut title cannot be read. Add `title` in `settingsrouterlist.js` where `.sode__rrow-title` is made.
 
 ### B1-12: Two gaps between a control and its hint, and two gaps between fields, in one group
+- **Status:** Done in 1bbce9f8.
 - **Where:** Router detail > Levels, Router names, Protects; `03-routers-A-group-levels-crop-crop-4k2x.png`
 - **Kind:** spacing
 - **Severity:** medium
@@ -107,6 +119,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** Connection group (Name character limit is alone on row 2).
 
 ### B1-13: Facts rows mix box heights of 28.5px and 32px
+- **Status:** Done in fcb904bb.
 - **Where:** Router names facts row; `03-routers-A-group-names-crop-crop-4k2x.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -115,6 +128,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `.sode__chipbox` uses elsewhere (`base.css:1988`).
 
 ### B1-14: `pb-btn--sm` is the same height as a full button
+- **Status:** Done in 5af342e6.
 - **Where:** Router head actions, Show in Protects, Show in Tie lines, table row buttons, filter chips, Accept and Dismiss
 - **Kind:** design-language
 - **Severity:** medium
@@ -123,6 +137,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** this is shared with the rest of Settings (other reviewer's slice).
 
 ### B1-15: One router: Add router sits alone at the right, with no count
+- **Status:** Done in 5f76e39f.
 - **Where:** `11-one-router-routers-1080.png`, `11-one-router-routers-crop-crop-4k2x.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -131,6 +146,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `15-envonly-routers-1080.png`.
 
 ### B1-16: 12 routers: find box and checkbox hang at the right under the chips
+- **Status:** Dropped: it conflicts with AB-22, which puts Find and the problems filter at the end of the chip row (second pass).
 - **Where:** `12-many-routers-1080.png`, `12-many-routers-bar-crop-crop-4k2x.png`, `12-many-find-none-1080.png`
 - **Kind:** alignment
 - **Severity:** medium
@@ -139,6 +155,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** the find box is 12rem wide here and 20rem in Tie lines and Protects. Use one width.
 
 ### B1-17: Router count ignores a new router
+- **Status:** Done in 5f76e39f.
 - **Where:** `03-routers-add-new-1080.png`
 - **Kind:** text
 - **Severity:** low
@@ -147,6 +164,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** after Remove (chip marked "Remove on Save").
 
 ### B1-18: Remove router note: list indent, blank lines, and words
+- **Status:** Done in a0838f85.
 - **Where:** `03-routers-remove-confirm-1080.png`, live removed state
 - **Kind:** text
 - **Severity:** medium
@@ -155,6 +173,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `settingsrouterdetail.js:310`: "Looking for what names router B…" to "Looking for items that use router B…".
 
 ### B1-19: Address check line mixes two type styles and grows the row
+- **Status:** Done in 24e3a3eb.
 - **Where:** `03-routers-address-refused-crop-crop-4k2x.png`, `03-routers-address-timeout-crop-crop-4k2x.png`, `03-routers-address-same-as-other-router-crop-crop-4k2x.png`
 - **Kind:** readability
 - **Severity:** low
@@ -163,6 +182,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** the same address on two routers gives no warning (`03-routers-address-same-as-other-router`); it shows "Connected". Add "Router A uses this address also."
 
 ### B1-20: Level chips are 24px here and 22px in Level colors; rows do not end on the edge
+- **Status:** Done in 9b30b280.
 - **Where:** `03-routers-A-level-chips-crop-4k2x.png`, `03-routers-levels-40-crop-crop-4k2x.png`, Look and feel > Level colors
 - **Kind:** design-language
 - **Severity:** low
@@ -171,6 +191,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** Level colors slots 9 to 17 show the default as grey placeholder beside typed values 1 to 8 (noted in notes.md). Show "Default" as a hint, or fill the value.
 
 ### B1-21: Routers bar text
+- **Status:** Done in 1c78979f.
 - **Where:** Routers section; `03-routers-overview-A-1080.png`
 - **Kind:** text
 - **Severity:** low
@@ -179,6 +200,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** Prefix hint "One or two letters. B.69 is number 69 on this router." to "One or two letters. For example, B.69 is number 69 on router B."
 
 ### B1-22: Chip focus ring differs from every other control
+- **Status:** Done in fdd6156c.
 - **Where:** `web/routers.css:77`
 - **Kind:** design-language
 - **Severity:** low
@@ -189,6 +211,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 ## Swap dialog
 
 ### B1-23: Find items and Only Broken touch, and sit on different centre lines
+- **Status:** Done in 0dad2c9a.
 - **Where:** `03-routers-swap-dialog-1080.png`
 - **Kind:** alignment
 - **Severity:** high
@@ -199,6 +222,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 ## Protects
 
 ### B1-24: Protects list keeps a fixed height and shows a large empty box
+- **Status:** Done in fd572966.
 - **Where:** `05-protects-overview-1080.png`, `15-envonly-tie-lines-1080.png` (Protects under it), `11-one-protects-1080.png`
 - **Kind:** spacing
 - **Severity:** high
@@ -207,6 +231,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** bigscroll on `.sode__plist` when the list is shorter than the box.
 
 ### B1-25: "Router settings" is a full-width ghost button with centred text
+- **Status:** Done in fd572966.
 - **Where:** Protects group head for a router with device 0; `05-protects-overview-1080.png`, `05-protects-free-one-confirm-1080.png` (hover shows the box)
 - **Kind:** alignment
 - **Severity:** medium
@@ -215,6 +240,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** the hint "Protect is off for this router: Sode's device number is 0." to "Protect is off for this router, because Sode's device number is 0."
 
 ### B1-26: Protects heading, counts and Levels column
+- **Status:** Done in fd572966.
 - **Where:** `05-protects-overview-1080.png`, `05-protects-tools-crop-crop-4k2x.png`
 - **Kind:** text
 - **Severity:** medium
@@ -223,6 +249,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** filter chips put the count inside the button with a 4px gap ("All 6", "Mine 0"); the count is the same weight as the label. Give `.sode__pcount` `color: var(--pb-text-muted)` on unselected buttons, or write "All (6)" as the select does for 12 routers.
 
 ### B1-27: Router filter changes form and width with many routers
+- **Status:** Done in fd572966.
 - **Where:** `12-many-protects-1080.png`, `12-many-protects-tools-crop-crop-4k2x.png`, `12-many-tie-lines-tools-crop-crop-4k2x.png`
 - **Kind:** design-language
 - **Severity:** low
@@ -233,6 +260,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 ## Save bar, review and PIN recheck
 
 ### B1-28: Review row for a removed router shows a cut sentence
+- **Status:** Done in 6a27f14f.
 - **Where:** Save review after Remove router (live; not in the B shots)
 - **Kind:** bug
 - **Severity:** high
@@ -241,6 +269,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `:563` "Router order. Default router: A → C" uses an arrow; write "Default router: was A Studio A Core, now C Playout C".
 
 ### B1-29: "Backup" heading touches the review table
+- **Status:** Done in 932bcfd5.
 - **Where:** Save review with a Critical change (live); layout of `03-save-review-dialog-1080.png`
 - **Kind:** spacing
 - **Severity:** medium
@@ -249,6 +278,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** the "Interruptions" heading (`savereview.js:66`) has the same class. In the table, the topic row "Routers" and the section row "ROUTERS" repeat one word on two lines; when topic and section have the same name, show one.
 
 ### B1-30: PIN recheck words and button
+- **Status:** Done in 5c6904d4.
 - **Where:** `03-save-pin-recheck-1080.png` (the shot missed the dialog), live `pin.png`
 - **Kind:** text
 - **Severity:** medium
@@ -257,6 +287,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** `settingsprotectsfree.js:57`: "Sode asks your PIN again after this step." to "Sode asks for your PIN again after this step."
 
 ### B1-31: Save bar: the path is cut at the end, and the Exit warning changes the bar
+- **Status:** Done in b9a5faa1.
 - **Where:** `03-routers-savebar-crop-crop-4k2x.png`, `03-routers-exit-warning-crop-crop-4k2x.png`, `03-routers-save-bad-address-1080.png`
 - **Kind:** readability
 - **Severity:** medium
@@ -265,6 +296,7 @@ Not measured live: the 12-router and 1-router fixtures, the Address states other
 - **Also check:** "Applied 20:49:39; not saved: " (`settingssave.js:230`) uses a semicolon; write "Applied 20:49:39. Not saved to the file: ".
 
 ### B1-32: At 4K the Settings column uses about a fifth of the screen
+- **Status:** Done in a8082783.
 - **Where:** `03-routers-overview-A-4k.png`, every 4k shot in the slice
 - **Kind:** readability
 - **Severity:** medium
