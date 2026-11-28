@@ -212,7 +212,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-16: Access step: less spacing, alternating row colors
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Access step. web/setup.css:207-257 (`.sode-setup__sheet`, `.is-picked`), web/setupwizard.js:128-150 (`sheet`), web/vendor/patchbay/css/patchbay.css:1579 (`.pb-table tbody tr:nth-child(even)`).
 - **Reported:** "Reduce spacing within modal and offer alternating line colors for easier reading."
 - **Now:** Cells have `padding: var(--pb-space-3) var(--pb-space-4)` and a 1px bottom border each (web/setup.css:212-217). The modal body has `padding-top: var(--pb-space-5)` (web/setup.css:25-27). The table is custom (`.sode-setup__sheet`), not `.pb-table`, so it gets no row striping. The picked column has an accent wash (`.is-picked`, :243-245), which a row stripe would cross. The capture shows 7 rows (including the header) at about 55px each.
@@ -220,7 +220,14 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: About half the row padding and the gap above the table. Stripes from a Sode rule on `.sode-setup__sheet tbody tr:nth-child(even)` with a patchbay surface token, since patchbay 2.2.1 has no stripes (patchbay.css:1577-1579 gives odd and even rows one color). The picked column's wash stays on top of the stripes.
 - **Open questions:** none.
 - **Proof:** Screenshot before and after at 1920x1080 (light and dark). A TestChromeSetupWizard check on row height and that even rows have a different background from odd rows.
+  - Reproduced on 8e9c6761 with swp08sim and a new config: on the Access step each row is 35.25px high at 1920×1080 (padding `--pb-space-3` above and below), the gap above the table is 12px, and every row has the same background (before-access-light.png, before-access-dark.png).
+  - Given: `TestChromeSetupWizard` (internal/app/setupwizard_browser_test.go), "Access rows are tight and striped": every body row is less than 2rem high, and row 2 has a different background from rows 1 and 3. Before the fix: `setupwizard_browser_test.go:122: timed out waiting for Access rows are tight and striped`. Passes after (rows 27.25px, gap 6px).
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-16/: before-access-light.png, before-access-dark.png, after-access-light.png, after-access-dark.png.
 - **Notes:**
+  - What changed (web/setup.css): cell padding `--pb-space-1` above and below in place of `--pb-space-3` (:231); the modal body above the table `--pb-space-3` in place of `--pb-space-5`, only on the Access step (`:has(> .sode-setup__sheet:first-child)`, :37); stripes on `.sode-setup__sheet tbody tr:nth-child(even)` (:263). The picked column's wash is on its cells, so it stays on top of the stripe.
+  - Stripe token: `--pb-surface-control`. patchbay calls `--pb-surface-raised` its zebra surface, but on the modal (`--pb-surface-overlay`, #141414 in dark) raised (#0f0f0f) and high (#121212) do not show; control (#1e1e1e dark, #dcdcdc light) is the nearest surface token that shows in both themes.
+  - Checks: `go test -short ./...` all ok; `go vet ./...` ok; `node --test 'web/test/*.test.mjs'` # pass 2002, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChromeSetupWizard$'` ok.
+  - Commit: this commit.
 
 ### AB-17: Done page text
 

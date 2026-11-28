@@ -119,6 +119,13 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("Access, Standard preselected", `document.querySelector('.sode-setup__sheet thead th.is-picked')?.dataset.preset === 'standard'`)
 	stepsFit("Access")
 	adminLine("Access", 0)
+	b.waitFor("Access rows are tight and striped", `(() => {
+		const rows = [...document.querySelectorAll('.sode-setup__sheet tbody tr')];
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		const bg = (r) => getComputedStyle(r).backgroundColor;
+		return rows.length > 2 && rows.every((r) => r.getBoundingClientRect().height < 2 * rem)
+			&& bg(rows[0]) !== bg(rows[1]) && bg(rows[0]) === bg(rows[2]);
+	})()`)
 	b.waitFor("Finish", next+`.textContent === 'Finish'`)
 	b.eval(`document.querySelector('[data-go="0"]').click(); true`)
 	b.waitFor("a chip goes back and keeps the answers", `document.getElementById('setup-name')?.value === 'Ada'`)

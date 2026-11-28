@@ -33,6 +33,10 @@
 .sode-setup .pb-modal__body {
   padding-top: var(--pb-space-5);
 }
+/* The Access step: a smaller gap above its table. */
+.sode-setup .pb-modal__body:has(> .sode-setup__sheet:first-child) {
+  padding-top: var(--pb-space-3);
+}
 
 .sode-setup__steps {
   display: flex;
@@ -224,7 +228,7 @@
 }
 .sode-setup__sheet th,
 .sode-setup__sheet td {
-  padding: var(--pb-space-3) var(--pb-space-4);
+  padding: var(--pb-space-1) var(--pb-space-4);
   border-bottom: 1px solid var(--pb-edge);
   vertical-align: middle;
 }
@@ -252,6 +256,12 @@
 .sode-setup__sheet td {
   text-align: center;
   cursor: pointer;
+}
+/* Stripes help the eye along a row. patchbay 2.2.1 gives odd and even rows one color, so Sode draws them. Raised and
+   high are too near the modal's own surface in dark mode, so the stripe is the control surface. The picked column's
+   wash is on the cells, so it stays on top of the stripe. */
+.sode-setup__sheet tbody tr:nth-child(even) {
+  background: var(--pb-surface-control);
 }
 .sode-setup__sheet .is-picked {
   background: var(--pb-accent-wash);
