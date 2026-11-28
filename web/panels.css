@@ -1726,6 +1726,15 @@ body {
   margin: 0;
   padding: 0;
 }
+/* Bootstrap's legend is a large float; Show reads as the other labels of the form. */
+#ed-cell-show > legend {
+  float: none;
+  font-size: inherit;
+  line-height: inherit;
+  margin: 0 0 var(--pb-space-2);
+  padding: 0;
+  width: auto;
+}
 .sode-side__checks {
   display: flex;
   flex-direction: column;
