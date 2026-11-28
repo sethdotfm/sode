@@ -27,7 +27,7 @@ export function createState(settings = {}) {
     view: fixedView(fixed), // { dst, levels }: levels is the destination cell's own set, null for all
     staged: [], // [{ dst, src, levels }] in the order staged
     busy: false,
-    results: {}, // dst -> { result, at }
+    results: {}, // dst -> { result, at, error }
     error: null,
     undone: null, // the Undo cell's last finished undo: { routes, failed, at }.
     undoId: null, // set while the plan is a staged undo: the id GET /panels/<id>/undo answered, which Take sends back
@@ -177,7 +177,16 @@ function pressPresetOne(st, cell, env, now) {
 
 export const unstage = (st, dst) => ({ ...st, staged: st.staged.filter((x) => x.dst !== dst) });
 
-export const clear = (st) => ({ ...st, view: fixedView(st.fixed || []), staged: [], undoId: null, error: null, undone: null, guardAt: 0, holdAt: 0 });
+export const clear = (st) => ({
+  ...dropFailed(st),
+  view: fixedView(st.fixed || []),
+  staged: [],
+  undoId: null,
+  error: null,
+  undone: null,
+  guardAt: 0,
+  holdAt: 0,
+});
 
 const valid = (st, env, x) => !env.protectedDsts.has(x.dst) && x.levels.length > 0;
 
@@ -230,7 +239,7 @@ const resultsOf = (st, reply, now) => {
 };
 
 // A failed Result has no clock: it stays until the next press on its destination (dst) or on Take (dst undefined).
-function dropFailed(st, dst) {
+export function dropFailed(st, dst) {
   const keep = Object.entries(st.results).filter(([d, r]) => r.result !== 'failed' || (dst !== undefined && Number(d) !== dst));
   return keep.length === Object.keys(st.results).length ? st : { ...st, results: Object.fromEntries(keep) };
 }

@@ -334,6 +334,14 @@ test('a live update keeps the viewed destination when the new copy still has it,
   assert.equal(carryView(next, next, [D(4)]), next);
 });
 
+test('Clear drops a failed Result with the plan', () => {
+  const e = env();
+  let st = pressSource(pressDestination(createState(), D(1), e, T0), S(5), e, T0);
+  st = finishTake(startTake(st, e).state, { results: [{ dst: 1, src: 5, result: 'failed' }] }, T0);
+  assert.equal(resultOf(st, 1, T0 + RESULT_MS * 10), 'failed');
+  assert.equal(resultOf(clear(st), 1, T0 + RESULT_MS * 10), null);
+});
+
 test('a failed Result stays, with its words, until the next press on that destination or on Take', () => {
   const e = env();
   let st = pressSource(pressDestination(createState(), D(1), e, T0), S(5), e, T0);

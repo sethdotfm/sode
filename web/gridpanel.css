@@ -978,9 +978,9 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__levels .sode__pick:disabled {
   background-color: var(--pb-surface-control);
   box-shadow: none;
+  border-color: var(--pb-text-disabled);
   color: var(--pb-text-disabled);
   cursor: not-allowed;
-  opacity: 0.55;
 }
 .sode-gridpanel__levels .pb-btn.sode__all {
   height: var(--sode-picks-h);

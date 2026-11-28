@@ -59,6 +59,10 @@ function nowRows(tally, item, boxed) {
 
 const routesText = (n) => (n === 1 ? '1 staged route' : `${n} staged routes`);
 
+// The sources a take replaces on the levels in on. The source being taken is no replacement: a route already there reads
+// as no change, not "X replaces X".
+export const replacedOn = (now, src, on) => (now || []).filter((r) => r.src !== src && r.levels.some((l) => on.has(l)));
+
 const routeCount = (n) => (n === 1 ? '1 route' : `${n} routes`);
 const sameLevels = (a, b) => a.length === b.length && a.every((l, i) => l === b[i]);
 
@@ -71,8 +75,8 @@ function takeRows(tally, plan) {
   const levelWords = (list) => `${list.length === 1 ? 'level' : 'levels'} ${levelTextOf(list, tally.levels, tally.levelNumbering)}`;
   const row = ({ item, g }) => {
     const on = new Set(g.levels);
-    const was = (item.now || []).filter((r) => r.levels.some((l) => on.has(l)));
-    const before = was.length ? [' replaces ', ...nameList(was.map((r) => strong(endText(r.srcLabel, r.srcName))))] : [];
+    const gone = replacedOn(item.now, g.src, on);
+    const before = gone.length ? [' replaces ', ...nameList(gone.map((r) => strong(endText(r.srcLabel, r.srcName))))] : [];
     return el(
       'div',
       'sode-gridpanel__plan-row',

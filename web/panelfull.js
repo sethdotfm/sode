@@ -39,12 +39,23 @@ function initWidth(button, paint) {
 // A Buttons panel's grid is never higher than the window (panels.css). --sode-panel-chrome is the page height that is
 // not the grid: all above it plus the page's bottom padding. Nothing above the grid takes its size from the grid, so
 // the measure does not loop. Returns the measure, for a change that moves the grid without a resize.
-function fitHeight(main, grid) {
+function fitHeight(main, grid, foot) {
   if (!grid) return () => {};
   const measure = () => {
+    // A Grid panel's height does not come from this property, and on main it would restyle every crosspoint.
+    if (grid.classList.contains('sode-gridpanel')) return;
+    const mainStyle = getComputedStyle(main);
     const top = grid.getBoundingClientRect().top - document.documentElement.getBoundingClientRect().top;
-    const pad = parseFloat(getComputedStyle(main).paddingBottom) || 0;
-    main.style.setProperty('--sode-panel-chrome', `${Math.ceil(top + pad)}px`);
+    const pad = parseFloat(mainStyle.paddingBottom) || 0;
+    // The status line and banner box is out of the page while empty, and in it when a line shows. Reserve one line for
+    // it, so a refusal does not resize the cells. A kiosk fixes the box, so it never moves the grid.
+    let room = 0;
+    if (foot && !document.documentElement.hasAttribute('data-sode-kiosk') && getComputedStyle(foot).display === 'none') {
+      const status = foot.querySelector('.sode-panel__status');
+      const line = status ? parseFloat(getComputedStyle(status).lineHeight) : 0;
+      room = (line || 0) + (parseFloat(mainStyle.rowGap) || 0);
+    }
+    main.style.setProperty('--sode-panel-chrome', `${Math.ceil(top + pad + room)}px`);
   };
   const seen = new ResizeObserver(measure);
   for (const n of main.children) if (n !== grid) seen.observe(n);
@@ -73,7 +84,7 @@ export function initScreen(button) {
 // apply() alone hides the header, the Panels link and the Lock bar.
 export function initChrome(ui) {
   const width = initWidth(ui.full, () => apply());
-  const fit = fitHeight(ui.main, ui.grid);
+  const fit = fitHeight(ui.main, ui.grid, ui.foot);
   initScreen(ui.screen);
   let override = null;
   let base = false;

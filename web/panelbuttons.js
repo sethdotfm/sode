@@ -8,6 +8,7 @@ import {
   pressSource,
   pressPreset,
   clear,
+  dropFailed,
   startTake,
   startInstant,
   finishTake,
@@ -184,7 +185,9 @@ export function buttonsBody(ctx, first) {
     if (!ctx.ready() && !nav) return;
     ctx.touched();
     if (nav) return showNewPage(pressPage(st, cell, pagesOf(panel), wrapOf(panel)));
-    if (cellDown(cell, down)) return;
+    // A failed mark goes on Clear even when the cell's router is down, so it cannot stay for good.
+    if (cell.kind === 'clear') st = dropFailed(st);
+    if (cellDown(cell, down)) return render();
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env)) return;
