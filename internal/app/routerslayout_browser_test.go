@@ -141,7 +141,8 @@ func TestChromeSettingsRoutersLayout(t *testing.T) {
 	// B1-22: a focused chip has patchbay's focus ring, as a button has.
 	b.eval(`document.querySelector('#routers-list [aria-selected="true"]').focus(); true`)
 	routersShot(b, "B1-22", "#routers-list", "")
-	want("chip ring offset", `getComputedStyle(document.querySelector('#routers-list [aria-selected="true"]')).outlineOffset`, text(`(() => { const x = document.getElementById('router-swap'); x.focus(); return getComputedStyle(x).outlineOffset; })()`))
+	want("chip ring offset", `(() => { const x = document.querySelector('#routers-list [aria-selected="true"]'); x.focus(); return x.matches(':focus-visible') + ' ' + getComputedStyle(x).outlineOffset; })()`,
+		"true "+text(`(() => { const x = document.getElementById('router-swap'); x.focus(); return getComputedStyle(x).outlineOffset; })()`))
 	b.check()
 }
 

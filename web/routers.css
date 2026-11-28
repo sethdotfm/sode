@@ -277,7 +277,7 @@
   grid-template-rows: subgrid;
   margin-bottom: var(--pb-space-4);
 }
-.sode__rgroup .sode__fields > .sode__field > label {
+.sode__rgroup .sode__fields > .sode__field > :is(label, .sode__label-help) {
   align-self: end;
   margin-bottom: var(--pb-space-2);
 }
