@@ -1790,7 +1790,9 @@ html {
 .sode__next-size {
   visibility: hidden;
 }
+/* The closed chip is as wide as its ghost (the same chip with the tag only): no flex gap before the closed value. */
 .pb-chip.sode__next {
+  gap: 0;
   max-width: 18rem;
 }
 .sode__next {
@@ -1838,6 +1840,9 @@ html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+}
+.sode__next-in > .sode__last-text {
+  padding-left: var(--pb-space-2);
 }
 :is(.sode__next-slot:hover > .sode__next, .sode__next:focus-visible) > .sode__next-open,
 html[data-shift] .sode__next > .sode__next-open {
