@@ -195,8 +195,9 @@ function build() {
   nameInput = picker.input;
   nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Name'), { htmlFor: 'lock-name' }), picker.root);
   nameField.hidden = true;
-  // The name sits on the pad, so name and digits are typed in one place.
-  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, nameField, digits);
+  // Entry order: who, then the PIN (its dots, count and messages right above the keys), then the keys. The name sits
+  // on the pad, so name and digits are typed in one place.
+  padBody = el('div', 'sode-lock__body', nameField, dotsEl, state, msg, digits);
 
   letterKey = el('kbd', 'sode__key sode__key--locked');
   letterBtn = el('button', 'pb-btn sode-btn--primary', 'Dismiss');

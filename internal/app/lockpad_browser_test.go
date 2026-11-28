@@ -112,6 +112,14 @@ func TestChromeLockPadLayout(t *testing.T) {
 	padMiddle := (pad.Left + pad.Right) / 2
 	near("the dots' centre", glyphMiddle(".sode-lock__dots"), padMiddle)
 	near("the site name's centre", glyphMiddle(".sode-lock__brand"), padMiddle)
+	// A1-11: who, then the PIN lines, then the keys.
+	order := []string{".sode-lock__namefield", ".sode-lock__dots", ".sode-lock__state", ".sode-lock__msg", ".sode-lock__pad"}
+	for i := 1; i < len(order); i++ {
+		if up, down := one(order[i-1]), one(order[i]); down.Top < up.Bottom-layoutTol {
+			t.Errorf("%s (top %.1f) is not under %s (bottom %.1f)", order[i], down.Top, order[i-1], up.Bottom)
+		}
+	}
+	b.gapY("the site name to the Name box is the column's gap", "--pb-space-7", ".sode-lock__brand", ".sode-lock__namefield")
 	// A1-10: the list drops over the pad and moves nothing. A1-28: six and a half rows of twelve.
 	listDrops := func(where string, rows float64) {
 		t.Helper()
