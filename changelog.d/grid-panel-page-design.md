@@ -1,1 +1,2 @@
 - The Grid panel page has the sizes of the prototype: larger crosspoints, names, level picks and Take. No text in the deck is smaller than the names.
+- A staged crosspoint on the Grid panel page is a full ring you can see across the room, and its row and column have a band.

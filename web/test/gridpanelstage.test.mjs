@@ -13,6 +13,7 @@ import {
   afterTake,
   stageText,
   STAGE_MAX,
+  stagedEnds,
 } from '../gridpanelstage.js';
 
 const take = () => createStage({ mode: 'take' });
@@ -261,4 +262,13 @@ test('with the box off a second press still asks for the take, and the routes ar
   const r = press(first.st, 3, 7);
   assert.equal(r.confirm, true);
   assert.deepEqual(confirmRoutes(r.st), [{ src: 3, dst: 7, levels: [1, 2] }]);
+});
+
+test('stagedEnds names the destinations and sources with a staged route, one answer for each stage', () => {
+  assert.deepEqual(stagedEnds(take()), { srcs: new Set(), dsts: new Set() });
+  const st = press(press(take(), 3, 7).st, 5, 9).st;
+  const ends = stagedEnds(st);
+  assert.deepEqual(ends, { srcs: new Set([3, 5]), dsts: new Set([7, 9]) });
+  assert.equal(stagedEnds(st), ends);
+  assert.deepEqual(stagedEnds(unstageRoute(st, { src: 3, dst: 7 })), { srcs: new Set([5]), dsts: new Set([9]) });
 });

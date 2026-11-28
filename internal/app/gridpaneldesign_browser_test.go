@@ -60,5 +60,25 @@ func TestChromeGridPanelDesign(t *testing.T) {
 	}
 	b.noClip("the deck's words are whole", "#panel-lvl-all", "#panel-clear", "#panel-take", ".sode-gridpanel__find-mode")
 
+	// A staged crosspoint (C2-42) has a full 4 px ring in the strong text color and a wash. The pie of the staged
+	// levels is inside it at full strength. Its row and its column have a band in their role colors.
+	b.eval(gridXp(5, 3) + `.click(); true`)
+	b.waitFor("one staged", gridXp(5, 3)+`.dataset.s === 'staged'`)
+	b.waitFor("the staged ring is whole and strong, and the pie in it is not faded", `(() => {
+		const x = `+gridXp(5, 3)+`, ring = getComputedStyle(x, '::before'), stage = getComputedStyle(x.querySelector('.sode-gridpanel__stage'));
+		const p = document.createElement('i'); p.style.color = 'var(--pb-text-strong)'; x.append(p); const strong = getComputedStyle(p).color; p.remove();
+		return ring.borderTopWidth === '4px' && ring.borderTopStyle === 'solid' && ring.borderTopColor === strong && ring.borderRadius === '50%' &&
+			ring.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(stage.opacity) === 1;
+	})()`)
+	b.waitFor("the staged row and column have bands, a crosspoint elsewhere has none", `(() => {
+		const band = (x) => getComputedStyle(x, '::before').backgroundImage;
+		const row = `+gridXp(8, 3)+`, col = `+gridXp(5, 6)+`, off = `+gridXp(8, 6)+`;
+		return row.hasAttribute('data-staged-row') && !row.hasAttribute('data-staged-col') && band(row).includes('gradient') &&
+			col.hasAttribute('data-staged-col') && !col.hasAttribute('data-staged-row') && band(col).includes('gradient') &&
+			!off.hasAttribute('data-staged-row') && !off.hasAttribute('data-staged-col') && band(off) === 'none';
+	})()`)
+	b.eval(`document.getElementById('panel-clear').click(); true`)
+	b.waitFor("Clear drops the stage and its bands", `!document.querySelector('.sode-gridpanel__xp:is([data-s="staged"], [data-staged-row], [data-staged-col])')`)
+
 	b.check()
 }

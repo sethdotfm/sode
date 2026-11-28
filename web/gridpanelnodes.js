@@ -62,6 +62,9 @@ export function paintXp(xp, s, d, view) {
   // A picked row or column is washed in its role color (gridpanel.css).
   setData(xp, 'row', view.picked('dsts', d) ? '' : undefined);
   setData(xp, 'col', view.picked('srcs', s) ? '' : undefined);
+  // The row and the column of a staged route carry a band in their role colors (gridpanel.css).
+  setData(xp, 'stagedRow', view.held(d) ? '' : undefined);
+  setData(xp, 'stagedCol', view.heldSrc?.(s) ? '' : undefined);
   const out = staged.length > 0 && view.leftOut(s, d);
   const prot = view.protected(d);
   const st = out ? 'left-out' : staged.length ? 'staged' : undefined;

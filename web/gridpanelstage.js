@@ -30,6 +30,18 @@ export function routesOf(st) {
 
 export const stagedCount = (st) => routesOf(st).length;
 
+// The sources and destinations with a staged route, for the bands through a staged crosspoint. One answer for each
+// staged list, since a paint asks it for every crosspoint that shows.
+const ends = new WeakMap();
+export function stagedEnds(st) {
+  let e = ends.get(st.staged);
+  if (!e) {
+    e = { srcs: new Set(st.staged.map((x) => x.src)), dsts: new Set(st.staged.map((x) => x.dst)) };
+    ends.set(st.staged, e);
+  }
+  return e;
+}
+
 const fail = (st, code, message = '') => ({ ...st, error: { code, message } });
 
 // A press on a crosspoint with the levels to stage. send is the routes to send at once (Instant mode), else null.

@@ -476,14 +476,59 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__xp[data-s="staged"] {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
 }
-/* The ring is a pie of the staged levels (gridpanelnodes.js paintXp), 80% of the crosspoint, over the outer part of the pie.
-   It reads the crosspoint's --pulse and runs no animation of its own. */
+/* The row and the column of a staged route (gridpanelnodes.js paintXp): a band through the middle of each crosspoint in
+   the role color, so the eye goes from the staged ring to its names. It is narrower than a pick's wash, which fills
+   the crosspoint, so the two read apart. */
+.sode-gridpanel__xp:is([data-staged-row], [data-staged-col])::before {
+  background-position: center;
+  background-repeat: no-repeat;
+  content: "";
+  grid-area: 1 / 1;
+  height: 100%;
+  pointer-events: none;
+  width: 100%;
+}
+.sode-gridpanel__xp[data-staged-row]::before {
+  background-image: linear-gradient(color-mix(in oklab, var(--pb-dest) 55%, transparent), color-mix(in oklab, var(--pb-dest) 55%, transparent));
+  background-size: 100% 30%;
+}
+.sode-gridpanel__xp[data-staged-col]::before {
+  background-image: linear-gradient(color-mix(in oklab, var(--pb-source) 55%, transparent), color-mix(in oklab, var(--pb-source) 55%, transparent));
+  background-size: 30% 100%;
+}
+.sode-gridpanel__xp[data-staged-row][data-staged-col]::before {
+  background-image: linear-gradient(color-mix(in oklab, var(--pb-dest) 55%, transparent), color-mix(in oklab, var(--pb-dest) 55%, transparent)),
+    linear-gradient(color-mix(in oklab, var(--pb-source) 55%, transparent), color-mix(in oklab, var(--pb-source) 55%, transparent));
+  background-size:
+    100% 30%,
+    30% 100%;
+}
+/* The staged ring: a full ring 4 px wide in the strong text color with a light wash, 80% of the crosspoint, so a staged
+   crosspoint reads from across the room whatever its levels. It takes the place of the bands on its own crosspoint. */
+.sode-gridpanel__xp[data-s="staged"]::before {
+  background: color-mix(in oklab, var(--pb-text-strong) 12%, transparent);
+  border: calc(var(--pb-border-w) * 4) solid var(--pb-text-strong);
+  border-radius: 50%;
+  box-sizing: border-box;
+  content: "";
+  grid-area: 1 / 1;
+  height: 80%;
+  pointer-events: none;
+  width: 80%;
+}
+/* Inside the ring, a pie of the staged levels (gridpanelnodes.js paintXp) over the outer part of the level pie, at full
+   strength. The ring and the pie read the crosspoint's --pulse and grow and shrink with it; they run no animation of
+   their own. */
 .sode-gridpanel__stage {
   display: none;
-  height: 80%;
+  height: calc(80% - 8 * var(--pb-border-w));
   mask: radial-gradient(circle closest-side, transparent 60%, var(--pb-text-strong) 61%, var(--pb-text-strong) 100%, transparent 100%);
-  opacity: calc(0.25 + var(--pulse) * 0.75);
-  width: 80%;
+  opacity: 1;
+  width: calc(80% - 8 * var(--pb-border-w));
+}
+.sode-gridpanel__xp[data-s="staged"]::before,
+.sode-gridpanel__xp[data-s="staged"] > .sode-gridpanel__stage {
+  scale: calc(0.9 + var(--pulse) * 0.1);
 }
 .sode-gridpanel__xp[data-s="staged"] > .sode-gridpanel__stage {
   display: block;

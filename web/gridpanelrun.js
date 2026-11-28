@@ -19,6 +19,7 @@ import {
   startSend,
   afterTake,
   stageText,
+  stagedEnds,
 } from './gridpanelstage.js';
 import { createPicks, pickName, pickCount, dropPicks, diagonal, extendPick, dragPick, enterGrid } from './gridpanelpick.js';
 import { pieOn, otherRouterLevels } from './gridpanellevels.js';
@@ -146,7 +147,8 @@ export function gridBody(ctx, first) {
     via: (s, d) => viaOn(env, s, d),
     viaText: (row) => viaText(row, (o) => ctx.viaLabel?.(o) ?? names.source(ctx.places ? ctx.places().id(o.router, o.n) : o.n)),
     staged,
-    held: (d) => st.staged.some((x) => x.dst === d),
+    held: (d) => stagedEnds(st).dsts.has(d),
+    heldSrc: (s) => stagedEnds(st).srcs.has(s),
     marks: null, // the press policy's marks and words (gridpaneladd.js) as of the last render
     picked: (kind, n) => picks[kind].includes(n),
     // Filter shows only matches, so only Find marks them.
