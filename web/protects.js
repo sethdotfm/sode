@@ -247,7 +247,7 @@ function oneSummary(plan) {
 
 // The badge row of each hold on dst, with the button the route view offers. confirm opens the Confirm with a plan;
 // none means badges only. Each badge stands beside its level strip. Free goes under the badge of the Sode Protect it
-// frees, since the column has no room for it beside the badge; Protect has a row of its own.
+// frees, since the column has no room for it beside the badge. Protect has a row of its own.
 export function protectNodes(dst, confirm = null) {
   const p = stateOf(dst);
   const b = confirm && protectButton(dst, confirm);

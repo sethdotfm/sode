@@ -60,7 +60,7 @@ func TestChromeProtectUnderDestination(t *testing.T) {
 	b.check()
 }
 
-// The Protect picker at 1920x1080 with every destination listed: the list shows whole rows, so its last row is not
+// The Protect picker at 1920x1080 with every destination listed. The list shows whole rows, so its last row is not
 // cut in half over the key hint line.
 func TestChromeProtectPickerWholeRows(t *testing.T) {
 	b := startBrowser(t)

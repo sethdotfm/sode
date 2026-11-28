@@ -8,9 +8,9 @@ import (
 )
 
 // The Bookmarks strip and the History tools, desktop at 1920x1080 and phone at 375x812 with touch. On the desktop
-// every control in the two rows is an action high, with one text size, and the filter boxes, their clear button and
-// Filters share a centre line. On the phone the filter boxes and their clear button have one height and centre line,
-// and Edit sits beside All presets at the right of the Bookmarks head.
+// every control in the two rows is an action high, with one text size. The filter boxes, their clear button and
+// Filters share a centre line. On the phone the filter boxes and their clear button have one height and centre line.
+// Edit sits beside All presets at the right of the Bookmarks head.
 func TestChromeHistoryToolsOneHeight(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

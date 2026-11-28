@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// History at 1920x1080 with an "Undo" row, an "Undo 3" stacked row and an "Undo all" Group: the Redo buttons share a
-// left edge and the Undo buttons a right edge down the list, and so do the Undo buttons of an open Group's takes.
+// History at 1920x1080 with an "Undo" row, an "Undo 3" stacked row and an "Undo all" Group. The Redo buttons share
+// a left edge down the list. The Undo buttons share a right edge, also the Undo buttons of an open Group's takes.
 func TestChromeHistoryActionsColumn(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

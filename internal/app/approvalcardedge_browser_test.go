@@ -6,7 +6,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// An approver's card on the main page at 1920x1080 keeps off the page's big scroll bar: the card stack ends
+// An approver's card on the main page at 1920x1080 keeps off the page's big scroll bar. The card stack ends
 // --pb-space-5 left of the bar's room.
 func TestChromeApprovalCardClearsPageBar(t *testing.T) {
 	b := startBrowser(t)
