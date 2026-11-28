@@ -447,7 +447,7 @@ function draw() {
   const focusId = focusAct ? focus.closest('[data-id]')?.dataset.id : null;
   const top = list.scrollTop;
   const nodes = groups.map(groupNode);
-  if (!nodes.length) nodes.push(el('div', 'sode__pempty', rows.length ? 'No tie line matches.' : 'No tie lines. Add tie line adds one.'));
+  if (!nodes.length) nodes.push(el('div', 'sode__pempty', rows.length ? 'No tie line matches.' : 'No tie lines. To add one, use Add tie line.'));
   // The result of a Remove whose next row is not drawn goes last.
   if (removed && !groups.some((g) => g.rows.some((r) => r.id === removed.after))) nodes.push(removedNode());
   if (asking && !rows.some((r) => r.id === asking)) {
