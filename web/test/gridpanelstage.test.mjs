@@ -14,6 +14,7 @@ import {
   stageText,
   STAGE_MAX,
   stagedEnds,
+  resultText,
 } from '../gridpanelstage.js';
 
 const take = () => createStage({ mode: 'take' });
@@ -271,4 +272,10 @@ test('stagedEnds names the destinations and sources with a staged route, one ans
   assert.deepEqual(ends, { srcs: new Set([3, 5]), dsts: new Set([7, 9]) });
   assert.equal(stagedEnds(st), ends);
   assert.deepEqual(stagedEnds(unstageRoute(st, { src: 3, dst: 7 })), { srcs: new Set([5]), dsts: new Set([9]) });
+});
+
+test('resultText leads with the count: "1 route taken", "3 routes taken"; an Undo keeps its words', () => {
+  assert.equal(resultText(1, false), '1 route taken');
+  assert.equal(resultText(3, false), '3 routes taken');
+  assert.equal(resultText(2, true), 'Undone: 2 routes');
 });

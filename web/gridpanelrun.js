@@ -20,6 +20,7 @@ import {
   afterTake,
   stageText,
   stagedEnds,
+  resultText,
 } from './gridpanelstage.js';
 import { createPicks, pickName, pickCount, dropPicks, diagonal, extendPick, dragPick, enterGrid } from './gridpanelpick.js';
 import { pieOn, otherRouterLevels } from './gridpanellevels.js';
@@ -40,7 +41,6 @@ import { lineGestures } from './gridpanelgesture.js';
 import { levelTextOf } from './levels.js';
 import { el, LINK_DOWN, showNote } from './core.js';
 import { editHref } from './panelsrules.js';
-import { plural } from './gridmodel.js';
 import { shortcutList } from './shortcuts.js';
 import { restPoint, tapMods, pickNote } from './gridpanelphone.js';
 import { onLayout } from './layout.js';
@@ -343,7 +343,7 @@ export function gridBody(ctx, first) {
       const n = (reply?.results || routes).length;
       note = bad.length
         ? noteOf(`${undo ? 'Undo' : 'Take'} failed on ${[...new Set(bad.map((r) => names.destination(r.dst)))].join(', ')}`)
-        : noteOf(`${undo ? 'Undone' : 'Taken'}: ${plural(n, 'route')}${plan.left ? `. ${plan.left}` : ''}`, !plan.left);
+        : noteOf(`${resultText(n, undo)}${plan.left ? `. ${plan.left}` : ''}`, !plan.left);
     } catch (e) {
       failed =
         e.status === undefined

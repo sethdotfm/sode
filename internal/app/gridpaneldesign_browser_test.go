@@ -110,5 +110,11 @@ func TestChromeGridPanelDesign(t *testing.T) {
 		t.Error("the Filter switch still has a box")
 	}
 
+	// The result line (C2-48) leads with the count, in text-md, the largest text of its box.
+	b.eval(gridXp(5, 3) + `.click(); ` + gridXp(8, 6) + `.click(); document.getElementById('panel-take').click(); true`)
+	b.waitFor("the result says what was taken", gridMessage+` === '2 routes taken'`)
+	near("the result's text", font(".sode-gridpanel__res .pb-alert"), b.tokenPx(".sode-gridpanel__deck", "--pb-text-md"))
+	b.noClip("the result is whole", ".sode-gridpanel__res .pb-alert__title")
+
 	b.check()
 }

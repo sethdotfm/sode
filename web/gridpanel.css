@@ -1440,6 +1440,10 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) .sode-gridpanel__msg > .sode-panel__update {
   align-self: center;
 }
+/* The result line is the largest text in its box, which is the deck's largest free box. */
+:root:not([data-layout="phone"]) .sode-gridpanel__msg .sode-gridpanel__res .pb-alert {
+  font-size: var(--pb-text-md);
+}
 /* The count of messages held back (bannerStep), in the box's bottom corner, over the result. */
 .sode-gridpanel__held {
   align-self: end;

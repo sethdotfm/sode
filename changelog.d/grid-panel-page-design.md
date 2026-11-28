@@ -2,3 +2,4 @@
 - A staged crosspoint on the Grid panel page is a full ring you can see across the room, and its row and column have a band.
 - On the Grid panel page, the numbers in the Destination bar are one column with a gap before the names.
 - The Grid panel deck has equal room round each rule, the Levels box and Select all line up with the search boxes, and the Find and Filter switch has no box.
+- The Grid panel page says "2 routes taken" after a take, in larger text.

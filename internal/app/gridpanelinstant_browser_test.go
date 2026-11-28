@@ -54,7 +54,7 @@ func TestChromeGridPanelInstant(t *testing.T) {
 	tallyHas(t, a, ana, 11, 3)
 	tallyHas(t, a, ana, 13, 5)
 	asked("a Diagonal across a protected row")
-	b.waitFor("the banner names the skipped Rec B and is an error", gridMessage+`.startsWith('Taken: 2 routes') && `+gridMessage+`.includes('Rec B') && !!document.querySelector('.sode-gridpanel__msg .pb-alert--error')`)
+	b.waitFor("the banner names the skipped Rec B and is an error", gridMessage+`.startsWith('2 routes taken') && `+gridMessage+`.includes('Rec B') && !!document.querySelector('.sode-gridpanel__msg .pb-alert--error')`)
 	b.waitFor("a screen reader gets the banner's words", `document.querySelector('.sode-gridpanel__said[role="status"]').textContent === `+gridMessage)
 	gridKey(b, "Escape")
 	b.waitFor("Esc drops the picks", `!document.querySelector('.sode-gridpanel__src[data-picked]')`)
