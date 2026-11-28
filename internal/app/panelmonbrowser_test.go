@@ -49,7 +49,7 @@ func TestChromePanelWatchToast(t *testing.T) {
 	if c := keepalive(a, id, ana, "Lobby tablet"); c != 200 {
 		t.Fatalf("keepalive %d", c)
 	}
-	b.waitFor("online mark", `document.querySelector('[data-online]')?.textContent === 'All Online'`)
+	b.waitFor("online mark", `document.querySelector('[data-online]')?.textContent === 'All online'`)
 	b.waitFor("instance watch box", `!!document.querySelector('[data-watch-instance="Lobby tablet"]')`)
 	b.eval(`document.querySelector('[data-watch-instance="Lobby tablet"]').click()`)
 	for deadline := time.Now().Add(10 * time.Second); !a.mon.watchingInst(idOf(a, "Ana"), id, "Lobby tablet"); time.Sleep(50 * time.Millisecond) {
@@ -80,13 +80,13 @@ func TestChromePanelWatchToast(t *testing.T) {
 	b.shot("uptime")
 	b.eval(`document.querySelector('[data-hide-instance="Lobby tablet"]').click()`)
 	b.waitFor("instance hidden", `!document.querySelector('[data-hide-instance]') && /Hidden: Lobby tablet/.test(document.getElementById('panels-open').textContent)`)
-	b.waitFor("nothing counted", `document.querySelector('[data-online]')?.textContent === 'All Offline'`)
+	b.waitFor("nothing counted", `document.querySelector('[data-online]')?.textContent === 'Not open'`)
 	if !a.mon.watchingInst(idOf(a, "Ana"), id, "Lobby tablet") {
 		t.Fatal("Hide ended the instance watch")
 	}
 	b.shot("hidden")
 	b.eval(`document.querySelector('[data-show-hidden]').click()`)
-	b.waitFor("shown again", `!!document.querySelector('[data-hide-instance="Lobby tablet"]') && document.querySelector('[data-online]').textContent === 'All Online'`)
+	b.waitFor("shown again", `!!document.querySelector('[data-hide-instance="Lobby tablet"]') && document.querySelector('[data-online]').textContent === 'All online'`)
 	b.check()
 }
 

@@ -2,7 +2,7 @@
 import { el, icon } from './core.js';
 import { btn, segmented } from './formbits.js';
 import { question } from './modal.js';
-import { assignRows, assignWays, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
+import { assignRows, assignWays, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem, assignFacts } from './panelassignrules.js';
 import { MON_POLL_MS } from './panelsmon.js';
 import { INSTANCE_MAX } from './panelkeyrules.js';
 import { resultStep } from './keys.js';
@@ -128,7 +128,7 @@ export function openAssign(panel, ctx) {
       b.dataset.instance = r.device;
       if (r.keyless) b.dataset.keyless = r.keyless;
       b.disabled = busy || !r.assignable;
-      const facts = [r.addr, r.state, r.uptime].filter(Boolean).join(', ');
+      const facts = assignFacts(r);
       const who = el(
         'span',
         `sode-ov__who${r.assignable ? '' : ' sode-ov__muted'}`,

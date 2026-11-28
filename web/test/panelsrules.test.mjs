@@ -6,10 +6,9 @@ import {
   emptyText,
   deleteStep,
   thumbCells,
-  actsLabel,
+  actsText,
   actsShort,
   hasClient,
-  launchNote,
   actsSavedNote,
   PUBLIC_WARNING,
   shareLabel,
@@ -25,13 +24,13 @@ import {
   actsSwitch,
 } from '../panelsrules.js';
 
-test('a panel reads All Online, Some Online or All Offline across its instances', () => {
-  assert.deepEqual(panelStatus({ instancesOnline: 2, instancesKnown: 2 }), { text: 'All Online', tone: 'ok' });
-  assert.deepEqual(panelStatus({ instancesOnline: 1, instancesKnown: 3 }), { text: 'Some Online', tone: 'warn' });
-  assert.deepEqual(panelStatus({ instancesOnline: 0, instancesKnown: 3 }), { text: 'All Offline', tone: '' });
+test('a panel reads All online, Some online, All offline or Not open across its instances', () => {
+  assert.deepEqual(panelStatus({ instancesOnline: 2, instancesKnown: 2 }), { text: 'All online', tone: 'ok' });
+  assert.deepEqual(panelStatus({ instancesOnline: 1, instancesKnown: 3 }), { text: 'Some online', tone: 'warn' });
+  assert.deepEqual(panelStatus({ instancesOnline: 0, instancesKnown: 3 }), { text: 'All offline', tone: '' });
   // Nothing open, or an older Sode without the counts.
-  assert.deepEqual(panelStatus({ instancesOnline: 0, instancesKnown: 0 }), { text: 'All Offline', tone: '' });
-  assert.deepEqual(panelStatus({ online: true }), { text: 'All Offline', tone: '' });
+  assert.deepEqual(panelStatus({ instancesOnline: 0, instancesKnown: 0 }), { text: 'Not open', tone: '' });
+  assert.deepEqual(panelStatus({ online: true }), { text: 'Not open', tone: '' });
 });
 
 test('Open now lists known and watched instances, less the hidden ones', () => {
@@ -145,15 +144,18 @@ test('the mini picture draws whole cells only, with their kind', () => {
 });
 
 test('labels say who a panel acts as and who may use it', () => {
-  assert.equal(actsLabel(P('a', 'Ana')), 'Acts as the user');
-  assert.equal(actsLabel(P('a', 'Ana', { acts: 'api' })), 'Acts as an API client');
-  assert.equal(actsShort(P('a', 'Ana')), 'signs in as the user');
-  assert.equal(actsShort(P('a', 'Ana', { acts: 'api' })), 'API client');
-  assert.equal(actsLabel(P('a', 'Ana', { acts: 'both' })), 'Acts as an API client with a key, else as the user');
-  assert.equal(actsShort(P('a', 'Ana', { acts: 'both' })), 'API client or the user');
-  assert.equal(actsLabel(P('a', 'Ana', { acts: 'public' })), 'Acts as an API client for anyone with the link');
+  assert.equal(actsText(P('a', 'Ana')), 'The user. The panel asks for a PIN.');
+  assert.equal(actsText(P('a', 'Ana', { acts: 'session' })), 'The user. The panel asks for a PIN.');
+  assert.equal(actsText(P('a', 'Ana', { acts: 'api' })), 'An API client. The link holds a key.');
+  assert.equal(actsText(P('a', 'Ana', { acts: 'both' })), 'An API client with a key. Without a key, the user.');
+  assert.equal(actsText(P('a', 'Ana', { acts: 'public' })), 'Public. Anyone with the link.');
+  assert.equal(actsShort(P('a', 'Ana')), 'User sign-in');
+  assert.equal(actsShort(P('a', 'Ana', { acts: 'api' })), 'API key');
+  assert.equal(actsShort(P('a', 'Ana', { acts: 'both' })), 'Key or sign-in');
   assert.equal(actsShort(P('a', 'Ana', { acts: 'public' })), 'Public');
   assert.equal(shareLabel({ mode: 'me' }), 'Only the owner');
+  assert.equal(shareLabel({ mode: 'me' }, true), 'Only you');
+  assert.equal(shareLabel({ mode: 'everyone' }, true), 'Everyone');
   assert.equal(shareLabel({ mode: 'everyone' }), 'Everyone');
   assert.equal(shareLabel({ mode: 'named', users: ['Bo', 'Cy'] }), 'Bo, Cy');
   assert.equal(shareLabel({ mode: 'named', users: [] }), 'Nobody');
@@ -215,14 +217,6 @@ test('choosing an Authentication mode says what was saved', () => {
 test('the Access tab warns that sharing does not limit a Public panel', () => {
   assert.match(PUBLIC_WARNING, /anyone with the link/i);
   assert.match(PUBLIC_WARNING, /sharing/i);
-});
-
-test('only a panel that may sign in says so after how it acts', () => {
-  assert.equal(launchNote({ acts: 'session' }), ' (asks for a PIN at launch)');
-  assert.equal(launchNote({}), ' (asks for a PIN at launch)');
-  assert.equal(launchNote({ acts: 'both' }), ' (a link without a key asks for a PIN)');
-  assert.equal(launchNote({ acts: 'api' }), '');
-  assert.equal(launchNote({ acts: 'public' }), '');
 });
 
 // Keep in step with apiPanelUpdate. A new client gets no key. A switch to User ends the client, and pruneKeys ends its keys and setup links.
@@ -290,6 +284,14 @@ test('a Grid panel on the list says how many sources and destinations it holds, 
   );
   const all = gridThumb({ sources: { members: 'all' }, destinations: edge(4) });
   assert.equal(all.size, 'large');
+  // The list caps a picture at Medium, so every row has one height; Medium still holds "ALL".
+  const listed = gridThumb({ sources: { members: 'all' }, destinations: edge(4) }, 'medium');
+  assert.equal(listed.size, 'medium');
+  assert.deepEqual(
+    listed.tiles.map((x) => x.label),
+    ['A', 'L', 'L', '4'],
+  );
+  assert.equal(gridThumb({ sources: edge(3), destinations: edge(2) }, 'medium').size, 'small');
   assert.deepEqual(
     all.tiles.map((x) => x.label),
     ['A', 'L', 'L', '4'],
@@ -348,5 +350,6 @@ test('a Grid panel on the list says how many sources and destinations it holds, 
 test('the empty list says no panels yet, apart from a Find with no hits', () => {
   assert.equal(emptyText(false, false), '');
   assert.equal(emptyText(true, false), 'No panels yet. Press New panel to make one.');
-  assert.equal(emptyText(true, true), 'No panel matches.');
+  assert.equal(emptyText(true, true, 'zzz'), 'No panel has "zzz" in its name.');
+  assert.equal(emptyText(true, true, '  st a '), 'No panel has "st a" in its name.');
 });
