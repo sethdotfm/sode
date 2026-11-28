@@ -19,7 +19,16 @@ const ui = () =>
     title: 'Send a copy',
     cls: 'pb-modal--sm sode-send',
     body: [el('span', 'sode__label', 'Send to'), people],
-    foot: [btn('pb-btn--outline', 'Close', () => close()), note, sendBtn],
+    // base.css .sode__foot-end: Send hides on the phone, and Close is then on the right alone.
+    foot: [
+      note,
+      el(
+        'span',
+        'sode__foot-end',
+        btn('pb-btn--outline', 'Close', () => close()),
+        sendBtn,
+      ),
+    ],
     onEsc: () => close(),
   }));
 let items = null;
