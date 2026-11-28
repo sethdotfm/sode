@@ -184,8 +184,8 @@ func TestChromeManageUsersDialog(t *testing.T) {
 	b.check()
 }
 
-// At 1366x768 with many users, the whole of Manage users stays on the screen on each tab: its body scrolls, and the
-// footer stays in view under the dialog's lower top edge.
+// At 1366x768 with many users, all of Manage users stays on the screen on each tab. Its body scrolls, and the footer
+// stays in view.
 func TestChromeManageUsersFitsSmallScreen(t *testing.T) {
 	b := userDialogsAppAt(t, 1366, 768, 20)
 	b.eval(`document.getElementById('users-manage').click(); true`)

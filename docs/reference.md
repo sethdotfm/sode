@@ -219,7 +219,7 @@ Sode checks each file as it checks an upload. It must be PNG or SVG, at most 2 M
 
 ## Communication log
 
-`/log` lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. Open it with **View Logs** in Settings > History, which shows even while Settings are locked. The page is read-only. Settings has a search box above its section list that finds sections and single settings by name or by common words ("password", "dark", "proxy"). Sode writes the log to `SODE_COMMLOG` up to `SODE_COMMLOG_MB`. Without that file, the last 20,000 messages stay in memory.
+`/log` lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. Open it with **Communication Log** at the foot of Settings. Settings search finds it in History. The page is read-only. Settings has a search box above its section list that finds sections and single settings by name or by common words ("password", "dark", "proxy"). Sode writes the log to `SODE_COMMLOG` up to `SODE_COMMLOG_MB`. Without that file, the last 20,000 messages stay in memory.
 
 Besides messages to the router, the log has event rows. They show in the default view and have their own filter chips:
 
