@@ -511,7 +511,7 @@ The connection between the Sode server and one router. Each router has its own.
 The state of Sode as a whole. Healthy means that every Router link is up. Degraded means that one or more Router links are down and one or more are up. Down means that every Router link is down. Keep Down apart from Offline, which is the page state when the Sode server cannot be reached.
 
 **Server run time**:
-How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The router list of the status bar shows it above the routers.
+How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The hover box and the router list of the status bar show it above the routers.
 _Avoid_: server uptime
 
 **Lost link**:

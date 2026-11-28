@@ -240,6 +240,35 @@
 .sode-statusinfo__sum {
   color: var(--pb-text-muted);
 }
+/* The hover box never scrolls (statusinfo.js makeHover): statusinforules.js caps its rows, an error takes one line
+   (the router list has the full text) and a router's strip has no "link up for" line while there are more routers. */
+/* One label column for the whole box (subgrid), so the values of every router line up. */
+.sode-statusinfo--hover {
+  gap: var(--pb-space-3) var(--pb-space-5);
+  grid-template-columns: fit-content(12rem) minmax(0, 1fr);
+}
+.sode-statusinfo--hover > *,
+.sode-statusinfo__router > * {
+  grid-column: 1 / -1;
+}
+.sode-statusinfo--hover .sode-statusinfo__rows,
+.sode-statusinfo__router {
+  display: grid;
+  grid-template-columns: subgrid;
+}
+.sode-statusinfo__router {
+  gap: var(--pb-space-2) var(--pb-space-5);
+}
+.sode-statusinfo__err {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-statusinfo__more {
+  color: var(--pb-text-muted);
+  margin: 0;
+}
 /* A fixed height with its own big scroll bar (bigscroll.js SCROLLERS), so 24 routers never make the list taller. */
 .sode-routerlist {
   border-top: var(--pb-border-w) solid var(--pb-border);

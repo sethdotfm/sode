@@ -36,11 +36,26 @@ func (b *tab) key(name, code string, vk int, text string) {
 const (
 	routerListOpen = `!document.querySelector('#conn > .sode-statusinfo').hidden`
 	routerListText = `document.querySelector('#conn > .sode-statusinfo').innerText`
+	hoverBoxOpen   = `!document.querySelector('#conn > .sode-statusinfo--hover').hidden`
+	hoverBoxText   = `document.querySelector('#conn > .sode-statusinfo--hover').innerText`
+	// The hover box has no scroll bar and fits the window.
+	hoverBoxFits = `(() => { const t = document.querySelector('#conn > .sode-statusinfo--hover'), c = getComputedStyle(t), r = t.getBoundingClientRect();
+		return !['auto', 'scroll'].includes(c.overflowY) && t.scrollHeight <= t.clientHeight + 1 && r.bottom <= innerHeight; })()`
 )
 
-// One router: one Routers icon, a button. Enter opens the router list, which stays open. A row opens with Enter to
-// show the address, the 24-hour strip (Log rights) and a Communication Log link. A person who is not an Administrator
-// sees no Router settings link. Escape closes the list and gives focus back to the button. A click outside closes it.
+// pointAt moves the mouse to the middle of the element that sel finds, with no press.
+func pointAt(b *tab, sel string) {
+	b.t.Helper()
+	xy := b.eval(`(() => { const r = document.querySelector('` + sel + `').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`).([]any)
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": xy[0], "y": xy[1]})
+}
+
+// One router: one Routers icon, a button. A hover on the Server status shows the hover box: Server run time, Router
+// link, address and the 24-hour strip (Log rights). Escape closes it and the pointer leaving closes it. Focus on the
+// Routers icon shows it too. Enter opens the router list, which stays open, and the hover box goes. A row opens with
+// Enter to show the address, the 24-hour strip and a Communication Log link. A person who is not an Administrator sees
+// no Router settings link. Escape closes the list and gives focus back to the button, with no hover box. A click
+// outside closes it.
 func TestChromeStatusInfoWithLogRights(t *testing.T) {
 	b := statusInfoPage(t, config.Locks{})
 	b.waitFor("a Server icon and one Router icon in a button, each with its state badge, spoken name and visible word", `(() => {
@@ -53,10 +68,31 @@ func TestChromeStatusInfoWithLogRights(t *testing.T) {
 			&& [...document.querySelectorAll('#conn .pb-status')].map((s) => s.textContent).join('|') === 'Server|Router'
 			&& !!open && open.contains(st[1]) && open.getAttribute('aria-expanded') === 'false' && !document.getElementById('conn').hasAttribute('title');
 	})()`)
-	b.eval(`document.querySelector('#conn .sode__conn-open').focus(); true`)
+	b.waitFor("the hover box is shut", `!(`+hoverBoxOpen+`)`)
+	pointAt(b, "#conn > .pb-status")
+	b.waitFor("a hover on the Server status shows the hover box", hoverBoxOpen+` && !(`+routerListOpen+`)`)
+	b.waitFor("Server run time from api/health", `/Server run time\s*\d+ (second|minute)/.test(`+hoverBoxText+`)`)
+	b.waitFor("Router link and address", `/Router link\s*Connected/.test(`+hoverBoxText+`) && /Address\s*127\.0\.0\.1:/.test(`+hoverBoxText+`)`)
+	b.waitFor("the 24-hour strip", `document.querySelectorAll('#conn > .sode-statusinfo--hover .sode-up__bar').length > 0 && /Router link up for/.test(`+hoverBoxText+`) && /Last 24 hours:/.test(`+hoverBoxText+`)`)
+	b.waitFor("one uptime ask for the router, above log.js's ids", `sent.filter((m) => m.t === 'uptime').length === 1 && sent.find((m) => m.t === 'uptime').id >= 1e9 && !!sent.find((m) => m.t === 'uptime').router`)
+	if !b.eval(hoverBoxFits).(bool) {
+		t.Fatal("the hover box scrolls or runs off the window")
+	}
+	b.shot("hover")
+	b.key("Escape", "Escape", 27, "")
+	b.waitFor("Escape closes it", `!(`+hoverBoxOpen+`)`)
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 700, "y": 600})
+	pointAt(b, "#conn .sode__conn-open")
+	b.waitFor("a hover on the Routers icon shows it", hoverBoxOpen)
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 700, "y": 600})
+	b.waitFor("the pointer leaving closes it", `!(`+hoverBoxOpen+`)`)
+	b.eval(`sent.length = 0; document.querySelector('#conn .sode__conn-open').focus(); true`)
+	b.waitFor("focus on the Routers icon shows it", hoverBoxOpen+` && document.querySelector('#conn .sode__conn-open').getAttribute('aria-describedby') === document.querySelector('#conn > .sode-statusinfo--hover').id`)
+	b.waitFor("its uptime ask is answered", `document.querySelectorAll('#conn > .sode-statusinfo--hover .sode-up__bar').length > 0`)
+	b.eval(`sent.length = 0; true`)
 	b.key("Enter", "Enter", 13, "\r")
-	b.waitFor("Enter opens the list, and focus goes to its row", routerListOpen+` && document.querySelector('#conn .sode__conn-open').getAttribute('aria-expanded') === 'true'
-		&& document.activeElement.classList.contains('sode-routerlist__head')`)
+	b.waitFor("Enter opens the list, focus goes to its row, and the hover box goes", routerListOpen+` && document.querySelector('#conn .sode__conn-open').getAttribute('aria-expanded') === 'true'
+		&& document.activeElement.classList.contains('sode-routerlist__head') && !(`+hoverBoxOpen+`)`)
 	b.waitFor("Server run time from api/health", `/Server run time\s*\d+ (second|minute)/.test(`+routerListText+`)`)
 	b.waitFor("one row, Connected in plain text, no find box", `(() => {
 		const rows = [...document.querySelectorAll('#conn .sode-routerlist__item')];
@@ -82,6 +118,10 @@ func TestChromeStatusInfoWithLogRights(t *testing.T) {
 	}
 	b.key("Escape", "Escape", 27, "")
 	b.waitFor("Escape closes and gives focus back to the button", `!(`+routerListOpen+`) && document.activeElement === document.querySelector('#conn .sode__conn-open')`)
+	b.eval(`new Promise((r) => setTimeout(r, 300))`)
+	if b.eval(hoverBoxOpen).(bool) {
+		t.Fatal("the focus given back to the Routers icon opened the hover box")
+	}
 	b.key(" ", "Space", 32, " ")
 	b.waitFor("Space opens it again", routerListOpen)
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mousePressed", "x": 700, "y": 600, "button": "left", "clickCount": 1})
@@ -90,10 +130,19 @@ func TestChromeStatusInfoWithLogRights(t *testing.T) {
 	b.check()
 }
 
-// Without Log rights (a Guest under the log lock) an open row is text only. The page never asks for uptime, since a
-// refused ask writes a locked row to the Communication Log.
+// Without Log rights (a Guest under the log lock) the hover box and an open row are text only. The page never asks for
+// uptime, since a refused ask writes a locked row to the Communication Log.
 func TestChromeStatusInfoWithoutLogRights(t *testing.T) {
 	b := statusInfoPage(t, config.Locks{Log: true})
+	pointAt(b, "#conn > .pb-status")
+	b.waitFor("hover box open", hoverBoxOpen)
+	b.waitFor("Server run time and Router link in the hover box", `/Server run time\s*\d+ (second|minute)/.test(`+hoverBoxText+`) && /Router link\s*Connected/.test(`+hoverBoxText+`)`)
+	b.eval(`new Promise((r) => setTimeout(r, 500))`)
+	if got := b.eval(`[document.querySelectorAll('.sode-statusinfo .sode-up__bar').length, sent.filter((m) => m.t === 'uptime').length]`).([]any); got[0] != float64(0) || got[1] != float64(0) {
+		t.Fatalf("hover box: bars, uptime asks = %v, want none", got)
+	}
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 700, "y": 600})
+	b.waitFor("hover box shut", `!(`+hoverBoxOpen+`)`)
 	b.eval(`document.querySelector('#conn .sode__conn-open').click(); true`)
 	b.waitFor("list open", routerListOpen)
 	b.waitFor("Server run time", `/Server run time\s*\d+ (second|minute)/.test(`+routerListText+`)`)
@@ -108,8 +157,9 @@ func TestChromeStatusInfoWithoutLogRights(t *testing.T) {
 
 // Nine routers: A and B up, C to I at an address where nothing listens, so they never connected. The bar has one
 // amber Routers icon with "7 of 9 down", and no prefixes. The Degraded note is one sentence with Show routers, which
-// opens the list. The list puts the lost routers first, has a find box, and an open row of a router that never
-// connected says "Check the address.". An Administrator's Router settings opens Settings at that router's row. On the
+// opens the list. A hover on the Routers icon shows the hover box: the lost routers first, 7 of them, then "And 2
+// more", with no scroll bar. The list puts the lost routers first, has a find box, and an open row of a router that
+// never connected says "Check the address.". An Administrator's Router settings opens Settings at that router's row. On the
 // phone the header fits, a press opens the same list, and it has no Router settings link.
 func TestChromeRouterListManyRouters(t *testing.T) {
 	b := startBrowser(t)
@@ -138,6 +188,7 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 	signInSettings(b)
 	b.eval(`document.getElementById('settings-exit').click(); true`)
 	b.waitFor("Home", `document.documentElement.dataset.view !== 'settings'`)
+	b.eval(`window.sent = []; const send = WebSocket.prototype.send; WebSocket.prototype.send = function (d) { sent.push(JSON.parse(d)); return send.call(this, d); }; true`)
 
 	b.waitFor("one amber Routers icon that counts the lost routers", `(() => {
 		const st = [...document.querySelectorAll('#conn-routers .sode__state')];
@@ -151,6 +202,31 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 			&& n.querySelector('button')?.textContent === 'Show routers';
 	})()`)
 	b.shot("bar")
+	pointAt(b, "#conn .sode__conn-open")
+	b.waitFor("the hover box: Server rows, then 7 routers, the lost ones first, then And 2 more", `(() => {
+		const t = document.querySelector('#conn > .sode-statusinfo--hover');
+		if (t.hidden) return false;
+		const rs = [...t.querySelectorAll('.sode-statusinfo__router')];
+		const more = t.querySelector('.sode-statusinfo__more');
+		return /Server run time/.test(t.innerText) && rs.length === 7 && rs.map((r) => r.querySelector('.sode-statusinfo__label').textContent).join(',') === 'C Studio C,D Studio D,E Studio E,F Studio F,G Studio G,H Studio H,I Studio I'
+			&& rs.every((r) => r.querySelector('.sode-routerlist__state').textContent === 'Never connected') && more?.textContent === 'And 2 more. Click the Routers icon to see all.'
+			&& t.lastElementChild === more;
+	})()`)
+	b.waitFor("a 24-hour strip for each shown router", `document.querySelectorAll('#conn > .sode-statusinfo--hover .sode-statusinfo__router .sode-up__bars').length === 7`)
+	if !b.eval(hoverBoxFits).(bool) {
+		t.Fatal("the hover box scrolls or runs off the window")
+	}
+	if n := b.eval(`new Set(sent.filter((m) => m.t === 'uptime').map((m) => m.router)).size`).(float64); n != 7 {
+		t.Fatalf("uptime asks for %v routers, want the 7 shown", n)
+	}
+	b.shot("hover")
+	realClick(b, "#conn .sode__conn-open")
+	b.waitFor("a click on the Routers icon opens the list and the hover box goes", routerListOpen+` && !(`+hoverBoxOpen+`)`)
+	b.key("Escape", "Escape", 27, "")
+	b.waitFor("list shut", `!(`+routerListOpen+`)`)
+	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 700, "y": 600})
+	b.eval(`document.activeElement.blur(); true`)
+	b.waitFor("hover box shut", `!(`+hoverBoxOpen+`)`)
 	b.eval(`document.querySelector('#conn-degraded button').click(); true`)
 	b.waitFor("Show routers opens the list with focus in the find box", routerListOpen+` && document.activeElement === document.querySelector('#conn .sode-routerlist__find')`)
 	b.waitFor("lost routers first, in config order; Connected has no color", `(() => {
@@ -198,7 +274,7 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 			&& document.querySelector('#m-routers .sode__conn-open').textContent === '7 of 9 down';
 	})()`)
 	b.eval(`document.querySelector('#m-routers .sode__conn-open').click(); true`)
-	b.waitFor("a press opens the list", `document.querySelector('.sode-m__head > .sode-statusinfo')?.hidden === false`)
+	b.waitFor("a press opens the list, and the phone has no hover box", `document.querySelector('.sode-m__head > .sode-statusinfo')?.hidden === false && document.querySelector('.sode-m__head > .sode-statusinfo--hover').hidden`)
 	b.eval(`document.querySelector('.sode-m__head .sode-routerlist__head').click(); true`)
 	b.waitFor("the open row has no Router settings link, and the list fits the screen", `(() => {
 		const pop = document.querySelector('.sode-m__head > .sode-statusinfo');
