@@ -13,10 +13,27 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// logTablePage opens /log at 1920x1080 with two routers. The log holds the rows that set the table's shape. These
-// are router messages with a level chip, short command rows, a row with no reason and a problem row with a long note.
-func logTablePage(t *testing.T) *tab {
-	b := startBrowser(t)
+// logTablePage opens /log at 1920x1080 with two routers and the rows of logTableURL.
+func logTablePage(t *testing.T, flags ...string) *tab {
+	b := startBrowser(t, flags...)
+	url := logTableURL(t)
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+	b.open(url + "/log")
+	waitLogRows(b)
+	return b
+}
+
+func waitLogRows(b *tab) {
+	b.t.Helper()
+	b.waitFor("the seeded rows", `document.querySelectorAll('#log-rows tr').length >= 14 && !!document.querySelector('#log-rows .sode-log__lvl')`)
+	b.eval(`document.fonts.ready.then(() => true)`)
+}
+
+// logTableURL starts Sode with two routers and gives its address. The log holds the rows that set the table's shape.
+// These are router messages with a level chip, short command rows, a row with no reason and a problem row with a long
+// note.
+func logTableURL(t *testing.T) string {
+	t.Helper()
 	// Two routers, so the Routers filter row shows.
 	a := simRoutersApp(t, []string{startSim(t), startSim(t)})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -44,11 +61,7 @@ func logTablePage(t *testing.T) *tab {
 		}
 	}
 
-	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
-	b.open(srv.URL + "/log")
-	b.waitFor("the seeded rows", `document.querySelectorAll('#log-rows tr').length >= 14 && !!document.querySelector('#log-rows .sode-log__lvl')`)
-	b.eval(`document.fonts.ready.then(() => true)`)
-	return b
+	return srv.URL
 }
 
 // The Log table fits the page: the reason column wraps, so no column is cut and no sideways scroll shows.

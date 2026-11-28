@@ -11,8 +11,8 @@ import { initDownloads } from './logdownload.js';
 import { routerName } from './routerlinkrules.js';
 import { fieldText, saveSummary } from './logsaves.js';
 import { statusText } from './statustext.js';
-import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
-import { uptimeBars } from './uptimebars.js';
+import { PRESETS, DEFAULT_PRESET, MAX_SLOTS, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
+import { uptimeBars, roveBars } from './uptimebars.js';
 import './brand.js';
 import { lockState } from './lock.js';
 import { lockCovers } from './lockrules.js';
@@ -448,7 +448,7 @@ function render() {
 
 function renderMore() {
   const shown = tbody.childElementCount;
-  $('log-count').textContent = pager.list.length ? `${shown.toLocaleString()} of ${pager.total.toLocaleString()} in log` : '';
+  $('log-count').textContent = pager.list.length ? `${shown.toLocaleString()} rows shown, ${pager.total.toLocaleString()} in the log` : '';
   const older = $('log-older');
   const busy = pager.loading;
   const filling = busy && rangeNeedsMore();
@@ -505,6 +505,10 @@ let upId = 0;
 const upBars = $('log-uptime-bars');
 const upSum = $('log-uptime-sum');
 const customTimes = () => range.from != null || range.to != null;
+// A narrow strip (the phone) gets fewer, wider bars: at least 8 px each with the gap, so a finger can pick one.
+const BAR_MIN_PX = 8;
+const maxBars = () => Math.min(MAX_SLOTS, Math.floor(upBars.clientWidth / BAR_MIN_PX)) || MAX_SLOTS;
+roveBars(upBars);
 
 // One uptime line for each router: { head, bars, sum, name }. The key is the router UID that the request sends, blank
 // for the first router. The first router uses #log-uptime-bars. With one router it has no head, and its summary is
@@ -525,6 +529,7 @@ function syncUpLines() {
     if (!l) {
       const bars = el('div', 'sode-up__bars');
       bars.setAttribute('role', 'group');
+      roveBars(bars);
       l = { head: el('div', 'sode-log__up-router'), bars, sum: el('span', 'sode-log__up-sum') };
       $('log-uptime-more').append(l.head, l.bars);
       upLines.set(keys[i], l);
@@ -546,9 +551,8 @@ function localStamp(t) {
 function initUptime() {
   const box = $('log-uptime-presets');
   const chips = PRESETS.map((p) => {
-    const b = el('button', 'pb-chip sode-log__chip', presetText(p));
+    const b = el('button', 'pb-chip sode-log__chip', p.label);
     b.type = 'button';
-    b.dataset.pbTip = `Bar = ${slotLabel(slotFor(0, p.span))}`;
     b.addEventListener('click', () => {
       const from = $('log-from');
       from.value = localStamp(Date.now() - p.span);
@@ -560,9 +564,15 @@ function initUptime() {
     return { id: p.id, b };
   });
   box.replaceChildren(...chips.map((c) => c.b));
+  // In a bar's view the chip of the strip's range stays pressed.
   syncPresets = () => {
-    const on = chipOn || (customTimes() ? null : DEFAULT_PRESET);
-    for (const c of chips) c.b.setAttribute('aria-pressed', String(c.id === on));
+    const prev = slotMode?.prev;
+    const on = chipOn || (prev ? prev.chip || (prev.from || prev.to ? null : DEFAULT_PRESET) : customTimes() ? null : DEFAULT_PRESET);
+    const max = maxBars();
+    for (const c of chips) {
+      c.b.setAttribute('aria-pressed', String(c.id === on));
+      c.b.dataset.pbTip = `Each bar is ${slotLabel(slotFor(0, PRESETS.find((p) => p.id === c.id).span, max))}`;
+    }
   };
   syncPresets();
 }
@@ -585,7 +595,7 @@ function refreshUptime() {
   for (const [key, l] of upLines) {
     const id = ++upId;
     upWant.set(id, key);
-    if (!wsSend({ t: 'uptime', id, router: key, from: r.from, to: r.to, slot: slotFor(r.from, r.to) })) return;
+    if (!wsSend({ t: 'uptime', id, router: key, from: r.from, to: r.to, slot: slotFor(r.from, r.to, maxBars()) })) return;
     if (!l.bars.childElementCount) (upSum.hidden ? l.sum : upSum).textContent = 'Loading…';
   }
 }
@@ -629,10 +639,10 @@ function showSlot() {
   const note = $('log-slot');
   note.hidden = !slotMode;
   if (!slotMode) return;
-  const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Back');
+  const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Show all bars');
   back.type = 'button';
   back.addEventListener('click', leaveSlotBack);
-  note.replaceChildren(el('strong', null, 'Slot'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, back);
+  note.replaceChildren(el('strong', null, 'One bar'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, back);
 }
 
 on('uptimeResult', (m) => {
@@ -641,7 +651,14 @@ on('uptimeResult', (m) => {
   const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
   const text = summary(data);
   upLast = { from: m.from, to: m.to };
+  // A refresh replaces the bars; the focus stays on the bar in the same place.
+  const at = [...l.bars.children].indexOf(document.activeElement);
   l.bars.replaceChildren(...uptimeBars(data, { fmt: fmtDay, pick: enterSlot, sel: slotMode?.from }));
+  const again = l.bars.children[at];
+  if (again && !again.disabled) {
+    for (const b of l.bars.children) b.tabIndex = b === again ? 0 : -1;
+    again.focus();
+  }
   const label =
     slotMode || chipOn || !customTimes()
       ? slotMode

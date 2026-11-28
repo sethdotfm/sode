@@ -167,11 +167,15 @@
 .sode-log__up-more {
   display: contents;
 }
+/* A box, so the One bar note does not read as loose text between the filters and the table. */
 .sode-log__slot {
   align-items: center;
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-4);
+  margin: 0;
+  padding: var(--pb-space-3) var(--pb-space-4);
 }
 .sode-log__legend {
   display: flex;
@@ -197,4 +201,59 @@
 .sode-log__save-fields {
   margin: var(--pb-space-1) 0 0;
   padding-inline-start: var(--pb-space-4);
+}
+
+/* The phone layout (375 px): the title on its own line, one right edge for the fields, touch-high controls. The table
+   drops the date and the Bytes column and keeps its native sideways scroll bar (bigscroll.js). */
+[data-pb-layout="phone"] .sode-log__head {
+  flex-wrap: wrap;
+}
+[data-pb-layout="phone"] .sode-log__title {
+  flex: 1 0 100%;
+  order: -1;
+}
+[data-pb-layout="phone"] .sode-log__line {
+  column-gap: var(--pb-space-4);
+}
+[data-pb-layout="phone"] .sode-log__when {
+  flex: 1 0 100%;
+}
+[data-pb-layout="phone"] .sode-log__when > .sode__label,
+[data-pb-layout="phone"] .sode-log__when:first-child > .sode__label {
+  flex: none;
+  width: 3rem;
+}
+[data-pb-layout="phone"] .sode-log__when:first-child {
+  gap: var(--pb-space-3);
+}
+[data-pb-layout="phone"] .sode-log__when > .pb-input,
+[data-pb-layout="phone"] .sode-log__expr {
+  flex: 1 1 auto;
+  max-width: none;
+  min-width: 0;
+  width: auto;
+}
+[data-pb-layout="phone"] .sode-log__expr {
+  flex-basis: 100%;
+}
+[data-pb-layout="phone"] .sode-log__chip,
+[data-pb-layout="phone"] .sode-log__filters .pb-btn {
+  min-height: var(--pb-control-h);
+}
+[data-pb-layout="phone"] #log-count {
+  flex: 1 0 100%;
+}
+[data-pb-layout="phone"] .sode-log__filters .sode-log__spacer {
+  display: none;
+}
+[data-pb-layout="phone"] #log-download-rows,
+[data-pb-layout="phone"] #log-download-full {
+  flex: 1 1 0;
+}
+[data-pb-layout="phone"] .sode-log__sep {
+  display: none;
+}
+[data-pb-layout="phone"] .sode-log__table .sode__date,
+[data-pb-layout="phone"] .sode-log__table :is(th, td):nth-child(8) {
+  display: none;
 }
