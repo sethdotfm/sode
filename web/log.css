@@ -86,10 +86,17 @@
 .sode-log__table th[data-sort="why"] {
   width: 100%;
 }
-.sode-log__time,
+.sode-log__time {
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-xs);
+  font-variant-numeric: tabular-nums;
+}
 .sode-log__hex {
   font-family: var(--pb-font-mono);
   font-size: var(--pb-text-xs);
+}
+#log-count {
+  font-family: var(--pb-font-num);
 }
 .sode-log__hex {
   color: var(--pb-text-muted);
@@ -129,6 +136,7 @@
 }
 .sode-log__up-sum {
   color: var(--pb-text-strong);
+  font-family: var(--pb-font-num);
   font-size: var(--pb-text-sm);
 }
 /* With two or more routers: one line for each router, its name and its summary, over its bars (log.js). */

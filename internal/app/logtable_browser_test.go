@@ -84,6 +84,15 @@ func TestChromeLogTableLayout(t *testing.T) {
 		t.Errorf("first cells pad %s px, want %.1f px", bad, inset)
 	}
 
+	// Numbers use the number font; only the bytes use the code font.
+	if bad := b.eval(`(() => {
+		const font = (v) => { const p = document.createElement('span'); p.style.fontFamily = 'var(' + v + ')'; document.body.append(p); const f = getComputedStyle(p).fontFamily; p.remove(); return f; };
+		const want = { '#log-count': '--pb-font-num', '#log-uptime-sum': '--pb-font-num', '#log-rows .sode-log__time': '--pb-font-num', '#log-rows .sode-log__hex': '--pb-font-mono' };
+		return Object.entries(want).filter(([sel, v]) => getComputedStyle(document.querySelector(sel)).fontFamily !== font(v)).map(([sel, v]) => sel + ' is not ' + v).join(', ');
+	})()`).(string); bad != "" {
+		t.Errorf("fonts: %s", bad)
+	}
+
 	// The reason column takes the spare width, so the other columns keep their width when the rows on show change.
 	timeW := `document.querySelector('.sode-log__table th[data-sort="time"]').getBoundingClientRect().width`
 	before := b.eval(timeW).(float64)
