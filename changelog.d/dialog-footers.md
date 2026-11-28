@@ -1,0 +1,2 @@
+- Dialogs: a lone Close is always on the right, and Cancel is always on the left of the confirm button. Manage users says Close in place of Done.
+- Dialog buttons have one look. Save is the accent button in Filters and in the Presets copy row. Close in All Presets and Cancel in the Protect picker are plain buttons. The Tie line picker's Cancel has the height of its Take.

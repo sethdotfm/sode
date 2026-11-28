@@ -69,7 +69,7 @@ export function openProtectPick() {
   const count = el('span', { class: 'pb-badge sode-protpick__count', id: 'protpick-count', 'aria-live': 'polite' });
   const alt = el('button', { class: 'pb-btn pb-btn--outline', type: 'button', id: 'protpick-alt' });
   const go = el('button', { class: 'pb-btn', type: 'button', id: 'protpick-go' });
-  const cancel = el('button', { class: 'pb-btn pb-btn--ghost', type: 'button' }, 'Cancel');
+  const cancel = el('button', { class: 'pb-btn pb-btn--outline', type: 'button' }, 'Cancel');
   const hint = el(
     'div',
     'sode-protpick__hint',

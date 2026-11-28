@@ -116,3 +116,17 @@ test('a Down router icon is red, and each router mark has its text', () => {
   assert.match(src.get('connview.js'), /el\('span', 'pb-status', dot, text\)/);
   assert.match(src.get('index.html'), /id="conn-routers"><span class="pb-status"><span class="sode__state"><\/span><span>Router<\/span>/);
 });
+
+test('dialog buttons have one look: Save is sode-btn--primary, Close and Cancel are plain, commit is for the router', () => {
+  const save = /(pb-btn--commit|pb-btn--ghost)[^\n]*?(['"]|>)Save(['"]|<)/;
+  const plain = /(sode-btn--primary|pb-btn--commit|pb-btn--ghost)[^\n]*?(['"]|>)(Close|Cancel)(['"]|<)/;
+  for (const [f, s] of src) {
+    // An icon-only ghost button (pb-btn--icon) names itself only in aria-label.
+    for (const line of s.split('\n').filter((l) => !l.includes('pb-btn--icon'))) {
+      assert.doesNotMatch(line, save, `${f}: a Save button is commit or ghost`);
+      assert.doesNotMatch(line, plain, `${f}: a Close or Cancel button is not plain`);
+    }
+  }
+  // The Tie line picker's Cancel has the height of its Take.
+  assert.match(src.get('tiepicker.css'), /\.sode-tiepick__cancel[^{]*\{[^}]*height: var\(--sode-h-action\)/);
+});
