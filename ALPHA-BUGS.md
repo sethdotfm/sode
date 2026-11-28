@@ -1,8 +1,8 @@
 # Big, Bloaty, and Broken
 
-Alpha bugs for the multi-router build, on branch `alpha` (cut from `integration/overnight` at 7f281f87). Notes are the owner's, taken while poking at the software, then grilled here.
+Alpha bugs for the multi-router build. Notes are the owner's, taken while poking at the software, then grilled here. Round 1 (AB-01 to AB-06) was on branch `alpha` and lives in this file on `alpha-notes`. Round 2 (AB-07 on) is on the Settings redesign, branch `settings/redesign` at 619e5871 (PR 822).
 
-Test setup: two swp08sim routers and Sode. Locally, `.dev/run-alpha.sh` (not in git) runs router A on :8910, router B on :8911 and Sode on :8080. Elsewhere, run `SIM_PORT=8910 go run ./cmd/swp08sim` and `SIM_PORT=8911 go run ./cmd/swp08sim`, start Sode against the first, and add router B in Settings > Routers. For a third router (AB-01 chains), add `SIM_PORT=8912` as router C, with tie lines A→B and B→C in Settings > Routers > Tie lines.
+Test setup: two or three swp08sim routers and Sode. Round 2 was taken with router A on :8910, extra simulators on :9312 and :9313 (`SIM_PORT=9312 go run ./cmd/swp08sim`), and Sode on :8080 with a new config, so the setup wizard ran first. Locally, `.dev/run-alpha.sh` (not in git) runs router A on :8910, router B on :8911 and Sode on :8080. Elsewhere, run `SIM_PORT=8910 go run ./cmd/swp08sim` and `SIM_PORT=8911 go run ./cmd/swp08sim`, start Sode against the first, and add router B in Settings > Routers. For a third router (AB-01 chains), add `SIM_PORT=8912` as router C, with tie lines A→B and B→C in Settings > Routers > Tie lines.
 
 ## Workflow
 
@@ -38,179 +38,275 @@ The owner wants each fix proven, not claimed. For every entry:
 
 ---
 
-# Round 1
+# Round 2
 
-Two areas: the Tie line picker (AB-01, AB-02) and the main page patch row (AB-03, AB-04, AB-06). AB-05 was folded into AB-04.
+Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four areas: the setup wizard (AB-07 to AB-18), the top bar (AB-19, AB-20), Settings > Routers (AB-21 to AB-23) and the main page patch row (AB-24, AB-25). All are `captured`; grilling comes next.
 
-Handoff: branch `alpha-round1` off `alpha-notes`, one commit per entry in the order AB-03, AB-04, AB-06, AB-01, AB-02 (small and visual first), one draft PR into `alpha`. Update each entry's Status, Proof and Notes in this file in the same commit as the fix.
+## Setup wizard
 
-## Tie line picker
+### AB-07: Setup steps row stacks and clips its labels; needs space below it
 
-### AB-01: One tie line choice for every destination that shares a hop
-
-- **Status:** done
-- **Area:** Tie line picker (web/tieflow.js, web/tiepicker.js, web/tiepickrules.js, web/tietakerules.js; server internal/app/tietake.go only if the plan needs it)
-- **Reported:** "When taking a single source from router A to multiple destinations on router B, it should default to using the same tie line choice for all of them. If they're all going to the same router and it only needs one or two ties, it could just pick A goes to B via tie 5, Enter, and not ask me for every single one. This also applies to going to multiple routers: if source A1 is going to B1, B2 and C1, C2, it would ask about the A→B tie line and then a B→C tie line, but use commonality wherever possible."
-- **Now:** `tieTake` (tieflow.js) opens the picker once for each route across routers, in plan order: "Route 1 of 2 across routers", with Next on each one and Take on the last. The server already lets two destinations with one source share a tie line (docs/agents/web-layout.md, Tie line picker). So the sharing works on the wire, but the page asks again for each destination.
-- **Expected:**
-  - The picker asks one question for each hop that the routes share. A hop is (from router → to router) for the same source and levels.
-  - One source to many destinations on router B: one A→B question. Every B destination uses that choice. Enter on the preselected best choice sends.
-  - Destinations on B and C: one A→B question and one B→C question. A route that needs a hop that the others do not have gets its own question.
-  - The picker opens every time a take crosses routers (owner's choice), even when a tie line already carries the source. The best choice is preselected, so it is one Enter.
-  - Optional split: a hop question has a way to open it per destination (for example a "Choose per destination" control on that step, with a key). Split is off by default. When split, each destination on that hop gets its own choice, as today.
-  - The heading names the hop and its destinations ("A → B, for B.1 B.2 B.3"), not "Route 1 of 3".
-- **Decisions:**
-  - Owner: ask once per hop, always; no auto-skip. (2026-11-24)
-  - Owner: per-destination split is allowed, off by default. (2026-11-24)
-  - The page still never computes paths. It groups the planner's paths by hop. If the plan does not give enough to group, extend `tiePlan`'s answer, not the page.
-  - Live update, the lockout, Protect (shield and P), Reserve asks, One-off tie lines, the `tie_line_changed` reopen and Redo (`lastState`) keep working for a grouped hop. A change that hits any destination of the hop marks the hop.
-  - Update docs/agents/web-layout.md (Tie line picker) and docs/tielines-design.md for the new flow, in STE (docs/ste.md).
-- **Open questions:** none.
-- **Proof:**
-  - Browser check with two simulators: one source, three destinations on B: one picker step, one Enter, three routes made through one tie line. Fails on alpha (three pickers), passes after.
-  - Browser check with three simulators (A, B, C, tie lines A→B and B→C): one source to B.1, B.2, C.1, C.2 asks exactly two questions.
-  - Browser check: split a hop and send one destination through another tie line.
-  - Node tests for the grouping rule in tiepickrules.js or tietakerules.js.
-  - Existing TestChromeTiePicker* checks still pass (run them alone).
-  - Screenshots of the grouped picker.
-  - Given: `TestChromeTiePickerGroupsHop` (one source to B.3, B.4, B.5: one question "A → B, for B.3 B.4 B.5", one Enter, three routes through TIE 1, `window.sodeOpens === 1`), `TestChromeTiePickerGroupsThreeRouters` (three simulators, B.3 B.4 C.3 C.4: exactly two questions, "A → B, for B.3 B.4 C.3 C.4" with Next, then "B → C, for C.3 C.4" with Take), `TestChromeTiePickerSplitsHop` (D splits the hop; B.3 goes through TIE 2, B.4 and B.5 through TIE 1), all in internal/app/tiegroup_browser_test.go. All three fail on alpha-notes 742f1d9a (the picker heading stays "Route 1 of 3 across routers"; run with the test file copied onto a clean alpha-notes worktree) and pass after.
-  - Given: node tests in web/test/tietakerules.test.mjs ("one source to three destinations on router B is one question…", "destinations on B and C ask the hop A to B for all, then the hop B to C…", "a route that needs a hop that the others do not have gets its own question", "a split question asks each destination alone", plan and take order) and web/test/tiepickrules.test.mjs ("a question of one hop shows that step only…", "a change on the path of another destination of the question marks it").
-  - Given: Go test `TestAPITakeAcrossRoutersThrough` (internal/app/tieroutes_test.go) for the new `through` field.
-  - Given: `TestChromeTiePickerMixedTake` changed for the new flow (one question for B.4 and B.5, split, Clear this route, confirm).
-  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-01/: before-alpha-route-1-of-3.png (alpha: "Route 1 of 3 across routers"), after-one-question-three-destinations.png, after-split-per-destination.png, after-three-routers-hop-ab.png, after-three-routers-hop-bc.png.
+- **Status:** captured
+- **Area:** First-run wizard steps row. web/setup.css (`.sode-setup__steps`, `.sode-setup__chip`, `.sode-setup__label`, `.sode-setup__line`), web/setupwizard.js (`renderSteps`, `swatches`).
+- **Reported:** "Stacked and clipping content." "View screenshot to see the design horror." "Add padding below this before the modal." The screenshots show the step names ("Style & User", "Router", "Access", "Done") wrapped one word per line and cut off by the dialog's top edge. The connector lines meet the step boxes at odd places, and the step boxes have a double border.
+- **Now:** The class `sode-setup__chip` has two meanings. web/setupwizard.js:291 uses it for the step button (a column with a 5rem width, `all: unset`, web/setup.css:46-54). web/setupwizard.js:109 and :118 use it for the color swatch box. The swatch rule at web/setup.css:166-175 comes later with the same selector. It sets `display: grid`, `width: 2.25rem`, `height: 2.25rem`, a border and a background. So it overrides the step button: the button is 2.25rem wide and 2.25rem high, the label wraps in 2.25rem, and the 2rem dot sits inside a bordered box (the double border). The labels spill below the box and the next block covers them. The steps row has `margin-bottom: var(--pb-space-7)` (web/setup.css:34), which does not cover the spilled label. This looks like a regression from the swatch work, not a missing margin. The wait page (AB-08) has no steps row.
+- **Expected:** Step names show in full on one line each, not stacked and not clipped. The dialog starts below the steps row with space between them.
+- **Decisions:** none yet.
+- **Open questions:**
+  - Rename one of the two chip classes, or scope the rules (for example `.sode-setup__steps .sode-setup__chip`)? (A class rename is a web identifier, so check identAllow in internal/app/vocabulary_test.go.)
+  - How much space below the row, in rem tokens?
+- **Proof:** Screenshot before and after at 1920x1080 of each step (Style & User, Router, Access). A TestChrome* check (extend TestChromeSetupWizard) that every `.sode-setup__label` has a bounding box inside the steps row and one line high, and that the row's bottom is above the dialog's top.
 - **Notes:**
-  - Reproduced on alpha-notes with two simulators: A.11 to B.3, B.4 and B.5 opened the picker three times ("Route 1 of 3 across routers", then 2 and 3), with Next on each.
-  - Root cause: tieflow.js opened `pickRoute` for each tie route in plan order (`nextTie`), so every destination was its own picker, though the server already lets routes with one source share a tie line.
-  - What changed: the grouping rule is pure, in web/tietakerules.js:87 (`nextQuestion`, with `questionIds`, `questionHead`, `finalAt`). A hop is shared when the routes have the same source, levels and choices before it, and their best paths go from and to the same routers there; a stored preset or Redo tie line at that hop is part of the key. When every route of a question ends on one router, the question goes on to the destination; else it is the one hop, and the picker offers only tie lines to that router (`fitQuestion`, `shownSteps`, the `only` filter in `choices`, web/tiepickrules.js:206). web/tieflow.js:107 (`ask`) and :146 (`answerQuestion`) drive the questions; the first route of a question takes its pick from the picker, and each other route whose choice reaches its destination gets its pick from one more plan through the chosen tie lines, so its `expect` and Affected destinations are its own. The picker (web/tiepicker.js) takes `at`, `first`, `members`, `head` as a function, `clearText` and `split`. It lists every destination of the question, marks a destination whose path changed in a live update (`memberChanges`, which also starts the lockout again), and has "Choose per destination" (`#tiepick-split`, key D, hint in the footer) on a question with more than one destination. Clear on a grouped question clears every route of it ("Clear these routes").
-  - Server: the Decision "extend tiePlan's answer, not the page" is met with a request field. A bare route can carry `through` (tie line ids, upstream first; internal/app/apitake.go:89), and `planTieRoutes` keeps only the paths through it before the 20-path cap (`throughOnly`, internal/app/tieroutes.go:165). It is 400 with `ties` or on one router. openapi.yaml, docs/api.md and docs/tielines-design.md (API rule 2) say so.
-  - Order: a plan request now sends the plain routes, then the tie routes with a path in the order they got it (`seq`), then the open ones. The take keeps that order, so the stale check (`tieChanged`, which plans in request order) sees the same shared tie lines as the plans that the person saw.
-  - Reopen on `tie_line_changed`: every question is asked again (`reopenPicks`), each on the tie lines that it had (`f.prev`). The question of the first route with a non-empty `changed` or `newAffected` marks them (`changedAt` now skips routes that `tieChanged` lists with no change, the quirk named in the research). Protect asks, One-off tie lines and the split choices stay.
-  - Kept working, rerun alone: `TestChromeTiePickerTakesByMouse`, `TestChromeTiePickerLiveUpdate`, `TestChromeTiePickerProtect`, `TestChromeTieUndoRedoKeys`, `TestChromePresetTieConfirm`, `TestChromePanelTieLinesReserved` pass. The preset editor (web/presets.js `chooseTies`) still calls `pickRoute` with one route and no `at`.
-  - Found on the way, left alone: `TestChromeTiePickerOneOff` fails at its last part, "saved as a tie line" in Settings (tieoneoff_browser_test.go:71). It fails the same way on a clean alpha-notes 742f1d9a; the picker part of the check passes.
-  - Docs: docs/agents/web-layout.md (Tie line picker), docs/tielines-design.md (Takes with plain routes and tie routes, rules 1 to 12), changelog.d/tie-picker-one-question-per-hop.md.
-  - Checks: `go test -short ./...` ok (internal/app 61.3s, config, swp08, tieplan ok); `go vet ./...` clean; staticcheck 2026.2.2 clean; `node --test 'web/test/*.test.mjs'`: tests 1930, pass 1930, fail 0; gofmt -l empty; prettier "All matched files use Prettier code style!"; eslint web clean. Browser checks, each alone: `--- PASS: TestChromeTiePickerGroupsHop (2.70s)`, `--- PASS: TestChromeTiePickerSplitsHop (3.86s)`, `--- PASS: TestChromeTiePickerGroupsThreeRouters (3.38s)`, `--- PASS: TestChromeTiePickerMixedTake (3.85s)`, `--- PASS: TestChromeTiePickerTakesByMouse (2.55s)`, `--- PASS: TestChromeTiePickerLiveUpdate (10.47s)`, `--- PASS: TestChromeTiePickerProtect (7.12s)`, `--- PASS: TestChromeTieUndoRedoKeys (5.72s)`, `--- PASS: TestChromePresetTieConfirm (4.28s)`, `--- PASS: TestChromePanelTieLinesReserved (4.10s)`.
 
-### AB-02: Tie line state readable at a glance
+### AB-08: "Another browser took control" loses the answers with no warning
 
-- **Status:** done
-- **Area:** Tie line picker (web/tiepicker.js, web/tiepicker.css, rules in web/tiepickrules.js)
-- **Reported:** "Make the status of the tie lines more obvious, maybe with an outline or some sort of color bar. Right now I have to do a lot of reading to figure out what's currently on it, how many things are going to change, what's the most optimal, is there something that's already this source. All of those questions could be answered at a glance with better design."
-- **Now:** Each choice is text: the tie line name, what it carries, Affected destinations, held or Reserved. The only color is `--pb-tieline` on the wire of the chosen choice.
-- **Expected:** Owner chose "left bar + count badge":
-
-  ```
-    ┌──────────────────────────────────────┐
-  ▌ │ TIE 5   carries A.12 CAM 1   ✓ Has it │  <- bar: routed
-    └──────────────────────────────────────┘
-  ╔══════════════════════════════════════╗
-  ║ TIE 6   free                 Best    ║  <- outline = best
-  ╚══════════════════════════════════════╝
-  ▌ TIE 7   carries A.40 VT 2   [3 change]   <- bar: caution
-    TIE 8   Protected by Ana 10:42  (grey)
-  ```
-
-  - Already carries this source: left bar in the routed color, and text "Has it".
-  - Free, changes nothing: no bar, no color (dark cockpit).
-  - In use, N destinations change: left bar in the caution color, and a badge with the count ("3 change").
-  - Best pick: an outline on the row, and text "Best". It can combine with the other states.
-  - Protected or Reserved: grey as today, with who and when.
-- **Decisions:**
-  - Owner: all four states at a glance; left bar + count badge + outline. (2026-11-24)
-  - Follow docs/color-roles.md and ADR 0013 (read them first). Use patchbay tokens only (green = routed only, amber = caution). Each state also has text (patchbay: status always with text). If a color role does not fit, stop and note it in this entry; do not invent a color.
-  - Bars use `--pb-accent-bar-w`, as the source and destination chips do.
-  - The same states show on the grouped hop of AB-01. Do AB-01 first, then AB-02.
-- **Open questions:** none.
-- **Proof:** screenshots of a picker with one row in each state, light and dark theme. Node test for the state rule (which state a choice gets). A browser check asserts the state classes on the rows.
-  - Given: `TestChromeTiePickerChoiceStates` (internal/app/tielook_browser_test.go), two simulators. TIE 1 carries the source (`--has`, "Has it", the box shadow bar, and `--best` "Best", the only best row), TIE 2 changes two destinations (`--change`, a `pb-badge--warn` "2 change"), TIE 3 is free (`--free`, "Free", no bar), TIE 4 is Protected (`--grey` and `--held`, "Protected by Ana"). It fails on alpha-notes 742f1d9a (no state classes) and passes after.
-  - Given: node test "each choice has one state that a person reads at a glance, and the best choice is marked" (web/test/tiepickrules.test.mjs), which also covers a Reserved row, a Protected row that carries the source ("has", not grey) and an unknown part ("Unknown change"). web/test/colorroles.test.mjs now allows `--pb-status-ok` in tiepicker.css and pins its one rule.
-  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-02/: before-alpha-light.png (the same four tie lines on alpha, text only), after-states-light.png, after-states-dark.png, after-grouped-hop-light.png (the grouped question of AB-01 with the states: both tie lines "1 change", TIE 1 "Best").
+- **Status:** captured
+- **Area:** Setup wait page. web/setupwizard.js (`waitPage`, `toWait`, `onMsg('setupTaken')`, `claim`), internal/app/setup.go (`setupClaim`, `setupDropLocked`).
+- **Reported:** "Gee thanks for not warning me before my answers were lost! If they're in local storage, why are they lost?" Text: "Setup runs in another browser" → "Setup is running in another browser".
+- **Now:** The answers are the in-memory object `d` (web/setupwizard.js:30). There is no localStorage or sessionStorage in web/setupwizard.js, so the owner's premise does not hold. The server also writes nothing to disk before Finish (internal/app/setup.go:13). When another browser presses Take control, `setupClaim` (setup.go:129-148) moves the owner, and sends `setupTaken` to the old owner. The old page runs `toWait(true)` (web/setupwizard.js:545-547, :517-523). It sets `d = null` and shows "Another browser took control. Your answers are lost." (web/setupwizard.js:493). The first browser gets no warning before the loss and no veto. The Take control button only warns in a tip (web/setupwizard.js:500). The title is set at web/setupwizard.js:491.
+- **Expected:** The owner wants a warning before answers are lost, and answers that survive. Wants the title to read "Setup is running in another browser".
+- **Decisions:** none yet. AGENTS.md says Sode writes nothing before Finish and users never ride the hello (internal/app/setup.go:13, users-locks.md), so a saved draft needs care for the PIN.
+- **Open questions:**
+  - Keep answers in the browser (localStorage) and refill them after a take? Which fields? The PIN must never be stored, presumably.
+  - Or warn the other browser before the take (the taker sees "Discards the other browser's answers" only as a tip)? A confirm on the taker, a notice on the owner, or both?
+  - Is a browser that loses control able to get its answers back when it takes control again?
+- **Proof:** A TestChrome* check with two browser tabs: type answers in A, take control in B, assert A's wording and that the warning or the saved answers behave as decided. Node test for the title text if it moves to a rules module. Screenshot before and after of the wait page.
 - **Notes:**
-  - Reproduced on alpha-notes with two simulators and four tie lines (one that carries the source, one that changes two destinations, one free, one Protected): each row was the same grey box, and only the words told them apart (before-alpha-light.png).
-  - What changed: a pure state rule, `choiceLook` (web/tiepickrules.js:356), gives each choice `held`, `has`, `change` or `free`, its words, and `best` (the first choice that a person can choose, as the planner ranks them). The picker (web/tiepicker.js:527, `LOOKS` and `lookNodes`) puts a literal class on each row and the words next to the tie line name. CSS in web/tiepicker.css:103: an inset left bar of `--pb-accent-bar-w`, `--pb-status-ok` for "Has it", `--pb-status-warn` for a change; a neutral double outline (`--pb-text`) and a plain `pb-badge` "Best" for the best row; grey for a Protected, Reserved or gone row. A Reserved row is now grey too (`--grey`), as docs/color-roles.md already said, but it keeps no `--held` class, so a person can still choose it and Take asks one more time.
-  - Color roles: I judged that "Has it" fits Routed (green). A tie line that carries the source already is the current source on a destination, its upstream destination, which is the Routed role. The owner chose it in the Decisions. docs/color-roles.md's State table now names it in the Routed row (cue: "Has it" with its check) and names the bar and count badge in the Caution row (cue: "3 change"). A new paragraph lists the four states and Best. Best uses no state color: a neutral outline and a plain badge, since the accent is selection and focus only.
-  - The count is `affected` plus `others` of the best path through the choice, so on a path of two or more hops it holds the later hops too. An unknown part or a loop gives "N or more change", or "Unknown change".
-  - The states show on the grouped questions of AB-01 with no extra code: the grouped picker uses the same choice rows.
-  - Docs: docs/color-roles.md, docs/agents/web-layout.md (Tie line picker), docs/tielines-design.md (The Tie line picker, rule 3), changelog.d/tie-picker-choice-states.md.
-  - Found on the way, left alone: `TestUnknownNameCostsAsMuchAsAKnownOne` (signin_name_test.go:217) failed one time in `go test -short ./...` on a timing compare ("unknown name answered in 116.375µs, a known one in 263.001µs"), and passed on the rerun. It does not touch the picker.
-  - Checks: `go test -short ./...` ok (internal/app 63.8s); `go vet ./...` clean; staticcheck clean; `node --test 'web/test/*.test.mjs'`: tests 1931, pass 1931, fail 0; gofmt -l empty; prettier "All matched files use Prettier code style!"; eslint web clean. Browser checks, each alone: `--- PASS: TestChromeTiePickerChoiceStates (4.49s)`, and again after the change, `--- PASS: TestChromeTiePickerGroupsHop (2.90s)`, `--- PASS: TestChromeTiePickerSplitsHop (3.75s)`, `--- PASS: TestChromeTiePickerGroupsThreeRouters (3.66s)`, `--- PASS: TestChromeTiePickerMixedTake (3.97s)`, `--- PASS: TestChromeTiePickerTakesByMouse (2.53s)`, `--- PASS: TestChromeTiePickerLiveUpdate (10.18s)`, `--- PASS: TestChromeTiePickerProtect (7.26s)`, `--- PASS: TestChromeTieUndoRedoKeys (5.98s)`, `--- PASS: TestChromePresetTieConfirm (4.22s)`, `--- PASS: TestChromePanelTieLinesReserved (4.76s)`.
 
-## Main page patch row
+### AB-09: Tooltips clip at the edge of a modal, everywhere
 
-### AB-03: Next chip too wide from its key hint
-
-- **Status:** done
-- **Area:** Main page, Last and Next chips (web/desktop.js `renderLast`, web/base.css `.sode__next*`, `.sode__key-note`)
-- **Reported:** "The Next chip is extended very wide because of the full-length Control plus Shift plus D helper text. I think we can hide the helper text on those. A user who's keyboard focused is going to read the docs, so it doesn't need to be shown there."
-- **Now:** web/desktop.js:282 writes the hint as `keyLabel('ctrl+shift+d')`, which spells out "Ctrl+Shift+d". On `main` it was the short glyph `⌃⇧d`. The hint is in the chip three times: the tag, the open part, and the hidden size chip that holds the slot.
-- **Expected:** No key hint text on any Last or Next chip (source, destination, levels). The key stays in the tooltip (`data-pb-tip`) and in the keys list (web/index.html:847).
-- **Decisions:**
-  - Owner: hide on all chips. (2026-11-24)
-  - Remove the `kbd` elements from the chips, not only hide them with CSS, and delete the CSS that only served them.
-  - Check the phone layout (mobile.js) too; same rule if it shows hints on these chips.
-- **Open questions:** none.
-- **Proof:** screenshots main vs alpha vs fixed with Last and Next showing. A browser check asserts that the chips hold no `kbd` and that the open Next chip is no wider than its tag plus its value.
-  - Reproduced on alpha: after one take (Zoom 1 to DSM1), the chips read "Next 12 Zoom 2 Ctrl+Shift+s" and "Last 1 Ctrl+f". The new check failed on alpha with "Last and Next chips hold 9 kbd, want none".
-  - Test: `TestChromeMainNextChipNoKeys` (internal/app/mainnextchip_browser_test.go). It fails on alpha and on main, and passes after. `TestChromeMainChips` now asserts no `kbd` in Last (it asserted a `kbd` edge before).
-  - Screenshots, 1920×1080, Next closed and open (Shift held): `docs/research/alpha-proof/AB-03/{main,alpha,fixed}-{closed,open}.png`.
+- **Status:** captured
+- **Area:** Tooltips. web/vendor/patchbay/css/patchbay.css:1951-2000 (`[data-pb-tip]::after`), web/base.css:452-485 (`--sode-tip-x`, `data-sode-tip-flip`, `data-sode-tip-float`), web/tooltip.js (`fitTip`, `bounds`, `ROWS`, floating `cutTip`), web/test/tips.test.mjs. Seen on `#setup-take` in `#setup-wait` (web/setupwizard.js:500).
+- **Reported:** "Tooltips clipping off the modal. This is a systemic problem I have been trying to chase for many versions. Fix this globally immediately."
+- **Now:** A patchbay tip is a CSS pseudo-element (`::after` with `position: absolute` under its element, patchbay.css:1955-1976). `.pb-modal` has `overflow: hidden` (patchbay.css:1347) and `.pb-modal__body` has `overflow: auto` (patchbay.css:1374). So a tip near the modal's edge is cut off at the body. Sode's patch is web/tooltip.js: on mouseover and focusin, `fitTip` measures the tip, uses `bounds()` (the rectangle of each ancestor with overflow other than visible, and the window) to shift it sideways, flip it, or hide it and show the floating `cutTip` (a fixed element on `document.body`, so only the window can clip it). Flip needs room of tip height plus 8px on one side; float needs room on neither. Other places with the same cause (a CSS tip inside a clipping box): the lists in `ROWS` (web/tooltip.js:19: `.sode__sets`, `.sode__staged-list`, `.sode-pages__list`, `.sode-palette__list`, already floated), and every other `data-pb-tip` in a `.pb-modal` or in one of the 42 `overflow: hidden/auto/scroll` rules in web/*.css. Examples: the wizard's field label tip (`field(..., tip)`, web/setupwizard.js:50), the Settings form, the Grid popup, the Palette. I could not run the page (no server), so I did not reproduce the clip on `#setup-take`. Note: the dark bubbles in the screenshots for notes 5, 6 and 8 end in "..." and carry the owner's note text, so they are the annotation tool's own bubble, not a Sode tip. The real Sode tip for Take control ("Discards the other browser's answers") is not visible in the capture.
+- **Expected:** Tips never clip at a modal's edge, on every page. Fixed globally, not per tip.
+- **Decisions:** none yet. AGENTS.md: tooltips are `data-pb-tip` (+ `pb-tip--end`); patchbay is vendored and fixed upstream first ("copy missing icons from upstream, never fake them").
+- **Open questions:**
+  - First reproduce on `#setup-take` in the real wait page: does `fitTip` run (it needs mouseover) and does it float? If it floats, why does the owner see a clip?
+  - Fix in one place: draw every tip in a fixed top layer (the floating `cutTip` for all `data-pb-tip`) and drop the CSS tip, or keep the fit logic and fix the gap?
+  - Patch patchbay upstream (`overflow: visible` on the modal) or keep the fix in Sode CSS/JS?
+- **Proof:** Reproduce first with a screenshot at 1920x1080 of the clipped tip. Then a TestChrome* check that hovers `#setup-take` and a tip in the last row of a modal and checks the tip's box lies inside the window and is not cut by any ancestor. Extend web/test/tips.test.mjs for the new rule.
 - **Notes:**
-  - Change: web/desktop.js:276 and :281 (`renderLast`) no longer make the three `kbd` elements (Last's key, the Next tag key and the key in the open part) or the `kbd` in the hidden size chip. The tooltips keep the key (`Last source (Ctrl+s)`, `Next source (Ctrl+Shift+s)`), and so does the keys list in web/index.html.
-  - Removed the CSS that served only those `kbd`: the patchbay kbd look for `.sode__last`/`.sode__next-in` key notes, `.sode__last > .sode__key-note`, and the `.sode__tag-key` rules (web/base.css).
-  - Root cause: 6dc0e524 ("Keys: every shown key label comes from keyLabel") changed the hint from the glyphs `⌃⇧d` to the long `Ctrl+Shift+d`, and alpha also gave it the kbd edge. The chip held the hint three times.
-  - Phone: mobile.js:260 shows no key on its Last chip, so it needs no change.
-  - docs/agents/web-layout.md (Next chips) states the rule. Fragment: changelog.d/next-chip-no-key-hint.md.
-  - Checks: `go test -short ./...` ok (internal/app, config, swp08, tieplan); `go vet ./...` clean; staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1923, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainNextChipNoKeys (2.90s)`, `--- PASS: TestChromeMainChips (3.35s)`.
-  - Commit: 18b33556.
 
-### AB-04: Next chip animation strobes and no longer slides
+### AB-10: Setup top bar is not the global header
 
-- **Status:** done
-- **Area:** Main page, Next chip open on hover, focus or Shift (web/base.css `.sode__next`, `.sode__next-open`, `.sode__next-slot`, `html[data-shift]`; web/desktop.js `renderLast`)
-- **Reported:** "The animation behavior is totally scuffed up. It's just kind of a mess." Grilled (was AB-05, "the chips on the top are different in functionality"): "Just visual glitchiness as far as I can tell. If near the edge of the hitbox it opens and closes repeatedly, looking like a strobe. The animation used to be a smooth transition and now it disappears into nothing."
-- **Now:** The Next chip opens through CSS to show the value on hover, focus or Shift held, and hides Last meanwhile (web-layout.md). The slot keeps the closed chip's room.
-- **Expected:**
-  - No strobe. With the pointer anywhere, including still on the edge, the chip is either open or closed, and stays so.
-  - A smooth open and close, as on `main`. Nothing disappears with no transition.
-- **Decisions:**
-  - Owner: no change in function; this is visual only. (2026-11-24)
-  - Likely cause to check first: the hover is on the element that changes size, so opening moves the edge away from the pointer, which closes it again. The hover target must be a box that does not change size while it opens (the slot), or the open part must not change the hover area.
-  - Find the commit on alpha that broke the transition (compare with `main`'s base.css and desktop.js), and name it in Notes.
-  - Do AB-03 first; the hint removal changes the widths.
-- **Open questions:** none.
-- **Proof:** frame strips (screenshots every 50 ms through the open and close) for main, alpha and fixed. A browser check that holds the pointer on the edge of the chip for 1 s and asserts the open state does not toggle. Respect `prefers-reduced-motion`.
-  - Reproduced on alpha: a pointer held still at the centre of the Next chip makes it open and close every few frames. Sampled every 25 ms: `shut shut open open open open shut shut ... open open open shut`. On main the same occurs only near the left edge of the chip.
-  - Test: `TestChromeMainNextChipHoldsOpen` (internal/app/mainnextchip_browser_test.go). It holds the pointer for 1 s at the centre and on the left edge, and it fails if the chip shuts after it opened. It also asserts no transition with `prefers-reduced-motion: reduce`. It fails on alpha ("pointer still on the centre: the chip opened at sample 2, then sample 6 of 33 is shut") and passes after. On main it passed in 3 runs, since the strobe on main needs the pointer in the narrow band of the hint.
-  - Frame strips, one shot each 50 ms from 0 to 450 ms (left column: open on hover; right column: close): `docs/research/alpha-proof/AB-04/{main,alpha,fixed}-strip.png`. Each frame pauses the CSS transitions at its time, so the shot is of a still page.
+- **Status:** captured
+- **Area:** Setup page header. web/setup.css:1-7, web/index.html:36-45 (`#home-bar`), web/bar.css (`.sode-bar`, `.sode-home-bar`:351-370), web/desktop.css:3-9 (`.sode__mark`), web/homebar.js, web/panelsbar.js.
+- **Reported:** "This does not match the global style header."
+- **Now:** In setup, `html[data-sode-setup]` hides every child of `#home-bar` except `.sode__conn` (web/setup.css:2-4), so the title, Inbox, Grid button, Settings button and links are gone. Only the lock chip, the Server and Router status, the address and the line under the bar remain (see the capture). The page's own title is a separate large centered `h1.sode__mark` "Sode" inside `#setup` (web/index.html:68; web/setup.css:13-16), not the bar's `.sode-panels__title`. On Home the bar's title is hidden (bar.css:360) and the big mark carries the name. On /panels, /log and Settings the bar shows the name and links. The bar is placed by `--sode-head-edge` (bar.css:351-358), while the setup dialog uses `width: min(100%, 76rem)` (web/setup.css:9-12), so their edges do not line up (the bar is 1160px wide at x=309; the dialog at x=293).
+- **Expected:** The setup header looks like the global header. The owner gave no detail.
+- **Decisions:** none yet. AGENTS.md: follow patchbay rules, tokens only; the one page header is `panelsbar.js` (bar.css top comment).
+- **Open questions:**
+  - Which parts differ for the owner: the missing site name and links, the status text, the edges, or the missing Server/Router detail ("No router matches.")?
+  - Should setup show the site name in the bar (as Settings does) and drop the big mark?
+  - Which links stay hidden in setup (Grid and Settings must not open before setup ends)?
+- **Proof:** Screenshots at 1920x1080 of the setup header next to the Settings or /log header. A TestChrome* check that the bar's left and right edges equal the dialog's, if that is the wish.
 - **Notes:**
-  - Root cause: the hover target was the chip itself, and the chip held a part that hid as it opened: the key hint after the Next tag (`.sode__tag-key`, `display: none` on hover). The chip is anchored at its right, so it became narrower on the left, and its edge moved off the pointer. Then the chip closed, the hint came back, and the chip opened again. On main the hint was `⌃⇧d` (about 26 px), so only a band at the left edge strobed. 6dc0e524 ("Keys: every shown key label comes from keyLabel") made it "Ctrl+Shift+d" (about 84 px) and so made most of the chip strobe. The open transition never got its 100 ms delay done, so the chip seemed to disappear with no transition. This is the commit that broke it.
-  - Change: AB-03 removed the hint, so the closed chip is now the left part of the open chip. In this commit the hover target is the slot, not the chip (web/base.css:1558 comment, rules at :1581 to :1619). The slot keeps the size of the closed chip and holds the open chip, so the open chip's new room still counts as a hover on the slot. Focus and Shift open the chip as before. No change in function.
-  - Reduced motion: patchbay sets `--pb-motion-fast` and `--pb-motion-normal` to 0 ms for `prefers-reduced-motion: reduce`, so the open part and the Last fade have no transition. The check asserts this.
-  - Found on the way: on a still page, headless Chrome holds a mouse event about 5 s and answers `Page.captureScreenshot` only after a new frame. The check moves the pointer only four times for this reason.
-  - docs/agents/web-layout.md (Next chips) names the slot as the hover target. Fragment: changelog.d/next-chip-hover-steady.md.
-  - Checks: `go test -short ./...` ok; `go vet ./...` and staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1923, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainNextChipHoldsOpen (9.41s)`, `--- PASS: TestChromeMainNextChipNoKeys (2.77s)`, `--- PASS: TestChromeMainChips (3.23s)`.
-  - Commit: d8d24b02.
 
-### AB-05: folded into AB-04
+### AB-11: Theme color: the heading and label words, and the choices look too alike
 
-- **Status:** wontfix (duplicate of AB-04)
-- **Notes:** The owner confirmed that the chips work as before; only the glitch of AB-04 is wrong.
-
-### AB-06: + button, Levels, Take and Clear sit higher than the boxes
-
-- **Status:** done
-- **Area:** Main page patch row layout (web/desktop.css `.sode__boxes`, `.sode__group--dst`, `.sode__group--levels`)
-- **Reported:** "To the right of the destination box, the plus icon, the levels, Take and Clear all seem to be vertically aligned differently. They are now higher than they were before."
-- **Now:** Alpha made the patch row three groups of one width with a subgrid (1bcf487a, cd0e549e, 3a7a0857). The + button, Levels box, Take and Clear now sit higher than on `main`.
-- **Expected:** They line up with the Source and Destination boxes as they did on `main`.
-- **Decisions:** Keep the three-groups layout; fix only the vertical alignment. Measure on `main` what "lined up" was (centres or tops) and match it.
-- **Open questions:** none.
-- **Proof:** screenshots main vs alpha vs fixed, with and without a Last chip showing, and with 4 and 17 levels. TestChromeMainBoxesLayout gets an assert on the vertical position of these controls against the Destination box (fails on alpha, passes after).
-  - Reproduced on alpha with two routers (both on swp08sim): the + button, Levels, Take and Clear (and the arrow) are 8 px higher than the Source and Destination boxes, with or without Last, with 4 or 17 levels. Measured: `#dst` 395–459 px, `#dst-add`, `#lvl`, `#patch`, `#clear-all` 387–451 px. With one router everything lines up, as on main.
-  - Main lines up the tops and the bottoms (all controls 250.5–330.5 px on main). The fix matches that.
-  - Test: `TestChromeMainBoxesLayout` (internal/app/mainboxes_browser_test.go) gets `lined`: the arrow, +, Levels, Take and Clear must have the top and the bottom of `#dst`. It runs with one router, with 4 levels, with Last showing, and after a second router is added. It fails on alpha ("two routers, Last showing: the patch row does not line up: #flip 369.06-433.06, #dst-add ... against #dst 377.06-441.06") and passes after.
-  - Screenshots, 1920×1080, with and without Last, with 17 and 4 levels: `docs/research/alpha-proof/AB-06/main-one-router-*.png` (main has one router only), `alpha-two-routers-*.png`, `fixed-two-routers-*.png`.
+- **Status:** captured
+- **Area:** Style & User step. web/setupwizard.js (`VIEW.welcome` :187-189, `swatches` :101-126), web/accent.js (`pickerColors`, `CAUTION_NOTE`), web/base.css:401-425 (`[data-brand=...]`), web/index.html:343 (Settings label), GLOSSARY.md, docs/color-roles.md.
+- **Reported:** "All the color options, these are all very similar." Text, final: heading "Server Name and Color" → "Sode Server Name and Theme Color"; label "Border color" → "Theme color". (Annotations 11, 12 and 13: 11 → "Sode Server Name and Color", then 12 → "Sode Server Name and Theme Color".)
+- **Now:** The heading is `section('Server Name and Color', ...)` (web/setupwizard.js:189). The label is `'Border color'` (web/setupwizard.js:126). Settings still says "Page border color" (web/index.html:343). The choices are Off, Blue, Teal, Sky, Slate, Violet and Custom (from `pickerColors` of `S.brandColors`). Blue is `--pb-signal-07`, Teal `--pb-signal-06`, Sky a hand-set hue between them (OKLCH 215, base.css:407-410), Slate `--pb-signal-14`. Each swatch is a 2.25rem box with its name under it (web/setup.css:150-175). Blue, Teal, Sky and Slate are close in hue and lightness. The caution note says a color near a state color can look like a state. Docs call this color "Page border" (docs/color-roles.md:24); GLOSSARY.md has no entry for "theme".
+- **Expected:** Heading reads "Sode Server Name and Theme Color". Label reads "Theme color". The colors are easier to tell apart.
+- **Decisions:** none yet. AGENTS.md: UI text follows docs/ste.md and GLOSSARY.md has priority; a new _Avoid_ term needs a row.
+- **Open questions:**
+  - Does "Theme color" also replace "Page border color" in Settings and in the docs? Does GLOSSARY.md need a term and an _Avoid_ row for "Page border"/"Border color"?
+  - How to make the colors more distinct: replace some (a different set, so saved `blue`, `teal`, `sky` values still load), larger swatches, or a pattern or label? Saved names must keep loading (docs/persisted-names.md).
+  - Is "Sode Server Name and Theme Color" meant as the final heading (it repeats "Sode")?
+- **Proof:** Screenshot before and after of the Theme color row at 1920x1080 (light and dark). A node test or TestChromeSetupWizard assertion on the two texts. Color-difference check (OKLCH distance between neighbours) if the set changes.
 - **Notes:**
-  - Root cause: with two or more routers, the Source and Destination heads show the router button (`.sode__box-router`, d321cbff "Routers 5: Prefix typing"). On the patch page every button is an action high (40 px, 9cbfd934 "Desktop root 100%, three control heights"), and the other heads are a compact 32 px. So the Source and Destination boxes moved 8 px down, and the boxes of the arrow, +, Levels and Take did not. The three-groups subgrid commits were not the cause.
-  - Change: web/desktop.css:98 (`.sode__boxes:has(.sode__box-router:not([hidden])) .sode__box-head`) gives every head in the row the action height when a router button shows. The three-groups layout does not change, and with one router nothing moves.
-  - Found on the way: on alpha the router button also leaves little room for Last and Next, so they were cut off ("Last A…"). AB-03 gives them back their room.
-  - docs/agents/browser-checks.md (TestChromeMainBoxesLayout) names the new assert. Fragment: changelog.d/patch-row-line-up.md.
-  - Checks: `go test -short ./...` ok; `go vet ./...` and staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1923, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainBoxesLayout (4.48s)`.
+
+### AB-12: Administrator line: wording, and it shows on more than one step
+
+- **Status:** captured
+- **Area:** Style & User step, "Add a first user" section. web/setupwizard.js:195-205 (`section('Add a first user', 'Administrator', ...)`), `sectionAs` :81-84, web/setup.css:135-139 (`.sode-setup__sub`).
+- **Reported:** Text: "Administrator" → "This user will be the administrator." And: "This is duplicated across pages for some reason."
+- **Now:** The word "Administrator" is the `sub` text of the "Add a first user" section, once, on the Style & User step only (web/setupwizard.js:197). No other step passes it. The Router step's sub is "Some routers support staging changes for taking many routes simultaneously." (web/setupwizard.js:232). Annotation 15's capture shows the new sentence under "Multi destination take behavior" on the Router step. That is most likely the annotation tool's in-place copy edit being applied again, by its selector (`p.sode-setup__sub`), to another `p` after the step changed. Annotation 14 (the Connection heading) came from the same page in the same state. So this is probably not a Sode bug. Not confirmed in a browser. Also in this edit, annotation 10's context text reads "This use will be the administrator" (a typo mid-edit); the wanted text has "user".
+- **Expected:** The line reads "This user will be the administrator." It shows only under "Add a first user".
+- **Decisions:** none yet.
+- **Open questions:**
+  - Confirm with the owner: after a reload (no pending annotation edits), does the line still show on the Router step? If not, drop the duplication complaint.
+  - Does Run setup again need it? (It has no first user, web/setupwizard.js:191-193.)
+- **Proof:** Node or TestChromeSetupWizard check that the sentence appears once on the Style & User step and on no other step. Screenshot of the Router step after a clean reload.
+- **Notes:**
+
+### AB-13: Name box should be a third width, same as the PIN and Repeat boxes
+
+- **Status:** captured
+- **Area:** Style & User step. web/setupwizard.js:195-205 (`field('setup-name', ...)`, `row(...)`), web/setup.css:122-128 (`.sode-setup__row`), web/base.css:1445 (short-value rule).
+- **Reported:** "Make a third width, the same as the PIN and Repeat boxes." (on the Name box of "Add a first user")
+- **Now:** The Name field is outside any row, so it fills the whole width (web/setupwizard.js:199; capture shows it as wide as the dialog). The PIN and Repeat your PIN fields are in `row(...)`, a two-column grid `1fr 1fr` (web/setup.css:123-128), so each is half width, not a third. The row comment says an empty second cell keeps a lone field at half width. The Router step's Levels and Router title also use half width.
+- **Expected:** The Name box is a third of the width, the same width as the PIN and Repeat boxes.
+- **Decisions:** none yet.
+- **Open questions:**
+  - PIN and Repeat are half width today, so "a third, the same as PIN and Repeat" cannot be both. Should all three (Name, PIN, Repeat) become a third each, in one row or the Name above and PIN and Repeat in thirds?
+  - Does the same third width apply to the Server Name box and to other wizard boxes?
+- **Proof:** Screenshot before and after at 1920x1080. A TestChromeSetupWizard assertion that the widths of `#setup-name`, `#setup-pin` and `#setup-pin2` are equal within a pixel.
+- **Notes:**
+
+### AB-14: Connection heading names the first router
+
+- **Status:** captured
+- **Area:** Router step. web/setupwizard.js:208-215 (`section('Connection', ...)`), `VIEW.router` :207-249.
+- **Reported:** Text: "Connection" → "Connection: Add your first router".
+- **Now:** The section heading is the plain word "Connection" (web/setupwizard.js:210), above the Address field and the status line. The step is titled "Router setup" and has a "Router" section above it (the Router title field, :208).
+- **Expected:** The heading reads "Connection: Add your first router".
+- **Decisions:** none yet. GLOSSARY.md owns the words ("router").
+- **Open questions:**
+  - Run setup again edits an existing router: does it show "Add your first router" too, or only the first-run wizard?
+- **Proof:** Node or TestChromeSetupWizard text check on the Router step. Screenshot of the Router step.
+- **Notes:**
+
+### AB-15: Multi destination take behavior needs a help icon with a tooltip
+
+- **Status:** captured
+- **Area:** Router step. web/setupwizard.js:229-247 (`sectionAs('setup-fireMode-label', 'Multi destination take behavior', ...)`, `choice('fireMode', ...)`), web/importremap.js:152 (a help icon with a tip), web/vendor/patchbay/icons, web/tooltip.js, docs/agents/salvos.md.
+- **Reported:** "Add question mark icon with tooltip explaining the difference."
+- **Now:** The heading is a plain `h3` with the sub text "Some routers support staging changes for taking many routes simultaneously." The two choices are "One after another" (`sequential`) and "Router salvo" (`native`). Nothing explains the difference between them. The only help icon pattern in the code is `icon('circle-help')` with `pb-tip--end` (web/importremap.js:152). The facts for a tip are in docs/reference.md:115 and docs/agents/salvos.md: sequential sends one connect after another (about 16 ms each on the Ultrix); native uses the router's own salvos, a group send that needs a router that supports it, and a salvo group number that nothing else uses.
+- **Expected:** A question-mark icon by the heading, with a tooltip that explains the difference between the two choices.
+- **Decisions:** Tooltips are `data-pb-tip`; icon-only buttons need `pb-btn--icon`; copy missing icons from upstream (AGENTS.md). The tip must work inside the modal (AB-09). UI text follows docs/ste.md.
+- **Open questions:**
+  - Exact tip words (the owner dictates only "explain the difference").
+  - Should the same icon show in Settings > Routers for the same setting?
+  - Keyboard focus: a focusable icon button with the tip on focus?
+- **Proof:** Screenshot of the Router step with the tip open at 1920x1080. TestChromeSetupWizard check that the icon exists, is focusable, and its tip is not clipped (ties to AB-09). ste_test passes on the new words.
+- **Notes:**
+
+### AB-16: Access step: less spacing, alternating row colors
+
+- **Status:** captured
+- **Area:** Access step. web/setup.css:207-257 (`.sode-setup__sheet`, `.is-picked`), web/setupwizard.js:128-150 (`sheet`), web/vendor/patchbay/css/patchbay.css:1579 (`.pb-table tbody tr:nth-child(even)`).
+- **Reported:** "Reduce spacing within modal and offer alternating line colors for easier reading."
+- **Now:** Cells have `padding: var(--pb-space-3) var(--pb-space-4)` and a 1px bottom border each (web/setup.css:212-217). The modal body has `padding-top: var(--pb-space-5)` (web/setup.css:25-27). The table is custom (`.sode-setup__sheet`), not `.pb-table`, so it gets no row striping. The picked column has an accent wash (`.is-picked`, :243-245), which a row stripe would cross. The capture shows 7 rows (including the header) at about 55px each.
+- **Expected:** Less spacing in the modal, and alternating line colors on the rows.
+- **Decisions:** none yet. AGENTS.md: tokens only, no per-theme CSS.
+- **Open questions:**
+  - Which spacing is cut: cell padding, the modal body padding, or the gap above the table? By how much?
+  - How do the stripes combine with the picked column's wash (the picked column on top, or the stripe on top)?
+  - Use patchbay's striped table (`pb-table`) or a Sode rule with a patchbay surface token?
+- **Proof:** Screenshot before and after at 1920x1080 (light and dark). A TestChromeSetupWizard check on row height and that even rows have a different background from odd rows.
+- **Notes:**
+
+### AB-17: Done page text
+
+- **Status:** captured
+- **Area:** Done step. web/setupwizard.js:155-167 (`doneText`), :259 (`#setup-done-text`), :359-362 (`paintDone`), web/setup.css:269-272.
+- **Reported:** Text: "You are signed in as Seth and connected to the router at 127.0.0.1:8910. You chose Open access." → "Congratulations!</br>You are signed in as Seth and connected to the router at 127.0.0.1:8910 with Open access permissions." Wanted text, as two lines:
+  - Congratulations!
+  - You are signed in as Seth and connected to the router at 127.0.0.1:8910 with Open access permissions.
+- **Now:** `doneText()` returns one run of text nodes: "You are signed in as" (name in bold), "and connected to the router at" (address in mono), then "You chose" (preset name in bold). If the router has not answered it says ". The router at <addr> has not answered yet, and Sode keeps trying." The tag `</br>` in the owner's edit is not valid HTML; it means a line break. The new text has no "You chose" clause, so the "not answered" branch needs its own wording for the permissions part.
+- **Expected:** Two lines: "Congratulations!" then the sentence ending in "with Open access permissions."
+- **Decisions:** none yet. docs/ste.md applies to UI text; the preset name is bold today.
+- **Open questions:**
+  - Keep the bold name and mono address? (The owner's copy edit lost the markup.)
+  - Wording when the router has not answered: "... with Open access permissions. The router at X has not answered yet..."?
+  - Is the preset name lowercased in the sentence ("Open access permissions"), also for "Standard access" and "Secured access"?
+- **Proof:** Node test of `doneText` (or a rules function) for linked and not-linked cases. Screenshot of the Done page at 1920x1080.
+- **Notes:**
+
+### AB-18: Done page next links: remove backup and tablet links, add useful ones
+
+- **Status:** captured
+- **Area:** Done step, Next steps list. web/setupwizard.js:184 (`nextLink`), :262-274, :394-402 (click handler), web/index.html (`fieldset[data-section="level-colors"]`:377, `routers`:402, `users`, `api`, `export-import`), web/setup.css:273-295.
+- **Reported:** On "Download a backup": "Remove this, why would somebody need to download a backup of a completely brand new system?" On "Connect a tablet or another app": "This doesn't even make sense. Remove it." On the list: "Add more sensible options like adjust level colors and add another router."
+- **Now:** The list has four links: "Add more users" (Settings section `users`), "Create your first panel" (`panels/editor`), "Connect a tablet or another app" (section `api`), "Download a backup" (section `export-import`) (web/setupwizard.js:269-272). A click on a link with a section opens Sode, emits `settingsOpen`, and scrolls to `fieldset[data-section="..."]` (web/setupwizard.js:394-400). Settings has sections `level-colors` (web/index.html:377) and `routers` (:402) that could take the new links. The router section's Add router is in Settings > Routers (settings redesign).
+- **Expected:** Remove "Download a backup" and "Connect a tablet or another app". Add sensible links, named by the owner: adjust level colors and add another router.
+- **Decisions:** none yet. Link targets are existing Settings sections (`level-colors`, `routers`).
+- **Open questions:**
+  - Keep "Add more users" and "Create your first panel"? Any others to add?
+  - "Add another router": scroll to Settings > Routers, or open the add-router flow directly?
+  - The order of the list.
+- **Proof:** TestChromeSetupWizard check: the Done list has no backup or tablet link, and each new link opens Settings at its section (level-colors, routers). Screenshot of the Done page at 1920x1080.
+- **Notes:**
+
+## Top bar, Settings > Routers and main page
+
+### AB-19: Lock action belongs in the Lock drop-down
+
+- **Status:** captured
+- **Area:** Lock bar: `web/lockchip.js` (`buildChip`, `lockBtn`, `more`, `menu`, `item`), `web/lock.css` (`.sode-lock__who-*`). Same actions in Settings > My user (`web/changepin.js`).
+- **Reported:** "Add the lock action to the lock dropdown. It is not immediately clear that clicking lock is a separate action." (annotation 22; the screenshot is the open-lock icon.)
+- **Now:** The open-lock icon is its own button; a click calls `api.lock()` and the tip says "Lock (Ctrl+L)" (`lockchip.js:19-24`). The drop-down is opened by a separate chevron (`lockchip.js:29-36`) or by hover and focus. It holds only Sign out (`lockchip.js:58-61`) and Step in or Step out (`lockchip.js:62`, shown by `open()` at lines 93-99). Lock is not an item.
+- **Expected:** Lock is an item in the Lock drop-down, so it is clear that Lock is a separate action.
+- **Decisions:** none yet.
+- **Open questions:** Does the icon button stay a one-click Lock as well, or does the icon only open the drop-down? Where does Lock sit in the order (first, above Sign out)? Does Lock show the Ctrl+L hint like Sign out shows Ctrl+Shift+L? Does Lock show for a guest and for a stepped-in user?
+- **Proof:** Screenshot of the open drop-down before and after at 1920×1080. Extend `TestChromeChipMenu` (`internal/app/chipmenu_browser_test.go`): the Lock item exists, locks the page and keeps the Ctrl+L hint.
+- **Notes:**
+
+### AB-20: Status bar tooltips no longer show router and server status with history
+
+- **Status:** captured
+- **Area:** Status bar `#conn` (`web/index.html:40`): `web/connview.js` (`paintConn`, `paintRouters`), `web/statusinfo.js` (`statusInfo`, `makeBox`, `show`, `strip`), `web/uptimebars.js`, `web/statusinforules.js`, `web/routerlinkrules.js`. Test: `internal/app/statusinfo_browser_test.go`.
+- **Reported:** "There's an apparent and horrible regression where tooltips no longer show status of routers and server with history. We spent serious time developing that and I need it back immediately." (annotation 26)
+- **Now:** The hover details are gone on `settings/redesign`. `statusInfo(root, open)` (`connview.js:22`) now builds a click popover, "Router list". Only the Routers button (`paintRouters`, `connview.js:28-41`) opens it, by click, with `toggle` (`statusinfo.js:288-296`). The list holds Server link, Server run time, and one row per router. A row opens on a click to show the address, the error and the last 24 hours (`statusinfo.js:110-114`, `136-179`). Nothing opens on hover or focus of the Server or Router status. The Server status has no action at all. The popover also needs a row click for the history, and it asks the history only for an open row (`statusinfo.js:226`).
+  - Built (both on `origin/integration/v2`): `93404764` (2026-11-22) "Status details: Server run time, Router link and 24-hour strip on hover or focus" (new `statusinfo.js` with `pointerenter` and `focusin`, replaces the native `title`); `8d7ca2ad` (2026-11-22) "Status: Server and Router icons with state badges, ready for more routers" (Router link row per router). `e37d8f98` (2026-11-23, #784) gave each router its own 24-hour strip on the hover details.
+  - Removed: `e9dbe236` (2026-11-26, "Status bar: one Routers icon that opens the router list"; message says "It replaces the hover details"). It rewrote `statusinfo.js` (316 lines changed), `connview.js`, `bar.css`, `degradedview.js`, `mobile.js` and `statusinfo_browser_test.go`. Follow-ups on the click list: `f53cc176`, `81ce61c0`, `0517bb8a`.
+  - Branches: `origin/integration/v2` still has the hover tooltip with history (`git show origin/integration/v2:web/statusinfo.js` has `pointerenter`, `focusin`, LEAVE_MS). It is not in `origin/main` (neither `93404764` nor `8d7ca2ad` is an ancestor of main). `origin/settings/redesign`, `redesign-p6server`, `redesign-tielines`, `phase0` and `0c-statusbar` have the click list; `0a-names-safety` and `0b-protects` have the hover version.
+- **Expected:** Hovering or focusing the Server and Router status shows the status of the server and the routers with their history again, as before.
+- **Decisions:** The change was a recorded decision, not a slip: docs/research/settings-review/RECOMMENDATIONS.md section 0, item 4 ("A click on the icon opens the router list") and section 3 ("The hover details go (SB-04)"). The reason given: with 24 routers the hover details were 4255 px tall and closed when the pointer left (RECOMMENDATIONS.md line 84). The owner now calls the result a regression, which reopens it.
+- **Open questions:** Hover or focus on the Server and Router status shows the details of every router (as in v2), the click list stays for many routers, or both (hover tip for the summary, click for the full list)? What does a tooltip show with 24 routers? Does the Server status also get history (v2 had only the run time)? Does the owner want the v2 file restored as is (`93404764` behavior) for one or few routers?
+- **Proof:** Screenshots before and after at 1920×1080 with one and with three simulators. Restore or extend `TestChromeStatusInfoWithLogRights` and `TestChromeStatusInfoWithoutLogRights` (`internal/app/statusinfo_browser_test.go`; the v2 versions test hover) and keep `TestChromeRouterListManyRouters`. Node test for any new rule in `statusinforules.test.mjs`.
+- **Notes:**
+
+### AB-21: Level chips: same spacing for one- and two-digit levels
+
+- **Status:** captured
+- **Area:** Level chips of the router detail (`web/settingsrouterdetail.js:194-199`, `#router-chips`), `web/routers.css:214-223` (`.sode__rchips > .sode__slot`), `web/base.css:492-509` (`.sode__slot`). The same `.sode__slot` chip is in the History level bar and the Grid panel.
+- **Reported:** "Ensure the same spacing between two-digit and single-digit number levels." (annotation 23; the screenshot shows the chip 15 wider than the single-digit chips above it.)
+- **Now:** Each chip has `min-width: 1.5rem` and `padding: 0 var(--pb-space-1)` (`routers.css:219-223`), so a one-digit chip is exactly 1.5rem and a two-digit chip grows past it (25.2 px against 24 px in the annotation). The row of chips wraps, so the columns do not line up.
+- **Expected:** One- and two-digit levels have the same spacing.
+- **Decisions:** none yet.
+- **Open questions:** Does "same spacing" mean equal chip width (so the grid lines up), or equal gap between the digits and the chip edge? Only the Settings chips, or the main page and the History level bars too (they use the same `.sode__slot`)?
+- **Proof:** Screenshot before and after at 1920×1080 with 17 levels. A browser check (new `TestChrome*` name) that reads the widths of `#router-chips > .sode__slot` for levels 1 and 15 and expects them equal.
+- **Notes:**
+
+### AB-22: Routers list squeezes the router detail; put the A/B router selector at the top and give settings full width
+
+- **Status:** captured
+- **Area:** Settings > Routers: `web/index.html:418-420` (`#routers-panes`, `#routers-list`, `#router-detail`), `web/routers.css:26-60` and `246-258` (`.sode__rt`, `.sode__rlist`, the `@container (min-width: 36rem)` two-column grid `16rem minmax(0, 1fr)`), `web/settingsrouterlist.js` (rows, find, Up and Down keys), `web/bigscroll.js:18` (`.sode__rlist` in SCROLLERS).
+- **Reported:** "Overall, this feels much better than before, but squishing the router config even tighter doesn't seem reasonable. Maybe we can put the AB selector at the top of the list and leave the full size for settings." (annotation 24)
+- **Now:** From 36rem of section width, the list is a 16rem column on the left with the detail view in the rest (`routers.css:246-250`). The list stays sticky (`routers.css:251-254`). Below that width the list sits above the detail. In the annotation the detail fields are 640 px wide and the long fields wrap in one column pair.
+- **Expected:** The router selector (A, B) sits at the top of the list, and the settings use the full width.
+- **Decisions:** none yet. (RECOMMENDATIONS.md sections 2 and 3 describe the list and detail view; no owner decision fixes a side-by-side layout. The list order and the "Default" mark on the first row are fixed by section 0, item 1.)
+- **Open questions:** Is the top selector a row of tabs or chips (prefix letter, state mark) and does it wrap or scroll with 24 routers (the old list has Find, a problems filter, state, address and Edited/New marks)? Where do Find, the Default mark, Edited, New, the state and the address go? Do Up and Down reorder buttons stay in the detail head? Does the phone layout change?
+- **Proof:** Screenshots before and after at 1920×1080 with 2 and with 24 routers. Browser checks: `TestChromeSettingsRouterReorder`, `TestChromeSettingsAddRemoveRouter` still pass; a new `TestChrome*` that checks the detail is full width and the selector is above it. Node test for any new list rule (`routerlistrules.test.mjs`).
+- **Notes:**
+
+### AB-23: Address field: try the link while typing and show its state before Save
+
+- **Status:** captured
+- **Area:** Router detail Connection group: `web/index.html:453-454` (`#cfg-rt-address`), `web/settingsrouterdetail.js` (`check` at 432, `paintHead` at 216, `addRouter` at 475, `errorsOf`), SW-P-08 client (`internal/app/routerunit.go:108`, `internal/app/settings.go:256`).
+- **Reported:** "Attempt and show connection status immediately when typing in IP addresses so the user knows if they've done it correctly before saving." (annotation 25; the screenshot shows `localhost:9312` typed in the Address field with no state.)
+- **Now:** Typing only checks the format of the address (`check` on focusout, `settingsrouterdetail.js:432-447`). A new router says "Sode connects to this router after you save." (`settingsrouterdetail.js:219`). The link state of a saved router comes from the live router unit (`linkOfRouter`), so Sode connects only after Save. No code path tries an address that is not saved: `grep` finds no dial or test message outside the router unit and its keepalive.
+- **Expected:** While the person types an address, Sode tries to connect and shows the connection status at once, so the person knows the address is right before Save.
+- **Decisions:** none yet.
+- **Open questions:** Who tries the link: the server (a new test request that dials the address; the browser cannot open TCP)? How soon after typing (a pause after the last key, or on a field exit)? What does the state say for each outcome (connecting, connected, refused, no answer, not a router)? Does a test of a router that is already connected (its own address) pause or reuse the live link? Is the test open to a Trusted user or only to an Administrator (it makes Sode dial a host the person names)? Is a Matrix or Levels check (does the router answer) in scope?
+- **Proof:** Browser check (new `TestChrome*`) against `swp08sim`: type its address into a new router, see Connected before Save; type a closed port, see the failure. Go test for the test request (reply states and the access rule). Screenshot of each state at 1920×1080.
+- **Notes:**
+
+### AB-24: Last chip too small to show its text
+
+- **Status:** captured
+- **Area:** Last and Next chips in a box head: `web/desktop.js:267-282` (chips), `web/base.css:1754-1783` (`.pb-chip.sode__last`, `.sode__last-text`), `web/base.css:1723-1745` (`.sode__box-head`, `[data-last]`), `web/index.html:130` (Levels head).
+- **Reported:** "This box is currently too small to be useful as it can't even display the text that it holds." (annotation 27; the Last chip of the Levels box, text "Last 0–10", shows "Last C".)
+- **Now:** The Levels head is one flex row of the label "Levels", the "Router A" text (`.sode__lvl-router`, `index.html:130`) and the `[data-last]` slot. The chip may shrink to nothing: `min-width: 0`, `max-width: 100%` on `.pb-chip.sode__last`, and `.sode__last-text` clips with an ellipsis (`base.css:1780-1785`). The Levels box is the narrow box of its group, so the chip shrinks to 50.5 px. The Router A text and the label take the room first (`base.css:1732-1745`, `.sode__box-router { flex: none }`).
+- **Expected:** The Last chip shows the text it holds.
+- **Decisions:** none yet.
+- **Open questions:** Should the chip have a minimum width that fits "Last 0–10", or does removing the Router text from the Levels head (AB-25) give enough room? If a long value cannot fit, what is cut (the tag word "Last", or the value)?
+- **Proof:** Screenshot before and after at 1920×1080 with two routers. A browser check (new `TestChrome*`, or an extension of `TestChromeMainNextChipNoKeys`) that `scrollWidth <= clientWidth` for `.sode__last-text` in the Levels head.
+- **Notes:**
+
+### AB-25: Router button goes under the left side of each Source and Destination box, out of Levels; Levels follow the Source box
+
+- **Status:** captured
+- **Area:** Main page boxes: `web/index.html:93` (`#src-router`), `110` (`#dst-router`), `130` (`#lvl-router`); `web/boxrouter.js` (`paintBoxRouter`, `wireBoxRouter`, `paintLevelsRouter`); `web/desktop.js:114-121` and `:660-661` (`lvlRouter`, `levelRouterOf`), `web/levels.js:131-134` (`levelRouterOf`); `web/base.css:1732-1743` (`.sode__box-router`, `.sode__lvl-router`); `web/desktop.css:98` (head height with a router button).
+- **Reported:** "Move this to the under-left side of each source and destination box. Remove it from levels altogether. Levels should follow the source box." (annotation 28; the pointer is on the Destination's "Router A" button.)
+- **Now:** The Router button is in the head of the Source and Destination boxes, between the label and the Last and Next chips (`index.html:93`, `110`), and shows only with two or more routers (`boxrouter.js:27`). The Levels head has a text "Router A" (`#lvl-router`, `index.html:130`), not a button. It names the router of the typed levels, which today follows the first destination, else the router the destination text names, else the router of the source (`levels.js:128-134`).
+  - Age: not in `origin/integration/v2` or `origin/main` (no `box-router`, `src-router` or `lvl-router` there). The Source and Destination buttons came with the multi-router work (`d321cbff`, 2026-11-23, "Routers 5: Prefix typing"), on this branch. The Levels text `#lvl-router` is new in this redesign: `3710fe22` (2026-11-27).
+- **Expected:** The Router button sits under the left side of each Source and Destination box. The Levels box has no router text. Levels follow the Source box.
+- **Decisions:** The router of the levels followed the destination by design (`boxrouter.js:33-35`, docs/agents/settings-saves.md line 27 names `#lvl-router`). The owner now asks for the Source box. This overrides the older rule.
+- **Open questions:** "Levels follow the Source box" can mean (a) the Levels box sits next to the Source box in the row, or (b) the levels are those of the Source's router. Which? If (b), which router do typed levels use when Source and Destination are on different routers (the current rule takes the destination, since the levels are the destination's crosspoint levels)? Does the Destination's Router button also change the Levels, and how does the person see which router the levels are on without the text? Does "under-left" mean in the row of the box's help text under the input (the `.sode__under` line) or a line of its own? Do the phone layout and the Grid panel follow?
+- **Proof:** Screenshot before and after at 1920×1080 with two routers and with one. Browser check (new `TestChrome*`, near `TestChromeMainNextChipNoKeys`): the Router button of each box is below its input, left-aligned, and `#lvl-router` is gone; the level chips follow the rule that the owner picks. Node tests for `levelRouterOf` in `routerlevelrules.test.mjs` if the rule changes.
+- **Notes:**
