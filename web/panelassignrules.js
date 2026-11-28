@@ -29,6 +29,14 @@ export function signInText(i) {
   return 'Not signed in';
 }
 
+// A page's address, with a word so it does not read as a fault.
+export const fromAddr = (addr) => `from ${addr}`;
+
+const sentence = (s) => `${s[0].toUpperCase()}${s.slice(1)}.`;
+
+// The line under an Assign row's name: the address, the sign-in state and the time, one sentence each.
+export const assignFacts = (r) => [r.addr && fromAddr(r.addr), r.state, r.uptime].filter(Boolean).map(sentence).join(' ');
+
 // Whole minutes: the list redraws only when a row's text changes, and it is read every MON_POLL_MS.
 export const uptimeText = (secs) => (secs < 60 ? 'under a minute' : durationText(Math.floor(secs / 60) * 60));
 

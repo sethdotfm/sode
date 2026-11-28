@@ -95,3 +95,19 @@ export const setLabel = (set) => `${set.name} (${scopeLabel(set.scope)}, ${plura
 export const canSaveSet = (name, selected) => String(name).trim() !== '' && selected.size > 0;
 
 export const ownerNote = (p, me) => (same(p.owner, me) ? '' : ` (${p.owner})`);
+
+// The Push list in sections by owner: yours first, then each other owner by name. A section's label is '' when every
+// panel is yours, since a heading would then say nothing.
+export function ownerSections(candidates, me) {
+  const by = new Map();
+  for (const p of candidates) {
+    const k = same(p.owner, me) ? '' : String(p.owner);
+    by.set(k.toLowerCase(), [...(by.get(k.toLowerCase()) || []), p]);
+  }
+  const keys = [...by.keys()].sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)));
+  const mixed = keys.length > 1 || (keys.length === 1 && keys[0] !== '');
+  return keys.map((k) => {
+    const panels = by.get(k);
+    return { label: mixed ? `Owner: ${k === '' ? 'You' : panels[0].owner}` : '', panels };
+  });
+}

@@ -1,5 +1,3 @@
-- Grid panel editor lists: pinned sources and destinations sit at the top of their list, and "N pinned" in the heading shows only the pinned ones. An unpinned item stays at the top until you move it. The row's text is a grip as well, and the drag chip stays inside the window.
-- Add from the router: a click selects, Shift-click selects a range and Cmd- or Ctrl-click adds one more. The + button at the right adds the selection. Enter still adds the highlighted match and Shift+Enter every match.
-- Follow the router is now in the Panel tab, in a Router section. While it is on for a list, only Pin and artwork change that list.
-- The editor's toolbar shows the panel name once, in the panel picker. The pencil beside it opens the Panel tab at the Name field.
-- Upload, Rename, Delete and Rescan for the Icon library moved out of the Cell tab into the Icon library dialog.
+- Panel editor, Grid lists: the bar's Pin, Move and Remove sit over the same buttons on each row. Names start at one edge for every number length.
+- Panel editor, Grid lists: each list shows its own short Follow the router note under its heading, so the heading does not move. While a list follows the router, its rows show only Pin.
+- Panel editor, Grid lists: clearer empty list text, artwork hint and Find placeholder.

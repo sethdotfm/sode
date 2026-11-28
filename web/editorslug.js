@@ -23,8 +23,8 @@ export function createSlugField(ed) {
     // A bad short name stays out of the unsaved fields; the server would refuse it.
     if (!slugProblem(clean)) ed.setFields({ slug: clean });
   });
-  const node = field('ed-side-slug', 'Short name', input);
-  node.append(note);
+  const node = field('ed-side-slug', 'Short name for the link', input);
+  node.append(el('span', 'sode__hint', 'Letters, digits and hyphens. Empty uses the ID.'), note);
   return {
     node,
     update() {

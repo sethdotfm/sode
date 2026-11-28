@@ -13,7 +13,8 @@ import { CATEGORY_ICON } from './findrules.js';
 // panel's Page list, for a Go to Page cell's target; page is the id of the Page the cell sits on.
 function cellText(cell, names, pages = [], page = '') {
   if (cell.caption) return cell.caption;
-  if (PAGE_KINDS.includes(cell.kind)) return pageCellText(cell, { pages, page }).value || kindLabel(cell.kind);
+  // One part on each line, as the panel page shows them (panels.css keeps the line breaks).
+  if (PAGE_KINDS.includes(cell.kind)) return pageCellText(cell, { pages, page }).lines.join('\n') || kindLabel(cell.kind);
   if (cell.kind === 'goToPage') {
     const s = goToState(pages, cell);
     return s === 'unassigned' ? 'Choose a Page' : s === 'missing' ? 'Page deleted' : navText(cell, pages);

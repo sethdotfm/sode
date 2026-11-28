@@ -73,7 +73,7 @@ export function createAccessTab(ed, ctx) {
   const clientBox = el('div', 'sode-side__sec');
   const current = el('p', 'sode-side__rights');
   const table = el('table', 'pb-table pb-table--compact sode-side__table');
-  const limit = check("Limit this panel's access", { id: 'ed-limit' });
+  const limit = check('Limit the Rights of this panel', { id: 'ed-limit' });
   const note = el('p', 'sode__hint');
   note.setAttribute('role', 'status');
   const lists = LISTS.map(([kind, name, hint]) => {
@@ -151,7 +151,7 @@ export function createAccessTab(ed, ctx) {
       if (hasClient(f)) {
         const had = hasClient(p) && p.client;
         current.textContent = had
-          ? `Client ${p.client}. ${f.clientRights ? 'Unsaved Rights.' : 'Rights.'}`
+          ? `API client: ${p.client}. ${f.clientRights ? 'Its unsaved Rights:' : 'Its Rights:'}`
           : 'Saving the panel makes its client, with your own Rights unless you limit them below.';
         table.hidden = !had;
         if (had) {
@@ -167,9 +167,12 @@ export function createAccessTab(ed, ctx) {
       const stored = !!p && !ro;
       // Sharing still decides who sees a Public panel on the panels page, not who is allowed to open its link.
       const listedOnly = isPublic(p);
-      shareLine.textContent = !p ? 'Save the panel first, then choose who can use it.' : listedOnly ? 'Listed on the panels page for:' : 'Who can use it:';
-      const who = p?.share?.mode === 'named' && p.share.users?.length ? p.share.users : p ? [shareLabel(p.share)] : [];
-      shareList.replaceChildren(...who.map((u) => el('li', null, u)));
+      // Named users are a list; any other choice is one line.
+      const named = p?.share?.mode === 'named' && p.share.users?.length ? p.share.users : [];
+      const lead = listedOnly ? 'Listed on the panels page for:' : 'Shared with:';
+      shareLine.textContent = !p ? 'Save the panel first, then choose who can use it.' : named.length ? lead : `${lead} ${shareLabel(p.share)}`;
+      shareList.replaceChildren(...named.map((u) => el('li', null, u)));
+      shareList.hidden = !named.length;
       shareBtn.disabled = !stored;
     },
   };

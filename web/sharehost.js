@@ -45,5 +45,12 @@ export function shareHostField(onChange) {
       onChange();
     }
   });
-  return el('div', 'sode__field', Object.assign(el('label', null, 'Address for other devices'), { htmlFor: 'share-host' }), input, note);
+  return el(
+    'div',
+    'sode__field',
+    Object.assign(el('label', null, 'Address of Sode for other devices'), { htmlFor: 'share-host' }),
+    el('span', 'sode__hint', 'The link and the QR code use this address. Empty uses the address of this page.'),
+    input,
+    note,
+  );
 }

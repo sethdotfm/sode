@@ -196,11 +196,11 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		t.Errorf("the editor grew over %d rounds: %s", rounds-2, strings.Join(bad, "; "))
 	}
 
-	// Back to editing before the panel has loaded: anything started afterwards must not stay behind.
+	// Back to the editor before the panel has loaded: anything started afterwards must not stay behind.
 	b.eval(`document.getElementById('ed-live').click(); document.getElementById('ed-live-back').click()`)
 	time.Sleep(1500 * time.Millisecond)
 	if s := b.measure(); s.intervals != base.intervals {
-		t.Errorf("an early Back to editing left timers running: intervals %.0f -> %.0f", base.intervals, s.intervals)
+		t.Errorf("an early Back to the editor left timers running: intervals %.0f -> %.0f", base.intervals, s.intervals)
 	}
 
 	// Idle in live mode: the poll and the ticks must not add anything either. A staged destination pulses, and only
@@ -224,7 +224,7 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 	b.eval(`document.getElementById('ed-live-back').click()`)
 	b.waitFor("back to editing", `document.getElementById('ed-live-view').hidden`)
 	if n := b.eval(animList); n != "" {
-		t.Errorf("animations kept running after Back to editing: %v", n)
+		t.Errorf("animations kept running after Back to the editor: %v", n)
 	}
 	b.check()
 }

@@ -25,36 +25,71 @@
   flex-direction: column;
   gap: var(--pb-space-2);
 }
-.sode-ov__watchone {
-  margin-inline-start: auto;
-}
 .sode-ov__notify {
   margin: 0;
 }
 .sode-ov__open {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-2);
   margin: 0;
   padding: 0;
 }
+/* Every row of Open now shares the list's columns (subgrid): badge, name, Hide, Reload, Notify me, then the address or
+   time and Offline. A row without a part leaves its column empty. */
+.sode-ov__open:has(.sode-ov__inst) {
+  column-gap: var(--pb-space-3);
+  display: grid;
+  grid-template-columns: max-content minmax(6rem, max-content) max-content max-content max-content minmax(0, 1fr);
+  row-gap: var(--pb-space-2);
+}
 .sode-ov__open li {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-1);
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   list-style: none;
+  row-gap: var(--pb-space-1);
 }
 .sode-ov__inst {
   align-items: center;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+.sode-ov__inst > * {
+  grid-row: 1;
+}
+.sode-ov__inst > .pb-badge {
+  grid-column: 1;
+  justify-self: start;
+}
+.sode-ov__inst > .sode-ov__name {
+  grid-column: 2;
+}
+.sode-ov__inst > [data-hide-instance] {
+  grid-column: 3;
+}
+.sode-ov__inst > [data-reload-instance] {
+  grid-column: 4;
+}
+.sode-ov__inst > .sode-ov__watchone {
+  grid-column: 5;
+}
+.sode-ov__instnote {
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3);
+  grid-column: 6;
+  min-width: 0;
+}
+.sode-ov__open li > .sode-ov__uptime {
+  grid-column: 2 / -1;
 }
 .sode-ov__openhead {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3);
+}
+.sode-ov__openhead > .sode-ov__group {
+  margin: 0;
 }
 .sode-ov__name {
   align-items: center;

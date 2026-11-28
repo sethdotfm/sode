@@ -65,7 +65,7 @@ func TestChromeShareModalPeople(t *testing.T) {
 	b.waitFor("modal reopened on Named users", `document.querySelector('.sode-ov__people input')?.checked === true`)
 	b.eval(`document.querySelector('.sode-ov__share [data-mode="me"]').click()`)
 	b.eval(`document.querySelector('.sode-ov__share .pb-modal__footer .sode-btn--primary').click()`)
-	b.waitFor("shared with only the owner", `[...document.querySelectorAll('.sode-ov__kv dd')].some(d => d.textContent === 'Only the owner')`)
+	b.waitFor("shared with only the owner, who reads it", `[...document.querySelectorAll('.sode-ov__kv dd')].some(d => d.textContent === 'Only you')`)
 	if got := panelIDs(t, a, bo); got != "" {
 		t.Fatalf("Bo still sees %q", got)
 	}

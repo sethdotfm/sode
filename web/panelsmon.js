@@ -6,7 +6,7 @@ import { durationText, permissionText } from './panelwatchrules.js';
 import { panelStatus, shownInstances, hiddenShown } from './panelsrules.js';
 import { slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
-import { streamState, renameProblem } from './panelassignrules.js';
+import { streamState, renameProblem, fromAddr } from './panelassignrules.js';
 import { INSTANCE_MAX } from './panelkeyrules.js';
 import { reloadButton, reloadAllButton, offlineNote } from './panelsopen.js';
 
@@ -136,6 +136,9 @@ function hiddenLine(p, setHide) {
 
 const offlineAfter = (i, shown) => (shown && streamState(i) === 'offline' ? offlineNote() : null);
 
+// The last column of an Open now row: the address or the time, then Offline.
+const instNote = (...parts) => el('span', 'sode-ov__instnote', ...parts.filter(Boolean));
+
 // A Keyless instance's name lives in its own browser.
 function keylessItem(p, k, rename, reload) {
   const re = reloadButton(p, k, reload);
@@ -147,9 +150,8 @@ function keylessItem(p, k, rename, reload) {
       'sode-ov__inst',
       el('span', 'pb-badge', 'No key'),
       nameSlot(p, k, rename),
-      k.device === k.addr ? null : el('span', 'sode-ov__muted', k.addr),
       re,
-      offlineAfter(k, rename || re),
+      instNote(k.device === k.addr ? null : el('span', 'sode-ov__muted', fromAddr(k.addr)), offlineAfter(k, rename || re)),
     ),
   );
 }
@@ -178,8 +180,11 @@ export function openNow(p, { setWatch, setHide, rename, reload, trusted } = {}, 
     input.type = 'checkbox';
     input.checked = watched.has(i.device.toLowerCase());
     input.dataset.watchInstance = i.device;
+    input.setAttribute('aria-label', `Notify me when ${i.device} is offline`);
     input.addEventListener('change', () => setWatch?.(p.id, input.checked, i.device));
     const re = reloadButton(p, i, trustedReload);
+    const watch = el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Notify me'));
+    watch.dataset.pbTip = 'Notify me when this instance is offline';
     ul.append(
       el(
         'li',
@@ -190,10 +195,9 @@ export function openNow(p, { setWatch, setHide, rename, reload, trusted } = {}, 
           badge(i.online),
           nameSlot(p, i, rename),
           hideButton(p, i, setHide),
-          ago && el('span', 'sode-ov__muted', ago),
           re,
-          offlineAfter(i, rename || re),
-          el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Notify when offline')),
+          watch,
+          instNote(ago && el('span', 'sode-ov__muted', ago), offlineAfter(i, rename || re)),
         ),
         uptimeStrip(i),
       ),
@@ -229,7 +233,13 @@ export function watchBox(p, setWatch) {
     setWatch(p.id, input.checked);
   });
   paint();
-  return el('div', 'sode-ov__watchbox', el('label', 'pb-check sode-ov__watch', input, el('span', 'pb-check__label', 'Notify when offline')), note, allow);
+  return el(
+    'div',
+    'sode-ov__watchbox',
+    el('label', 'pb-check sode-ov__watch', input, el('span', 'pb-check__label', 'Notify me when this panel is offline')),
+    note,
+    allow,
+  );
 }
 
 // A poll skips the list while a field has focus; a focused button gets its copy focused.

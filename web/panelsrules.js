@@ -49,7 +49,10 @@ export function groupPanels(panels, me, trusted, filter = '') {
 }
 
 // The list's empty line: nothing yet differs from a Find with no hits. Blank until the list loads.
-export const emptyText = (loaded, any) => (!loaded ? '' : any ? 'No panel matches.' : 'No panels yet. Press New panel to make one.');
+export function emptyText(loaded, any, find = '') {
+  if (!loaded) return '';
+  return any ? `No panel has "${String(find).trim()}" in its name.` : 'No panels yet. Press New panel to make one.';
+}
 
 export const actionsFor = (p) => (p.canEdit ? ['launch', 'edit', 'share', 'push', 'delete'] : ['launch', 'copy']);
 
@@ -120,8 +123,10 @@ function edgeTiles(kind, label, n) {
     return { kind, r: src ? 1 : at, c: src ? at : 1, rs: 1, cs: 1, label: ch, half };
   });
 }
-export function gridThumb(p) {
-  const size = pictureSize(Math.max(gridEdgeCount(p.sources), gridEdgeCount(p.destinations)));
+// most caps the size: the list shows Medium at most, so its rows keep one height. Medium still holds three characters.
+export function gridThumb(p, most = 'large') {
+  const fit = pictureSize(Math.max(gridEdgeCount(p.sources), gridEdgeCount(p.destinations)));
+  const size = GRID_SQUARES[fit] > GRID_SQUARES[most] ? most : fit;
   const n = GRID_SQUARES[size];
   const cols = n + 1;
   const rows = n + 1;
@@ -141,14 +146,12 @@ export const hasClient = (p) => p?.acts === 'api' || p?.acts === 'both' || p?.ac
 
 export const isPublic = (p) => p?.acts === 'public';
 
-const LAUNCH_NOTE = { api: '', public: '', both: ' (a link without a key asks for a PIN)' };
-export const launchNote = (p) => LAUNCH_NOTE[p.acts] ?? ' (asks for a PIN at launch)';
-
-const SHORT = { api: 'API client', both: 'API client or the user', public: 'Public' };
-const LABEL = {
-  api: 'Acts as an API client',
-  both: 'Acts as an API client with a key, else as the user',
-  public: 'Acts as an API client for anyone with the link',
+const SHORT = { session: 'User sign-in', api: 'API key', both: 'Key or sign-in', public: 'Public' };
+const ACTS_TEXT = {
+  session: 'The user. The panel asks for a PIN.',
+  api: 'An API client. The link holds a key.',
+  both: 'An API client with a key. Without a key, the user.',
+  public: 'Public. Anyone with the link.',
 };
 
 const MODE_NAME = { session: 'User', both: 'Both', api: 'API', public: 'Public' };
@@ -186,9 +189,10 @@ export function newPanelActs(cfg) {
 }
 
 // The short form for a row, after the owner's name.
-export const actsShort = (p) => SHORT[p.acts] || 'signs in as the user';
+export const actsShort = (p) => SHORT[p.acts] || SHORT.session;
 
-export const actsLabel = (p) => LABEL[p.acts] || 'Acts as the user';
+// The value after "Acts as" in the panel's facts.
+export const actsText = (p) => ACTS_TEXT[p.acts] || ACTS_TEXT.session;
 
 const SAVED_NOTE = {
   api: 'Saved. Make links: Share > Link with key.',
@@ -201,10 +205,11 @@ export const actsSavedNote = (acts) => SAVED_NOTE[acts] || 'Saved.';
 // The server lets any page open a Public panel, whatever its share says (ADR 0008).
 export const PUBLIC_WARNING = "Anyone with the link can use a Public panel, with its client's Rights. Its sharing does not limit who can open it.";
 
-export function shareLabel(share) {
+// mine: the viewer owns the panel.
+export function shareLabel(share, mine = false) {
   if (share?.mode === 'everyone') return 'Everyone';
   if (share?.mode === 'named') return share.users?.length ? share.users.join(', ') : 'Nobody';
-  return 'Only the owner';
+  return mine ? 'Only you' : 'Only the owner';
 }
 
 export const launchHref = (id) => `panels/${id}`;
@@ -226,13 +231,15 @@ export function stepPanel(ids, cur, step) {
   return ids[Math.min(ids.length - 1, Math.max(0, (i < 0 ? 0 : i) + step))];
 }
 
-// instancesOnline of instancesKnown, hidden ones left out by the server. No instance at all reads All Offline.
+// instancesOnline of instancesKnown, hidden ones left out by the server. No instance at all reads Not open, since All
+// offline would say that instances exist.
 export function panelStatus(p) {
   const on = p.instancesOnline || 0;
   const known = Math.max(p.instancesKnown || 0, on);
-  if (known && on === known) return { text: 'All Online', tone: 'ok' };
-  if (on) return { text: 'Some Online', tone: 'warn' };
-  return { text: 'All Offline', tone: '' };
+  if (!known) return { text: 'Not open', tone: '' };
+  if (on === known) return { text: 'All online', tone: 'ok' };
+  if (on) return { text: 'Some online', tone: 'warn' };
+  return { text: 'All offline', tone: '' };
 }
 
 // Every instance Sode knows, then the watched ones it has not heard from since it started. Hidden ones are left out. Names ignore case.
