@@ -251,7 +251,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-18: Done page next links: remove backup and tablet links, add useful ones
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Done step, Next steps list. web/setupwizard.js:184 (`nextLink`), :262-274, :394-402 (click handler), web/index.html (`fieldset[data-section="level-colors"]`:377, `routers`:402, `users`, `api`, `export-import`), web/setup.css:273-295.
 - **Reported:** On "Download a backup": "Remove this, why would somebody need to download a backup of a completely brand new system?" On "Connect a tablet or another app": "This doesn't even make sense. Remove it." On the list: "Add more sensible options like adjust level colors and add another router."
 - **Now:** The list has four links: "Add more users" (Settings section `users`), "Create your first panel" (`panels/editor`), "Connect a tablet or another app" (section `api`), "Download a backup" (section `export-import`) (web/setupwizard.js:269-272). A click on a link with a section opens Sode, emits `settingsOpen`, and scrolls to `fieldset[data-section="..."]` (web/setupwizard.js:394-400). Settings has sections `level-colors` (web/index.html:377) and `routers` (:402) that could take the new links. The router section's Add router is in Settings > Routers (settings redesign).
@@ -259,7 +259,13 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: Remove "Download a backup" and "Connect a tablet or another app". List in this order: Add another router, Adjust level colors, Add more users, Create your first panel. Each opens Settings at its section; "Add another router" scrolls to `routers` and does not open the add flow (that would start an unsaved router).
 - **Open questions:** none.
 - **Proof:** TestChromeSetupWizard check: the Done list has no backup or tablet link, and each new link opens Settings at its section (level-colors, routers). Screenshot of the Done page at 1920x1080.
+  - Reproduced on 8e9c6761 with swp08sim and a new config, run to Done: Next steps lists Add more users, Create your first panel, Connect a tablet or another app and Download a backup (before-done.png).
+  - Given: `TestChromeSetupWizard` checks the list is exactly "Add another router" (routers), "Adjust level colors" (level-colors), "Add more users" (users), "Create your first panel" (panels/editor). Before the fix: `setupwizard_browser_test.go:147: timed out waiting for the next steps, with no backup or tablet link`. New `TestChromeSetupDoneNextSteps` (internal/app/setupwizard_browser_test.go) runs setup twice and presses "Add another router", then "Adjust level colors": each time Settings opens with its `fieldset[data-section]` visible in the top half of the window. Before the fix: `setupwizard_browser_test.go:185: eval ...: Uncaught TypeError: Cannot read properties of null (reading 'click')` (no such link). Both pass after.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-18/: before-done.png, after-done.png, after-link-routers.png (Settings at Routers, Add router not pressed).
 - **Notes:**
+  - What changed: the Next steps list (web/setupwizard.js:283) in the decided order; the click handler that opens Settings and scrolls to `fieldset[data-section]` is unchanged, so "Add another router" scrolls to `routers` and starts no unsaved router.
+  - Checks: `go test -short ./...` all ok; `go vet ./...` ok; staticcheck ok; `node --test 'web/test/*.test.mjs'` # pass 2004, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChromeSetup(DoneNextSteps|Wizard)$'` ok.
+  - Commit: this commit.
 
 ## Top bar, Settings > Routers and main page
 

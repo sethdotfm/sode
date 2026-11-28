@@ -279,10 +279,11 @@ const VIEW = {
         el(
           'ul',
           null,
+          // Add another router only goes to Routers: Add router there would start a router that is not saved.
+          nextLink('Add another router', 'routers'),
+          nextLink('Adjust level colors', 'level-colors'),
           nextLink('Add more users', 'users'),
           nextLink('Create your first panel', null, 'panels/editor'),
-          nextLink('Connect a tablet or another app', 'api'),
-          nextLink('Download a backup', 'export-import'),
         ),
       ),
     ),

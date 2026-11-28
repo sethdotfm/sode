@@ -144,10 +144,55 @@ func TestChromeSetupWizard(t *testing.T) {
 		t.Fatalf("after Finish: %+v", c)
 	}
 	b.waitFor("signed in", `!!localStorage.getItem('sode-session')`)
+	b.waitFor("the next steps, with no backup or tablet link", `[...document.querySelectorAll('.sode-setup__next a')].map((a) => a.textContent + '>' + (a.dataset.section || a.getAttribute('href'))).join(' | ')
+		=== 'Add another router>routers | Adjust level colors>level-colors | Add more users>users | Create your first panel>panels/editor'`)
 
 	b.eval(`document.getElementById('setup-open').click(); true`)
 	b.waitFor("Open Sode shows the patch page", `document.getElementById('setup').hidden && getComputedStyle(document.getElementById('patch-view')).display !== 'none'`)
 	b.open(srv.URL + "/")
 	b.waitFor("no wizard after a reload", `!!document.getElementById('src') && document.getElementById('setup').hidden`)
 	b.check()
+}
+
+// Each next step on Done opens Settings at its section.
+func TestChromeSetupDoneNextSteps(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	for _, section := range []string{"routers", "level-colors"} {
+		a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = sim })
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { a.Run(ctx); close(done) }()
+		srv := httptest.NewServer(a.Handler(web.FS))
+
+		type_ := func(id, text string) {
+			b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+		}
+		next := `document.getElementById('setup-next')`
+		b.open(srv.URL + "/")
+		b.waitFor(section+": Welcome", `document.getElementById('setup-title')?.textContent === 'Set up Sode'`)
+		b.eval(`sessionStorage.clear(); true`)
+		type_("setup-name", "Ada")
+		type_("setup-pin", "2468")
+		type_("setup-pin2", "2468")
+		b.waitFor(section+": Next", `!`+next+`.disabled`)
+		b.eval(next + `.click(); true`)
+		b.waitFor(section+": Router", `!!document.getElementById('setup-router') && !`+next+`.disabled`)
+		b.eval(next + `.click(); true`)
+		b.waitFor(section+": Access", next+`.textContent === 'Finish' && !`+next+`.disabled`)
+		b.eval(next + `.click(); true`)
+		b.waitFor(section+": Done", `document.getElementById('setup-title').textContent === 'Sode is set up'`)
+		b.eval(`document.querySelector('.sode-setup__next a[data-section="` + section + `"]').click(); true`)
+		b.waitFor(section+": Settings open at the section", `(() => {
+			const f = document.querySelector('fieldset[data-section="`+section+`"]');
+			const r = f.getBoundingClientRect();
+			return document.getElementById('setup').hidden && document.documentElement.dataset.view === 'settings'
+				&& !!f.offsetParent && r.top >= -1 && r.top < innerHeight / 2;
+		})()`)
+		b.check()
+		srv.CloseClientConnections()
+		srv.Close()
+		cancel()
+		<-done
+	}
 }

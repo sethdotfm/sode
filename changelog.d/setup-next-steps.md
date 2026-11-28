@@ -1,0 +1,1 @@
+- Setup wizard: the next steps on the Done page are Add another router, Adjust level colors, Add more users and Create your first panel. The backup and tablet links are gone.
