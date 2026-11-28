@@ -612,7 +612,7 @@ function affectedNode(p, src) {
   if (p.others) extra.push(el('li', 'sode-tiepick__hit', `${p.others} more that you cannot see`));
   for (const u of p.unknown || []) {
     const what =
-      u.why === 'one_off' ? 'unknown downstream of a One-off tie line' : `unknown (router ${prefix(u.router)} ${u.why === 'down' ? 'down' : 'not read'})`;
+      u.why === 'one_off' ? 'unknown downstream of a One-off tie line' : `unknown (Router ${prefix(u.router)} ${u.why === 'down' ? 'down' : 'not read'})`;
     extra.push(el('li', 'sode-tiepick__hit', what));
   }
   if (p.loop) extra.push(el('li', 'sode-tiepick__hit', '∞ the chain comes back to a tie line'));

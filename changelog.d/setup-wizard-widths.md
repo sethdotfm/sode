@@ -5,4 +5,4 @@
 - Setup wizard: the step chips and the swatches show the normal focus ring.
 - Run setup again no longer shows "Filled from SODE_ROUTER." for a saved address.
 - Phone wait page: the desktop-only note has no second box in the dialog.
-- Text: "Repeat PIN", a shorter Multi destination help tip, "Delete" on the PIN pad, and a wrong-PIN wait in words ("Try again in 30 seconds").
+- Text: "Repeat PIN" and a shorter Multi destination help tip.

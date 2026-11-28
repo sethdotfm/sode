@@ -103,7 +103,7 @@ Rights checks compare the router and the number of each reference. A right for s
 1. An Affected destination is a destination, other than the one asked for, whose signal changes on any level.
 2. Sode traces the change downstream through every tie line, on every router. It counts each destination one time.
 3. If the downstream chain comes back to a tie line that it already passed, Sode stops there and shows a loop mark (∞).
-4. If a router downstream is down, or Sode has no state for it, that part shows as "unknown (router C down)".
+4. If a router downstream is down, or Sode has no state for it, that part shows as "unknown (Router C down)".
 5. The picker opens at once and uses the tally that Sode has. The bridges announce changes, so the tally is current. A count is marked stale only when its router connected again after the last full read.
 6. The cost of a path is the number of Affected destinations plus one for each hop. The weight of a hop is a setting (`tieHopWeight`, Settings > Routers > Tie lines, default 1). It counts each hop that sends upstream. A path that sends nothing upstream, because its tie lines already carry the wanted source, has cost 0.
 7. Sode sorts whole paths, not single tie lines, by these keys in order:

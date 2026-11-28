@@ -72,7 +72,7 @@ export const HIDDEN = 'not visible to you';
 export function chainWords(c, label, prefix) {
   if (!c) return 'unknown';
   if (c.loop) return '∞';
-  if (c.unknown) return `unknown (router ${prefix(c.unknown)} down)`;
+  if (c.unknown) return `unknown (Router ${prefix(c.unknown)} down)`;
   if (c.nothing) return 'nothing';
   if (!c.origin) return HIDDEN;
   const via = c.via?.length ? ` Via ${c.via.map((v) => v.name || v.id).join(', ')}` : '';
