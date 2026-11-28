@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LIST_KEY, addKey, freePrefix, linkState, listKey, orderStep, removeKey, routerDisplay, rowStep, usesNote } from '../routerlistrules.js';
+import {
+  LIST_KEY,
+  addKey,
+  freePrefix,
+  linkState,
+  listKey,
+  orderStep,
+  removeKey,
+  routerDisplay,
+  orderLabel,
+  rowStep,
+  removedText,
+  usesNote,
+} from '../routerlistrules.js';
 import { critical, reconnects, sectionOfKey } from '../savereviewrules.js';
 
 test('freePrefix: the first letter no router has, then two letters', () => {
@@ -29,6 +42,29 @@ test('usesNote: what Remove router breaks', () => {
     usesNote('B', [{ kind: 'preset', name: 'Stage', owner: '' }, ties[0]]).head,
     'If you remove router B, Sode makes 1 preset Broken and removes 1 tie line:',
   );
+});
+
+test('removedText: the Now of a removed router in the Save review is whole sentences, not the note head', () => {
+  assert.equal(removedText([]), 'Removed.');
+  const ties = [
+    { kind: 'tieLine', name: 'TIE 3', owner: '' },
+    { kind: 'tieLine', name: 'TIE 4', owner: '' },
+    { kind: 'tieLine', name: 'TIE 5', owner: '' },
+  ];
+  assert.equal(removedText(ties), 'Removed. Also removes 3 tie lines.');
+  const presets = [
+    { kind: 'preset', name: 'Stage', owner: '' },
+    { kind: 'preset', name: 'Mine', owner: 'Ana' },
+  ];
+  assert.equal(removedText(presets), 'Removed. Makes 2 presets Broken.');
+  assert.equal(removedText([...presets, ...ties]), 'Removed. Makes 2 presets Broken and removes 3 tie lines.');
+  assert.equal(removedText(ties.slice(0, 1), 'C Playout C'), 'Removed. Also removes 1 tie line. C Playout C becomes the default router.');
+  for (const t of [removedText([...presets, ...ties], 'B Studio B'), removedText([])]) assert.ok(t.endsWith('.') && !t.includes(':'), t);
+});
+
+test('orderLabel: a new default router names the was and the now, with no arrow', () => {
+  assert.equal(orderLabel('A Studio A', 'A Studio A'), 'Router order');
+  assert.equal(orderLabel('A Studio A Core', 'C Playout C'), 'Router order. Default router: was A Studio A Core, now C Playout C');
 });
 
 test('the router keys: section routers, and Add, Remove, Address and Matrix are Critical', () => {

@@ -65,6 +65,21 @@ export function usesNote(prefix, items) {
   return { head: `If you remove router ${prefix}, Sode ${parts.join(' and ')}:`, lines };
 }
 
+// removedText: the Now of a removed router in the Save review. The review shows no list, so it does not reuse the
+// note's head, which ends on its list. next: the name of the router that becomes the default router, or ''.
+export function removedText(items, next = '') {
+  const broken = countOf(items, ['preset', 'filterSet', 'panel']);
+  const ties = countOf(items, ['tieLine']);
+  let uses = '';
+  if (broken.length) uses = ` Makes ${joinAnd(broken)} Broken${ties.length ? ` and removes ${ties[0]}` : ''}.`;
+  else if (ties.length) uses = ` Also removes ${ties[0]}.`;
+  return `Removed.${uses}${next ? ` ${next} becomes the default router.` : ''}`;
+}
+
+// orderLabel: the label of the Router order row in the Save review, from the names of the default router before and
+// after.
+export const orderLabel = (was, now) => (was !== now ? `Router order. Default router: was ${was}, now ${now}` : 'Router order');
+
 // The link state of a router in the Routers list, as an icon and words. A healthy link shows no color
 // (docs/color-roles.md): Connected is plain text. Connecting is caution (state warn). Down and Never connected are
 // failure (state error).

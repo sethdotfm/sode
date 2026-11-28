@@ -14,7 +14,21 @@ import { rereadNames } from './rereadnames.js';
 import { everyHold } from './protects.js';
 import { levelColor } from './levelbox.js';
 import { tryRouterAddress } from './routertry.js';
-import { LIST_KEY, ORDER_KEY, addKey, freePrefix, keyAttr, keyRouter, linkState, listKey, removeKey, routerDisplay, usesNote } from './routerlistrules.js';
+import {
+  LIST_KEY,
+  ORDER_KEY,
+  addKey,
+  freePrefix,
+  keyAttr,
+  keyRouter,
+  linkState,
+  listKey,
+  orderLabel,
+  removeKey,
+  removedText,
+  routerDisplay,
+  usesNote,
+} from './routerlistrules.js';
 import {
   ATTR_LABELS,
   DETAIL_ATTRS,
@@ -560,12 +574,12 @@ addSaveSource({
   label(r) {
     if (r.key === ORDER_KEY) {
       const [was, now] = [r.was?.[0], r.now?.[0]];
-      return was !== now ? `Router order. Default router: ${loadedName(was)} → ${nameOfUid(now)}` : 'Router order';
+      return was !== now ? orderLabel(loadedName(was), nameOfUid(now)) : 'Router order';
     }
     const attr = attrOf(r.key);
     const uid = keyRouter(r.key);
     if (attr === 'add') return `New router ${now()[r.key]?.prefix || ''}`.trim();
-    if (attr === 'remove') return `Remove ${loadedName(uid)}`;
+    if (attr === 'remove') return /^Router\b/.test(loadedName(uid)) ? loadedName(uid) : `Router ${loadedName(uid)}`;
     // With one router a row needs no router name.
     return S.routers.length + items.filter((x) => x.isNew).length > 1 ? `${loadedName(uid)}: ${ATTR_LABELS[attr]}` : ATTR_LABELS[attr];
   },
@@ -575,11 +589,10 @@ addSaveSource({
     const x = itemOf(keyRouter(r.key));
     if (attr === 'add') return v ? addText(v) : 'Blank';
     if (attr === 'remove') {
-      if (!v) return 'Kept';
-      const head = usesNote(x ? valuesOf(x).prefix : '', x?.uses || []).head;
+      if (!v) return 'In use';
       const next = defaultAfter();
       // The first router goes: the next router that stays is the default router.
-      return x && isFirst(x) && next ? `${head} ${nameOfUid(next.uid)} becomes the default router.` : head;
+      return removedText(x?.uses || [], x && isFirst(x) && next ? nameOfUid(next.uid) : '');
     }
     return valueText(attr, v, x ? valuesOf(x) : {});
   },
