@@ -192,6 +192,8 @@ export function gridBody(ctx, first) {
   };
 
   const render = () => {
+    const blank = g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded, owner: panel.owner });
+    if (!blank) empty.free();
     view.marks = pressMode()?.marks() || null;
     paintLevels();
     dirty = false;
@@ -209,14 +211,14 @@ export function gridBody(ctx, first) {
     );
     // The Grid popup's staged list (gridpopup.js). A new array is a new stage.
     if (ctx.onStage && st.staged !== toldStaged) ctx.onStage((toldStaged = st.staged));
-    paintEmpty(g, g && emptyText({ srcs: full.srcs.length, dsts: full.dsts.length, canEdit: panel.canEdit && !ctx.embedded }));
+    empty.paint(g, blank, [ui.levels, head?.finds]);
     // The Live Editor (editorlive.js), where the picks are also the lists' selection, and the Grid popup's shield
     // (gridpopshield.js). picks is replaced on every change.
     if (ui.onPicks && picks !== toldPicks) ui.onPicks((toldPicks = picks));
     boxes?.paint(find, countsOf());
     status();
   };
-  const paintEmpty = gridEmpty(ctx, ui);
+  const empty = gridEmpty(ctx, ui);
   // Results and errors fade on the clock, so the status line is what the tick paints each time. On the panel page's
   // desktop layout they show in the banner (gridpanelheadview.js). A note is new by its time. A state's text goes when
   // the state clears.

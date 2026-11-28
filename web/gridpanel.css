@@ -1644,3 +1644,7 @@ html:has(.sode-gridpanel) {
 #keys-dialog .sode__keys {
   grid-template-columns: fit-content(12rem) 1fr;
 }
+/* With no item on either axis, the corner's words name nothing (gridpanelempty.js). */
+.sode-gridpanel__head[data-empty] {
+  visibility: hidden;
+}
