@@ -339,7 +339,14 @@ html:has(.sode-gridpanel) {
 }
 :root:not([data-layout="phone"]) .sode-gridpanel__dst > :is(.sode-gridpanel__art, .sode-gridpanel__prot, .sode-gridpanel__held, .sode-gridpanel__other) {
   flex-basis: 100%;
-  justify-content: center;
+  justify-content: flex-start;
+  text-align: start;
+}
+/* The marks start under the name, past the number column (1ch of the number font is about 0.6 of its size). */
+:root:not([data-layout="phone"])
+  .sode-gridpanel__dst[data-num]:not([data-hide-text])
+  > :is(.sode-gridpanel__prot, .sode-gridpanel__held, .sode-gridpanel__other) {
+  padding-inline-start: calc(var(--sode-num-ch, 5) * 0.6 * var(--pb-text-sm) + var(--pb-space-3));
 }
 :root:not([data-layout="phone"]) :is(.sode-gridpanel__src, .sode-gridpanel__dst)[data-num]::before {
   color: var(--pb-text-muted);
@@ -348,7 +355,17 @@ html:has(.sode-gridpanel) {
   font-family: var(--pb-font-num);
   font-weight: var(--pb-weight-normal);
   letter-spacing: normal;
-  margin-inline-end: var(--pb-space-1);
+  margin-inline-end: var(--pb-space-3);
+}
+/* Destination names start at one x: the rows start at the bar's edge, and each number is a right-aligned column wide
+   enough for most router numbers. */
+:root:not([data-layout="phone"]) .sode-gridpanel__dst {
+  justify-content: flex-start;
+  padding-inline-start: var(--pb-space-4);
+}
+:root:not([data-layout="phone"]) .sode-gridpanel__dst[data-num]::before {
+  min-width: calc(var(--sode-num-ch, 5) * 1ch);
+  text-align: end;
 }
 :root:not([data-layout="phone"]) .sode-gridpanel__src {
   align-content: center;

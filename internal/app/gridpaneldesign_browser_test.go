@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"math"
 	"testing"
 )
@@ -79,6 +80,18 @@ func TestChromeGridPanelDesign(t *testing.T) {
 	})()`)
 	b.eval(`document.getElementById('panel-clear').click(); true`)
 	b.waitFor("Clear drops the stage and its bands", `!document.querySelector('.sode-gridpanel__xp:is([data-s="staged"], [data-staged-row], [data-staged-col])')`)
+
+	// The Destination bar (C2-43): the numbers are one column, apart from the names by --pb-space-3, so every name
+	// starts at one x.
+	gap3 := b.tokenPx(".sode-gridpanel__dst", "--pb-space-3")
+	if got := b.eval(`(() => {
+		const rows = [...document.querySelectorAll('.sode-gridpanel__side .sode-gridpanel__dst:not([hidden]), .sode-gridpanel__body .sode-gridpanel__dst:not([hidden])')].filter((n) => n.getClientRects().length && !n.hasAttribute('data-hide-text'));
+		const lefts = rows.map((n) => { const r = document.createRange(); r.selectNodeContents(n.firstChild); return r.getBoundingClientRect().left; });
+		const b = getComputedStyle(rows[0], '::before');
+		return rows.length > 5 && Math.max(...lefts) - Math.min(...lefts) < 0.5 && b.textAlign === 'end' && Math.abs(parseFloat(b.marginInlineEnd) - ` + fmt.Sprint(gap3) + `) < 0.5;
+	})()`); got != true {
+		t.Error("the Destination bar's names do not start at one x past a number column with a --pb-space-3 gap")
+	}
 
 	b.check()
 }
