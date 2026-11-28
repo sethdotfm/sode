@@ -1,0 +1,5 @@
+- The lock screen is one column. The Name box is as wide as the PIN pad, and the page's own site name no longer shows blurred behind the lock. The PIN dots and the site name are centred.
+- The Name box comes first on the lock screen, then the PIN dots and messages, then the keys. The name list drops over the keys and moves nothing, and shows six and a half names.
+- The last key on the PIN pad says "Sign in" (or "Step in") with a check icon, and is as high as the other keys. The back key says "Delete".
+- A wait after wrong PINs is in words: "Try again in 30 seconds".
+- The name list in the Approval popup shows whole and is no longer cut by the popup.
