@@ -1,6 +1,8 @@
 /* The Sode Communication Log page (/log). Load after base.css. */
 
 .sode-log {
+  /* One label column for the filter rows: "Router uptime", the widest label, is 97 px. */
+  --sode-log-label-w: 6.5rem;
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-5);
@@ -45,16 +47,28 @@
   padding: 0;
   width: auto;
 }
+.sode-log__uptime > .sode-log__line > h2,
+.sode-log__kinds > legend,
+.sode-log__when:first-child > .sode__label {
+  flex: none;
+  width: var(--sode-log-label-w);
+}
+/* With the fieldset's gap, the legend ends the same space before the first chip as the other rows. */
 .sode-log__kinds > legend {
-  margin-right: var(--pb-space-2);
+  margin-right: calc(var(--pb-space-6) - var(--pb-space-2));
+}
+.sode-log__when:first-child {
+  gap: var(--pb-space-6);
 }
 .sode-log__chip {
   font-size: var(--pb-text-xs);
   padding: var(--pb-space-1) var(--pb-space-3);
 }
+/* The line before Problems only, as high as the chips (log.js). */
 .sode-log__sep {
-  color: var(--pb-text-muted);
-  padding: 0 var(--pb-space-1);
+  align-self: stretch;
+  border-inline-start: var(--pb-border-w) solid var(--pb-edge-soft);
+  margin: 0 var(--pb-space-2);
 }
 .sode-log__expr {
   flex: 0 1 16rem;
@@ -75,10 +89,28 @@
 .sode-log__table td {
   white-space: nowrap;
 }
-.sode-log__time,
+/* Only the reason wraps, so one long note does not push the Bytes column off the page. */
+.sode-log__table td.sode-log__why {
+  min-width: 16rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+/* The reason column takes all the spare width, so the other columns keep their content width when the rows on show
+   change. A fixed layout would cancel the min-width above and cut hex bytes. */
+.sode-log__table th[data-sort="why"] {
+  width: 100%;
+}
+.sode-log__time {
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-xs);
+  font-variant-numeric: tabular-nums;
+}
 .sode-log__hex {
   font-family: var(--pb-font-mono);
   font-size: var(--pb-text-xs);
+}
+#log-count {
+  font-family: var(--pb-font-num);
 }
 .sode-log__hex {
   color: var(--pb-text-muted);
@@ -88,12 +120,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Every row starts its time a cell padding after the problem stripe. */
+.sode-log__table :is(th, td):first-child {
+  padding-inline-start: calc(var(--pb-accent-bar-w) + var(--pb-space-3));
+}
 .sode-log__row--problem > td:first-child {
   box-shadow: inset var(--pb-accent-bar-w) 0 0 0 var(--pb-status-error);
 }
 .sode-log__lvl {
+  height: var(--pb-space-7);
   min-width: calc(var(--pb-space-8) + var(--pb-space-1));
   padding: 0 var(--pb-space-2);
+  vertical-align: middle;
 }
 .sode-log__more {
   align-items: center;
@@ -112,6 +150,7 @@
 }
 .sode-log__up-sum {
   color: var(--pb-text-strong);
+  font-family: var(--pb-font-num);
   font-size: var(--pb-text-sm);
 }
 /* With two or more routers: one line for each router, its name and its summary, over its bars (log.js). */
@@ -128,11 +167,15 @@
 .sode-log__up-more {
   display: contents;
 }
+/* A box, so the One bar note does not read as loose text between the filters and the table. */
 .sode-log__slot {
   align-items: center;
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-4);
+  margin: 0;
+  padding: var(--pb-space-3) var(--pb-space-4);
 }
 .sode-log__legend {
   display: flex;
@@ -148,10 +191,69 @@
 .sode-log__why-part {
   margin-inline-start: var(--pb-space-2);
 }
+/* A row with no reason (log.js wraps the reason in .sode-log__why-text) starts on the header's text edge. */
+.sode-log__why-part:first-child {
+  margin-inline-start: 0;
+}
 .sode-log__save > summary {
   cursor: pointer;
 }
 .sode-log__save-fields {
   margin: var(--pb-space-1) 0 0;
   padding-inline-start: var(--pb-space-4);
+}
+
+/* The phone layout (375 px): the title on its own line, one right edge for the fields, touch-high controls. The table
+   drops the date and the Bytes column and keeps its native sideways scroll bar (bigscroll.js). */
+[data-pb-layout="phone"] .sode-log__head {
+  flex-wrap: wrap;
+}
+[data-pb-layout="phone"] .sode-log__title {
+  flex: 1 0 100%;
+  order: -1;
+}
+[data-pb-layout="phone"] .sode-log__line {
+  column-gap: var(--pb-space-4);
+}
+[data-pb-layout="phone"] .sode-log__when {
+  flex: 1 0 100%;
+}
+[data-pb-layout="phone"] .sode-log__when > .sode__label,
+[data-pb-layout="phone"] .sode-log__when:first-child > .sode__label {
+  flex: none;
+  width: 3rem;
+}
+[data-pb-layout="phone"] .sode-log__when:first-child {
+  gap: var(--pb-space-3);
+}
+[data-pb-layout="phone"] .sode-log__when > .pb-input,
+[data-pb-layout="phone"] .sode-log__expr {
+  flex: 1 1 auto;
+  max-width: none;
+  min-width: 0;
+  width: auto;
+}
+[data-pb-layout="phone"] .sode-log__expr {
+  flex-basis: 100%;
+}
+[data-pb-layout="phone"] .sode-log__chip,
+[data-pb-layout="phone"] .sode-log__filters .pb-btn {
+  min-height: var(--pb-control-h);
+}
+[data-pb-layout="phone"] #log-count {
+  flex: 1 0 100%;
+}
+[data-pb-layout="phone"] .sode-log__filters .sode-log__spacer {
+  display: none;
+}
+[data-pb-layout="phone"] #log-download-rows,
+[data-pb-layout="phone"] #log-download-full {
+  flex: 1 1 0;
+}
+[data-pb-layout="phone"] .sode-log__sep {
+  display: none;
+}
+[data-pb-layout="phone"] .sode-log__table .sode__date,
+[data-pb-layout="phone"] .sode-log__table :is(th, td):nth-child(8) {
+  display: none;
 }

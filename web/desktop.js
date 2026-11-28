@@ -296,11 +296,16 @@ on('history', () => {
 on('last', renderLast);
 
 // Fills one box from the last take, then focuses the opposite box only if empty, else Levels.
-// next: use nextTake() and remember it so a repeat goes on.
+// next: use nextTake() and remember it so a repeat goes on. When there is nothing to fill, focus
+// stays in that kind's box, so a keyboard user keeps their place.
 function useLast(k, next = false) {
+  const stay = () => (k === 'lvl' ? toLevels() : focusBox(boxes[k].input));
   const fill = lastFill(k, next, boxState());
-  if (fill?.none) return showResult('info', 'No earlier take', '');
-  if (!fill) return;
+  if (fill?.none) {
+    stay();
+    return showResult('info', 'No earlier take', '');
+  }
+  if (!fill) return stay();
   const t = fill.t;
   if (k === 'src') {
     select('src', t.src);
@@ -320,7 +325,7 @@ function useLast(k, next = false) {
   } else if (levelsShown()) {
     lvl.set(t.levels);
     focusBox(lvlInput);
-  }
+  } else stay();
 }
 
 // Both lists show at the same time, on their own row (the flip swaps them).

@@ -1,0 +1,3 @@
+- Communication Log: each uptime strip is one Tab stop. The arrow keys, Home and End move along its bars, and every bar has a name for screen readers.
+- Communication Log: a picked bar keeps its color, with the ring outside it. No data bars show as an outline. The range chips say only the range ("24 hours"), and their tip says how long each bar is. The note of a picked bar says One bar, with Show all bars, and sits in a box. A bar's tip opens over the strip, inside the strip's ends, and says the date once.
+- Communication Log: the page has a phone layout. The title has its own line, the fields share one right edge and the controls are touch high. The table drops the date and the Bytes column. A narrow strip has fewer, wider bars.

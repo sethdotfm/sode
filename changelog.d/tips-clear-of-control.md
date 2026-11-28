@@ -1,0 +1,1 @@
+- A tooltip no longer covers its own control or that control's box. A label's tip opens over the label, the Last chip's tip opens over the chip, and the Multi destination help opens over its heading. The Lock menu's tip closes when the menu opens.

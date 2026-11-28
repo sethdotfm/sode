@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -51,10 +52,18 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	files := http.FileServerFS(static)
 	cached := &staticFiles{fsys: static}
+	notFound := notFoundPage(static)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/")
 		if name == "" {
 			name = "index.html"
+		}
+		// A trailing slash makes the name invalid for fs, so look the path up without it.
+		if probe := strings.TrimSuffix(name, "/"); static != nil && r.URL.Path != "/" && fs.ValidPath(probe) {
+			if _, err := fs.Stat(static, probe); errors.Is(err, fs.ErrNotExist) {
+				notFound(w, r)
+				return
+			}
 		}
 		// FileServer keeps its redirects (/index.html to /) and folder answers.
 		if r.URL.Path == "/index.html" || !fs.ValidPath(name) || !cached.serve(w, r, name) {
@@ -65,7 +74,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	page := func(name string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if !cached.serve(w, r, name) {
-				http.NotFound(w, r)
+				notFound(w, r)
 			}
 		}
 	}
@@ -79,7 +88,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	panelPage := page("panel.html")
 	mux.HandleFunc("/panels/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if id := r.PathValue("id"); !validPanelID(id) && !validPanelSlug(id) {
-			http.NotFound(w, r)
+			notFound(w, r)
 			return
 		}
 		panelPage(w, r)
@@ -109,6 +118,38 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/setup/restore", a.serveSetupRestore)
 	a.mountAPI(mux)
 	return a.httpsGate(secureHeaders(mux))
+}
+
+// notFoundPage answers a page path that does not exist with web/notfound.html, which links back to Sode. Its base
+// goes up one step for each segment of the path, so the link works behind a proxy path too. API paths and callers that
+// do not ask for HTML (scripts, curl) keep the plain reply.
+func notFoundPage(static fs.FS) http.HandlerFunc {
+	if static == nil {
+		return http.NotFound
+	}
+	body, err := fs.ReadFile(static, "notfound.html")
+	const base = `<base href="./">`
+	if err != nil || !bytes.Contains(body, []byte(base)) {
+		return http.NotFound
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || (r.Method != http.MethodGet && r.Method != http.MethodHead) ||
+			!strings.Contains(r.Header.Get("Accept"), "text/html") {
+			http.NotFound(w, r)
+			return
+		}
+		up := "./"
+		if n := strings.Count(r.URL.EscapedPath(), "/") - 1; n > 0 {
+			up = strings.Repeat("../", n)
+		}
+		h := w.Header()
+		h.Set("Content-Type", "text/html; charset=utf-8")
+		h.Set("Cache-Control", "no-cache")
+		w.WriteHeader(http.StatusNotFound)
+		if r.Method == http.MethodGet {
+			w.Write(bytes.Replace(body, []byte(base), []byte(`<base href="`+up+`">`), 1))
+		}
+	}
 }
 
 // csp: same-origin scripts only (no inline bodies or on*= handlers; a test keeps it so);
