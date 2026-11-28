@@ -114,7 +114,7 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 	}
 
 	// C2-26: icons on the toolbar buttons, and Save stays at the right when the bar wraps.
-	if !b.eval(`['ed-share', 'ed-copylink', 'ed-open', 'ed-live', 'ed-name-btn'].every((id) => !!document.getElementById(id).querySelector('svg'))`).(bool) {
+	if !b.eval(`['ed-name-btn', 'ed-templates', 'ed-share', 'ed-copylink', 'ed-open', 'ed-live'].every((id) => !!document.getElementById(id).querySelector('svg'))`).(bool) {
 		t.Error("a toolbar button has no icon")
 	}
 

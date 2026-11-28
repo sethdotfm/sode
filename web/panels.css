@@ -718,6 +718,10 @@ body {
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
 }
+/* The save state and Save stay at the right when they wrap to a row of their own. */
+.sode-ed__bar > .sode-ed__grp:last-child {
+  margin-inline-start: auto;
+}
 .sode-ed__pick {
   font-size: var(--pb-text-md);
   min-width: 14rem;
