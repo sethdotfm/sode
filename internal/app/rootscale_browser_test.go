@@ -40,12 +40,15 @@ func TestChromeRootScale(t *testing.T) {
 	sizeTo(b, 1920, 1080)
 	b.open(srv.URL + "/")
 	b.waitFor("the pad on load", `!!document.querySelector('.sode-lock.is-on') && !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	// The pad body fades in after a delay; a shot taken before that shows an empty Lock.
+	b.waitFor("the pad has faded in", `getComputedStyle(document.querySelector('.sode-lock__body')).opacity === '1' && document.getAnimations().every((a) => a.playState !== 'running')`)
 
 	each := func(page string) {
 		t.Helper()
 		for _, s := range rootSizes {
 			sizeTo(b, s.w, s.h)
 			rootIs(b, fmt.Sprintf("%s at %dx%d", page, s.w, s.h), s.px)
+			b.waitFor("no animation running", `document.getAnimations().every((a) => a.playState !== 'running')`)
 			b.shot(fmt.Sprintf("%s-%dx%d", page, s.w, s.h))
 		}
 	}
