@@ -6,7 +6,7 @@ import { el, icon } from './core.js';
 import { keyLabel } from './keys.js';
 import { btn } from './formbits.js';
 import { axisSpan, spanMax, OVER } from './gridpanelwindow.js';
-import { routerRows, findRows, addItems, selectRows } from './editorgridrules.js';
+import { routerRows, findRows, addItems, selectRows, numChars } from './editorgridrules.js';
 import { numText } from './routerids.js';
 
 const ROW_REM = 2; // keep in step with .sode-rlist__row in panels.css
@@ -79,6 +79,8 @@ export function createRouterList(o) {
     if (!now.every((x, i) => x === rowsKey[i])) {
       rowsKey = now;
       rows = routerRows(now[0], now[1], now[2], o.kind);
+      // From every row, not the found ones, so the names keep their edge while Find changes.
+      box.style.setProperty('--sode-num-ch', String(numChars(rows, numText(o.names()))));
     }
     const s = [rows, text, o.names()];
     if (!s.every((x, i) => x === shownKey[i])) {

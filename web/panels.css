@@ -1535,6 +1535,15 @@ body {
 .sode-edge__row .sode-pages__name {
   flex: 1 1 auto;
 }
+/* --sode-num-ch is the longest number label in the list (editorgridlist.js, editorrouterlist.js), so every name
+   starts at one edge. */
+:is(.sode-edge__row, .sode-rlist__row) .sode-pages__num {
+  color: var(--pb-text-muted);
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  min-width: calc(var(--sode-num-ch, 4) * 1ch + 0.5ch);
+  text-align: end;
+}
 /* A row's artwork is the cell's artwork row (panelview.js artNode) in a small box, at full strength. */
 .sode-edge__art {
   flex: 0 0 auto;

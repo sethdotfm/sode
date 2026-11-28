@@ -30,6 +30,7 @@ import {
   itemsHideText,
   drawnOrder,
   edgeListKey,
+  numChars,
 } from './editorgridrules.js';
 
 const FIRST = 30; // rows drawn before the list has a height
@@ -251,6 +252,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     const pinned = all.filter((r) => r.pinned).length;
     if (!pinned) pinOnly = false;
     shown = pinOnly ? all.slice(0, pinned) : all;
+    list.style.setProperty('--sode-num-ch', String(numChars(all, num)));
     at = new Map(shown.map((r, i) => [r.n, i]));
     // Rows that left the list leave the selection.
     if ([...sel.selected].some((x) => !at.has(x))) {

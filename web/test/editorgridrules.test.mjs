@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { edgeRows, moveRows, stepRows, pinItems, clearEdge, followRouter, stopFollowing, drawnOrder } from '../editorgridrules.js';
+import { edgeRows, moveRows, stepRows, pinItems, clearEdge, followRouter, stopFollowing, drawnOrder, numChars } from '../editorgridrules.js';
 import { namesReply } from './gridpanelfixture.mjs';
 
 const router = namesReply({
@@ -98,4 +98,13 @@ test('drawnOrder puts the pinned rows first, as the panel page draws them, each 
     drawnOrder(rows).map((r) => r.n),
     [1, 0, 4, 2],
   );
+});
+
+test('numChars is the longest number label, and 1 for no rows', () => {
+  assert.equal(numChars([{ n: 8 }, { n: 999 }, { n: 41 }], String), 3);
+  assert.equal(
+    numChars([{ n: 2499 }], (n) => `A.${n + 1}`),
+    6,
+  );
+  assert.equal(numChars([], String), 1);
 });
