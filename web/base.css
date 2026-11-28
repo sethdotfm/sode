@@ -404,22 +404,25 @@ html {
 [data-brand="teal"] {
   --brand-color: var(--pb-signal-06);
 }
-/* Sky sits between teal and blue (OKLCH hue 215); patchbay has no signal token there. */
+[data-brand="violet"] {
+  --brand-color: var(--pb-signal-09);
+}
+[data-brand="lilac"] {
+  --brand-color: var(--pb-signal-16);
+}
+/* Retired (config.BrandColors): not offered, but a saved config still draws them. Sky sits between teal and blue
+   (OKLCH hue 215); patchbay has no signal token there. */
 [data-brand="sky"] {
   --brand-color: light-dark(#008ca4, #4dc3dd);
 }
 [data-brand="slate"] {
   --brand-color: var(--pb-signal-14);
 }
-/* Retired (config.BrandColors): not offered, but a saved config still draws them. */
 [data-brand="green"] {
   --brand-color: var(--pb-signal-05);
 }
 [data-brand="amber"] {
   --brand-color: var(--pb-signal-02);
-}
-[data-brand="violet"] {
-  --brand-color: var(--pb-signal-09);
 }
 [data-brand="pink"] {
   --brand-color: var(--pb-signal-11);

@@ -498,6 +498,10 @@ The Settings topic for a person's own choices, saved to This browser or Me. It h
 **Look and feel**:
 The Settings topic for how Sode looks and acts on every browser: Everyone's defaults, Branding, History, Level colors and Confirm and results.
 
+**Theme color**:
+The server's own color, set in Branding and in the setup wizard. Sode draws the border round the page in it and makes the accent from it, so each server looks different. It is not Theme, which is the light or dark setting of a browser.
+_Avoid_: page border color, border color
+
 **Routers** / **Access** / **Server**:
 The other three Settings topics. Routers holds the Routers list and one block of sections for each router. Access holds the locks, users, API and panel sign-in. Server holds the proxy, Export & Import and the setup wizard.
 

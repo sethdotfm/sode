@@ -96,7 +96,7 @@ func TestChromeBrandAccent(t *testing.T) {
 	b.waitFor("amber kept with the caution note, no other retired color", `(() => {
 		const s = document.getElementById('cfg-brandborder');
 		const names = [...s.options].map((o) => o.value).join(' ');
-		return s.value === 'amber' && names === ' blue teal sky slate violet amber custom' && !!document.getElementById('brand-caution').offsetParent &&
+		return s.value === 'amber' && names === ' blue teal violet lilac amber custom' && !!document.getElementById('brand-caution').offsetParent &&
 			document.querySelector('.sode__brandframe').dataset.brand === 'amber';
 	})()`)
 	pick := func(value, custom string) {

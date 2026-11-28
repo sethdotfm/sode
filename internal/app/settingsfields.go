@@ -24,7 +24,7 @@ type settingField struct {
 var settingFields = []settingField{
 	{"browserDefaults", "everyone-defaults", "Everyone's defaults", "everyone-defaults", false},
 	{"brandText", "branding", "Logo text and page title", "branding", false},
-	{"brandBorder", "branding", "Page border color", "branding", false},
+	{"brandBorder", "branding", "Theme color", "branding", false},
 	{"hiddenDsts", "history", "Hidden destinations in History", "history", false},
 	{"hiddenDstsRouter", "history", "Hidden destinations router", "history", false},
 	{"levelColors", "level-colors", "Level colors", "level-colors", false},

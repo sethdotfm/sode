@@ -91,14 +91,17 @@ type BrandColor struct {
 	Retired bool   `json:"retired,omitempty"`
 }
 
-// Never red: that is the lost-link outline. The offered hues stay clear of the state colors (docs/color-roles.md).
-// Green, amber and pink are retired: their hues are routed, caution and protected.
+// Never red: that is the lost-link outline. The offered hues stay clear of the state colors, and each offered color is
+// far enough from the others to tell apart (docs/color-roles.md, web/test/accent.test.mjs). Green, amber and pink are
+// retired: their hues are routed, caution and protected. Sky and Slate are retired: they looked too much like Blue and
+// Teal.
 var BrandColors = []BrandColor{
 	{"blue", "Blue", "#5fb2e8", false},
 	{"teal", "Teal", "#5ccfc9", false},
-	{"sky", "Sky", "#4dc3dd", false},
-	{"slate", "Slate", "#a3b4d4", false},
 	{"violet", "Violet", "#a67ef0", false},
+	{"lilac", "Lilac", "#c4a3d4", false},
+	{"sky", "Sky", "#4dc3dd", true},
+	{"slate", "Slate", "#a3b4d4", true},
 	{"green", "Green", "#5fd09a", true},
 	{"amber", "Amber", "#e8a35e", true},
 	{"pink", "Pink", "#e87bb3", true},

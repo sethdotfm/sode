@@ -16,7 +16,7 @@ Require HTTPS (Settings > Proxy, `requireHttps`, an advanced setting) refuses ev
 
 ### Install as an app
 
-Sode is a web app. Use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS or on localhost, so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Border colour** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own. On iOS, remove the app and add it again. The app still needs the server to work. On a secure origin, a page that the device opened once also opens while Sode is down (README). It shows its Offline state and connects when Sode comes back.
+Sode is a web app. Use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS or on localhost, so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Theme color** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own. On iOS, remove the app and add it again. The app still needs the server to work. On a secure origin, a page that the device opened once also opens while Sode is down (README). It shows its Offline state and connects when Sode comes back.
 
 ## Using it
 
@@ -129,7 +129,7 @@ statusLabel: address
 Settings-only keys (no seed var):
 
 - `brandText`: replaces "Sode" in the header and page title, up to 24 characters.
-- `brandBorder` (`blue`, `teal`, `sky`, `slate`, `violet`, or a custom `#rrggbb`): a border round the window, off by default. Sode makes the accent from it (docs/color-roles.md). `green`, `amber` and `pink` are retired: Settings does not offer them, but a config that has one still loads, with a caution note in Settings.
+- `brandBorder` (`blue`, `teal`, `violet`, `lilac`, or a custom `#rrggbb`), the Theme color: a border round the window, off by default. Sode makes the accent from it (docs/color-roles.md). `green`, `amber`, `pink`, `sky` and `slate` are retired: Settings does not offer them. A config that has one still loads, and green, amber and pink show a caution note in Settings.
 - `title` (router): the router title, up to 32 characters.
 - `statusLabel` (`address`, `name` or `none`): the text next to the Routers icon in the status bar, one setting for every router. It is Status label at the top of Settings > Routers > Routers. It exports in the `routers` group of settings.yaml. Older releases kept it on each router. A file with no top-level `statusLabel` takes the first router's, and Sode does not write the router's key again.
 - `routers`: every router, in the order of the list in Settings > Routers. The first router is the default router (GLOSSARY.md). The one Save key `routers/order` (a list of router UIDs) changes the order.

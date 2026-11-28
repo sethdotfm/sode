@@ -218,7 +218,7 @@ func TestNameRereadFromEnv(t *testing.T) {
 
 // Retired page border colors still load and draw, but are not offered.
 func TestRetiredBrandColorsStillLoad(t *testing.T) {
-	for _, name := range []string{"green", "amber", "pink"} {
+	for _, name := range []string{"green", "amber", "pink", "sky", "slate"} {
 		c := Defaults()
 		c.Routers[0].Address = "10.0.0.5:8910"
 		c.BrandBorder = name
@@ -233,7 +233,7 @@ func TestRetiredBrandColorsStillLoad(t *testing.T) {
 			t.Errorf("%s is offered", name)
 		}
 	}
-	if got := strings.Join(BrandNames(), " "); got != "blue teal sky slate violet" {
+	if got := strings.Join(BrandNames(), " "); got != "blue teal violet lilac" {
 		t.Errorf("offered %q", got)
 	}
 }

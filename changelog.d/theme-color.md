@@ -1,0 +1,2 @@
+- The page border color is now the Theme color, in Settings and in the setup wizard. The wizard's heading is "Sode Server Name and Theme Color".
+- Theme colors: Lilac is new. Sky and Slate are no longer offered, since they looked too much like Blue and Teal; a saved one still works.

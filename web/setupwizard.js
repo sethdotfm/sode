@@ -137,7 +137,7 @@ function swatches() {
     icon('triangle-alert'),
     el('span', null, CAUTION_NOTE),
   );
-  return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box, note);
+  return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Theme color'), box, note);
 }
 
 function sheet() {
@@ -200,7 +200,7 @@ const nextLink = (text, section, href = '#settings') => el('li', null, el('a', {
 const VIEW = {
   welcome: () => [
     d.again ? 'Run setup again' : 'Set up Sode',
-    section('Server Name and Color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
+    section('Sode Server Name and Theme Color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
     // replaceChildren draws a null as text, so Run setup again leaves the section out.
     ...(d.again
       ? []

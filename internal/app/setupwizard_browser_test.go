@@ -63,7 +63,9 @@ func TestChromeSetupWizard(t *testing.T) {
 		const dialog = document.getElementById('setup-dialog').getBoundingClientRect();
 		return Math.abs(bar.left - dialog.left) <= 1 && Math.abs(bar.right - dialog.right) <= 1;
 	})()`)
-	b.waitFor("each color has its name, and no retired color shows", `[...document.querySelectorAll('.sode-setup__swatch-name')].map((n) => n.offsetParent && n.textContent).join(' ') === 'Off Blue Teal Sky Slate Violet Custom'`)
+	b.waitFor("each color has its name, and no retired color shows", `[...document.querySelectorAll('.sode-setup__swatch-name')].map((n) => n.offsetParent && n.textContent).join(' ') === 'Off Blue Teal Violet Lilac Custom'`)
+	b.waitFor("the heading and the label say Theme Color", `[...document.querySelectorAll('#setup-body .sode-setup__h')].some((h) => h.textContent === 'Sode Server Name and Theme Color')
+		&& document.getElementById('setup-brand-label').textContent === 'Theme color'`)
 	b.eval(`(() => { const c = document.querySelector('input[name="brandBorder"][type="color"]'); c.value = '#e05050'; c.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	b.waitFor("a custom color near a state color shows the caution note", `!!document.getElementById('setup-brand-caution')?.offsetParent`)
 	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)

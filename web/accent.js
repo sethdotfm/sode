@@ -52,6 +52,16 @@ export function oklch(hex) {
   return [L, Math.hypot(A, B), ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360];
 }
 
+// The OKLab distance of two colors (deltaE OK): about 0.02 is the least step people see. Offered theme colors are at
+// least MIN_APART from each other in both themes (web/test/accent.test.mjs), so no two look alike.
+export const MIN_APART = 0.1;
+export function distance(a, b) {
+  const [La, Ca, ha] = oklch(a);
+  const [Lb, Cb, hb] = oklch(b);
+  const r = Math.PI / 180;
+  return Math.hypot(La - Lb, Ca * Math.cos(ha * r) - Cb * Math.cos(hb * r), Ca * Math.sin(ha * r) - Cb * Math.sin(hb * r));
+}
+
 // Linear sRGB of an OKLCH color, maybe out of gamut.
 function linear(L, C, h) {
   const A = C * Math.cos((h * Math.PI) / 180);
