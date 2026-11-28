@@ -84,14 +84,14 @@ func TestChromeGridPanelLook(t *testing.T) {
 		const off = (s) => { const n = document.querySelector(s).getBoundingClientRect(); return n.top >= c.bottom || n.left >= c.right; };
 		return off('#panel-title') && off('#panel-lvl-pick') && off('#panel-levels .sode__box-head');
 	})()`)
-	b.waitFor("the Levels box is the main page's, large words that fit, with a short Select all as wide as it under it, both in the picks' height", `(() => {
+	b.waitFor("the Levels box is the main page's, large words that fit, with Select all as wide and as tall as it under it, both one pick high", `(() => {
 		const i = document.getElementById('panel-lvl'), p = document.getElementById('panel-lvl-pick').getBoundingClientRect();
 		const r = i.getBoundingClientRect(), cs = getComputedStyle(i), a = document.getElementById('panel-lvl-all').getBoundingClientRect();
 		const c = document.createElement('canvas').getContext('2d');
 		c.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
 		const fits = c.measureText(i.placeholder).width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) <= i.clientWidth;
 		return i.classList.contains('sode__input') && r.width >= 120 && cs.fontSize === '19.8px' && fits &&
-			Math.abs(r.top - p.top) < 1 && Math.abs(a.bottom - p.bottom) < 1 && a.top > r.bottom && a.height < r.height &&
+			Math.abs(r.top - p.top) < 1 && Math.abs(a.bottom - p.bottom) < 1 && a.top > r.bottom && Math.abs(a.height - r.height) < 1 &&
 			Math.abs(a.left - r.left) < 1 && Math.abs(a.width - r.width) < 1;
 	})()`)
 	b.waitFor("nothing in the deck is cut: the title, its line, Select none on one line", `(() => {

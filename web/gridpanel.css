@@ -1193,7 +1193,7 @@ html:has(.sode-gridpanel) {
      picks wide, with Select all under it. */
   --sode-pick: 2.6rem;
   --sode-lvl-w: calc(4 * var(--sode-pick) + 3 * var(--pb-space-1));
-  --sode-all-h: var(--pb-control-h-sm);
+  --sode-all-h: var(--sode-pick);
   align-items: stretch;
   column-gap: var(--pb-space-2);
   display: grid;
@@ -1320,11 +1320,11 @@ html:has(.sode-gridpanel) {
 :root:not([data-layout="phone"]) :is(.sode-gridpanel__deck .sode-gridpanel__note, .sode-gridpanel__deck .sode-gridpanel__chip, .sode-gridpanel__label) {
   font-size: var(--pb-text-sm);
 }
-/* As on the main page: a tall box with large words, here with Select all under it, both in the picks' height. */
+/* As on the main page: the Levels box with large words, one pick high, with Select all one pick high under it, so its rows meet where the search boxes' do. */
 :root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__levels > .sode__input {
   align-self: start;
   grid-area: input;
-  height: calc(100% - var(--sode-all-h) - var(--pb-space-1));
+  height: var(--sode-pick);
   max-width: none;
   min-width: 0;
   width: auto;
@@ -1392,6 +1392,11 @@ html:has(.sode-gridpanel) {
   justify-content: center;
   padding: 0 var(--pb-space-3);
 }
+/* On the panel page the switch has no box: a box read as a button. */
+:root:not([data-layout="phone"]) .sode-gridpanel__deck .sode-gridpanel__find-mode {
+  background: none;
+  border: 0;
+}
 /* On, the switch's box takes the accent edge, so the mode shows from across the room. */
 :root:not([data-layout="phone"]) :is(.sode-gridpanel__deck, .sode-gridpop__band) .sode-gridpanel__find-mode:has(> :checked) {
   border-color: var(--pb-accent);
@@ -1407,9 +1412,6 @@ html:has(.sode-gridpanel) {
 }
 .sode-gridpanel__rule--3 {
   grid-area: r3;
-}
-:root:not([data-layout="phone"]) .sode-gridpanel__rule--3 {
-  margin: 0;
 }
 :root:not([data-layout="phone"]) .sode-gridpanel__msg {
   align-items: stretch;

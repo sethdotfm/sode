@@ -93,5 +93,22 @@ func TestChromeGridPanelDesign(t *testing.T) {
 		t.Error("the Destination bar's names do not start at one x past a number column with a --pb-space-3 gap")
 	}
 
+	// The deck's stacks (C2-45): each rule has the same room on both sides, the Levels box and Select all are one
+	// pick high as the search boxes are, and the Filter switch has no box of its own.
+	bx := b.boxes("#panel-lvl", ".sode-gridpanel__rule--1", `.sode-gridpanel__find[data-kind="srcs"]`, ".sode-gridpanel__find-mode",
+		".sode-gridpanel__rule--3", ".sode-gridpanel__msg", ".sode-gridpanel__rule--2", "#panel-clear")
+	if len(bx) != 8 {
+		t.Fatalf("the deck has %d of its 8 parts", len(bx))
+	}
+	for _, r := range []int{1, 4, 6} {
+		near(bx[r].Name+": the room after it against the room before it", bx[r+1].Left-bx[r].Right, bx[r].Left-bx[r-1].Right)
+	}
+	near("the room before rule 3 against the room before rule 1", bx[4].Left-bx[3].Right, bx[1].Left-bx[0].Right)
+	b.sameHeight("the Levels box, Select all, a pick and the search boxes are one pick high", "#panel-lvl", "#panel-lvl-all",
+		"#panel-lvl-pick > .sode__pick:nth-child(2)", ".sode-gridpanel__find-input")
+	if got := b.eval(`(() => { const c = getComputedStyle(document.querySelector('.sode-gridpanel__deck .sode-gridpanel__find-mode')); return c.borderTopWidth === '0px' && c.backgroundColor === 'rgba(0, 0, 0, 0)'; })()`); got != true {
+		t.Error("the Filter switch still has a box")
+	}
+
 	b.check()
 }
