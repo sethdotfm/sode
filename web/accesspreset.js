@@ -16,18 +16,24 @@ let me = '';
 let pick = '';
 
 const pickBox = el('div', 'sode__field');
-const userBox = el('div', 'sode__field', el('span', 'sode__label', 'Set Never sign out and No auto-lock for'));
-const rows = el('div', 'sode__preset-users');
-const tickAll = btn('pb-btn--outline pb-btn--sm', 'Tick all', () => {
+const rows = el('div', { class: 'sode__preset-users', role: 'group', 'aria-labelledby': 'preset-users-label' });
+const tickAll = btn('pb-btn--outline', 'Tick all', () => {
   for (const b of rows.querySelectorAll('input')) b.checked = true;
 });
-userBox.append(tickAll, rows);
+const userBox = el(
+  'div',
+  'sode__field',
+  el('span', { class: 'sode__field-label', id: 'preset-users-label' }, 'Also change these users'),
+  el('span', 'sode__hint', 'The preset sets their Never sign out and No auto-lock.'),
+  el('div', null, tickAll),
+  rows,
+);
 const applyBtn = btn('sode-btn--primary', 'Stage changes', apply);
 const dlg = modal({
   titleId: 'preset-apply-title',
-  title: 'Apply an access preset',
+  title: 'Apply an Access preset',
   cls: 'pb-modal--md',
-  body: [pickBox, userBox],
+  body: [el('div', 'sode__preset-body', pickBox, userBox)],
   foot: [btn('pb-btn--outline', 'Cancel', close), applyBtn],
   onEsc: close,
 });
@@ -43,7 +49,7 @@ function fillPick() {
       applyBtn.disabled = false;
     },
   );
-  pickBox.replaceChildren(el('span', 'sode__label', 'Access preset'), seg.node);
+  pickBox.replaceChildren(el('span', 'sode__field-label', 'Access preset'), seg.node);
   seg.set(pick);
 }
 

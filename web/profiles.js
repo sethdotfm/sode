@@ -11,22 +11,23 @@ import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, c
 const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
 const note = el('span', { class: 'sode__hint', role: 'status', 'aria-live': 'polite' });
 const body = el('div', 'sode__profiles-body');
-// Own profile only. Outside body, so #account-broken stays in the page for brokencount.js between opens.
+// Own profile only. paint() keeps it in body, so #account-broken stays in the page for brokencount.js between opens.
 const brokenBox = el('div', { class: 'sode__broken-count', id: 'account-broken', hidden: true });
-const swapBtn = btn('pb-btn--outline pb-btn--sm', 'Swap…', () => emit('openSwap', { mine: true }));
+const swapBtn = btn('pb-btn--outline', 'Swap…', () => emit('openSwap', { mine: true }));
 swapBtn.setAttribute('aria-haspopup', 'dialog');
 const mineSec = el(
   'section',
   { class: 'sode__profiles-sec', hidden: true },
   el('h3', 'sode__profiles-h', 'Broken and Name moved'),
   brokenBox,
-  el('div', null, swapBtn),
+  el('div', 'sode__profiles-swap', swapBtn),
 );
+body.append(mineSec);
 const dlg = modal({
   titleId: 'profiles-title',
   title: 'Profile',
   cls: 'sode__filters sode__profiles-dlg',
-  body: [body, mineSec, err],
+  body: [body, err],
   foot: [note, btn('pb-btn--outline', 'Close', () => closeDialog())],
   onEsc() {
     if (removing) {
@@ -91,9 +92,9 @@ function prefLine(f) {
   }
   sel.value = f.value;
   sel.addEventListener('change', () => doSave({ prefs: prefsWith(prof.prefs, f.key, sel.value) }, 'Saved.'));
-  const lab = el('label', 'sode__label', f.label);
+  const lab = el('label', null, f.label);
   lab.htmlFor = id;
-  return el('li', 'sode__profiles-row', el('span', 'sode__profiles-item', lab), el('span', 'pb-select-wrap', sel));
+  return el('div', 'sode__field', lab, el('span', 'pb-select-wrap', sel));
 }
 
 function listSection(heading, rows, empty, addText, ev) {
@@ -111,7 +112,7 @@ function paint() {
   mineSec.hidden = !prof || !own();
   title.textContent = who ? `Profile: ${who}` : 'Profile';
   if (!prof) {
-    body.replaceChildren(el('p', 'sode__hint', `Reading ${who}'s profile…`));
+    body.replaceChildren(el('p', 'sode__hint', `Reading ${who}'s profile…`), mineSec);
     return;
   }
   body.replaceChildren(
@@ -120,8 +121,8 @@ function paint() {
       'section',
       'sode__profiles-sec sode__profiles-sec--prefs',
       el('h3', 'sode__profiles-h', 'User defaults'),
-      el('p', 'sode__hint', 'Not set uses the global default.'),
-      el('ul', 'sode__profiles-list', ...prefFields(prof.prefs).map(prefLine)),
+      el('p', 'sode__hint', "Not set: Everyone's default applies."),
+      el('div', 'sode__fields', ...prefFields(prof.prefs).map(prefLine)),
     ),
     listSection(
       'Presets',
@@ -137,6 +138,7 @@ function paint() {
       'Add filter set',
       'openFilterEditor',
     ),
+    mineSec,
   );
 }
 

@@ -227,7 +227,7 @@
           <span class="pb-select-wrap"><select id="cfg-clock" class="pb-select" data-pref="clock"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-flip">Destination before Source</label>
+          <label for="cfg-flip">Destination before source</label>
           <span class="pb-select-wrap"><select id="cfg-flip" class="pb-select" data-pref="flip"></select></span>
         </div>
         <div class="sode__field">
@@ -235,7 +235,7 @@
           <span class="pb-select-wrap"><select id="cfg-scrolltop" class="pb-select" data-pref="scrollTop"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-search-filters">Searching history respects filters</label>
+          <label for="cfg-search-filters">Search in History uses filters</label>
           <span class="pb-select-wrap"><select id="cfg-search-filters" class="pb-select" data-pref="searchFilters"></select></span>
         </div>
         <div class="sode__field">
@@ -265,6 +265,7 @@
       <legend>My user</legend>
       <div class="sode__field" id="account" data-find="account" data-label="Me">
         <span class="sode__acct" id="account-name"></span>
+        <p class="sode__hint" id="account-guest-note" hidden>You act as a guest, with Guest Rights.</p>
         <div class="sode__names sode__names--start">
           <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Sign in" hidden>Sign in</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-stepin" data-find="account-stepin" data-label="Step in" aria-haspopup="dialog" hidden>Step in</button>
@@ -299,7 +300,7 @@
           <span class="pb-select-wrap"><select id="gcfg-clock" class="pb-select" data-gpref="clock"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-flip">Destination before Source</label>
+          <label for="gcfg-flip">Destination before source</label>
           <span class="pb-select-wrap"><select id="gcfg-flip" class="pb-select" data-gpref="flip"></select></span>
         </div>
         <div class="sode__field">
@@ -307,7 +308,7 @@
           <span class="pb-select-wrap"><select id="gcfg-scrolltop" class="pb-select" data-gpref="scrollTop"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-search-filters">Searching history respects filters</label>
+          <label for="gcfg-search-filters">Search in History uses filters</label>
           <span class="pb-select-wrap"><select id="gcfg-search-filters" class="pb-select" data-gpref="searchFilters"></select></span>
         </div>
         <div class="sode__field">
@@ -350,6 +351,7 @@
             <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
             <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
           </span>
+          <span class="sode__hint">Page border and app icon</span>
           <p class="pb-note pb-note--warn sode__brand-caution" id="brand-caution" role="status" hidden></p>
         </div>
       </div>
@@ -366,19 +368,18 @@
         <div class="sode__names" id="clear-step1">
           <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
         </div>
-        <div class="sode__names" id="clear-step2" hidden>
-          <span>
-            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Cancel</button>
-            <button type="button" class="pb-btn pb-btn--outline" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
-          </span>
+        <div class="sode__names sode__names--start" id="clear-step2" hidden>
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Cancel</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-confirm" data-pb-tip="Cannot be undone">Clear History for everyone</button>
         </div>
       </div>
     </fieldset>
 
     <fieldset class="sode__group" data-section="level-colors" data-topic="look-and-feel">
       <legend>Level colors</legend>
-      <p class="sode__hint">Each router takes these colors by position: its first level takes color 1, its second level takes color 2. So level 1, level 0 and level V can have the same color on different routers.</p>
+      <p class="sode__hint">Each router takes these colors by position: its first level takes color 1, its second level takes color 2. So level 1, level 0 and level V can have the same color on different routers. Grey text is the default color.</p>
       <div class="sode__colors" id="cfg-colors"></div>
+      <p class="sode__hint sode__error-text" id="cfg-colors-err" role="status" hidden></p>
       <div class="sode__names">
         <button type="button" class="pb-btn pb-btn--outline" id="cfg-colors-reset">Reset to default</button>
       </div>
@@ -388,12 +389,14 @@
       <legend>Confirm and results</legend>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-lockout" data-pb-tip="Delay before the Confirm letter and OK work.">Confirm lockout (ms)</label>
+          <label for="cfg-lockout">Confirm lockout (ms)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
+          <span class="sode__hint">Delay before the Confirm letter and OK work.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-dismiss" data-pb-tip="0 = stays open. Failures always stay.">Success banner closes after (s)</label>
+          <label for="cfg-dismiss">Close a success banner after (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
+          <span class="sode__hint">0 keeps it open. A failure banner always stays.</span>
         </div>
       </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms takes</span></label>
@@ -622,16 +625,18 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field" data-find="lock-pages" data-label="Page locks">
-          <span class="sode__label" id="cfg-locks-label" data-pb-tip="Needs a user with a PIN">Page locks</span>
+          <span class="sode__label" id="cfg-locks-label">Page locks</span>
           <div role="group" aria-labelledby="cfg-locks-label">
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Main page</span></label>
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Communication Log</span></label>
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-panel"><span class="pb-check__label">Panels</span></label>
           </div>
+          <span class="sode__hint">Needs a user with a PIN.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-auto-lock" data-pb-tip="0 = off">Auto-lock after (min)</label>
+          <label for="cfg-auto-lock">Auto-lock after (min)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
+          <span class="sode__hint">0 is off.</span>
         </div>
       </div>
       <div class="sode__field sode__field--half">
@@ -671,8 +676,9 @@
         <label class="pb-check" data-pb-tip="Off: commands, refusals and key events only"><input type="checkbox" class="pb-check__input" id="api-log-reads"><span class="pb-check__label">Log API reads</span></label>
       </div>
       <div class="sode__field sode__field--half">
-        <label for="api-rate" data-pb-tip="0 = off">Rate limit (requests/min per key)</label>
+        <label for="api-rate">Rate limit (requests/min per key)</label>
         <span class="pb-number-wrap"><input type="number" id="api-rate" class="pb-input" min="0" max="100000"></span>
+        <span class="sode__hint">0 is off.</span>
       </div>
       <div class="sode__field sode__field--half">
         <label for="api-cap">API takes in flight (max)</label>
@@ -686,7 +692,7 @@
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-public-panels" data-key="publicPanels" data-type="bool"><span class="pb-check__label">Public panels allowed</span></label>
       </div>
       <div class="sode__field sode__field--half">
-        <label for="cfg-new-panel-acts">New-panel Authentication mode</label>
+        <label for="cfg-new-panel-acts">Authentication mode for new panels</label>
         <span class="pb-select-wrap"><select id="cfg-new-panel-acts" class="pb-select" data-key="newPanelActs"><option value="public">Public</option><option value="session">User</option><option value="both">Both</option><option value="api">API</option></select></span>
       </div>
     </fieldset>
@@ -700,7 +706,7 @@
       </div>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-require-https" data-key="requireHttps" data-type="bool"><span class="pb-check__label">Require HTTPS</span></label>
-        <span class="sode__hint">Refuses every request that a trusted proxy did not mark <code>X-Forwarded-Proto: https</code>, except the health endpoints. Needs at least one trusted proxy, and you must save from an HTTPS address. Console reset: <code>sode -reset-https</code>.</span>
+        <span class="sode__hint">Sode refuses a request that a trusted proxy did not mark <code>X-Forwarded-Proto: https</code>. The health endpoints stay open. Add a trusted proxy first, and save from an HTTPS address. To turn it off from the console: <code>sode -reset-https</code>.</span>
       </div>
     </fieldset>
 

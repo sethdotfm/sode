@@ -2,6 +2,12 @@
 .sode__scrim > :is(.sode__xi, .sode__xi-own) {
   width: min(37.5rem, calc(100vw - var(--pb-space-8) * 2));
 }
+/* A fixed top, as Manage users (lock.css), so the tab strip stays under the pointer when the tab changes. */
+.sode__scrim > .sode__xi {
+  align-self: flex-start;
+  margin-top: 8vh;
+  max-height: calc(100vh - 8vh - var(--pb-space-8) * 2 - var(--sode-down-h, 0px));
+}
 :is(.sode__xi, .sode__xi-own) .pb-modal__footer {
   gap: var(--pb-space-3);
 }

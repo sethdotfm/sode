@@ -1,0 +1,6 @@
+- Manage users is wider, so each row shows its buttons and Role whole, and the Role column has a head. Its tab strip stays in one place when you change tabs. The row buttons say Edit profile, Edit rights and Sign out all.
+- The Rights tab has one gap between its fields, and a list under All shows no example value.
+- The Profile dialog puts Presets, Filter sets and Broken next to User defaults, with no empty blocks. User defaults are fields as in Everyone's defaults.
+- Apply an Access preset and My API clients have gaps between their checks and fields. In My API clients, the API scopes come before Make API client, and the key fields wait until there is a client.
+- Export names each Settings section by its name only. The Import tab says what to do first.
+- Copy this browser to My user copies by default; turn off Keep in This browser to move. With nothing to copy, it says so in one line.

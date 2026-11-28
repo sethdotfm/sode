@@ -20,6 +20,15 @@ export function showNote(n, text) {
   n.hidden = !text;
 }
 
+// The text of a Settings label without the Access preset badge that the Save path puts in it (settingssave.js).
+export function labelText(node) {
+  if (!node) return undefined;
+  if (!node.querySelector('.sode__preset-mark')) return node.textContent;
+  const copy = node.cloneNode(true);
+  for (const m of copy.querySelectorAll('.sode__preset-mark')) m.remove();
+  return copy.textContent;
+}
+
 // props is a class string or an object; a key the element has as a property is set as one, any other as an attribute.
 export function el(tag, props, ...kids) {
   const e = document.createElement(tag);

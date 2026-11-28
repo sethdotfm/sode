@@ -448,10 +448,14 @@ html {
   display: flex;
   gap: var(--pb-space-4);
 }
+/* The custom picker, the border swatch and the app icon are one size. */
+.sode__brand-swatch,
+.sode__brand-preview > .sode__colorpick {
+  block-size: 3rem;
+  inline-size: 3rem;
+}
 .sode__brand-swatch {
   border: var(--pb-space-2) solid var(--brand-color, var(--pb-edge));
-  height: calc(var(--pb-space-10) + var(--pb-space-5));
-  width: calc(var(--pb-space-10) + var(--pb-space-5));
 }
 .sode__brand-icon {
   display: block;
@@ -922,9 +926,21 @@ html {
   flex-direction: column;
   padding: var(--pb-space-2) var(--pb-space-3);
 }
+/* An inset shadow, not a border, so the selected row's text stays on the others' edge. */
 .sode__found li[aria-selected="true"] {
-  border-inline-start: var(--pb-accent-bar-w) solid var(--pb-accent);
+  background: var(--pb-surface-control);
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 0 var(--pb-accent);
   color: var(--pb-accent);
+}
+/* Drawn where the list draws, so it does not push the sidebar down. */
+#settings-find-none {
+  background: var(--pb-surface-high);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  inset-inline: 0;
+  margin: 0;
+  padding: var(--pb-space-2) var(--pb-space-3);
+  position: absolute;
+  z-index: 2;
 }
 .sode__found .sode__hint {
   display: block;
@@ -1640,6 +1656,18 @@ html {
 .sode__hint {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
+}
+/* settingssave.js puts a refused note after its field, so in a .sode__fields grid it takes a whole row. */
+.sode__fields > .sode__refused {
+  grid-column: 1 / -1;
+}
+#cfg-colors-err {
+  color: var(--pb-status-error);
+  margin: 0;
+}
+.sode__preset-mark {
+  margin-inline-start: var(--pb-space-3);
+  vertical-align: middle;
 }
 .sode__about {
   align-items: baseline;

@@ -183,11 +183,9 @@ export function makeClientsTab({ users, touched, adopt }) {
   const node = el(
     'div',
     null,
-    el(
-      'p',
-      'sode__hint',
-      'An API client is an app or panel with its own name in History. It has its own API scopes (here) and its own Rights (Rights tab). If you rename a client, its keys end. A user key ends when that user changes their PIN. If a wall panel must work after PIN changes, give it a client key.',
-    ),
+    el('p', 'sode__hint', 'An API client is an app or panel with its own name in History.'),
+    el('p', 'sode__hint', 'It has its own API scopes (here) and Rights (Rights tab).'),
+    el('p', 'sode__hint', 'A rename ends its keys. A user key ends when that user changes their PIN, so give a wall panel a client key.'),
     rows,
     el(
       'div',

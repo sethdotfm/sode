@@ -304,3 +304,34 @@ func jsObject(t *testing.T, src, name string) map[string]string {
 	}
 	return out
 }
+
+// A setting's name in Settings saves (settingFields) is its label on the Settings form, where the form has one.
+func TestSettingFieldLabelsMatchForm(t *testing.T) {
+	b, err := os.ReadFile("../../web/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := string(b)
+	checked := 0
+	for _, f := range settingFields {
+		m := regexp.MustCompile(`id="([\w-]+)"[^>]*data-key="` + f.key + `"[^>]*>(?:<span class="pb-check__label">([^<]*)<)?`).FindStringSubmatch(page)
+		if m == nil {
+			continue
+		}
+		label := m[2]
+		if label == "" {
+			l := regexp.MustCompile(`<label for="` + m[1] + `">([^<]*)</label>`).FindStringSubmatch(page)
+			if l == nil {
+				continue
+			}
+			label = l[1]
+		}
+		checked++
+		if label != f.label {
+			t.Errorf("%s: settingFields says %q, the form %q", f.key, f.label, label)
+		}
+	}
+	if checked < 10 {
+		t.Errorf("only %d labels found on the form", checked)
+	}
+}

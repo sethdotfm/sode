@@ -9,19 +9,19 @@ const link = (href, tip, cls, ...kids) => {
   return a;
 };
 
-// id: View Logs' id; the save bar's copy is the one settings search finds (#open-log).
+// id: the Communication Log link's id; the save bar's copy is the one settings search finds (#open-log).
 export function fillAbout(host, { id } = {}) {
   const version = el('span', 'sode__hint');
   version.dataset.version = '';
   const github = link('https://github.com/sethdotfm/sode', 'GitHub', 'pb-tip--top', icon('github', false));
   github.setAttribute('aria-label', 'GitHub');
   const bug = link('https://github.com/sethdotfm/sode/issues/new', 'New GitHub issue', 'pb-tip--top', 'Report a bug');
-  const logs = el('a', 'pb-btn pb-btn--outline sode__logs', icon('external-link', false), 'View Logs');
+  const logs = el('a', 'pb-btn pb-btn--outline sode__logs', icon('external-link', false), 'Communication Log');
   logs.href = 'log';
   if (id) {
     logs.id = id;
     logs.dataset.find = id;
-    logs.dataset.label = 'View Logs';
+    logs.dataset.label = 'Communication Log';
   }
   host.append(el('span', 'sode__about', version, el('span', 'sode__links', github, bug)), logs);
   paintVersion();
