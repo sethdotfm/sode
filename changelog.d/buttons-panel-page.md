@@ -1,0 +1,5 @@
+- A Buttons panel page is now full width by default, and the grid is never higher than the window, so the page does not scroll. Kiosk mode and a panel with no title bar are always full width. Cell text grows with the cell, and Font size still multiplies it.
+- On a Buttons panel, you can now read the text of an armed Take, a staged destination and a pending source in light and dark.
+- A failed take on a Buttons panel now stays marked until the next press on that destination or on Take. A line under the name shows "Failed" and the reason.
+- On a Buttons panel, a staged destination strikes through its present source. The idle Take and the label cells have the same frame as the other cells.
+- With two or more routers, a Buttons panel marks its cells on a down router, and a press on them does nothing. The status line names the router.

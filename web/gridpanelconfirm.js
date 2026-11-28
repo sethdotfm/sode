@@ -1,10 +1,12 @@
 // A Grid panel's take confirm. It is the main page's churning-letter confirm (keyconfirm.js) over the #confirm markup
-// in panel.html. Its summary reads and looks as Home's Confirm (planSummary in plans.js): the same question and item
-// heads (confirmtext.js), numbered ends and Replacing. Levels and labels come from the adapter's GET /tally,
+// in panel.html. A take asks "Take 2 routes?". Each route is one line of text, in destination number order: the
+// destination, the new source, what it replaces and the levels. A level bar shows only when the routes' levels differ.
+// An Undo reads as Home's Confirm (planSummary in plans.js): the same question and item heads (confirmtext.js),
+// numbered ends and Replacing. Levels and labels come from the adapter's GET /tally,
 // since the panel page reads no levels from the hello. Its lockout and Enter come from the panel read. The socket's hello fills
 // S.cfg late, or never when the socket is blocked.
 import { el, S, labelNode } from './core.js';
-import { strong, takeQuestion, planItemHead } from './confirmtext.js';
+import { strong, takeQuestion, planItemHead, nameList } from './confirmtext.js';
 import { keyConfirm } from './keyconfirm.js';
 import { levelColor } from './levelbox.js';
 import { levelTextOf } from './levels.js';
@@ -57,6 +59,34 @@ function nowRows(tally, item, boxed) {
 
 const routesText = (n) => (n === 1 ? '1 staged route' : `${n} staged routes`);
 
+// The sources a take replaces on the levels in on. The source being taken is no replacement: a route already there reads
+// as no change, not "X replaces X".
+export const replacedOn = (now, src, on) => (now || []).filter((r) => r.src !== src && r.levels.some((l) => on.has(l)));
+
+const routeCount = (n) => (n === 1 ? '1 route' : `${n} routes`);
+const sameLevels = (a, b) => a.length === b.length && a.every((l, i) => l === b[i]);
+
+// A take: "Take 2 routes?", then per route "A.4 DSM2: A.12 Zoom 2 replaces A.11 Zoom 1 on levels 1–2". A destination
+// with two sources on different levels has a line for each. The levels are words; a level bar leads each line only when
+// the lines' levels differ. A plan made without the tally says nothing of what it replaces.
+function takeRows(tally, plan) {
+  const lines = plan.items.flatMap((item) => item.groups.map((g) => ({ item, g })));
+  const bars = lines.some(({ g }) => !sameLevels(g.levels, lines[0].g.levels));
+  const levelWords = (list) => `${list.length === 1 ? 'level' : 'levels'} ${levelTextOf(list, tally.levels, tally.levelNumbering)}`;
+  const row = ({ item, g }) => {
+    const on = new Set(g.levels);
+    const gone = replacedOn(item.now, g.src, on);
+    const before = gone.length ? [' replaces ', ...nameList(gone.map((r) => strong(endText(r.srcLabel, r.srcName))))] : [];
+    return el(
+      'div',
+      'sode-gridpanel__plan-row',
+      ...(bars ? [levelBar(tally, g.levels)] : []),
+      el('span', null, strong(endText(item.dstLabel, item.dstName)), ': ', strong(endText(g.srcLabel, g.srcName)), ...before, ` on ${levelWords(g.levels)}`),
+    );
+  };
+  return [el('div', null, `Take ${routeCount(lines.length)}?`), ...lines.map(row)];
+}
+
 // plan is planOf (gridpanelplan.js); tally() is the last GET /tally answer. A plan with verb 'undo' is this instance's
 // Undo; with replace set too, it only asks to drop that many staged routes for the Undo.
 export function gridSummary(plan, tally) {
@@ -84,6 +114,7 @@ export function gridSummary(plan, tally) {
   if (plan.verb === 'undo') left.push(el('div', null, "Undo of this instance's last take."));
   // A take across routers names its Reserved tie lines and the Affected destinations (docs/tielines-design.md, Panels).
   if (plan.also?.length) left.push(el('div', 'sode__plan-also', el('div', 'sode__label', 'Tie lines'), ...plan.also.map((l) => el('div', null, l))));
+  if (plan.verb !== 'undo') return [...left, ...takeRows(tally, plan)];
   if (n === 1) return [...left, question, ...plan.items[0].groups.map((g) => routeRow(tally, g, plan.items[0])), ...nowRows(tally, plan.items[0], false)];
   return [
     ...left,
@@ -113,7 +144,7 @@ export function gridConfirm({ tally, settings, onTake, onClose }) {
     // As on the main page (desktop.js): Enter also confirms when the setting says so.
     enter: () => !!cfg()?.confirmEnter,
     refocus: true,
-    prompt: (key) => ['Press ', key, cfg()?.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'],
+    prompt: (key, plan) => ['Press ', key, cfg()?.confirmEnter ? ' or Enter' : '', ` to ${plan?.verb === 'undo' ? 'confirm' : 'take'}. Press Esc to cancel.`],
     onTake: (plan) => onTake(plan),
     onClose: (plan) => onClose(plan),
   });

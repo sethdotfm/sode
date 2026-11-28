@@ -30,6 +30,25 @@ body {
 [data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels__head:not(.sode-bar) {
   padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-4));
 }
+/* A Buttons panel page pads its header only by what the chip covers, so the title starts on the grid's edge when the
+   chip is outside the page's column. --sode-panel-x is the left of the page's content: the centred 100rem column plus
+   its padding, or the Full width padding. The chip's right edge is its left (lock.css) plus --sode-who-w. */
+.sode-panels:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  --sode-panel-x: max(var(--pb-space-8), (100vw - 100rem) / 2 + var(--pb-space-8));
+}
+.sode-panels--full:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  --sode-panel-x: var(--pb-space-3);
+}
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels:not(:has(.sode-gridpanel)) > .sode-panels__head:not(.sode-bar) {
+  padding-inline-start: max(0px, var(--pb-space-5) + var(--sode-who-w, 0px) + var(--pb-space-4) - var(--sode-panel-x));
+}
+/* The header row has the chip's top and height, so the title is on the chip's centre line (lock.css .sode-lock__who). */
+:root:not([data-layout="phone"]) .sode-panels:not(.sode-ov, .sode-ed, :has(.sode-gridpanel)) {
+  padding-top: calc(var(--pb-space-4) + var(--sode-down-h, 0px));
+}
+:root:not([data-layout="phone"]) .sode-panels:not(:has(.sode-gridpanel)) > .sode-panels__head:not(.sode-bar) {
+  min-height: calc(var(--pb-control-h-sm) + var(--pb-space-2) * 2);
+}
 [data-sode-kiosk] .sode-lock__who {
   display: none;
 }
@@ -137,6 +156,13 @@ body {
   gap: var(--pb-space-3);
   width: 100%;
 }
+/* A Buttons panel's grid is never higher than the window, so the page does not scroll: its width is capped by the
+   height left under the header (--sode-panel-chrome, measured by panelfull.js) and centred. --sode-cols and --sode-rows
+   are the grid's size (panelview.js). */
+:root:not([data-layout="phone"]) .sode-panels > .sode-panel__grid:not(.sode-gridpanel) {
+  margin-inline: auto;
+  max-width: calc((100dvh - var(--sode-panel-chrome, 6rem)) * var(--sode-cols) / var(--sode-rows));
+}
 .sode-panel__cell {
   flex-direction: column;
   gap: var(--pb-space-1);
@@ -170,12 +196,18 @@ body {
   position: absolute;
   translate: -50% 0;
 }
-/* A Broken or Name moved cell (panelview.js statusIcon). */
+/* A Broken or Name moved cell (panelview.js statusIcon), and a cell on a down router (paintDown). */
 .sode-panel__status-mark {
   color: var(--pb-status-warn-fill);
   inset-block-start: var(--pb-space-1);
   inset-inline-start: var(--pb-space-1);
   position: absolute;
+}
+.sode-panel__status-mark--down {
+  color: var(--pb-status-error);
+}
+.sode-panel__cell[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 .sode-panel__staged {
   font-size: var(--pb-text-xs);
@@ -205,7 +237,7 @@ body {
 .sode-panel__cell[data-s="staged"] {
   background-color: color-mix(in oklab, var(--pb-view) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-view-idle));
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-view);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 .sode-panel__cell[data-s="pending"] {
   background-color: color-mix(
@@ -214,7 +246,7 @@ body {
     var(--pb-current-idle)
   );
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-ok);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 .sode-panel__cell[data-v="1"] {
   outline: var(--pb-state-border-w) solid var(--pb-text-strong);
@@ -226,12 +258,22 @@ body {
 .sode-panel__cell[data-result="already"] {
   box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-idle);
 }
+/* A base-colored line inside the red ring keeps the red apart from an orange cell. */
 .sode-panel__cell[data-result="failed"] {
-  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error);
+  box-shadow:
+    inset 0 0 0 var(--pb-space-2) var(--pb-status-error),
+    inset 0 0 0 calc(var(--pb-space-2) + var(--pb-border-w)) var(--pb-surface-base);
 }
+.sode-panel__cell .sode-panel__result--failed {
+  font-weight: var(--pb-weight-bold);
+  opacity: 1;
+}
+/* Label cells: disabled, since a press does nothing, but not faded as a disabled control is. */
 .sode-panel__cell--current:disabled,
 .sode-panel__cell--panelName:disabled,
-.sode-panel__cell--instanceName:disabled {
+.sode-panel__cell--instanceName:disabled,
+.sode-panel__cell--pageName:disabled,
+.sode-panel__cell--info:disabled {
   background-color: var(--pb-surface-control);
   color: var(--pb-text-strong);
   opacity: 1;
@@ -253,12 +295,13 @@ body {
     var(--pb-surface-control)
   );
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 
-/* No staged route: the Take cell is solid, not faded like a disabled control. */
+/* No staged route: the Take cell is solid, not faded like a disabled control, with the inset line of Clear and Undo. */
 .sode-panel__take:disabled {
   background-color: color-mix(in oklab, var(--pb-commit) 40%, var(--pb-surface-control));
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-edge);
   color: var(--pb-text-strong);
   opacity: 1;
 }
@@ -349,6 +392,7 @@ body {
   font-size: calc(var(--pb-text-md) * var(--panel-fs, 1));
 }
 .sode-panel__cell {
+  --sode-grow: 6.5; /* text grows past its font size with the cell: 6.5cqi is 14px in a 215px cell */
   font-size: calc(var(--pb-text-md) * var(--panel-fs, 1) * var(--cell-fs, 1));
   isolation: isolate;
   overflow: hidden;
@@ -356,7 +400,10 @@ body {
 }
 .sode-panel__cell small,
 .sode-panel__staged {
-  font-size: min(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), 14cqi);
+  font-size: min(
+    max(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), calc(var(--sode-grow) * 0.8cqi * var(--panel-fs, 1) * var(--cell-fs, 1))),
+    14cqi
+  );
 }
 /* Text never runs past its square. Each cell and editor square is an inline-size container: text is held to its
    width, breaks anywhere, and shrinks with the square (cqi) when the font size would not fit a word or two. */
@@ -369,11 +416,27 @@ body {
 .sode-ed__sq > :not(.sode-panel__art) {
   max-inline-size: 100%;
 }
-.sode-panel__cell span.sode-panel__text,
 .sode-ed__text {
   font-size: min(1em, 20cqi);
 }
+/* The cell's font size, or more in a big cell; the panel's and the cell's Font size multiply both. cqi here is the
+   cell's width, since the cell is the container. */
+.sode-panel__cell span.sode-panel__text {
+  font-size: min(max(1em, calc(var(--sode-grow) * 1cqi * var(--panel-fs, 1) * var(--cell-fs, 1))), 20cqi);
+}
+/* A staged destination: the staged source is smaller than the name, and the present source above it is struck through
+   (panelview.js). */
+.sode-panel__cell span.sode-panel__staged {
+  font-size: min(
+    max(calc(var(--pb-text-sm) * var(--panel-fs, 1) * var(--cell-fs, 1)), calc(var(--sode-grow) * 0.93cqi * var(--panel-fs, 1) * var(--cell-fs, 1))),
+    20cqi
+  );
+}
+.sode-panel__replaced {
+  text-decoration: line-through;
+}
 .sode-panel__take {
+  --sode-grow: 10; /* the Take word is text-xl, about 1.6 times text-md */
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
 }
 /* Icon A, then Icon B. The row is a size container, so a glyph follows the square's height (cqh). An image fills the row and Icon B is a badge over it. */

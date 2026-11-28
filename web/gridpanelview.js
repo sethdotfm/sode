@@ -629,7 +629,7 @@ export function buildGridPanel(host, axes, { onPress, onName, onPoint, onJump })
     },
     // view: { names (namesFrom), levels (GET /tally levels), levelText(list), pie(src, dst) -> levels on,
     // staged(src, dst) -> levels staged, picked(kind, n), found(kind, n), leftOut(src, dst), protected(dst) }.
-    // view.held(dst) is true when a route to dst is staged.
+    // view.held(dst) and view.heldSrc(src) are true when a route to dst, or from src, is staged.
     // view.other(dst) is { text, tip }, and view.art(kind, n) is { icon, url, mask, b, hide } or null.
     // kind is 'srcs' or 'dsts'. Only drawn nodes are painted.
     paint(v) {

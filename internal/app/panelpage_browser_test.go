@@ -69,11 +69,11 @@ func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	b.waitFor("hold fill runs", `getComputedStyle(`+cell("take")+`, '::after').transitionDuration === '0.8s'`)
 	b.eval(cell("take") + `.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))`)
 
-	b.waitFor("capped at first", `getComputedStyle(document.querySelector('.sode-panels')).maxWidth !== 'none'`)
+	b.waitFor("full width at first", `getComputedStyle(document.querySelector('.sode-panels')).maxWidth === 'none'`)
 	b.eval(`document.getElementById('panel-full').click()`)
-	b.waitFor("full width", `getComputedStyle(document.querySelector('.sode-panels')).maxWidth === 'none'`)
+	b.waitFor("capped", `getComputedStyle(document.querySelector('.sode-panels')).maxWidth !== 'none' && localStorage.getItem('sode-panel-full') === '0'`)
 	b.eval(`document.getElementById('panel-full').click()`)
-	b.waitFor("capped again", `getComputedStyle(document.querySelector('.sode-panels')).maxWidth !== 'none'`)
+	b.waitFor("full width again", `getComputedStyle(document.querySelector('.sode-panels')).maxWidth === 'none'`)
 
 	offline := `!document.getElementById('panel-offline').hidden && document.querySelector('.sode-panels').classList.contains('sode-panels--offline')`
 	b.waitFor("not offline while all is up", `document.getElementById('panel-offline').hidden`)

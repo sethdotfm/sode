@@ -84,14 +84,14 @@ func TestChromeGridPanelLook(t *testing.T) {
 		const off = (s) => { const n = document.querySelector(s).getBoundingClientRect(); return n.top >= c.bottom || n.left >= c.right; };
 		return off('#panel-title') && off('#panel-lvl-pick') && off('#panel-levels .sode__box-head');
 	})()`)
-	b.waitFor("the Levels box is the main page's, large words that fit, with a short Select all as wide as it under it, both in the picks' height", `(() => {
+	b.waitFor("the Levels box is the main page's, large words that fit, with Select all as wide and as tall as it under it, both one pick high", `(() => {
 		const i = document.getElementById('panel-lvl'), p = document.getElementById('panel-lvl-pick').getBoundingClientRect();
 		const r = i.getBoundingClientRect(), cs = getComputedStyle(i), a = document.getElementById('panel-lvl-all').getBoundingClientRect();
 		const c = document.createElement('canvas').getContext('2d');
 		c.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
 		const fits = c.measureText(i.placeholder).width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) <= i.clientWidth;
 		return i.classList.contains('sode__input') && r.width >= 120 && cs.fontSize === '19.8px' && fits &&
-			Math.abs(r.top - p.top) < 1 && Math.abs(a.bottom - p.bottom) < 1 && a.top > r.bottom && a.height < r.height &&
+			Math.abs(r.top - p.top) < 1 && Math.abs(a.bottom - p.bottom) < 1 && a.top > r.bottom && Math.abs(a.height - r.height) < 1 &&
 			Math.abs(a.left - r.left) < 1 && Math.abs(a.width - r.width) < 1;
 	})()`)
 	b.waitFor("nothing in the deck is cut: the title, its line, Select none on one line", `(() => {
@@ -157,8 +157,8 @@ func TestChromeGridPanelLook(t *testing.T) {
 			arrows === '#pb-i-arrow-left,#pb-i-arrow-down';
 	})()`)
 
-	b.waitFor("the Grid page's root is 90%: 58 px crosspoints with 12 px names", `getComputedStyle(document.documentElement).fontSize === '14.4px' && `+
-		`Math.round(document.querySelector('.sode-gridpanel__probe-xp').getBoundingClientRect().width) === 58 && `+
+	b.waitFor("the Grid page's root is 90%: 65 px crosspoints (the prototype's 4.5rem) with 12 px names", `getComputedStyle(document.documentElement).fontSize === '14.4px' && `+
+		`Math.round(document.querySelector('.sode-gridpanel__probe-xp').getBoundingClientRect().width) === 65 && `+
 		`getComputedStyle(document.querySelector('.sode-gridpanel__src')).fontSize === '11.7px'`)
 
 	b.eval(bandRects)
@@ -203,7 +203,13 @@ func TestChromeGridPanelLook(t *testing.T) {
 	})()`)
 	held := `[...document.querySelectorAll('.sode-gridpanel__held:not([hidden])')].map((n) => n.parentNode.dataset.dst + ':' + n.textContent).join(',')`
 	note := `[...document.querySelectorAll('.sode-gridpanel__note > :not([hidden])')].map((n) => n.textContent).join('|')`
-	b.waitFor("the staged destination says so, and the note counts it with no help words", held+` === '3:staged' && `+note+` === '1 staged'`)
+	b.waitFor("the staged destination says so, and the note counts it with no help words", held+` === '3:Staged' && `+note+` === '1 staged'`)
+	// The row word is not the banner's held count: it keeps no corner placement and is bold at text-sm.
+	sm := b.tokenPx(".sode-gridpanel__dst", "--pb-text-sm")
+	b.waitFor("the Staged word is bold text-sm in the name's flow", fmt.Sprintf(`(() => {
+		const s = getComputedStyle(document.querySelector('.sode-gridpanel__dst[data-dst="3"] > .sode-gridpanel__held'));
+		return Math.abs(parseFloat(s.fontSize) - %f) < 0.5 && Number(s.fontWeight) >= 600 && s.justifySelf !== 'end' && s.zIndex === 'auto';
+	})()`, sm))
 	// Over a crosspoint the cursor is a ring. All three count from time zero (gridpanelnodes.js joinPulse).
 	b.eval(`(() => {
 		const r = ` + gridXp(6, 5) + `.getBoundingClientRect();

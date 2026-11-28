@@ -1,5 +1,5 @@
 // The plan a Grid panel's confirm shows, from the routes it will send. Pure. Names are the current Router names.
-// names is namesFrom (panelrules.js). Items keep the order their destination was first staged. With tally (the last
+// names is namesFrom (panelrules.js). Items are in destination number order, as a person reads a list. With tally (the last
 // GET /tally answer), each item also has now: what the destination has on the take's levels before the take. Each end
 // also has a label item { num, name } (labelOf), so the confirm shows numbers and names as Home's Confirm does.
 export function planOf(routes, names, tally = null) {
@@ -8,7 +8,7 @@ export function planOf(routes, names, tally = null) {
     if (!items.has(r.dst)) items.set(r.dst, { dst: r.dst, dstName: names.destination(r.dst), dstLabel: labelOf(names, 'destination', r.dst), groups: [] });
     items.get(r.dst).groups.push({ src: r.src, srcName: names.source(r.src), srcLabel: labelOf(names, 'source', r.src), levels: r.levels });
   }
-  const out = [...items.values()];
+  const out = [...items.values()].sort((a, b) => a.dst - b.dst);
   if (tally) for (const item of out) item.now = currentlyOf(item, tally, names);
   return { verb: 'take', items: out };
 }

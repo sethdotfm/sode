@@ -62,7 +62,7 @@ func TestChromeGridPanelHeader(t *testing.T) {
 	b.eval(gridXp(3, 3) + `.click(); true`)
 	gridKey(b, "Enter")
 	gridConfirm(b)
-	b.waitFor("in kiosk mode the take's banner shows and the grid did not move", gridMessage+`.startsWith('Taken') && window.__top() === window.__was`)
+	b.waitFor("in kiosk mode the take's banner shows and the grid did not move", gridMessage+`.includes(' taken') && window.__top() === window.__was`)
 	b.waitFor("the banner fills the message box, top to bottom", `(() => {
 		const m = document.querySelector('.sode-gridpanel__msg').getBoundingClientRect();
 		const al = document.querySelector('.sode-gridpanel__msg .sode__banner:not(.sode__banner--out) .pb-alert').getBoundingClientRect();
