@@ -150,7 +150,7 @@ func TestChromeSettingsRest(t *testing.T) {
 	// B2-24: the my-default buttons are outline buttons with short words, and Clear mine shows once a default is mine.
 	view(`[data-section="this-browser"]`)
 	b.waitFor("my-default buttons", `!!document.getElementById('my-default-theme')?.offsetParent`)
-	if got := text(`(() => { const s = document.getElementById('my-default-theme'); return [s.textContent, s.classList.contains('pb-btn--outline'), s.dataset.pbTip].join('|'); })()`); got != "Save for me|true|Save as my default in every browser" {
+	if got := text(`(() => { const s = document.getElementById('my-default-theme'); return [s.textContent, s.classList.contains('pb-btn--outline'), s.classList.contains('pb-btn--sm'), s.dataset.pbTip].join('|'); })()`); got != "Save for me|true|false|Save as my default in every browser" {
 		t.Errorf("Save button %q", got)
 	}
 	b.eval(`document.getElementById('my-default-theme').click(); true`)

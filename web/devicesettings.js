@@ -35,7 +35,7 @@ export function initDeviceSettings({ form, reindex }) {
     const what = form.querySelector(`label[for="${select.id}"]`)?.textContent.trim() || name;
     // Outline, so the column reads as buttons and not as labels. The tip holds the long words.
     const mk = (id, label, tip, findLabel) => {
-      const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__my-default', label);
+      const b = el('button', 'pb-btn pb-btn--outline sode__my-default', label);
       b.type = 'button';
       b.dataset.pbTip = tip;
       // The id lets a Palette row press it.

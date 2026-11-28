@@ -13,7 +13,7 @@ const note = el('span', { class: 'sode__hint', role: 'status', 'aria-live': 'pol
 const body = el('div', 'sode__profiles-body');
 // Own profile only. paint() keeps it in body, so #account-broken stays in the page for brokencount.js between opens.
 const brokenBox = el('div', { class: 'sode__broken-count', id: 'account-broken', hidden: true });
-const swapBtn = btn('pb-btn--outline pb-btn--sm', 'Swap…', () => emit('openSwap', { mine: true }));
+const swapBtn = btn('pb-btn--outline', 'Swap…', () => emit('openSwap', { mine: true }));
 swapBtn.setAttribute('aria-haspopup', 'dialog');
 const mineSec = el(
   'section',

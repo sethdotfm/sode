@@ -169,7 +169,11 @@ func TestChromeManageUsersDialog(t *testing.T) {
 	if got := evalText(b, `(() => {
 		const note = document.querySelector('.sode__profiles-body > .pb-note').getBoundingClientRect();
 		const prefs = document.querySelector('.sode__profiles-sec--prefs').getBoundingClientRect();
-		return note.bottom < prefs.top && note.height < 40 ? '' : 'note ' + note.height.toFixed(1) + ' tall';
+		const n = document.querySelector('.sode__profiles-body > .pb-note');
+		const cs = getComputedStyle(n);
+		const extra = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+		const oneLine = parseFloat(cs.lineHeight) + extra;
+		return note.bottom < prefs.top && note.height <= oneLine + 0.5 ? '' : 'note ' + note.height.toFixed(1) + ' tall, one line is ' + oneLine.toFixed(1);
 	})()`); got != "" {
 		t.Errorf("the note is not one line above the sections: %s", got)
 	}
@@ -181,6 +185,10 @@ func TestChromeManageUsersDialog(t *testing.T) {
 		t.Errorf("User defaults hint %q", got)
 	}
 	b.gapY("Swap clears the Broken line", "--pb-space-3", "#account-broken", ".sode__profiles-swap")
+	// B2-15: a standalone button has the text size of the others.
+	if n := evalNum(b, `document.querySelectorAll('.sode__profiles-swap .pb-btn--sm').length`); n != 0 {
+		t.Errorf("Swap keeps pb-btn--sm")
+	}
 	b.check()
 }
 
@@ -230,8 +238,16 @@ func TestChromeSettingsSmallDialogs(t *testing.T) {
 	if got := evalText(b, `(() => { const f = document.querySelector('.sode__preset-users').closest('.sode__field'); return f.querySelector('.sode__field-label').textContent + ' / ' + f.querySelector('.sode__hint').textContent; })()`); got != "Also change these users / The preset sets their Never sign out and No auto-lock." {
 		t.Errorf("users field %q", got)
 	}
-	if w := evalNum(b, `[...document.querySelectorAll('.pb-modal button')].find((x) => x.textContent === 'Tick all' && x.offsetParent).getBoundingClientRect().width`); w > 160 {
-		t.Errorf("Tick all is %.1f px wide, want its text width", w)
+	if got := evalText(b, `(() => {
+		const x = [...document.querySelectorAll('.pb-modal button')].find((x) => x.textContent === 'Tick all' && x.offsetParent);
+		const cs = getComputedStyle(x);
+		const r = document.createRange();
+		r.selectNodeContents(x);
+		const want = r.getBoundingClientRect().width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+		const w = x.getBoundingClientRect().width;
+		return w <= want + 0.5 ? '' : w.toFixed(1) + ' px wide, its text and padding ' + want.toFixed(1);
+	})()`); got != "" {
+		t.Errorf("Tick all is %s", got)
 	}
 	b.eval(`[...document.querySelectorAll('.pb-modal button')].find((x) => x.textContent === 'Cancel' && x.offsetParent).click(); true`)
 	b.waitFor("preset dialog closed", `!document.querySelector('.sode__preset-users')?.offsetParent`)
@@ -264,6 +280,11 @@ func TestChromeSettingsSmallDialogs(t *testing.T) {
 	b.waitFor("export categories", `!!document.querySelector('.sode__xi [data-key="caret:settings"]')`)
 	b.eval(`document.querySelector('.sode__xi [data-key="caret:settings"]').click(); true`)
 	b.waitFor("Settings sections listed", `!!document.querySelector('.sode__xi [data-key="item:settings:everyone-defaults"]')`)
+	xiTop := evalNum(b, `document.querySelector('.sode__xi [role=tablist]').getBoundingClientRect().top`)
+	xiBottom := evalNum(b, `innerHeight`)
+	if got := evalNum(b, `document.querySelector('.sode__xi .pb-modal__footer').getBoundingClientRect().bottom`); got > xiBottom {
+		b.layoutFail(fmt.Sprintf("Export & Import footer ends at %.1f on Export, under the screen (%.1f)", got, xiBottom))
+	}
 	b.eval(`document.querySelector('.sode__xi [data-key="item:settings:everyone-defaults"]').scrollIntoView({ block: 'center' }); true`)
 	b.shot("export")
 	if got := evalText(b, `document.querySelector('.sode__xi [data-key="item:settings:everyone-defaults"]').closest('label').textContent`); got != "Everyone's defaults" {
@@ -273,6 +294,13 @@ func TestChromeSettingsSmallDialogs(t *testing.T) {
 	b.eval(`document.getElementById('tab-xi-import-tab').click(); true`)
 	b.waitFor("Import tab shown", `!document.getElementById('panel-xi-import-tab').hidden`)
 	b.shot("import")
+	// B2-17: the tab strip keeps its place when the tab changes.
+	if got := evalNum(b, `document.querySelector('.sode__xi [role=tablist]').getBoundingClientRect().top`); math.Abs(got-xiTop) > layoutTol {
+		b.layoutFail(fmt.Sprintf("Export & Import tab strip top %.1f on Import, %.1f on Export", got, xiTop))
+	}
+	if got := evalNum(b, `(() => { const r = document.querySelector('.sode__xi .pb-modal__footer').getBoundingClientRect(); return r.bottom; })()`); got > xiBottom {
+		b.layoutFail(fmt.Sprintf("Export & Import footer ends at %.1f, under the screen (%.1f)", got, xiBottom))
+	}
 	if got := evalText(b, `document.querySelector('#panel-xi-import-tab .sode__hint')?.textContent || ''`); got != "Choose a Sode export file. You see what it holds before anything changes." {
 		t.Errorf("Import tab text %q", got)
 	}
