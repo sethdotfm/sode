@@ -199,7 +199,7 @@ export function keyTab({ panel, api }) {
 
   // Removed on close, so the secret lives no longer than the modal; a Lock closes it too.
   function showKey(name, secret) {
-    const done = btn('sode-btn--primary', 'Done', () => q.close(null));
+    const closeBtn = btn('pb-btn--outline', 'Close', () => q.close(null));
     const q = question({
       back: document.activeElement,
       titleId: 'key-show-title',
@@ -209,9 +209,9 @@ export function keyTab({ panel, api }) {
         el('p', 'sode__hint', 'The link already holds this key. Use the key on its own where an app asks for one, in an Authorization: Bearer header.'),
         secretNode(secret),
       ],
-      foot: [done],
+      foot: [closeBtn],
     });
-    done.focus();
+    closeBtn.focus();
   }
 
   function paintLink() {

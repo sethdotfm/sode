@@ -117,16 +117,57 @@ test('a Down router icon is red, and each router mark has its text', () => {
   assert.match(src.get('index.html'), /id="conn-routers"><span class="pb-status"><span class="sode__state"><\/span><span>Router<\/span>/);
 });
 
-test('dialog buttons have one look: Save is sode-btn--primary, Close and Cancel are plain, commit is for the router', () => {
-  const save = /(pb-btn--commit|pb-btn--ghost)[^\n]*?(['"]|>)Save(['"]|<)/;
-  const plain = /(sode-btn--primary|pb-btn--commit|pb-btn--ghost)[^\n]*?(['"]|>)(Close|Cancel)(['"]|<)/;
+// buttonWords finds each button whose text is one of words, with its classes. A call or tag can span lines, and a
+// button made in one statement and named in a later one (el('button', ...) then x.textContent = ...) counts too.
+const buttonWords = (s, words) => {
+  const w = words.join('|');
+  const out = [];
+  // btn('cls', 'Close'), act('cls', 'Done', ...), el('button', 'cls', 'Save').
+  for (const m of s.matchAll(new RegExp(String.raw`\b(\w+)\(\s*('button'\s*,\s*)?(['"\x60])([^'"\x60]*)\3\s*,\s*(['"\x60])(${w})\5`, 'g'))) {
+    if (m[2] || /btn|act/i.test(m[1])) out.push({ cls: m[4], word: m[6] });
+  }
+  // <button class="..." ...>Close</button>, also over lines and in template strings.
+  for (const m of s.matchAll(new RegExp(String.raw`<button\b([^>]*)>\s*(${w})\s*<`, 'g'))) {
+    out.push({ cls: (m[1].match(/class="([^"]*)"/) || [null, ''])[1], word: m[2] });
+  }
+  // const x = el('button', 'cls') or createElement('button'), with x.className or classList.add, then x.textContent.
+  const cls = new Map();
+  const add = (v, c) => cls.set(v, `${cls.get(v) || ''} ${c}`);
+  for (const m of s.matchAll(/\b(\w+)\s*=\s*el\(\s*'button'\s*,\s*'([^']*)'/g)) add(m[1], m[2]);
+  for (const m of s.matchAll(/\b(\w+)\s*=\s*document\.createElement\(\s*'button'\s*\)/g)) add(m[1], '');
+  for (const m of s.matchAll(/\b(\w+)\.className\s*=\s*['"\x60]([^'"\x60]*)/g)) if (cls.has(m[1])) add(m[1], m[2]);
+  for (const m of s.matchAll(/\b(\w+)\.classList\.add\(([^)]*)\)/g)) if (cls.has(m[1])) add(m[1], m[2]);
+  for (const m of s.matchAll(new RegExp(String.raw`\b(\w+)\.textContent\s*=\s*(['"\x60])(${w})\2`, 'g'))) {
+    if (cls.has(m[1])) out.push({ cls: cls.get(m[1]), word: m[3] });
+  }
+  return out;
+};
+
+test('buttonWords finds a button over several lines and one named in a later statement', () => {
+  const s = `x = btn(\n  'sode-btn--primary',\n  'Done',\n  () => close(),\n);
+  const cancel = el('button', 'pb-btn pb-btn--commit');\n  cancel.type = 'button';\n  cancel.textContent = 'Cancel';
+  h = \x60<button type="button"\n  class="pb-btn pb-btn--ghost">\n  Close\n</button>\x60;`;
+  assert.deepEqual(buttonWords(s, ['Save', 'Close', 'Cancel', 'Done']), [
+    { cls: 'sode-btn--primary', word: 'Done' },
+    { cls: 'pb-btn pb-btn--ghost', word: 'Close' },
+    { cls: ' pb-btn pb-btn--commit', word: 'Cancel' },
+  ]);
+});
+
+test('dialog buttons have one look: Save is sode-btn--primary, Close, Cancel and Done are plain, commit is for the router', () => {
+  let n = 0;
   for (const [f, s] of src) {
-    // An icon-only ghost button (pb-btn--icon) names itself only in aria-label.
-    for (const line of s.split('\n').filter((l) => !l.includes('pb-btn--icon'))) {
-      assert.doesNotMatch(line, save, `${f}: a Save button is commit or ghost`);
-      assert.doesNotMatch(line, plain, `${f}: a Close or Cancel button is not plain`);
+    if (f.endsWith('.css')) continue;
+    for (const { cls, word } of buttonWords(s, ['Save', 'Close', 'Cancel', 'Done'])) {
+      n++;
+      // An icon-only ghost button (pb-btn--icon) names itself only in aria-label.
+      if (cls.includes('pb-btn--icon')) continue;
+      const bad = word === 'Save' ? /pb-btn--commit|pb-btn--ghost/ : /sode-btn--primary|pb-btn--commit|pb-btn--ghost/;
+      assert.doesNotMatch(cls, bad, `${f}: ${word} is "${cls.trim()}"`);
     }
   }
+  // It finds the buttons, so it never passes on nothing.
+  assert.ok(n > 20, `${n} buttons found`);
   // The Tie line picker's Cancel has the height of its Take.
   assert.match(src.get('tiepicker.css'), /\.sode-tiepick__cancel[^{]*\{[^}]*height: var\(--sode-h-action\)/);
 });
