@@ -2005,6 +2005,8 @@ html[data-shift] .sode__next > .sode__next-open {
 }
 :root:not([data-layout="phone"]) .sode__prefgrid > .sode__field {
   align-items: center;
+  /* A subgrid takes its own gap, and .sode__field's 4px would replace the grid's. */
+  column-gap: var(--pb-space-5);
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
