@@ -10,6 +10,7 @@ import { itemPlain } from './presetref.js';
 import { levelsOn } from './routerlevels.js';
 import { numText, routerN } from './routerids.js';
 import { acrossOffText } from './paneltierules.js';
+import { LINK_WORDS } from './routerlinkrules.js';
 
 export const KINDS = [
   'source',
@@ -247,8 +248,8 @@ export function undoneText(u, names) {
 
 // No answer from Sode wins: with no answer the router link is unknown.
 export function offlineOf({ failed, routerUp }) {
-  if (failed) return { title: 'Offline', detail: 'No contact with Sode. Presses do nothing.' };
-  if (!routerUp) return { title: 'Offline', detail: 'Sode lost the router. Presses do nothing.' };
+  if (failed) return { title: 'Offline', detail: `${LINK_WORDS.server} Presses do nothing.` };
+  if (!routerUp) return { title: 'Offline', detail: `${LINK_WORDS.router} Presses do nothing.` };
   return null;
 }
 

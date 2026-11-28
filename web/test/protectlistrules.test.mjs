@@ -226,8 +226,8 @@ test('the result of Free Sode’s Protects shows for each router and in one stat
   assert.equal(part.text, 'Sode freed 2 Protects, with problems: 2 on A, B: 1 destination is still Protected.');
   assert.equal(part.per.ub.text, 'Not freed: 1 destination is still Protected.');
   assert.equal(part.per.ub.ok, false);
-  const down = freeResult({ ok: false, err: 'Server link down.' }, prefixOf, at);
-  assert.equal(down.text, 'Not freed: Server link down.');
+  const down = freeResult({ ok: false, err: 'The Server link is down.' }, prefixOf, at);
+  assert.equal(down.text, 'Not freed: The Server link is down.');
   const none = freeResult({ ok: true, cleared: 0, routers: [{ router: 'ua', cleared: 0 }] }, prefixOf, at);
   assert.equal(none.per.ua.text, 'Sode had no Protect to free at 09:05:00.');
 });

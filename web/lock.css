@@ -52,7 +52,7 @@
     border-width var(--sode-lock-motion) var(--pb-ease);
 }
 
-/* Offline wins over the Lock's colors, in either order (html[data-conn="down"], set by desktop.js and panelrun.js).
+/* Offline wins over the Lock's colors, in either order (html[data-conn="down"], set by desktop.js, panelrun.js and panelsbar.js).
    The border is the offline red and stays still, as the main page's outline does. lock.js shows "Offline, locked". */
 [data-conn="down"] .sode-lock {
   border-color: var(--pb-status-error);

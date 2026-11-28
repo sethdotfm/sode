@@ -209,7 +209,7 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 		if (t.hidden) return false;
 		const rs = [...t.querySelectorAll('.sode-statusinfo__router')];
 		const more = t.querySelector('.sode-statusinfo__more');
-		return /Server run time/.test(t.innerText) && rs.length === 7 && rs.map((r) => r.querySelector('.sode-statusinfo__label').textContent).join(',') === 'C Studio C,D Studio D,E Studio E,F Studio F,G Studio G,H Studio H,I Studio I'
+		return /Server run time/.test(t.innerText) && rs.length === 7 && rs.map((r) => r.querySelector('.sode-statusinfo__label').textContent).join(',') === 'Router C Studio C,Router D Studio D,Router E Studio E,Router F Studio F,Router G Studio G,Router H Studio H,Router I Studio I'
 			&& rs.every((r) => r.querySelector('.sode-routerlist__state').textContent === 'Never connected') && more?.textContent === 'And 2 more. Click the Routers icon to see all.'
 			&& t.lastElementChild === more;
 	})()`)
@@ -235,9 +235,9 @@ func TestChromeRouterListManyRouters(t *testing.T) {
 		const name = (r) => r.querySelector('.sode-routerlist__name').textContent;
 		const st = (r) => r.querySelector('.sode-routerlist__state');
 		const lost = rows.slice(0, 7), ok = rows.slice(7);
-		return rows.length === 9 && lost.map(name).join(',') === 'C Studio C,D Studio D,E Studio E,F Studio F,G Studio G,H Studio H,I Studio I'
+		return rows.length === 9 && lost.map(name).join(',') === 'Router C Studio C,Router D Studio D,Router E Studio E,Router F Studio F,Router G Studio G,Router H Studio H,Router I Studio I'
 			&& lost.every((r) => st(r).textContent === 'Never connected' && st(r).dataset.state === 'error')
-			&& ok.map(name).join(',') === 'A Studio A,B Studio B' && ok.every((r) => st(r).textContent === 'Connected' && !st(r).dataset.state);
+			&& ok.map(name).join(',') === 'Router A Studio A,Router B Studio B' && ok.every((r) => st(r).textContent === 'Connected' && !st(r).dataset.state);
 	})()`)
 	if h := b.eval(`document.querySelector('#conn .sode-routerlist').getBoundingClientRect().height / innerHeight`).(float64); h > 0.61 {
 		t.Fatalf("the list is %.0f%% of the window, want a fixed height", h*100)

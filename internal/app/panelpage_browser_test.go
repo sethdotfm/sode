@@ -79,14 +79,14 @@ func TestChromePanelOfflineAndFullWidth(t *testing.T) {
 	b.waitFor("not offline while all is up", `document.getElementById('panel-offline').hidden`)
 
 	down.Store(true)
-	b.waitFor("Offline when Sode is gone", offline+` && document.getElementById('panel-offline-detail').textContent.includes('contact with Sode')`)
+	b.waitFor("Offline when Sode is gone", offline+` && document.getElementById('panel-offline-detail').textContent === 'The Server link is down. Presses do nothing.'`)
 	b.waitFor("the grid is blurred", `getComputedStyle(document.getElementById('panel-grid')).filter.includes('blur')`)
 	b.shot("offline-sode")
 	down.Store(false)
 	b.waitFor("Offline clears when Sode is back", `document.getElementById('panel-offline').hidden && !document.querySelector('.sode-panels').classList.contains('sode-panels--offline')`)
 
 	stopSim()
-	b.waitFor("Offline when the router is gone", offline+` && document.getElementById('panel-offline-detail').textContent.includes('the router')`)
+	b.waitFor("Offline when the router is gone", offline+` && document.getElementById('panel-offline-detail').textContent === 'The Router link is down. Presses do nothing.'`)
 	b.shot("offline-router")
 	// The aborted requests are the point of the test; anything else is a real error.
 	for _, e := range b.problems() {

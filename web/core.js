@@ -6,10 +6,10 @@ import { iconHref, adoptIcons } from './sprite.js';
 import { fuzzyScore } from './fuzzy.js';
 import { searchText, prefixOf, typedPrefix, labelPrefix } from './routerprefix.js';
 import { buildChanged } from './buildrules.js';
-import { routerLinks, wholeState, lost } from './routerlinkrules.js';
+import { routerLinks, wholeState, lost, routerName, LINK_WORDS, lostTitle } from './routerlinkrules.js';
 
 // A send or a pending answer with no Server link.
-export const LINK_DOWN = 'Server link down.';
+export const LINK_DOWN = LINK_WORDS.server;
 
 export const $ = (id) => document.getElementById(id);
 
@@ -539,15 +539,15 @@ export function connState() {
   const whole = S.wsState === 'up' ? wholeState(list) : '';
   let down = null;
   if (S.wsLost) {
-    down = { title: 'Lost link: Server link down', err: S.wsErr, links: [false, null] };
+    down = { title: lostTitle(LINK_WORDS.server), err: S.wsErr, links: [false, null], routers: list.length > 1 ? list : undefined };
   } else if (list.length === 1 && S.wsState === 'up' && FIRST.link === 'down' && !FIRST.addr) {
     down = { title: 'No router set', text: 'Set the router address in Settings.' };
   } else if (list.length === 1 && whole === 'down') {
-    down = { title: 'Lost link: Router link down', err: FIRST.err, links: [true, false] };
+    down = { title: lostTitle(LINK_WORDS.router), err: FIRST.err, links: [true, false] };
   } else if (whole === 'down') {
     // Sode is Down: one hop for each router.
-    const err = list.map((r) => (r.err ? `Router ${r.prefix}: ${r.err}` : '')).filter(Boolean);
-    down = { title: 'Lost link: every Router link down', err: err.join('\n'), links: [true, false], routers: list };
+    const err = list.map((r) => (r.err ? `${routerName(r)}: ${r.err}` : '')).filter(Boolean);
+    down = { title: lostTitle(LINK_WORDS.every), err: err.join('\n'), links: [true, false], routers: list };
   }
   // ok: every link up, the only state that Compact view is allowed to hide the status for. degraded: the lost routers
   // while Sode is Degraded, with no banner.
@@ -609,9 +609,7 @@ export function renderDown(box, c) {
   const node = (glyph, ok, ...label) =>
     el('span', 'sode__down-node' + (ok === false ? ' sode__down-node--down' : ok === null ? ' sode__down-node--unknown' : ''), icon(glyph, false), ...label);
   // With more than one router, the last wire leads to a node for each router.
-  const routerNodes = routers
-    ? routers.map((r) => node(routerIcon(), links[1], `Router ${r.prefix} `, r.title ? `${r.title} ` : '', el('code', null, r.addr || '?')))
-    : [node(routerIcon(), links?.[1], 'Router ', FIRST.title ? `${FIRST.title} ` : '', el('code', null, FIRST.addr || '?'))];
+  const routerNodes = (routers || [FIRST]).map((r) => node(routerIcon(), links?.[1], `${routerName(r)} `, el('code', null, r.addr || '?')));
   box.replaceChildren(
     ...[
       el('div', 'sode__down-title', icon('unplug', false), title),
