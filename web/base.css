@@ -1592,6 +1592,14 @@ html {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
 }
+/* settingssave.js puts a refused note after its field, so in a .sode__fields grid it takes a whole row. */
+.sode__fields > .sode__refused {
+  grid-column: 1 / -1;
+}
+.sode__preset-mark {
+  margin-inline-start: var(--pb-space-3);
+  vertical-align: middle;
+}
 .sode__about {
   align-items: baseline;
   display: flex;
