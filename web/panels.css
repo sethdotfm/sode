@@ -1415,10 +1415,19 @@ body {
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);
   padding-top: var(--pb-space-4);
 }
+/* Pin, Move up, Move down and Remove end the bar and the row (editorgridlist.js), so the bar's end space is the row's
+   end padding plus the list's scroll bar room. Its gap is the row tools' gap. */
 .sode-edge__acts {
   align-items: center;
   display: flex;
   gap: var(--pb-space-1);
+  padding-inline-end: var(--pb-space-1);
+}
+:root:not([data-layout="phone"]) .sode-edge__on > .sode-edge__acts {
+  padding-inline-end: calc(var(--sode-littlescroll-w) + var(--pb-space-1));
+}
+:root:not([data-layout="phone"]) .sode-edge__list[data-bigscroll-room] {
+  padding-inline-end: var(--sode-littlescroll-w);
 }
 .sode-edge__sel {
   color: var(--pb-text-muted);

@@ -65,6 +65,8 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
   outside.id = `ed-${key}-outside`;
   const list = el('ol', 'sode-pages__list sode-edge__list');
   list.id = `ed-${key}-list`;
+  // The scroll bar's room is kept while the list is too short to scroll, so the rows' buttons stay under the bar's.
+  list.toggleAttribute('data-bigscroll-room', true);
   list.tabIndex = 0;
   list.setAttribute('aria-label', `${Whats} on the panel, ${side}`);
   // A grid, not a listbox: each row holds buttons, and an option cannot. Rows carry aria-selected, and the
@@ -131,11 +133,14 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     el('span', 'sode-panels__spacer'),
     selArt,
     el('span', 'sode-edge__sep'),
-    selPin,
+    moves[0],
+    moves[3],
+    el('span', 'sode-edge__sep'),
     selUnpin,
-    el('span', 'sode-edge__sep'),
-    ...moves,
-    el('span', 'sode-edge__sep'),
+    // The last four sit over each row's Pin, Move up, Move down and Remove (panels.css .sode-edge__acts).
+    selPin,
+    moves[1],
+    moves[2],
     selRemove,
   );
   acts.id = `ed-${key}-acts`;
