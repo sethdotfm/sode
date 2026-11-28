@@ -12,8 +12,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The base layout rules of the Settings form at 1920x1080, signed in as an Administrator: check groups, the sidebar
-// indent, half-width fields, section buttons and the wide Routers sections.
+// The base layout rules of the Settings form at 1920x1080, signed in as an Administrator. It checks check groups, the
+// sidebar indent, half-width fields, section buttons and the wide Routers sections.
 func TestChromeSettingsFormRules(t *testing.T) {
 	b := startBrowser(t)
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
@@ -130,6 +130,8 @@ func TestChromeSettingsFormRules(t *testing.T) {
 	}
 
 	// B2-15: a standalone button has the plain text size, the same as Manage users.
+	view(`[data-section="level-colors"]`)
+	b.shot("level-colors")
 	sizes := b.eval(`(() => ['users-manage', 'cfg-colors-reset'].map((id) => getComputedStyle(document.getElementById(id)).fontSize).join())()`).(string)
 	if s := strings.Split(sizes, ","); s[0] != s[1] {
 		t.Errorf("Manage users and Reset to default font sizes %s, want one size", sizes)
