@@ -120,18 +120,32 @@ export function initDeviceSettings({ form, reindex }) {
   on('profile', renderPrefs);
 
   let acctUser = '';
-  on('access', (L) => {
+  let lastAccess = null;
+  let noUsers = false;
+  function paintAccount(L) {
     acctUser = L.user || '';
-    const acct = !!L.user || signInOffered(L);
+    noUsers = !L.user && !S.users?.length;
+    const acct = !!L.user || signInOffered(L) || noUsers;
     $('account-name').hidden = !acct;
-    $('account-name').replaceChildren(...(L.user ? ['Signed in as ', el('strong', null, L.user)] : ['Not signed in']));
+    const who = noUsers ? ['No users yet. Add one in Access > Users.'] : ['Not signed in'];
+    $('account-name').replaceChildren(...(L.user ? ['Signed in as ', el('strong', null, L.user)] : who));
+    $('account-guest-note').hidden = !acct || !!L.user || noUsers;
     for (const id of ['account-profile', 'account-copy', 'account-transfer', 'account-pin', 'account-keys', 'account-clients', 'account-logout'])
       $(id).hidden = !L.user;
     // A user without a PIN holds no personal API keys or own API clients.
     const noPin = listedUser(S.users, L.user)?.len === 0;
     for (const id of ['account-keys', 'account-clients']) if (noPin) $(id).hidden = true;
-    $('account-login').hidden = !!L.user || !acct;
-    $('lock-btn').hidden = L.enforced && !L.user;
+    $('account-login').hidden = !!L.user || !acct || noUsers;
+    // With no users a Lock has nobody to end it but the page itself.
+    $('lock-btn').hidden = (L.enforced && !L.user) || noUsers;
+  }
+  on('access', (L) => {
+    lastAccess = L;
+    paintAccount(L);
+  });
+  // The user list comes with the hello, which can come after the access state.
+  on('hello', () => {
+    if (lastAccess && noUsers !== (!lastAccess.user && !S.users?.length)) paintAccount(lastAccess);
   });
   $('lock-btn').addEventListener('click', () => emit('localLock'));
   $('account-pin').addEventListener('click', () => emit('changePin'));
