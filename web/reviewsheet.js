@@ -396,6 +396,9 @@ function render() {
   if (at != null && now.setSelectionRange) now.setSelectionRange(at, at);
 }
 
+// A copy with nothing in it says so in one line, with no source and no summary.
+const copyEmpty = () => !!st.copy && !st.rows.length && !prefList().length && !(st.doc.browserOnly || []).length;
+
 function draw() {
   const opts = forUser() ? [['user', `${st.user}’s profile`]] : [['local', 'This browser'], ...(profileName() ? [['user', 'Me']] : []), ['global', 'Everyone']];
   if (!opts.some((o) => o[0] === st.scope)) st.scope = opts[0][0];
@@ -418,10 +421,18 @@ function draw() {
   const pn = prefsNode();
   prefsBox.replaceChildren(...(pn ? [pn] : []));
   prefsBox.hidden = !pn;
+  const empty = copyEmpty();
+  fromEl.hidden = empty || !fromEl.textContent;
   rowsBox.replaceChildren(
     ...(st.rows.length
       ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))]
-      : [el('span', 'sode__hint', st.copy ? 'No filter sets or presets' : 'Nothing to import')]),
+      : [
+          el(
+            'span',
+            'sode__hint',
+            empty ? 'This browser has no filter sets, presets or settings to copy.' : st.copy ? 'No filter sets or presets' : 'Nothing to import',
+          ),
+        ]),
   );
   refresh();
 }
@@ -446,7 +457,7 @@ function refresh() {
   if (skip) parts.push(`skip ${skip}`);
   const pn = Object.keys(p.prefs).length;
   if (pn) parts.push(`change ${pluralize(pn, 'setting')}`);
-  sumEl.textContent = parts.length ? `Will ${parts.join(', ')}.` : 'Nothing will change.';
+  sumEl.textContent = copyEmpty() ? '' : parts.length ? `Will ${parts.join(', ')}.` : 'Nothing will change.';
   const nothing = !(add + rep + pn) && !(st.copy && !st.copy.keep && cleared(st.copy.keep));
   applyBtn.disabled = saving() || nothing || p.problems.length > 0;
   if (!saving()) {
@@ -578,8 +589,9 @@ function copyApply(p) {
 // copy: { send(parts), clear(moved, keep) } for Copy this browser to My user (browsercopy.js).
 export function openReview({ doc, scope: sc = 'local', user = '', source = '', title = 'Review import', copy = null }) {
   back = document.activeElement;
-  st = { doc, scope: sc, user, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {}, copy: copy && { ...copy, keep: false } };
-  applyBtn.textContent = copy ? 'Move' : 'Apply';
+  st = { doc, scope: sc, user, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {}, copy: copy && { ...copy, keep: true } };
+  // Keep starts on, so the title's Copy is true; off, the button says Move.
+  applyBtn.textContent = copy ? 'Copy' : 'Apply';
   fetched = null;
   open = true;
   busy = false;
