@@ -33,17 +33,19 @@ export function initDeviceSettings({ form, reindex }) {
     if (mb) return mb;
     // The search name holds the setting, since each preference has the same two buttons (the Palette, Settings search).
     const what = form.querySelector(`label[for="${select.id}"]`)?.textContent.trim() || name;
-    const mk = (id, label, findLabel) => {
-      const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__my-default', label);
+    // Outline, so the column reads as buttons and not as labels. The tip holds the long words.
+    const mk = (id, label, tip, findLabel) => {
+      const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__my-default', label);
       b.type = 'button';
+      b.dataset.pbTip = tip;
       // The id lets a Palette row press it.
       b.id = id;
       b.dataset.find = id;
       b.dataset.label = findLabel;
       return b;
     };
-    const save = mk(`my-default-${name}`, 'Save as my default', `Save ${what} as my default`);
-    const clear = mk(`my-default-clear-${name}`, 'Clear my default', `Clear my default for ${what}`);
+    const save = mk(`my-default-${name}`, 'Save for me', 'Save as my default in every browser', `Save ${what} as my default`);
+    const clear = mk(`my-default-clear-${name}`, 'Clear mine', 'Clear my default in every browser', `Clear my default for ${what}`);
     const note = el('span', 'sode__hint');
     note.hidden = true;
     note.setAttribute('role', 'status');
