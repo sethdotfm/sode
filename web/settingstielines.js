@@ -176,7 +176,7 @@ async function askRemove(t) {
   // The row before it in the drawn table: the result shows where the row was.
   const drawn = [...list.querySelectorAll('.sode__trow[data-id]')].map((n) => n.dataset.id);
   const at = drawn.indexOf(t.id);
-  if (!(await save(without(tieLines(), t.id), text))) return draw();
+  if (await save(without(tieLines(), t.id), text)) return draw();
   // The removed row's place: after the next row, which takes its place, else as the last row of its group.
   removed = { after: drawn[at + 1] || '', text };
   draw();
@@ -277,17 +277,20 @@ function showSuggestions(found) {
   suggestMore.textContent = `${found.more} more ${found.more === 1 ? 'suggestion' : 'suggestions'}. Accept or dismiss a suggestion to show the next one.`;
 }
 
-// Saves the whole list. Gives '' when it saved, else why not (also in the status line).
-async function save(next, done, changed = '') {
+// Saves the whole list. Gives '' when it saved, else why not, also in the status line. own: the caller shows why not
+// (the open editor), so the status line stays blank and the error shows once.
+async function save(next, done, { changed = '', own = false } = {}) {
+  const fail = (why) => {
+    status.textContent = own ? '' : `Not saved: ${why}.`;
+    return `Not saved: ${why}.`;
+  };
   const why = listProblem(next, uids(), { shown: shownEnd, changed });
-  if (why) {
-    status.textContent = `Not saved: ${why}.`;
-    return false;
-  }
+  if (why) return fail(why);
   status.textContent = 'Saving…';
   const r = await request('tieLinesResult', { t: 'tieLines', tieLines: next });
-  status.textContent = r.ok ? done : `Not saved: ${r.err}.`;
-  return r.ok;
+  if (!r.ok) return fail(r.err);
+  status.textContent = done;
+  return '';
 }
 
 // The editor: Add tie line (id '') at the top, or Edit in the row of t.
@@ -303,8 +306,8 @@ function openEditor(t) {
     defRouter: F.router === ALL_ROUTERS ? '' : F.router,
     onSave: async (next) => {
       const name = next.name;
-      const ok = await save(upsert(tieLines(), next), id ? `Saved ${name}.` : `Added ${name}.`, id);
-      if (!ok) return status.textContent;
+      const why = await save(upsert(tieLines(), next), id ? `Saved ${name}.` : `Added ${name}.`, { changed: id, own: true });
+      if (why) return why;
       closeEditor(true);
       const saved = id || tieLines().find((x) => x.name === name)?.id;
       if (saved) list.querySelector(`[data-id="${CSS.escape(saved)}"]`)?.scrollIntoView({ block: 'nearest' });
