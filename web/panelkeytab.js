@@ -105,7 +105,7 @@ export function keyTab({ panel, api }) {
   }
 
   function paintTop() {
-    status.replaceChildren(`${keys.length} of ${max} instances`);
+    status.replaceChildren(`${keys.length} instances of ${max} at most`);
     modes.replaceChildren(
       ...MODES.flatMap(([m, text]) => {
         const r = el('input', 'pb-btn-check');
@@ -311,7 +311,8 @@ export function keyTab({ panel, api }) {
   const netBox = el(
     'div',
     'sode-ov__keynets',
-    Object.assign(el('label', null, 'Allowed networks (one per line, empty = any)'), { htmlFor: 'key-networks' }),
+    Object.assign(el('label', null, 'Allowed networks'), { htmlFor: 'key-networks' }),
+    el('span', 'sode__hint', 'One on each line. Empty lets all addresses in.'),
     nets,
     netSave,
   );

@@ -633,6 +633,11 @@ body {
   display: flex;
   gap: var(--pb-space-3);
   justify-content: space-between;
+  /* The side padding is the Find box's, so a name starts on the box's text. */
+  padding: var(--pb-space-2) calc(var(--pb-space-3) + var(--pb-border-w));
+}
+#assign-list {
+  margin-top: var(--pb-space-3);
 }
 .sode-ov__cp[aria-current="true"] {
   background: var(--pb-surface-control);
@@ -742,10 +747,30 @@ body {
   margin-top: var(--pb-space-3);
   width: 12rem;
 }
-.sode-ov__sharebody {
+/* The panel dialogs' tab panels: Share (People, Link with key) and Push (its three tabs). Margins and empty
+   lines would add to the one gap. A status line stays, since a live region with display: none says nothing. */
+.sode-ov__sharebody,
+.sode-ov__tabbody {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-4);
+}
+:is(.sode-ov__sharebody, .sode-ov__tabbody, .sode-ov__keytab) > * {
+  margin-block: 0;
+}
+:is(.sode-ov__sharebody, .sode-ov__tabbody, .sode-ov__keytab) > :is(.sode__hint, .sode-ov__keylink):empty:not([role="status"]) {
+  display: none;
+}
+/* A heading keeps more room above it than the gap between the parts it groups. */
+.sode-ov__people > .sode-ov__group:first-child {
+  margin-top: 0;
+}
+.sode-ov__tabbody > .sode-ov__sub {
+  margin-top: var(--pb-space-4);
+}
+/* Over patchbay's .pb-tabpanel.active { display: block }, which is more specific and hid the gaps above. */
+.pb-tabpanel.active:is(.sode-ov__sharebody, .sode-ov__tabbody, .sode-ov__keytab, .sode-side__tab) {
+  display: flex;
 }
 .sode-ed__field {
   align-items: center;
@@ -1001,7 +1026,7 @@ body {
 }
 .sode-ov__keyname {
   display: flex;
-  flex: 1 1 10rem;
+  flex: 0 0 12rem;
   flex-direction: column;
   min-width: 0;
 }
@@ -1016,6 +1041,12 @@ body {
   flex-direction: column;
   gap: var(--pb-space-3);
   padding: var(--pb-space-4);
+}
+.sode-ov__keyitem > .sode-ov__keyname + .sode-ov__muted {
+  flex: 1 1 auto;
+}
+.sode-ov__keynets > .pb-btn {
+  align-self: flex-start;
 }
 .sode-ov__keylink,
 .sode-ov__keynets {

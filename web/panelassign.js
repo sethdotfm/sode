@@ -85,8 +85,8 @@ export function openAssign(panel, ctx) {
   const sayIntro = () =>
     (intro.textContent =
       way === 'user'
-        ? `The instance you pick opens ${panel.name} immediately and shows its sign-in, where the person there types their own PIN. Its key for the panel it shows now keeps working.`
-        : `The instance you pick opens ${panel.name} immediately, with a key of its own for it. Its key for the panel it shows now keeps working.`);
+        ? `This instance opens ${panel.name} immediately and shows the sign-in. The person there types their PIN. Its key for the panel it shows now stays valid.`
+        : `This instance opens ${panel.name} immediately and gets a new key for it. Its key for the panel it shows now stays valid.`);
   sayIntro();
   const choice =
     ways.length > 1

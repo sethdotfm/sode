@@ -57,7 +57,9 @@ export function linkRow(panel, { withHost = true } = {}) {
   const redraw = () => {
     link = itemLink(panel);
     input.value = withHost ? link : pathFor(panel);
-    if (withHost) qrBox.replaceChildren(qrNode(link, 'QR code of the Item link') || el('p', 'sode__hint', 'Too long for a QR code.'));
+    if (!withHost) return;
+    const qr = qrNode(link, 'QR code of the Item link');
+    qrBox.replaceChildren(...(qr ? [qr, el('p', 'sode__hint', 'QR code of the Item link')] : [el('p', 'sode__hint', 'Too long for a QR code.')]));
   };
   redraw();
   if (!S.installUid) once('helloData', redraw);

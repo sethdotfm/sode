@@ -60,9 +60,9 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b.eval(`document.querySelector('[data-id="` + both + `"].sode-ov__item').click()`)
 	b.waitFor("Assign to on the both panel", `document.querySelector('[data-act="assign"]')?.dataset.id === '`+both+`'`)
 	b.eval(`document.querySelector('[data-act="assign"]').click()`)
-	b.waitFor("the key is the default", `document.getElementById('assign-way-client')?.checked && document.querySelector('.sode-ov__share .sode__hint').textContent.includes('a key of its own')`)
+	b.waitFor("the key is the default", `document.getElementById('assign-way-client')?.checked && document.querySelector('.sode-ov__share .sode__hint').textContent.includes('gets a new key')`)
 	b.eval(`document.querySelector('label[for="assign-way-user"]').click()`)
-	b.waitFor("Sign in chosen", `document.getElementById('assign-way-user').checked && document.querySelector('.sode-ov__share .sode__hint').textContent.includes('shows its sign-in')`)
+	b.waitFor("Sign in chosen", `document.getElementById('assign-way-user').checked && document.querySelector('.sode-ov__share .sode__hint').textContent.includes('shows the sign-in')`)
 	b.eval(`[...document.querySelectorAll('.sode-ov__share .pb-btn')].find(x => x.textContent === 'Close').click()`)
 	b.waitFor("the modal closed", `!document.querySelector('.sode-ov__share')`)
 

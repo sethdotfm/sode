@@ -16,6 +16,7 @@ import {
   setLabel,
   canSaveSet,
   ownerNote,
+  ownerSections,
 } from './panelpushrules.js';
 
 const JSON_HEAD = { 'Content-Type': 'application/json' };
@@ -39,20 +40,32 @@ export function openPush(panel, ctx) {
 
   const targets = el('div', 'sode-ov__people');
   const pushBtn = btn('sode-btn--primary', [icon('send'), ' Push']);
-  const pushTab = el('div', null, targets, el('div', 'sode-ov__acts', pushBtn));
+  const pushTab = el(
+    'div',
+    'sode-ov__tabbody',
+    el('p', 'sode__hint', "Push copies this panel's layout to the panels you tick. Each panel keeps a checkpoint of what it had."),
+    targets,
+    el('div', 'sode-ov__acts', pushBtn),
+  );
 
   function paintTargets() {
     targets.replaceChildren();
     if (!cand.length) return targets.append(el('p', 'sode__hint', 'No other panels'));
-    const { groups, single } = pushGroups(cand);
     const row = (p) => {
-      const c = check(p.name + ownerNote(p, ctx.me), {
+      const c = check(p.name, {
         checked: selected.has(p.id),
         onChange: (v) => (v ? selected.add(p.id) : selected.delete(p.id), sync()),
       });
       c.input.dataset.panel = p.id;
       return c.label;
     };
+    for (const sec of ownerSections(cand, ctx.me)) {
+      if (sec.label) targets.append(el('h3', 'sode-ov__group', sec.label));
+      paintSection(sec.panels, row);
+    }
+  }
+  function paintSection(panels, row) {
+    const { groups, single } = pushGroups(panels);
     for (const g of groups) {
       const state = groupState(selected, g);
       const head = check(`All ${g.key} panels (${g.ids.length})`, {
@@ -89,7 +102,7 @@ export function openPush(panel, ctx) {
   const saveHint = el('p', 'sode__hint');
   const setsTab = el(
     'div',
-    null,
+    'sode-ov__tabbody',
     el(
       'p',
       'sode__hint',
@@ -121,7 +134,7 @@ export function openPush(panel, ctx) {
   const cpList = el('div', 'sode-ov__people');
   const restoreTab = el(
     'div',
-    null,
+    'sode-ov__tabbody',
     el('p', 'sode__hint', 'Each Push and restore keeps what it replaced, up to 10 per panel. A restore puts a layout back and keeps the one it replaces.'),
     el('div', 'sode-ov__acts', el('span', 'pb-select-wrap', restoreSel)),
     cpList,
