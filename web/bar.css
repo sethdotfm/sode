@@ -271,7 +271,7 @@
 }
 /* A fixed height with its own big scroll bar (bigscroll.js SCROLLERS), so 24 routers never make the list taller. */
 .sode-routerlist {
-  border-top: var(--pb-border-w) solid var(--pb-border);
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
   list-style: none;
   margin: 0;
   max-height: min(24rem, 60vh);
@@ -279,7 +279,7 @@
   padding: 0;
 }
 .sode-routerlist__item {
-  border-bottom: var(--pb-border-w) solid var(--pb-border);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
 }
 .sode-routerlist__head {
   align-items: baseline;

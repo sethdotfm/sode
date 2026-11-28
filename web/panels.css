@@ -461,7 +461,7 @@ body {
   }
 }
 .sode-ov__list {
-  border-right: var(--pb-border-w) solid var(--pb-border);
+  border-right: var(--pb-border-w) solid var(--pb-edge-soft);
   min-width: 0;
 }
 .sode-ov__find {
@@ -491,7 +491,7 @@ body {
   align-items: center;
   background: none;
   border: 0;
-  border-bottom: var(--pb-border-w) solid var(--pb-border);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
   color: inherit;
   cursor: pointer;
   display: grid;
@@ -633,7 +633,7 @@ body {
 }
 .sode-ov__thumb {
   background: var(--pb-surface-base);
-  border: var(--pb-border-w) solid var(--pb-border);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
   display: grid;
   gap: var(--pb-space-1);
   padding: var(--pb-space-2);
@@ -1901,7 +1901,7 @@ body {
   width: auto;
 }
 .sode-side__table th {
-  font-weight: var(--pb-weight-regular);
+  font-weight: var(--pb-weight-normal);
   padding-inline-end: var(--pb-space-5);
 }
 .sode-side__people {
