@@ -464,7 +464,9 @@
   flex: 1 0 100%;
   font-size: var(--pb-text-lg);
 }
+/* Centred, so the run's room for its scroll bar does not stretch the All chip beside it. */
 .sode__sets {
+  align-items: center;
   display: flex;
   flex: 1;
   gap: var(--pb-space-2);
@@ -741,6 +743,19 @@ html[data-alt] .sode__chip-key {
 .sode__presets .sode__set {
   font-size: var(--pb-text-sm);
   min-height: var(--pb-control-h);
+}
+/* The bookmark chips and filter set chips are pressed live, so on the desktop patch page they are an action high, as
+   the buttons beside them are (base.css). One text size for the chips and those buttons. Compact mode (desktop.css)
+   keeps its own smaller size. */
+:where(:root:not([data-layout="phone"]) #patch-view) :is(.sode__presets, .sode__sets-bar) .sode__set {
+  min-height: var(--sode-h-action);
+}
+/* Top, as the filter boxes are: centred, the run's scroll bar room would put Filters a pixel below them. */
+:where(:root:not([data-layout="phone"]) #patch-view) .sode__sets-bar {
+  align-items: flex-start;
+}
+:where(:root:not([data-layout="phone"]) #patch-view) :is(.sode__presets, .sode__sets-bar) :is(.sode__set, .sode__chipbtn) {
+  font-size: var(--pb-text-sm);
 }
 .sode__scrim > .sode__presets-dlg {
   width: 44rem;

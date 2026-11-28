@@ -7,8 +7,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The History tools, desktop at 1920x1080 and phone at 375x812 with touch. On the desktop the filter boxes, their
-// clear button and Filters are an action high and share a centre line. On the phone the filter boxes and their clear button have one height and centre line,
+// The Bookmarks strip and the History tools, desktop at 1920x1080 and phone at 375x812 with touch. On the desktop
+// every control in the two rows is an action high, with one text size, and the filter boxes, their clear button and
+// Filters share a centre line. On the phone the filter boxes and their clear button have one height and centre line,
 // and Edit sits beside All presets at the right of the Bookmarks head.
 func TestChromeHistoryToolsOneHeight(t *testing.T) {
 	b := startBrowser(t)
@@ -34,17 +35,26 @@ func TestChromeHistoryToolsOneHeight(t *testing.T) {
 	b.waitFor("bookmarks and filter sets", `document.querySelectorAll('#patch-view [data-presets] .sode__set').length === 2 && document.querySelectorAll('#patch-view [data-sets] .sode__set').length === 3`)
 	b.waitFor("fonts loaded", `document.fonts.status === 'loaded'`)
 	b.shot("desktop")
-	// A2-02: one height in the row, an action high.
+	// A2-02, A2-12: one height in each row, an action high.
 	search := []string{"#history-search .sode__search-box > .pb-input", "#history-search [data-search-clear]"}
 	row := append(append([]string{}, search...), "#patch-view [data-filters]")
 	b.sameMiddle("filter boxes, their clear button and Filters", row...)
-	live := row
-	b.sameHeight("History tools controls", live...)
+	live := append(append([]string{}, row...), "#patch-view [data-sets] .sode__set", "#patch-view [data-presets] .sode__set", "#patch-view [data-presets] .sode__chipbtn")
+	b.sameHeight("History tools and Bookmarks controls", live...)
 	want := b.tokenPx("#history-search", "--sode-h-action")
 	for _, x := range b.boxes(live...) {
 		if math.Abs(x.height()-want) > layoutTol {
 			t.Errorf("%s is %.2f px high, want --sode-h-action (%.2f px)", x.Name, x.height(), want)
 		}
+	}
+	// A2-12: one text size on the chips and the buttons of both rows.
+	if got := b.eval(`(() => {
+		const want = getComputedStyle(Object.assign(document.getElementById('history-search').appendChild(document.createElement('span')), { style: 'font-size: var(--pb-text-sm)' })).fontSize;
+		document.querySelector('#history-search > span:last-child').remove();
+		const bad = [...document.querySelectorAll('#patch-view :is([data-sets], [data-presets]) .sode__set, #patch-view .sode__chipbtn')].filter((n) => getComputedStyle(n).fontSize !== want).map((n) => n.textContent.trim() + ' ' + getComputedStyle(n).fontSize);
+		return bad.length ? bad.join(', ') : true;
+	})()`); got != true {
+		t.Errorf("text not at --pb-text-sm: %v", got)
 	}
 
 	// C1-18: the phone.
