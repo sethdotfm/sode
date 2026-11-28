@@ -59,6 +59,8 @@ func TestChromeLogTableLayout(t *testing.T) {
 		t.Errorf("the Log table is wider than the page: %s", fit)
 	}
 	b.noClip("Bytes column", "#log-rows td.sode-log__hex")
+	// A level chip does not make its row taller. The problem row's long note wraps, so it is left out.
+	b.sameHeight("one-line rows", "#log-rows tr:has(.sode-log__lvl)", "#log-rows tr:not(:has(.sode-log__lvl)):not(.sode-log__row--problem)")
 
 	// The reason column takes the spare width, so the other columns keep their width when the rows on show change.
 	timeW := `document.querySelector('.sode-log__table th[data-sort="time"]').getBoundingClientRect().width`

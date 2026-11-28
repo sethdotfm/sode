@@ -103,8 +103,10 @@
   box-shadow: inset var(--pb-accent-bar-w) 0 0 0 var(--pb-status-error);
 }
 .sode-log__lvl {
+  height: var(--pb-space-7);
   min-width: calc(var(--pb-space-8) + var(--pb-space-1));
   padding: 0 var(--pb-space-2);
+  vertical-align: middle;
 }
 .sode-log__more {
   align-items: center;
