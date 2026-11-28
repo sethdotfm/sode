@@ -93,6 +93,11 @@ func TestChromeLogTableLayout(t *testing.T) {
 		t.Errorf("fonts: %s", bad)
 	}
 
+	// The heads name what the columns hold: the reason, and the result (not a router).
+	if heads := b.eval(`[...document.querySelectorAll('.sode-log__table th')].map((h) => h.textContent).join(',')`).(string); heads != "Time,Message,Level,Destination,Source,Reason,Result,Bytes" {
+		t.Errorf("table heads %q", heads)
+	}
+
 	// The filter rows share one label column: each row's first control starts on one edge.
 	b.sameLeft("first control of each filter row", "#log-uptime-presets > :first-child", "#log-kinds > button:first-of-type",
 		"#log-routers > button:first-of-type", "#log-from")
