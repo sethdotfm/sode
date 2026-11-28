@@ -59,7 +59,7 @@ Each choice of the Tie line picker shows its state at a glance (`choiceLook` in 
 - Has it: the tie line carries the source already. Routed bar and "Has it".
 - In use: the take changes Affected destinations. Caution bar and a `pb-badge--warn` with the count ("3 change").
 - Free: the take changes nothing else. No bar and no color.
-- Best: the first choice that the planner ranks usable. A neutral double outline (`--pb-text`) and a plain `pb-badge` "Best". It can have any other state.
+- Best: the first choice that the planner ranks usable. A plain `pb-badge` "Best" only, with no outline. It can have any other state.
 
 ## Accent
 

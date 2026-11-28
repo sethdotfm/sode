@@ -552,10 +552,13 @@ function choiceNode(s, c, on, src, cs) {
     changed.dataset.changed = h.changed;
     changed.dataset.before = h.before ? '1' : '0';
   }
+  // The wire has no words of its own, so its tip says what a lit wire means.
+  const wire = el('span', 'sode-tiepick__wire');
+  wire.dataset.pbTip = on ? 'Chosen tie line' : 'Choose this tie line';
   const b = el(
     'button',
     'sode-tiepick__choice',
-    el('span', 'sode-tiepick__wire'),
+    wire,
     el('span', 'sode-tiepick__tierow', el('span', 'sode-tiepick__tie', c.name), ...lookNodes(look)),
     el('span', 'sode-tiepick__now', `Now ${chainText(h.now)}`),
     el('span', 'sode-tiepick__will', will),

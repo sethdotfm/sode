@@ -150,7 +150,7 @@ Rights checks compare the router and the number of each reference. A right for s
    - a timer that counts up from the last change
    - each Affected destination, with "now shows X, will show Y"
    - "Reserved by panel X" or the Protect, if there is one
-   - its state at a glance. "Has it" with a routed left bar: it carries the source already. A caution left bar and a count badge ("3 change"): the take changes Affected destinations. "Free" with no color: it changes nothing else. A Protected or Reserved tie line is grey. The best choice has an outline and "Best".
+   - its state at a glance. "Has it" with a routed left bar: it carries the source already. A caution left bar and a count badge ("3 change"): the take changes Affected destinations. "Free" with no color: it changes nothing else. A Protected or Reserved tie line is grey. The best choice has the badge "Best".
 4. Keys: J and K or the up and down arrows choose a tie line. H and L or Tab and Shift+Tab move between hops. P protects. Enter sends the take. Esc cancels.
 5. The mouse and touch do everything that the keys do. A tap on a wire chooses it. A shield button protects.
 6. A change on one hop makes Sode calculate the later hops again.
