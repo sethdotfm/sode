@@ -1228,11 +1228,16 @@ html {
   margin: 0 0 var(--pb-space-4);
   padding: 0;
 }
+/* The name, the ends, then the buttons in fixed columns at the right edge: Accept and Dismiss line up from row to row
+   whatever the names. A row with one button (a one-off tie line) puts it in the last column. */
 .sode__tielines-row {
   align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-4);
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-4);
+  grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr) auto auto;
+}
+.sode__tielines-row > .pb-btn:last-child {
+  grid-column: -2;
 }
 /* The table of tie lines: grouped by router pair, of bounded height with a big scroll bar (bigscroll.js SCROLLERS).
    The column heads and each pair's heading stay in view while the rows scroll, as in the Protects list. */
@@ -1350,6 +1355,13 @@ html {
   }
   .sode__tlist .sode__pgroup-head {
     top: 0;
+  }
+  .sode__tielines-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .sode__tielines-row > .sode__hint {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
   .sode__tedit-fields {
     grid-template-columns: minmax(0, 1fr);
