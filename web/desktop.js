@@ -265,10 +265,7 @@ function renderLast() {
     if (last[k]) {
       const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', 'Last'), el('span', 'sode__last-text', ...last[k]));
       b.dataset.pbTip = `Last ${what} (${keyLabel(`ctrl+${key}`)})`;
-      b.addEventListener('click', () => {
-        useLast(k);
-        b.blur();
-      });
+      b.addEventListener('click', () => useLast(k));
       chips.push(b);
     }
     if (k !== 'lvl' && next[k]) {
@@ -279,10 +276,7 @@ function renderLast() {
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]))),
       );
       b.dataset.pbTip = `Next ${what} (${keyLabel(`ctrl+shift+${key}`)})`;
-      b.addEventListener('click', () => {
-        useLast(k, true);
-        b.blur();
-      });
+      b.addEventListener('click', () => useLast(k, true));
       // The closed chip's room stays in the slot so nothing in the row moves.
       chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next'), b));
     }
@@ -302,11 +296,16 @@ on('history', () => {
 on('last', renderLast);
 
 // Fills one box from the last take, then focuses the opposite box only if empty, else Levels.
-// next: use nextTake() and remember it so a repeat goes on.
+// next: use nextTake() and remember it so a repeat goes on. When there is nothing to fill, focus
+// stays in that kind's box, so a keyboard user keeps their place.
 function useLast(k, next = false) {
+  const stay = () => (k === 'lvl' ? toLevels() : focusBox(boxes[k].input));
   const fill = lastFill(k, next, boxState());
-  if (fill?.none) return showResult('info', 'No earlier take', '');
-  if (!fill) return;
+  if (fill?.none) {
+    stay();
+    return showResult('info', 'No earlier take', '');
+  }
+  if (!fill) return stay();
   const t = fill.t;
   if (k === 'src') {
     select('src', t.src);
@@ -326,7 +325,7 @@ function useLast(k, next = false) {
   } else if (levelsShown()) {
     lvl.set(t.levels);
     focusBox(lvlInput);
-  }
+  } else stay();
 }
 
 // Both lists show at the same time, on their own row (the flip swaps them).

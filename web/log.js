@@ -579,6 +579,7 @@ function initUptime() {
 let syncPresets = () => {};
 
 function refreshUptime() {
+  barsAt = maxBars();
   if (!customTimes()) chipOn = null;
   syncPresets();
   const now = Date.now();
@@ -670,6 +671,17 @@ on('uptimeResult', (m) => {
 });
 
 setInterval(() => lockCovers(lockState()) || refreshUptime(), 60_000);
+// A resize or a turn of the phone changes how many bars fit, so the strip and the chip tips follow.
+let barsAt = 0;
+let resizeTimer = 0;
+addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const n = maxBars();
+    if (n === barsAt || lockCovers(lockState())) return;
+    refreshUptime();
+  }, 200);
+});
 
 initFilters();
 initUptime();

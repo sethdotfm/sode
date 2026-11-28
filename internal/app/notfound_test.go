@@ -38,6 +38,9 @@ func TestUnknownPageGetsSodePage(t *testing.T) {
 		"/panels/editor/x":      "../../",
 		"/panels/not%20an%20id": "../",
 		"/vendor/nothing.css":   "../",
+		"/log/":                 "../",
+		"/panels/editor/":       "../../",
+		"/panels/a%2Fb":         "../",
 	} {
 		code, ctype, body := get(path, html)
 		if code != http.StatusNotFound || !strings.HasPrefix(ctype, "text/html") {
@@ -51,6 +54,7 @@ func TestUnknownPageGetsSodePage(t *testing.T) {
 	for _, c := range []struct{ path, accept string }{
 		{"/api/nothing", html},
 		{"/api/log/nothing", html},
+		{"/api/", html},
 		{"/logs", ""},
 		{"/logs", "application/json"},
 	} {

@@ -58,8 +58,9 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		if name == "" {
 			name = "index.html"
 		}
-		if static != nil && r.URL.Path != "/" && fs.ValidPath(name) {
-			if _, err := fs.Stat(static, name); errors.Is(err, fs.ErrNotExist) {
+		// A trailing slash makes the name invalid for fs, so look the path up without it.
+		if probe := strings.TrimSuffix(name, "/"); static != nil && r.URL.Path != "/" && fs.ValidPath(probe) {
+			if _, err := fs.Stat(static, probe); errors.Is(err, fs.ErrNotExist) {
 				notFound(w, r)
 				return
 			}
@@ -138,7 +139,7 @@ func notFoundPage(static fs.FS) http.HandlerFunc {
 			return
 		}
 		up := "./"
-		if n := strings.Count(r.URL.Path, "/") - 1; n > 0 {
+		if n := strings.Count(r.URL.EscapedPath(), "/") - 1; n > 0 {
 			up = strings.Repeat("../", n)
 		}
 		h := w.Header()

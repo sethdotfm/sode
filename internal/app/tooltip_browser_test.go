@@ -135,6 +135,12 @@ func TestChromeTipsClearOfTheirControl(t *testing.T) {
 		b.eval(`document.getElementById('` + id + `').dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab', code: 'Tab', bubbles: true, cancelable: true})); true`)
 		b.waitFor(id+" picked", `document.activeElement.id !== '`+id+`'`)
 	}
+	// No take yet: Ctrl+D from the Source box has nothing to fill, says so, and moves focus to the Destination box.
+	b.eval(`document.getElementById('src').focus(); true`)
+	b.call("Input.dispatchKeyEvent", map[string]any{"type": "keyDown", "key": "d", "code": "KeyD", "windowsVirtualKeyCode": 68, "modifiers": 2})
+	b.call("Input.dispatchKeyEvent", map[string]any{"type": "keyUp", "key": "d", "code": "KeyD", "windowsVirtualKeyCode": 68, "modifiers": 2})
+	b.waitFor("No earlier take shown", `document.body.textContent.includes('No earlier take')`)
+	b.waitFor("focus in the Destination box", `document.activeElement?.id === 'dst'`)
 	pick("src", simSrcName)
 	pick("dst", "DSM1")
 	b.eval(`(() => { const t = document.getElementById('lvl'); t.focus(); t.value = '1'; t.dispatchEvent(new Event('input', {bubbles: true})); t.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true})); return true; })()`)
@@ -147,7 +153,8 @@ func TestChromeTipsClearOfTheirControl(t *testing.T) {
 		tipClearOf(`[...document.querySelector('.sode__box--dst').children].filter((c) => !c.querySelector('[data-last]'))`))
 	b.shot("tip-last-chip")
 	realClick(b, last)
-	b.waitFor("no focus on the Last chip after a press", `!document.activeElement?.matches('.sode__last')`)
+	// The chip fills the destination and focus goes on to the empty Source box, not to the page.
+	b.waitFor("focus in the Source box after a press", `document.activeElement?.id === 'src'`)
 
 	b.call("Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": 960, "y": 1000})
 	b.open(srv.URL + "/#settings")
