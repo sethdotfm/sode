@@ -68,7 +68,11 @@ function draw() {
   const many = all.length > 1;
   $('routers-panes').classList.toggle('sode__rt--one', !many);
   $('routers-list-wrap').hidden = !many;
-  $('routers-count').textContent = countLine(all.filter((x) => !x.isNew).map((x) => linkOfRouter(x)?.key || null));
+  const saved = all.filter((x) => !x.isNew);
+  $('routers-count').textContent = countLine(
+    saved.map((x) => linkOfRouter(x)?.key || null),
+    all.length - saved.length,
+  );
   const findable = all.length >= FIND_FROM;
   find.hidden = !findable;
   $('routers-problems-wrap').hidden = !findable;

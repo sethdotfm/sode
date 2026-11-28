@@ -224,17 +224,19 @@ export function addText(v) {
 // The list shows a find box and the problem filter from this many routers.
 export const FIND_FROM = 8;
 
-// The line above the list: "4 routers. 3 connected, 1 down." keys: the linkState key of each router. A key is null
-// when Sode does not know the state (no server link, or a router to add).
-export function countLine(keys) {
-  if (keys.length < 2) return '';
+// The line above the list: "4 routers. 3 connected, 1 down." keys: the linkState key of each saved router. A key is
+// null when Sode does not know the state (no server link). added: the routers to add, which the line counts as not
+// saved. One router has the line too, so Add router is not alone on the bar.
+export function countLine(keys, added = 0) {
+  if (!keys.length) return '';
   const n = (k) => keys.filter((x) => x === k).length;
-  const head = `${keys.length} routers.`;
-  if (keys.every((k) => !k)) return head;
+  const head = `${keys.length} ${keys.length === 1 ? 'router' : 'routers'}.`;
+  const more = added ? ` ${added} not saved.` : '';
+  if (keys.every((k) => !k)) return head + more;
   const parts = [`${n('connected')} connected`];
   if (n('down') + n('never')) parts.push(`${n('down') + n('never')} down`);
   if (n('connecting')) parts.push(`${n('connecting')} connecting`);
-  return `${head} ${parts.join(', ')}.`;
+  return `${head} ${parts.join(', ')}.${more}`;
 }
 
 // findMatch: the find box matches the prefix, the Router title or the address.

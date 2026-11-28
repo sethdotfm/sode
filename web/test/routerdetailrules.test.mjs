@@ -111,7 +111,10 @@ test('review words', () => {
 });
 
 test('the count line, find and the problem filter of the list', () => {
-  assert.equal(countLine(['connected']), '');
+  assert.equal(countLine([]), '');
+  assert.equal(countLine(['connected']), '1 router. 1 connected.');
+  assert.equal(countLine(['connected', 'connected', 'connected'], 1), '3 routers. 3 connected. 1 not saved.');
+  assert.equal(countLine([null], 2), '1 router. 2 not saved.');
   assert.equal(countLine(['connected', 'connected', 'down', 'never']), '4 routers. 2 connected, 2 down.');
   assert.equal(countLine(['connected', 'connecting']), '2 routers. 1 connected, 1 connecting.');
   assert.equal(countLine([null, null]), '2 routers.');
