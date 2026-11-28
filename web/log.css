@@ -161,6 +161,10 @@
 .sode-log__why-part {
   margin-inline-start: var(--pb-space-2);
 }
+/* A row with no reason (log.js wraps the reason in .sode-log__why-text) starts on the header's text edge. */
+.sode-log__why-part:first-child {
+  margin-inline-start: 0;
+}
 .sode-log__save > summary {
   cursor: pointer;
 }

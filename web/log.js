@@ -364,7 +364,7 @@ function row(e, fresh = false) {
     el(
       'td',
       'sode-log__why',
-      why,
+      why ? el('span', 'sode-log__why-text', why) : '',
       e.by ? el('span', 'pb-text-muted sode-log__why-part', e.by) : '',
       e.note ? el('span', 'pb-text-muted sode-log__why-part', e.note) : '',
       e.kind === 'server' && e.err ? el('span', 'pb-text-muted sode-log__why-part', e.err) : '',

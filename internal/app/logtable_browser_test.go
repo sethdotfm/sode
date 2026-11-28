@@ -62,6 +62,21 @@ func TestChromeLogTableLayout(t *testing.T) {
 	// A level chip does not make its row taller. The problem row's long note wraps, so it is left out.
 	b.sameHeight("one-line rows", "#log-rows tr:has(.sode-log__lvl)", "#log-rows tr:not(:has(.sode-log__lvl)):not(.sode-log__row--problem)")
 
+	// A row with no reason starts its by or note text on the header's text edge.
+	if off := b.eval(`(() => {
+		const h = document.querySelector('.sode-log__table th[data-sort="why"]');
+		const edge = h.getBoundingClientRect().left + parseFloat(getComputedStyle(h).paddingLeft);
+		const first = (td) => [...td.childNodes].find((n) => n.nodeType === 1 || n.textContent.trim() !== '');
+		const parts = [...document.querySelectorAll('#log-rows td.sode-log__why')].map(first).filter((n) => n?.classList?.contains('sode-log__why-part'));
+		if (!parts.length) return 'no row without a reason';
+		return parts.map((p) => p.getBoundingClientRect().left - edge).filter((d) => Math.abs(d) > 0.5).map((d) => d.toFixed(2) + ' px').join(', ');
+	})()`).(string); off != "" {
+		t.Errorf("reason text off the header's text edge: %s", off)
+	}
+	if !b.eval(`[...document.querySelectorAll('#log-rows .sode-log__why-text + .sode-log__why-part')].every((p) => parseFloat(getComputedStyle(p).marginInlineStart) > 0)`).(bool) {
+		t.Error("the by or note text after a reason lost its space")
+	}
+
 	// The reason column takes the spare width, so the other columns keep their width when the rows on show change.
 	timeW := `document.querySelector('.sode-log__table th[data-sort="time"]').getBoundingClientRect().width`
 	before := b.eval(timeW).(float64)
