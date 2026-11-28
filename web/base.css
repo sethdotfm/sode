@@ -1331,8 +1331,7 @@ html {
   max-height: calc(var(--pb-control-h) * 6 + var(--pb-space-2) * 2);
   position: static;
 }
-/* No gap for the closed match list or the blank Router title, so an empty end box is as tall as Tie line name. */
-.sode__tfind > .sode__menu[hidden],
+/* No gap for the blank Router title, so an empty end box is as tall as Tie line name. */
 .sode__tfind > .sode__tfind-end:empty {
   display: none;
 }
@@ -1387,6 +1386,16 @@ html {
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3);
+}
+/* The Swap dialog (swap.js): Router, Swap, Old number and New number on one row, then Find items and Only Broken. */
+:root:not([data-layout="phone"]) .sode__swap .sode__fields {
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+}
+:root:not([data-layout="phone"]) .sode__swap .sode__fields:has(> [hidden]) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.sode__swap-find {
+  margin-top: var(--pb-space-4);
 }
 .sode__swap-owner {
   font-size: 1rem;
