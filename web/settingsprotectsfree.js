@@ -6,6 +6,7 @@
 import { el, S } from './core.js';
 import { btn, check } from './formbits.js';
 import { question } from './modal.js';
+import { routerDisplay } from './routerlistrules.js';
 import { churnKey, lockoutMs } from './lockrules.js';
 import { freeLines, freeButton } from './protectlistrules.js';
 
@@ -25,7 +26,7 @@ export function askFreeSode(rows, routers, only, linked, back) {
     'div',
     'sode__pfree-list',
     ...lines.map((l) => {
-      const name = many ? `${l.router.prefix} ${l.router.title}` : l.router.title || 'Router';
+      const name = many ? routerDisplay(l.router) : l.router.title || 'Router';
       const c = check(name, {
         checked: l.ticked,
         onChange: (on) => {

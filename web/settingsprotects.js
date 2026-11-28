@@ -168,7 +168,7 @@ function groupNode(g, many) {
   head.append(el('span', 'sode__pgroup-gap'));
   if (rt.device) head.append(el('span', 'sode__hint', `Sode is device ${rt.device}`));
   if (many) {
-    const b = btn('pb-btn--outline pb-btn--sm', `Free Sode's Protects on ${rt.prefix}…`, () => openFreeSode(rt.uid));
+    const b = btn('pb-btn--outline', `Free Sode's Protects on ${rt.prefix}…`, () => openFreeSode(rt.uid));
     b.dataset.act = `free-router-${rt.uid}`;
     b.dataset.freeRouter = rt.uid;
     const why = freeBlock(rt, linked()) || (g.sode ? '' : 'Sode has no Protect on this router.');

@@ -639,7 +639,7 @@ function showSlot() {
   const note = $('log-slot');
   note.hidden = !slotMode;
   if (!slotMode) return;
-  const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Show all bars');
+  const back = el('button', 'pb-btn pb-btn--outline', 'Show all bars');
   back.type = 'button';
   back.addEventListener('click', leaveSlotBack);
   note.replaceChildren(el('strong', null, 'One bar'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, back);
