@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { logReadable, spanText, routerUpSince, hoverRows, moreText, HOVER_ROWS } from '../statusinforules.js';
+import { logReadable, spanText, routerUpSince, hoverRows, moreText, HOVER_ROWS, errText } from '../statusinforules.js';
 
 test('logReadable follows the uptime rule: a Role, no Lock, and the log lock passed', () => {
   assert.equal(logReadable(null, {}), false);
@@ -92,4 +92,13 @@ test('hoverRows over the cap keeps the box at HOVER_ROWS lines: one row less, an
 
 test('moreText points to the router list', () => {
   assert.equal(moreText(17), 'And 17 more. Click the Routers icon to see all.');
+});
+
+test('errText puts the reason first, so a cut line keeps it', () => {
+  assert.equal(errText('dial tcp 127.0.0.1:18911: connect: connection refused'), 'connection refused (127.0.0.1:18911)');
+  assert.equal(errText('dial tcp 10.0.0.5:8910: i/o timeout'), 'i/o timeout (10.0.0.5:8910)');
+  assert.equal(errText('read tcp 10.0.0.2:51000->10.0.0.5:8910: read: connection reset by peer'), 'connection reset by peer (10.0.0.5:8910)');
+  assert.equal(errText('dial tcp: lookup ultrix.local: no such host'), 'no such host (dial tcp: lookup ultrix.local)');
+  assert.equal(errText('no answer'), 'no answer');
+  assert.equal(errText(''), '');
 });

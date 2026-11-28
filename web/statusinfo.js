@@ -14,7 +14,7 @@ import { el, S, on, emit, wsSend, linkList } from './core.js';
 import { layout, onLayout } from './layout.js';
 import { slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
-import { logReadable, spanText, routerUpSince, hoverRows, moreText } from './statusinforules.js';
+import { logReadable, spanText, routerUpSince, hoverRows, moreText, errText } from './statusinforules.js';
 import { listRows, FIND_FROM } from './routerlinkrules.js';
 import { readTab, writeTab } from './store.js';
 
@@ -340,7 +340,7 @@ function makeHover(root, listOpen) {
       if (x.state) state.dataset.state = x.state;
       const own = [row(all.length === 1 ? 'Router link' : x.name, state)];
       if (all.length === 1 && x.r.addr) own.push(row('Address', el('span', 'sode-statusinfo__num', x.r.addr)));
-      if (x.r.err) own.push(row('Error', el('span', 'sode-statusinfo__err', x.r.err)));
+      if (x.r.err) own.push(row('Error', el('span', 'sode-statusinfo__err', errText(x.r.err))));
       const box = el('div', 'sode-statusinfo__router', el('div', 'sode-statusinfo__rows', ...own));
       box.dataset.router = x.r.uid;
       if (!asked.has(x.r.uid)) {
