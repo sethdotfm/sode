@@ -27,6 +27,7 @@ import {
   KEPT_KEY,
   keptAnswers,
   refillAnswers,
+  connectionTitle,
 } from './setupwizardrules.js';
 import { readTab, writeTab } from './store.js';
 
@@ -222,7 +223,7 @@ const VIEW = {
     'Router setup',
     section('Router', '', row(field('setup-routerTitle', 'Router title', d.routerTitle, { maxlength: '32' }), el('div'))),
     section(
-      'Connection',
+      connectionTitle(d.again),
       '',
       field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router')),
       el('div', { id: 'setup-router-status' }, ...statusLine()),

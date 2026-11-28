@@ -1,0 +1,1 @@
+- Setup wizard: the Router step's heading reads "Connection: Add your first router". Run setup again keeps "Connection".

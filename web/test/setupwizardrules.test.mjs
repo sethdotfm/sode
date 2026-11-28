@@ -14,6 +14,7 @@ import {
   restorePinProblem,
   keptAnswers,
   refillAnswers,
+  connectionTitle,
 } from '../setupwizardrules.js';
 
 const filled = () => ({
@@ -172,4 +173,10 @@ test('kept answers that are missing or not strings change nothing', () => {
   assert.deepEqual(refillAnswers(start, null), start);
   assert.deepEqual(refillAnswers(start, 'x'), start);
   assert.deepEqual(refillAnswers(start, { levels: 9, pin: '1111', again: true, router: '10.0.0.1:1' }), { ...start, router: '10.0.0.1:1' });
+});
+
+test('the Connection heading names the first router on first run only', () => {
+  assert.equal(connectionTitle(false), 'Connection: Add your first router');
+  assert.equal(connectionTitle(undefined), 'Connection: Add your first router');
+  assert.equal(connectionTitle(true), 'Connection');
 });

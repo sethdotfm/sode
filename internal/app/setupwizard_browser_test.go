@@ -94,6 +94,7 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("Router, filled from the config", `document.getElementById('setup-router')?.value === '`+sim+`'`)
 	stepsFit("Router")
 	adminLine("Router", 0)
+	b.waitFor("the Connection heading names the first router", `[...document.querySelectorAll('#setup-body .sode-setup__h')].some((h) => h.textContent === 'Connection: Add your first router')`)
 	b.waitFor("Router title, with the default title of Add router", `document.getElementById('setup-routerTitle')?.value === 'Router A'
 		&& document.querySelector('label[for="setup-routerTitle"]').textContent === 'Router title'`)
 	b.waitFor("Level numbering shows the real ranges, as the detail view does", `(() => { const n = +document.getElementById('setup-levels').value;

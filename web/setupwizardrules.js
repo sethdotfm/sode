@@ -63,6 +63,9 @@ export function refillAnswers(d, kept) {
   return out;
 }
 
+// The Router step's Connection heading. Run setup again edits the router that is there, so it adds no first router.
+export const connectionTitle = (again) => (again ? 'Connection' : 'Connection: Add your first router');
+
 // '' when SODE_* did not fill it.
 export function envHint(setup, key) {
   const name = setup?.env?.[key];

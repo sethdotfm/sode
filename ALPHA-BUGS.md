@@ -182,7 +182,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-14: Connection heading names the first router
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Router step. web/setupwizard.js:208-215 (`section('Connection', ...)`), `VIEW.router` :207-249.
 - **Reported:** Text: "Connection" → "Connection: Add your first router".
 - **Now:** The section heading is the plain word "Connection" (web/setupwizard.js:210), above the Address field and the status line. The step is titled "Router setup" and has a "Router" section above it (the Router title field, :208).
@@ -190,7 +190,13 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: "Connection: Add your first router" on first run only. Run setup again keeps "Connection", since it edits an existing router.
 - **Open questions:** none.
 - **Proof:** Node or TestChromeSetupWizard text check on the Router step. Screenshot of the Router step.
+  - Reproduced on 8e9c6761 with swp08sim and a new config: the Router step's second heading is "Connection" (before-router.png).
+  - Given: node test "the Connection heading names the first router on first run only" (web/test/setupwizardrules.test.mjs) for `connectionTitle`. `TestChromeSetupWizard` checks the heading "Connection: Add your first router" on the Router step; before the fix: `setupwizard_browser_test.go:97: timed out waiting for the Connection heading names the first router`. `TestChromeRunSetupAgain` (internal/app/setupagain_browser_test.go) checks Run setup again keeps "Connection". Both pass after.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-14/: before-router.png, after-router.png.
 - **Notes:**
+  - What changed: `connectionTitle(again)` (web/setupwizardrules.js:67) gives "Connection: Add your first router" on first run and "Connection" for Run setup again; `VIEW.router` uses it (web/setupwizard.js:226).
+  - Checks: `go test -short ./...` all ok; `go vet ./...` ok; `node --test 'web/test/*.test.mjs'` # pass 2002, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChrome(SetupWizard|RunSetupAgain)$'` ok.
+  - Commit: this commit.
 
 ### AB-15: Multi destination take behavior needs a help icon with a tooltip
 
