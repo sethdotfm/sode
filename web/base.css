@@ -925,6 +925,14 @@ html {
   .sode__settings > :is(.sode__group, .sode__topic) {
     scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px));
   }
+  /* Routers, Tie lines and Protects hold tables, so they take a wider measure to the right; form sections keep 40rem.
+     The width stops a gutter short of the page bar. The left edge is the .sode__settings margin above: keep in step. */
+  :root:not([data-layout="phone"]) .sode__settings > [data-topic="routers"]:is(.sode__group, .sode__topic) {
+    width: min(
+      60rem,
+      100vw - var(--sode-page-bar) - var(--pb-space-4) - max(var(--pb-space-4) + 12.5rem + var(--pb-space-8), (100vw - var(--sode-page-bar) - 40rem) / 2)
+    );
+  }
 }
 .sode__settings-head {
   align-items: center;
