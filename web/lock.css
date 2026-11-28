@@ -461,12 +461,14 @@
   width: min(68rem, calc(100vw - var(--pb-space-8) * 2));
 }
 /* A fixed top and a body of one least height, so the tab strip stays under the pointer when the tab changes. */
+/* The max height takes off the top margin, else a tall tab puts the footer under the screen's lower edge. */
 .sode__scrim > .sode__filters.sode__users-dlg {
   align-self: flex-start;
   margin-top: 8vh;
+  max-height: calc(100vh - 8vh - var(--pb-space-8) * 2 - var(--sode-down-h, 0px));
 }
 .sode__users-dlg .pb-modal__body {
-  min-height: 30rem;
+  min-height: min(30rem, 50vh);
 }
 .sode__scrim > .sode__filters.sode__profiles-dlg {
   width: min(64rem, calc(100vw - var(--pb-space-8) * 2));

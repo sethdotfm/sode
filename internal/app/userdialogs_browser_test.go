@@ -14,14 +14,23 @@ import (
 // userDialogsApp starts Settings at 1920x1080, signed in as Ana (Administrator), with Bo (Trusted user) beside her.
 func userDialogsApp(t *testing.T) *tab {
 	t.Helper()
+	return userDialogsAppAt(t, 1920, 1080, 0)
+}
+
+// userDialogsAppAt is userDialogsApp at w x h, with more Operators after Bo.
+func userDialogsAppAt(t *testing.T, w, h, more int) *tab {
+	t.Helper()
 	b := startBrowser(t)
-	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": w, "height": h, "deviceScaleFactor": 1, "mobile": false})
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) {
 		c.Users[0].Role = config.RoleAdministrator
 		bo := mkUser(t, "Bo", "5678")
 		bo.Role = config.RoleTrusted
 		c.Users = append(c.Users, bo)
+		for i := range more {
+			c.Users = append(c.Users, mkUser(t, fmt.Sprintf("Operator %d", i+1), "1111"))
+		}
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -172,6 +181,36 @@ func TestChromeManageUsersDialog(t *testing.T) {
 		t.Errorf("User defaults hint %q", got)
 	}
 	b.gapY("Swap clears the Broken line", "--pb-space-3", "#account-broken", ".sode__profiles-swap")
+	b.check()
+}
+
+// At 1366x768 with many users, the whole of Manage users stays on the screen on each tab: its body scrolls, and the
+// footer stays in view under the dialog's lower top edge.
+func TestChromeManageUsersFitsSmallScreen(t *testing.T) {
+	b := userDialogsAppAt(t, 1366, 768, 20)
+	b.eval(`document.getElementById('users-manage').click(); true`)
+	b.waitFor("Users dialog open with all users", `document.querySelectorAll('.sode__users-dlg input[data-field="name"]').length >= 22`)
+	fits := func(tab string) {
+		b.t.Helper()
+		if got := evalText(b, `(() => {
+			const d = document.querySelector('.sode__users-dlg').getBoundingClientRect();
+			const f = document.querySelector('.sode__users-dlg .pb-modal__footer').getBoundingClientRect();
+			return f.bottom <= innerHeight && d.top >= 0 ? '' : 'footer bottom ' + f.bottom.toFixed(1) + ', dialog top ' + d.top.toFixed(1) + ', screen ' + innerHeight;
+		})()`); got != "" {
+			b.layoutFail(tab + " tab: " + got)
+		}
+	}
+	fits("Users")
+	top := evalNum(b, `document.querySelector('.sode__users-dlg [role=tablist]').getBoundingClientRect().top`)
+	for _, id := range []string{"clients", "rights"} {
+		b.eval(`document.getElementById('tab-` + id + `').click(); true`)
+		b.waitFor(id+" tab shown", `!document.getElementById('panel-`+id+`').hidden`)
+		fits(id)
+		if got := evalNum(b, `document.querySelector('.sode__users-dlg [role=tablist]').getBoundingClientRect().top`); math.Abs(got-top) > layoutTol {
+			b.layoutFail(fmt.Sprintf("%s tab: tab strip top %.1f, want %.1f", id, got, top))
+		}
+	}
+	b.shot("users-1366-rights")
 	b.check()
 }
 
