@@ -1,7 +1,7 @@
 // The Buttons panel body of a panel run (panelrun.js): cells, the state model, the Undo cell and the hold guard.
 // ctx is the run's adapter: { ui, art, embedded, page, id, call, callJSON, post, poll, ready, instance, touched }.
 import { showNote } from './core.js';
-import { envFrom, namesFrom, drawnCells, errorText, undoneText, undoMoved } from './panelrules.js';
+import { envFrom, namesFrom, drawnCells, errorText, undoneText, undoMoved, downPlaces, cellDown, routersDownText } from './panelrules.js';
 import {
   createState,
   pressDestination,
@@ -75,15 +75,17 @@ export function buttonsBody(ctx, first) {
   let undoCells = hasUndo(panel);
   // A take across routers that waits for its second Take (askTies): the staged routes it was asked for, and its plan.
   let tieAsk = null; // { key, plan }
+  // The places of the routers that are down (GET /status), while Sode has two or more.
+  let down = new Set();
   const tieKey = (s) => JSON.stringify(s.staged);
 
   const render = () => {
     const now = Date.now();
-    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance: ctx.instance(), pages: pagesOf(panel), wrap: wrapOf(panel), undo: undoNext });
+    paintGrid(grid, { st, env, names, now, down, panelName: panel.name, instance: ctx.instance(), pages: pagesOf(panel), wrap: wrapOf(panel), undo: undoNext });
     const err = errorOf(st, now);
     const undone = err ? null : undoneOf(st, now);
     const ask = !err && !st.busy && tieAsk?.key === tieKey(st) ? tieAskText(tieAsk.plan) : '';
-    showNote(ui.status, err ? errorText(err, names) : ask || undoneText(undone, names));
+    showNote(ui.status, err ? errorText(err, names) : ask || undoneText(undone, names) || routersDownText(ctx.places(), down, cells));
     ui.status.classList.toggle('sode-panel__status--ok', !!undone && !undone.failed.length);
   };
   const build = () => buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
@@ -182,6 +184,7 @@ export function buttonsBody(ctx, first) {
     if (!ctx.ready() && !nav) return;
     ctx.touched();
     if (nav) return showNewPage(pressPage(st, cell, pagesOf(panel), wrapOf(panel)));
+    if (cellDown(cell, down)) return;
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env)) return;
@@ -217,7 +220,8 @@ export function buttonsBody(ctx, first) {
   return {
     render,
     // One poll's answers. nm and pr are null when names were not read again; first is the first poll that reached Sode.
-    data({ tally, prot, nm, pr, first }) {
+    data({ tally, prot, nm, pr, link, first }) {
+      down = downPlaces(link, ctx.places());
       if (nm) {
         names = namesFrom(nm);
         presets = pr;

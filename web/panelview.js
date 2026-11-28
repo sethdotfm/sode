@@ -1,7 +1,7 @@
 // Holds no state of its own: paintGrid is called after every change.
 import { el, icon } from './core.js';
 import { artOf, artBOf, artBBadge, cellScale, textHidden } from './panellook.js';
-import { currentLabel, nameCellText, presetKey, presetName, SHOW_KINDS } from './panelrules.js';
+import { currentLabel, nameCellText, presetKey, presetName, SHOW_KINDS, cellDown } from './panelrules.js';
 import { PAGE_KINDS, pageCellText } from './pagecells.js';
 import { cellStatus, STATUS_TEXT } from './brokenrules.js';
 import {
@@ -70,7 +70,7 @@ export function artImage(cls, art, id, lib) {
 // Replaces a cell's children apart from its artwork, and only when they differ from the last paint. So the one-second
 // redraw does not touch an idle cell.
 function fill(b, ...kids) {
-  const now = [...b.childNodes].filter((n) => n !== b._art && n !== b._status);
+  const now = [...b.childNodes].filter((n) => n !== b._art && n !== b._status && n !== b._down);
   if (now.length === kids.length && now.every((n, i) => n.isEqualNode(kids[i]))) return;
   for (const n of now) n.remove();
   b.append(...kids);
@@ -85,6 +85,26 @@ function statusIcon(status) {
   i.setAttribute('aria-label', STATUS_TEXT[status]);
   i.dataset.status = status;
   return i;
+}
+
+// A Source or Destination cell on a down router: the mark of a Broken cell's place, and aria-disabled, since a press
+// does nothing (panelbuttons.js). The status line names the router.
+function paintDown(b, cell, down) {
+  const on = cellDown(cell, down);
+  if (on === !!b._down) return;
+  if (on) {
+    b._down = icon('server-off');
+    b._down.classList.add('sode-panel__status-mark', 'sode-panel__status-mark--down');
+    b._down.removeAttribute('aria-hidden');
+    b._down.setAttribute('role', 'img');
+    b._down.setAttribute('aria-label', 'Router down');
+    b.append(b._down);
+    b.setAttribute('aria-disabled', 'true');
+  } else {
+    b._down.remove();
+    b._down = null;
+    b.removeAttribute('aria-disabled');
+  }
 }
 
 // hold is { down(cell), cancel() } for a Take cell with a hold guard: pointer or Enter and Space start it, and a leave ends it.
@@ -207,6 +227,7 @@ export function paintGrid(grid, ctx) {
   const on = armed(ctx.st, ctx.env);
   grid.cells.forEach((cell, i) => {
     const b = grid.nodes[i];
+    if (cell.kind === 'source' || cell.kind === 'destination') paintDown(b, cell, ctx.down);
     if (cell.kind === 'source') paintSource(b, cell, ctx);
     else if (cell.kind === 'destination') paintDestination(b, cell, ctx);
     else if (cell.kind === 'preset') paintPreset(b, cell, ctx);

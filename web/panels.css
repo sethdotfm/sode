@@ -196,12 +196,18 @@ body {
   position: absolute;
   translate: -50% 0;
 }
-/* A Broken or Name moved cell (panelview.js statusIcon). */
+/* A Broken or Name moved cell (panelview.js statusIcon), and a cell on a down router (paintDown). */
 .sode-panel__status-mark {
   color: var(--pb-status-warn-fill);
   inset-block-start: var(--pb-space-1);
   inset-inline-start: var(--pb-space-1);
   position: absolute;
+}
+.sode-panel__status-mark--down {
+  color: var(--pb-status-error);
+}
+.sode-panel__cell[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 .sode-panel__staged {
   font-size: var(--pb-text-xs);
