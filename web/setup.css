@@ -55,8 +55,13 @@
 .sode-setup__steps li:last-child {
   flex: none;
 }
+/* Plain resets, not all: unset, which also takes away patchbay's focus ring. */
 .sode-setup__chip {
-  all: unset;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -69,10 +74,6 @@
 }
 .sode-setup__chip[data-go]:hover .sode-setup__dot {
   border-color: var(--pb-accent-hover);
-}
-.sode-setup__chip:focus-visible .sode-setup__dot {
-  outline: 2px solid var(--pb-accent);
-  outline-offset: 2px;
 }
 .sode-setup__dot {
   display: grid;
@@ -123,7 +124,7 @@
   margin: 0;
 }
 .sode-setup__section {
-  margin-top: var(--pb-space-7);
+  margin-top: var(--pb-space-9);
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-4);
@@ -132,10 +133,12 @@
   margin-top: 0;
 }
 .sode-setup__hr {
-  margin: var(--pb-space-7) 0 0;
+  margin: var(--pb-space-9) 0 0;
 }
-.sode-setup__hr + .sode-setup__section {
-  margin-top: var(--pb-space-6);
+/* Fields keep a readable width on a wide dialog. */
+.sode-setup__section > .sode__field,
+.sode-setup__row {
+  max-width: 48rem;
 }
 /* Two fields side by side; an empty second cell keeps a lone field at half width. */
 .sode-setup__row {
@@ -144,7 +147,7 @@
   gap: var(--pb-space-6);
   align-items: end;
 }
-/* Name, PIN and Repeat your PIN: a third each. */
+/* Name, PIN and Repeat PIN: a third each. */
 .sode-setup__row--3 {
   grid-template-columns: repeat(3, 1fr);
 }
@@ -175,6 +178,10 @@
 .sode-setup__err.is-busy {
   color: var(--pb-text-muted);
 }
+/* The Settings width would wrap the caution in the wider wizard. */
+.sode-setup .sode__brand-caution {
+  max-width: none;
+}
 
 .sode-setup__swatches {
   display: flex;
@@ -187,10 +194,17 @@
   flex-direction: column;
   align-items: center;
   gap: var(--pb-space-1);
-  min-width: 2.25rem;
+  /* One width for every item, so a long name such as Custom keeps the boxes on one pitch. */
+  width: 3rem;
   font-size: var(--pb-text-sm);
   color: var(--pb-text-muted);
   cursor: pointer;
+}
+/* A custom color can have a longer name than fits. */
+.sode-setup__swatch-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sode-setup__swatch-box {
   position: relative;
@@ -202,10 +216,17 @@
   border: var(--pb-border-w) solid var(--pb-edge);
   background: var(--brand-color, transparent);
 }
+/* The radio has no look of its own and fills the box, so patchbay's focus ring on it rings the box. */
 .sode-setup__swatch input {
   position: absolute;
-  opacity: 0;
-  pointer-events: none;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
 }
 .sode-setup__swatch:has(input:checked),
 .sode-setup__swatch.is-picked {
@@ -213,28 +234,18 @@
 }
 .sode-setup__swatch:has(input:checked) .sode-setup__swatch-box,
 .sode-setup__swatch.is-picked .sode-setup__swatch-box {
-  outline: 2px solid var(--pb-text-strong);
-  outline-offset: 2px;
+  outline: var(--pb-accent-bar-w) solid var(--pb-text-strong);
+  outline-offset: var(--pb-space-1);
 }
 /* The native picker fills the swatch and opens on click. */
 .sode-setup__swatch--own input {
-  position: static;
-  opacity: 1;
-  pointer-events: auto;
-  width: 100%;
-  height: 100%;
+  appearance: auto;
   padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}
-.sode-setup__swatch:has(input:focus-visible) .sode-setup__swatch-box {
-  outline: 2px solid var(--pb-accent);
-  outline-offset: 2px;
 }
 
 .sode-setup__sheet {
   width: 100%;
+  max-width: 64rem;
   border-collapse: separate;
   border-spacing: 0;
   /* Whole-pixel rows, so a label and its Yes or No round to one centre line in every row. */
@@ -243,7 +254,7 @@
 .sode-setup__sheet th,
 .sode-setup__sheet td {
   padding: var(--pb-space-1) var(--pb-space-4);
-  border-bottom: 1px solid var(--pb-edge);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge);
   vertical-align: middle;
 }
 .sode-setup__sheet tbody th {
@@ -281,7 +292,7 @@
   background: var(--pb-accent-wash);
 }
 .sode-setup__sheet thead .is-picked {
-  box-shadow: inset 0 3px 0 var(--pb-accent);
+  box-shadow: inset 0 var(--pb-accent-bar-w) 0 var(--pb-accent);
 }
 .sode-setup__yes,
 .sode-setup__no {
@@ -293,9 +304,12 @@
   color: var(--pb-text-muted);
 }
 
+/* The Next steps column sits beside the text, not at the far edge. */
 .sode-setup__done {
   display: grid;
-  grid-template-columns: 1fr 13rem;
+  grid-template-columns: minmax(0, 32rem) 13rem;
+  justify-content: start;
+  align-items: start;
   gap: var(--pb-space-8);
 }
 @media (max-width: 40rem) {
@@ -306,10 +320,11 @@
 .sode-setup__done p {
   font-size: var(--pb-text-md);
   line-height: 1.6;
+  margin-top: 0;
 }
 .sode-setup__next {
-  border-left: 1px solid var(--pb-edge);
-  padding-left: var(--pb-space-6);
+  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
+  padding-inline-start: var(--pb-space-6);
   font-size: var(--pb-text-sm);
 }
 .sode-setup__next h3 {
@@ -317,6 +332,8 @@
   text-transform: uppercase;
   letter-spacing: var(--pb-tracking-label);
   color: var(--pb-text-muted);
+  /* The paragraph's line box, so the heading's first line is level with the text's. */
+  line-height: calc(var(--pb-text-md) * 1.6);
   margin: 0 0 var(--pb-space-3);
 }
 .sode-setup__next ul {
@@ -326,8 +343,9 @@
   display: grid;
   gap: var(--pb-space-3);
 }
+/* Text color, not muted: muted links read as fine print or as turned off. */
 .sode-setup__next a {
-  color: var(--pb-text-muted);
+  color: var(--pb-text);
 }
 
 /* The wait page (setupwizard.js): another browser runs setup, or a phone. */
@@ -342,4 +360,9 @@
 }
 .sode-setup__wait p {
   margin: 0;
+}
+/* The modal is already the box. */
+.sode-setup__wait .sode__desktop-only {
+  border: 0;
+  padding: 0;
 }

@@ -139,8 +139,18 @@ function statusLine() {
   return [statusText(line.ok ? 'ok' : 'warn', el('span', null, line.text))];
 }
 
+// The link state is the field's last line, under its hint.
+function addressField() {
+  const box = field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router'));
+  box.append(el('div', { id: 'setup-router-status' }, ...statusLine()));
+  return box;
+}
+
 const presets = () => sheetPresets;
 const presetName = () => presets().find((p) => p.key === d.preset)?.name || d.preset;
+
+// Hidden, the caution keeps its place, so the fields under it do not move while the native color picker is open.
+const showCaution = (note) => (note.style.visibility = brandCaution(d.brandBorder, S.brandColors) ? '' : 'hidden');
 
 // Each color has its name under the swatch, so the colors are told apart by name as well.
 function swatches() {
@@ -163,10 +173,11 @@ function swatches() {
   }
   const note = el(
     'p',
-    { class: 'pb-note pb-note--warn sode__brand-caution', id: 'setup-brand-caution', role: 'status', hidden: !brandCaution(d.brandBorder, S.brandColors) },
+    { class: 'pb-note pb-note--warn sode__brand-caution', id: 'setup-brand-caution', role: 'status' },
     icon('triangle-alert'),
     el('span', null, CAUTION_NOTE),
   );
+  showCaution(note);
   return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Theme color'), box, note);
 }
 
@@ -226,7 +237,12 @@ const nextLink = (text, section, href = '#settings') => el('li', null, el('a', {
 const VIEW = {
   welcome: () => [
     d.again ? 'Run setup again' : 'Set up Sode',
-    section('Sode Server Name and Theme Color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
+    section(
+      'Sode Server Name and Theme Color',
+      '',
+      row(field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), el('div')),
+      swatches(),
+    ),
     // replaceChildren draws a null as text, so Run setup again leaves the section out.
     ...(d.again
       ? []
@@ -238,7 +254,7 @@ const VIEW = {
             row3(
               field('setup-name', 'Name', d.name, { maxlength: '24' }),
               field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric', placeholder: `4 to ${max()} digits` }),
-              field('setup-pin2', 'Repeat your PIN', d.pin2, { type: 'password', inputmode: 'numeric' }),
+              field('setup-pin2', 'Repeat PIN', d.pin2, { type: 'password', inputmode: 'numeric' }),
             ),
           ),
         ]),
@@ -246,12 +262,7 @@ const VIEW = {
   router: () => [
     'Router setup',
     section('Router', '', row(field('setup-routerTitle', 'Router title', d.routerTitle, { maxlength: '32' }), el('div'))),
-    section(
-      connectionTitle(d.again),
-      '',
-      field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router')),
-      el('div', { id: 'setup-router-status' }, ...statusLine()),
-    ),
+    section(connectionTitle(d.again), '', row(addressField(), el('div'))),
     section(
       'Levels and numbers',
       '',
@@ -270,21 +281,31 @@ const VIEW = {
     sectionAs(
       'setup-fireMode-label',
       ['Multi destination take behavior', helpButton('setup-fireMode-help', 'About Multi destination take behavior', FIRE_MODE_TIP)],
-      'Some routers support staging changes for taking many routes simultaneously.',
-      row(
-        choice(
-          'fireMode',
-          null,
-          [
-            ['sequential', 'One after another'],
-            ['native', 'Router salvo'],
-          ],
-          hint('fireMode'),
-        ),
-        d.fireMode === 'native'
-          ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, hint('group'), 'Must be unused on the router')
-          : el('div'),
+      'How Sode sends a take with many destinations.',
+      choice(
+        'fireMode',
+        null,
+        [
+          ['sequential', 'One after another'],
+          ['native', 'Router salvo'],
+        ],
+        hint('fireMode'),
       ),
+      // Its own row under the choice, so the buttons do not move when it shows.
+      ...(d.fireMode === 'native'
+        ? [
+            row(
+              field(
+                'setup-group',
+                'Router salvo group',
+                d.group,
+                { type: 'number', min: '0', max: '127' },
+                hint('group', 'Use a group that nothing else on the router uses.'),
+              ),
+              el('div'),
+            ),
+          ]
+        : []),
     ),
   ],
   access: () => ['Access', ...(hint('preset') ? [el('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []), sheet()],
@@ -411,7 +432,7 @@ $('setup-body').addEventListener('input', (e) => {
   keep();
   if (k === 'brandText' || k === 'brandBorder') showBrand(d.brandText, d.brandBorder);
   // The color input keeps its picker open, so the note changes in place and not by a render.
-  if (k === 'brandBorder' && $('setup-brand-caution')) $('setup-brand-caution').hidden = !brandCaution(d.brandBorder, S.brandColors);
+  if (k === 'brandBorder' && $('setup-brand-caution')) showCaution($('setup-brand-caution'));
   // No render: it would close the open color picker.
   if (t.type === 'color') {
     for (const r of $('setup-body').querySelectorAll('input[name="brandBorder"][type="radio"]')) r.checked = false;
@@ -542,10 +563,7 @@ function waitPage() {
   const phone = layout() === 'phone';
   $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup is running in another browser';
   const kids = [];
-  if (taken && !phone)
-    kids.push(
-      el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers stay in this browser until you take control again.'),
-    );
+  if (taken && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. This browser keeps your answers.'));
   else if (free && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
   if (phone) kids.push(desktopOnly('set it up'));
   else {
@@ -650,6 +668,8 @@ onLayout(() => {
 export function openAgain(answers, presets, hooks) {
   if (mode || layout() === 'phone') return;
   d = answers;
+  // The first run's SODE_* hints are not true of the saved values.
+  filled = {};
   again = hooks;
   sheetPresets = presets;
   at = reached = 0;

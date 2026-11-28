@@ -92,11 +92,11 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("the heading and the label say Theme Color", `[...document.querySelectorAll('#setup-body .sode-setup__h')].some((h) => h.textContent === 'Sode Server Name and Theme Color')
 		&& document.getElementById('setup-brand-label').textContent === 'Theme color'`)
 	b.eval(`(() => { const c = document.querySelector('input[name="brandBorder"][type="color"]'); c.value = '#e05050'; c.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
-	b.waitFor("a custom color near a state color shows the caution note", `!!document.getElementById('setup-brand-caution')?.offsetParent`)
+	b.waitFor("a custom color near a state color shows the caution note", `getComputedStyle(document.getElementById('setup-brand-caution')).visibility === 'visible'`)
 	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)
 	b.waitFor("the border shows live", `document.querySelector('.sode__brandframe').dataset.brand === 'teal'`)
-	b.waitFor("Teal shows no note", `!document.getElementById('setup-brand-caution').offsetParent`)
-	b.waitFor("Name, PIN and Repeat your PIN are a third each, in one row", `(() => {
+	b.waitFor("Teal shows no note", `getComputedStyle(document.getElementById('setup-brand-caution')).visibility === 'hidden'`)
+	b.waitFor("Name, PIN and Repeat PIN are a third each, in one row", `(() => {
 		const r = ['setup-name', 'setup-pin', 'setup-pin2'].map((id) => document.getElementById(id).getBoundingClientRect());
 		const body = document.getElementById('setup-body').getBoundingClientRect();
 		return r.every((x) => Math.abs(x.width - r[0].width) <= 1 && Math.abs(x.top - r[0].top) <= 1) && r[0].width < body.width / 3;
@@ -208,8 +208,34 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("the next steps, with no backup or tablet link", `[...document.querySelectorAll('.sode-setup__next a')].map((a) => a.textContent + '>' + (a.dataset.section || a.getAttribute('href'))).join(' | ')
 		=== 'Add another router>routers | Adjust level colors>level-colors | Add more users>users | Create your first panel>panels/editor'`)
 
+	// Next steps: a column beside the text, its heading level with the first line, links in text color.
+	b.waitFor("the Next steps heading on the centre line of the text's first line", `(() => {
+		const r = document.createRange();
+		const mid = (n) => { r.selectNodeContents(n); const q = r.getClientRects()[0]; return (q.top + q.bottom) / 2; };
+		return Math.abs(mid(document.querySelector('.sode-setup__next h3')) - mid(document.getElementById('setup-done-text'))) <= 0.5;
+	})()`)
+	b.gapX("the Next steps column beside the text", "--pb-space-8", ".sode-setup__done > div:first-child", ".sode-setup__next")
+	b.waitFor("the next steps in text color, not muted", `(() => {
+		const a = document.querySelector('.sode-setup__next a');
+		const probe = document.createElement('span');
+		probe.style.color = 'var(--pb-text)';
+		a.parentElement.append(probe);
+		const want = getComputedStyle(probe).color;
+		probe.remove();
+		return getComputedStyle(a).color === want;
+	})()`)
+
 	b.eval(`document.getElementById('setup-open').click(); true`)
 	b.waitFor("Open Sode shows the patch page", `document.getElementById('setup').hidden && getComputedStyle(document.getElementById('patch-view')).display !== 'none'`)
+	// Run setup again with no reload: the first run's SODE_ROUTER hint is not true of the saved address.
+	b.eval(`location.hash = '#settings'; true`)
+	b.waitFor("Run setup again ready", `(() => { const x = document.getElementById('setup-again-open'); return !!x?.offsetParent && !x.disabled; })()`)
+	b.eval(`document.getElementById('setup-again-open').click(); true`)
+	b.waitFor("Run setup again", `!!document.getElementById('setup-brandText') && !`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("its Address has no Filled from hint", `!!document.getElementById('setup-router') && !document.getElementById('setup-router').parentElement.querySelector('.sode__hint')`)
+	b.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); true`)
+	b.waitFor("Escape closes it", `document.getElementById('setup').hidden`)
 	b.open(srv.URL + "/")
 	b.waitFor("no wizard after a reload", `!!document.getElementById('src') && document.getElementById('setup').hidden`)
 	b.check()

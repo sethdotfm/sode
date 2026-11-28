@@ -37,6 +37,10 @@ func TestChromeSetupWaitPage(t *testing.T) {
 			&& !!w.querySelector('[data-desktop-layout]') && !document.getElementById('setup-take')
 			&& !document.getElementById('setup-dialog').offsetParent;
 	})()`)
+	b.waitFor("the desktop-only note is no box in the modal's box", `(() => {
+		const s = getComputedStyle(`+wait+`.querySelector('.sode__desktop-only'));
+		return s.borderTopWidth === '0px' && s.paddingTop === '0px' && s.paddingLeft === '0px';
+	})()`)
 	b.shot("setup-wait-phone")
 
 	b.eval(wait + `.querySelector('[data-desktop-layout]').click(); true`)
@@ -85,7 +89,7 @@ func TestChromeSetupTakeControlKeepsAnswers(t *testing.T) {
 	b.eval(`document.getElementById('setup-take').click(); true`)
 	b.waitFor("B runs setup with its own answers", wizard+` && document.getElementById('setup-name').value === ''`)
 
-	a.waitFor("A says its answers stay", `document.getElementById('setup-taken')?.textContent === 'Another browser took control. Your answers stay in this browser until you take control again.'
+	a.waitFor("A says its answers stay", `document.getElementById('setup-taken')?.textContent === 'Another browser took control. This browser keeps your answers.'
 		&& document.getElementById('setup-wait-title').textContent === 'Setup is running in another browser'`)
 	a.eval(`document.getElementById('setup-take').click(); true`)
 	a.waitFor("A gets its answers back, and no PIN", wizard+` && document.getElementById('setup-name').value === 'Ada'

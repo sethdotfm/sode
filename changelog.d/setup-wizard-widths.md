@@ -1,0 +1,8 @@
+- Setup wizard: the fields keep a readable width on a wide screen, also at 4K. The Access table is not wider than 64rem.
+- Setup wizard: the Theme color swatches are on one pitch, Custom too. The color caution is on one line and keeps its place, so the fields under it do not move.
+- Setup wizard, Router step: the sections have more space between them. Router salvo shows its group under the choice, so the buttons do not move. The link state is the last line of the Address field.
+- Setup wizard, Done: the Next steps column is beside the text, and its links are in text color.
+- Setup wizard: the step chips and the swatches show the normal focus ring.
+- Run setup again no longer shows "Filled from SODE_ROUTER." for a saved address.
+- Phone wait page: the desktop-only note has no second box in the dialog.
+- Text: "Repeat PIN", a shorter Multi destination help tip, "Delete" on the PIN pad, and a wrong-PIN wait in words ("Try again in 30 seconds").
