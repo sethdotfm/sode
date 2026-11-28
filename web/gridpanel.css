@@ -554,9 +554,16 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__stage {
   grid-area: 1 / 1;
 }
-/* A protected destination's crosspoints refuse a press. */
+/* A protected destination's crosspoints refuse a press. They are a grey field with the grid lines drawn again on it, so
+   the row reads as part of the grid and not as a hole in it. */
 .sode-gridpanel__xp[aria-disabled="true"] {
-  background: var(--pb-surface-base);
+  background-color: color-mix(in oklab, var(--pb-text) 8%, var(--sode-patch-field));
+  background-image: linear-gradient(var(--sode-line), var(--sode-line)), linear-gradient(var(--sode-line), var(--sode-line));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size:
+    var(--pb-border-w) 100%,
+    100% var(--pb-border-w);
   cursor: not-allowed;
 }
 /* A staged route left out of the take (gridpanelrights.js): a still dashed ring, no pulse. */
@@ -1154,7 +1161,7 @@ html:has(.sode-gridpanel) {
 }
 /* A protected crosspoint keeps its own look in a picked row or column. */
 .sode-gridpanel__xp[aria-disabled="true"]:is([data-row], [data-col]) {
-  background-color: var(--pb-surface-base);
+  background-color: color-mix(in oklab, var(--pb-text) 8%, var(--sode-patch-field));
 }
 /* The deck (gridpanelheadview.js): one raised band over the grid. The Levels box and the search slot are display: contents, so their parts are cells of one grid. Each column whose words change has a fixed width. */
 .sode-gridpanel__deck {

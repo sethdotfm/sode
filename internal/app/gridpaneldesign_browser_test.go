@@ -116,5 +116,14 @@ func TestChromeGridPanelDesign(t *testing.T) {
 	near("the result's text", font(".sode-gridpanel__res .pb-alert"), b.tokenPx(".sode-gridpanel__deck", "--pb-text-md"))
 	b.noClip("the result is whole", ".sode-gridpanel__res .pb-alert__title")
 
+	// A protected row (C2-51; Rec B, 12, in the simulator) is a grey field with its grid lines, not the page's colour.
+	gridShow(b, 3, 12)
+	b.waitFor("the protected row is a field of its own with the grid lines on it", `(() => {
+		const x = `+gridXp(3, 12)+`, c = getComputedStyle(x), page = getComputedStyle(document.body).backgroundColor;
+		const open = getComputedStyle(`+gridXp(3, 11)+`).backgroundColor;
+		return x.getAttribute('aria-disabled') === 'true' && c.backgroundColor !== page && c.backgroundColor !== open && c.backgroundColor !== 'rgba(0, 0, 0, 0)' &&
+			(c.backgroundImage.match(/linear-gradient/g) || []).length === 2;
+	})()`)
+
 	b.check()
 }
