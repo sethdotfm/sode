@@ -277,6 +277,20 @@
 .sode__rgroup .sode__fields > .sode__field > :is(.sode__hint, .sode__field-err) {
   margin-top: var(--pb-space-1);
 }
-.sode__rlink .sode__code {
+.sode__rlink .sode__code,
+.sode__rtry .sode__code {
   overflow-wrap: anywhere;
+}
+/* The Address field's try (routertry.js): the wizard's words, then why a try failed. */
+.sode__rtry {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1) var(--pb-space-3);
+  min-width: 0;
+}
+/* The words wrap in the column of the field, so a long line does not widen the Address field. */
+.sode__rtry > .pb-status {
+  min-width: 0;
+  white-space: normal;
 }

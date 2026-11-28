@@ -63,6 +63,7 @@ var policyExpect = map[string][nStates]error{
 	// everyone's count needs an Administrator, checked in the handler (brokencount_test.go)
 	"brokenCount": standardRule,
 	"routerUses":  adminRule,
+	"routerTry":   adminRule,
 	// the handler lists by the panel page lock and the reach of the sign-in (palette_test.go)
 	"palettePanels": openRule,
 
