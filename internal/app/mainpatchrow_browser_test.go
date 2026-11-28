@@ -12,9 +12,8 @@ import (
 // head has one height. The space from Source to Destination is the space from + to Levels, and Levels has the row's
 // gap to Take. Select All ends under Clear on one line. The boxes keep no key note room out of keyboard mode. A
 // disabled Clear has patchbay's disabled look, as a disabled Take has. The routes under Source and under Destination
-// start on one line. In the top bar, Inbox has the text and icon size of the status, the status ends on the bar's
-// right edge, and the rule before the status goes with the status when the link is lost. At 3840x2160 the
-// Levels text box stops at 14rem.
+// start on one line. In the top bar, Inbox has the text and icon size of the status. The status ends on the bar's right
+// edge. When the link is lost, the rule before the status goes too. At 3840x2160 the Levels text box stops at 14rem.
 func TestChromeMainPatchRow(t *testing.T) {
 	b := startBrowser(t)
 	sim, stopSim := startSimStoppable(t)
