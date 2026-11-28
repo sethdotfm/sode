@@ -84,3 +84,13 @@ export function linkState(r, everUp) {
   const key = r.link === 'up' ? 'connected' : r.link === 'connecting' && !r.err ? 'connecting' : everUp ? 'down' : 'never';
   return { key, ...LINK_STATES[key] };
 }
+
+// rowStep: the index of the router that a key selects in the router list of n routers, from index i, or -1 for
+// another key. The list is a row of chips, so Left and Right move. Up and Down move too.
+export function rowStep(key, i, n) {
+  const to = { ArrowLeft: i - 1, ArrowUp: i - 1, ArrowRight: i + 1, ArrowDown: i + 1, Home: 0, End: n - 1 }[key];
+  return to === undefined || n < 1 ? -1 : Math.min(Math.max(to, 0), n - 1);
+}
+
+// orderStep: Alt and an arrow move a router one place in the order: -1 earlier, 1 later, 0 for another key.
+export const orderStep = (key) => ({ ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 })[key] || 0;

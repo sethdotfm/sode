@@ -412,13 +412,17 @@
       <div class="sode__rbar">
         <span class="sode__pcount-line" id="routers-count" role="status"></span>
         <span class="sode__rbar-tools">
-          <input type="search" class="pb-input sode__pfind" id="routers-find" placeholder="Find a router" aria-label="Find a router" spellcheck="false" hidden>
-          <label class="pb-check" id="routers-problems-wrap" hidden><input type="checkbox" class="pb-check__input" id="routers-problems"><span class="pb-check__label">Only routers with a problem</span></label>
           <button type="button" class="pb-btn pb-btn--outline" id="router-add" data-find="router-add" data-label="Add router" hidden>Add router</button>
         </span>
       </div>
       <div class="sode__rt" id="routers-panes">
-        <div class="sode__rwrap" id="routers-list-wrap"><div class="sode__rlist" id="routers-list" role="listbox" aria-label="Routers"></div></div>
+        <div class="sode__rwrap" id="routers-list-wrap">
+          <div class="sode__rlist" id="routers-list" role="listbox" aria-label="Routers" aria-orientation="horizontal"></div>
+          <span class="sode__rbar-tools sode__rfind">
+            <input type="search" class="pb-input sode__pfind" id="routers-find" placeholder="Find a router" aria-label="Find a router" spellcheck="false" hidden>
+            <label class="pb-check" id="routers-problems-wrap" hidden><input type="checkbox" class="pb-check__input" id="routers-problems"><span class="pb-check__label">Only routers with a problem</span></label>
+          </span>
+        </div>
         <div class="sode__rdetail" id="router-detail" aria-label="Router settings">
           <div class="sode__rhead">
             <div class="sode__rhead-name">

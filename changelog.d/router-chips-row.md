@@ -1,0 +1,1 @@
+- Settings > Routers: the routers are a row of chips across the top, and the router settings below use the full width. A chip shows the link state only when its router is not connected. Left and Right move between the chips.
