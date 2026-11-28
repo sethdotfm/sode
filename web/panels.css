@@ -856,6 +856,14 @@ body {
 .sode-ed__text {
   overflow-wrap: anywhere;
 }
+/* Long text stops at three lines, so it never pushes the icon out of the square. */
+.sode-ed__sq .sode-ed__text {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-line;
+}
 
 .sode-ed__menu {
   list-style: none;
