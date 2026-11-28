@@ -692,6 +692,10 @@ html {
 .pb-toast:not([class*="pb-toast--"]) {
   --pb-toast-role: var(--pb-text-muted);
 }
+/* Cards keep off the page's big scroll bar, as the status in the corner does (.sode__conn). */
+.pb-toast-stack {
+  right: calc(var(--pb-space-5) + var(--sode-page-bar));
+}
 /* Every churning-letter Confirm button ("Take (X)", "Delete (X)", "Confirm (X)") has one size on every page, so the
    letter reads the same everywhere. It is higher than an action button, so it stays the clear target, but lower than
    the patch boxes, so a Confirm in Settings or a panel does not tower over its form. */
