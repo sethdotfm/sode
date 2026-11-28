@@ -5,6 +5,8 @@ import {
   STEPS,
   startAnswers,
   stepProblem,
+  problemIsMistake,
+  pinMistake,
   stopAt,
   chipGoes,
   numberingChoices,
@@ -74,6 +76,28 @@ test('Router needs an address and levels; a router salvo needs a group', () => {
   assert.match(stepProblem({ ...d, levels: '2.5' }, 1), /1 to 256/);
   assert.equal(stepProblem({ ...d, fireMode: 'native' }, 1), '');
   assert.match(stepProblem({ ...d, fireMode: 'native', group: '128' }, 1), /0 to 127/);
+});
+
+test('a problem is a mistake only once its field has text; before that it is a hint', () => {
+  const d = filled();
+  const blank = { ...d, name: '', pin: '', pin2: '' };
+  assert.equal(problemIsMistake(blank, 0, 8), false, 'no name yet');
+  assert.equal(problemIsMistake({ ...blank, name: 'Ada' }, 0, 8), false, 'no PIN yet');
+  assert.equal(problemIsMistake({ ...blank, name: 'Ada', pin: '24' }, 0, 8), false, 'a PIN still being typed');
+  assert.equal(problemIsMistake({ ...blank, name: 'Ada', pin: '24a' }, 0, 8), true, 'a letter in the PIN');
+  assert.equal(problemIsMistake({ ...blank, name: 'Ada', pin: '123456789' }, 0, 8), true, 'too many digits');
+  assert.equal(problemIsMistake({ ...d, pin2: '2469' }, 0, 8), true, 'PINs that differ');
+  assert.equal(problemIsMistake({ ...d, pin2: '2' }, 0, 8), true, 'Repeat your PIN has text');
+  assert.equal(problemIsMistake({ ...d, name: 'x'.repeat(25) }, 0, 8), true, 'a name too long');
+  assert.equal(problemIsMistake({ ...d, router: '' }, 1), false, 'no address yet');
+  assert.equal(problemIsMistake({ ...d, levels: '' }, 1), false, 'no levels yet');
+  assert.equal(problemIsMistake({ ...d, levels: '0' }, 1), true);
+  assert.equal(problemIsMistake({ ...d, routerTitle: 'x'.repeat(33) }, 1), true);
+  assert.equal(problemIsMistake({ ...d, fireMode: 'native', group: '' }, 1), false);
+  assert.equal(problemIsMistake({ ...d, fireMode: 'native', group: '128' }, 1), true);
+  assert.equal(problemIsMistake(d, 0, 8), false, 'no problem');
+  assert.equal(pinMistake('', '', 8), false);
+  assert.equal(pinMistake('2468', '2469', 8), true);
 });
 
 test('a jump forward stops at the first step that cannot go on', () => {

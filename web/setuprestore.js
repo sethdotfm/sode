@@ -4,7 +4,7 @@
 
 import { $, el, request } from './core.js';
 import { applyBrowser } from './browserapply.js';
-import { restorePinProblem } from './setupwizardrules.js';
+import { restorePinProblem, pinMistake } from './setupwizardrules.js';
 import { pinShow } from './pinshow.js';
 
 const KEY_HEADER = 'X-Sode-Setup'; // setupKeyHeader in internal/app/setuprestore.go
@@ -20,11 +20,17 @@ async function restoreKey() {
   return m.key;
 }
 
-const say = (text) => ($('setup-err').textContent = text);
+// kind: 'busy' or 'hint' show muted, as the wizard's footer does; '' is an error.
+function say(text, kind = '') {
+  const n = $('setup-err');
+  n.textContent = text;
+  n.classList.toggle('is-hint', kind === 'hint');
+  n.classList.toggle('is-busy', kind === 'busy');
+}
 
 async function send(file, pin = '') {
   busy = true;
-  say('Restoring…');
+  say('Restoring…', 'busy');
   try {
     const key = await restoreKey();
     const body = new FormData();
@@ -90,7 +96,7 @@ function askPin(file, text) {
   for (const i of [pin, pin2]) {
     i.addEventListener('input', () => {
       check();
-      if (!busy) say(problem());
+      if (!busy) say(problem(), pinMistake(pin.value, pin2.value, hooks.max()) ? '' : 'hint');
     });
     i.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;

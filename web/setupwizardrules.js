@@ -124,6 +124,30 @@ export function restorePinProblem(pin, pin2, max = 8) {
   return '';
 }
 
+// The footer shows a problem as a muted hint until it is a mistake: its field has text that is wrong. A field
+// still empty, or a PIN still being typed, is no mistake yet.
+export function problemIsMistake(d, i, max = 8) {
+  if (!stepProblem(d, i, max)) return false;
+  const has = (s) => String(s ?? '').trim() !== '';
+  switch (STEPS[i]?.[0]) {
+    case 'welcome': {
+      const name = d.name.trim();
+      if (!name) return false;
+      if ([...name].length > NAME_MAX) return true;
+      return pinMistake(d.pin, d.pin2, max);
+    }
+    case 'router':
+      if ([...(d.routerTitle || '').trim()].length > TITLE_MAX) return true;
+      if (!d.router.trim()) return false;
+      if (!wholeIn(d.levels, 1, 256)) return has(d.levels);
+      return has(d.group);
+  }
+  return false;
+}
+
+// A PIN problem is a mistake once Repeat your PIN has text, or the PIN has a letter or too many digits.
+export const pinMistake = (pin, pin2, max = 8) => !!restorePinProblem(pin, pin2, max) && (pin2 !== '' || !/^\d*$/.test(pin) || pin.length > max);
+
 // The furthest step at or before want that every earlier step lets through.
 export function stopAt(d, want, max) {
   for (let i = 0; i < want; i++) if (stepProblem(d, i, max)) return i;

@@ -166,8 +166,14 @@
   gap: var(--pb-space-3);
 }
 .sode-setup__err {
+  align-self: center;
   color: var(--pb-status-error);
   font-size: var(--pb-text-sm);
+}
+/* Why Next is off before any mistake, and Saving… or Restoring…: not errors. */
+.sode-setup__err.is-hint,
+.sode-setup__err.is-busy {
+  color: var(--pb-text-muted);
 }
 
 .sode-setup__swatches {

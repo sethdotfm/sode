@@ -18,6 +18,7 @@ import {
   startAnswers,
   pinMax,
   stepProblem,
+  problemIsMistake,
   stopAt,
   chipGoes,
   numberingChoices,
@@ -62,6 +63,17 @@ function readKept() {
     return null;
   }
 }
+// The footer's note: kind 'hint' (why Next is off, no mistake yet) and 'busy' (Saving…) are muted; '' is an error.
+function footNote(text, kind = '') {
+  const n = $('setup-err');
+  n.textContent = text;
+  n.classList.toggle('is-hint', kind === 'hint');
+  n.classList.toggle('is-busy', kind === 'busy');
+}
+const showProblem = () => {
+  const text = stepProblem(d, at, max());
+  footNote(text, text && !problemIsMistake(d, at, max()) ? 'hint' : '');
+};
 const hint = (key, ...more) => [...more, envHint(filled, key)].filter(Boolean).join(' ');
 
 // h: el with attributes; a false or null attribute is left out.
@@ -348,7 +360,7 @@ function render(focus) {
   $('setup-restore').hidden = step !== 'welcome' || !!d.again;
   $('setup-next').hidden = false;
   $('setup-next').textContent = { access: 'Finish' }[step] || 'Next';
-  $('setup-err').textContent = '';
+  showProblem();
   check();
   const f = focus ? $(focus) : $('setup-body').querySelector('input:not([type="radio"])');
   if (f) {
@@ -409,7 +421,7 @@ $('setup-body').addEventListener('input', (e) => {
   }
   if (t.type === 'radio' || k === 'levels') render(t.type === 'radio' ? null : t.id);
   else check();
-  if (!finishing) $('setup-err').textContent = stepProblem(d, at, max());
+  if (!finishing) showProblem();
 });
 
 $('setup-body').addEventListener('click', (e) => {
@@ -455,12 +467,12 @@ $('setup-next').addEventListener('click', () => {
   if (d.again) return closeAgain(true);
   // Finish sends every answer at once, so a wizard left half done leaves nothing behind.
   if (!wsSend(finishMessage(d, ++seq))) {
-    $('setup-err').textContent = LINK_DOWN;
+    footNote(LINK_DOWN);
     return;
   }
   finishing = true;
   check();
-  $('setup-err').textContent = 'Saving…';
+  footNote('Saving…', 'busy');
 });
 
 onMsg('setupFinishResult', (m) => {
@@ -468,7 +480,7 @@ onMsg('setupFinishResult', (m) => {
   finishing = false;
   if (!m.ok && !S.setup) return openSode(); // another browser finished first
   if (!m.ok) {
-    $('setup-err').textContent = m.err || 'Setup was refused.';
+    footNote(m.err || 'Setup was refused.');
     check();
     return;
   }

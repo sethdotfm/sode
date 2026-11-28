@@ -56,8 +56,26 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Set up Sode'`)
 	stepsFit("Style & User")
 	adminLine("Style & User", 1)
+	// The footer gives the reason for a disabled Next as a muted hint, in red only for a real mistake. Its text is on
+	// the centre line of the Next label.
+	foot := func(what, text string, hint bool) {
+		b.waitFor(what, `(() => {
+			const err = document.getElementById('setup-err');
+			const nextBtn = document.getElementById('setup-next');
+			if (err.textContent !== '`+text+`' || err.classList.contains('is-hint') !== `+strconv.FormatBool(hint)+` || err.getAttribute('role') !== 'status') return false;
+			const probe = document.createElement('span');
+			probe.style.color = 'var(' + (`+strconv.FormatBool(hint)+` ? '--pb-text-muted' : '--pb-status-error') + ')';
+			err.parentElement.append(probe);
+			const want = getComputedStyle(probe).color;
+			probe.remove();
+			const mid = (n) => { const r = document.createRange(); r.selectNodeContents(n); const q = r.getBoundingClientRect(); return (q.top + q.bottom) / 2; };
+			return getComputedStyle(err).color === want && Math.abs(mid(err) - mid(nextBtn)) <= 0.5;
+		})()`)
+	}
+	foot("the first view says why Next is off, as a hint", "Enter your name.", true)
 
 	type_("setup-brandText", "Studio B")
+	foot("the optional site name brings no red", "Enter your name.", true)
 	b.waitFor("the name shows live in the bar", `(() => { const t = document.querySelector('#home-bar .sode-panels__title'); return !!t.offsetParent && t.textContent.trim() === 'Studio B'; })()`)
 	b.waitFor("the bar of Settings and /log: site name and status, no links, no Lock, no big name", `(() => {
 		const bar = document.getElementById('home-bar');
@@ -84,9 +102,11 @@ func TestChromeSetupWizard(t *testing.T) {
 		return r.every((x) => Math.abs(x.width - r[0].width) <= 1 && Math.abs(x.top - r[0].top) <= 1) && r[0].width < body.width / 3;
 	})()`)
 	type_("setup-name", "Ada")
+	foot("a name and no PIN yet is a hint", "A PIN has 4 to 8 digits.", true)
 	type_("setup-pin", "2468")
 	type_("setup-pin2", "2469")
 	b.waitFor("PINs that differ stop Next", next+`.disabled && `+next+`.textContent === 'Next'`)
+	foot("PINs that differ are a mistake", "The PINs differ.", false)
 	type_("setup-pin2", "2468")
 	b.waitFor("Next", `!`+next+`.disabled`)
 	b.waitFor("Restore from a backup sits beside it", `!document.getElementById('setup-restore').hidden`)
