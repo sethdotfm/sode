@@ -1741,6 +1741,7 @@ html {
    the label and Last and Next, and the heads of the row keep one height. */
 .pb-btn.sode__box-router {
   align-self: flex-start;
+  font-size: var(--pb-text-xs);
   height: var(--sode-h-compact);
   margin-top: calc(var(--pb-space-1) - var(--pb-space-2));
   min-height: 0;
