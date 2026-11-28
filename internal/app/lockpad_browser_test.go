@@ -14,8 +14,8 @@ import (
 // Twelve users with Ana, one with the longest name a user can have (24 characters).
 var lockPadNames = []string{"Bo", "Cleo", "Dana", "Eli", "Fay", "Gus", "Hal", "Ivy", "Jo", "Kai", "Maximiliana Rosalind Abe"}
 
-// The lock screen is one column: the Name box and the pad share one width, the page's own site name hides under the
-// overlay, and the dots and the site name are centred on the pad. Name comes first, then the dots and the PIN lines,
+// The lock screen is one column. The Name box and the pad share one width, and the page's own site name hides under
+// the overlay. The dots and the site name are centred on the pad. Name comes first, then the dots and the PIN lines,
 // then the keys. The name list drops over the pad and moves nothing, and shows six and a half rows. The last key says
 // Sign in with an icon, is as high as the digits and keeps patchbay's own disabled look. All of it fits 1366x768.
 // The Approval popup shows the same list whole.

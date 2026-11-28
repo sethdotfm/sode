@@ -88,7 +88,7 @@ func (a *App) livePinMu(hit *config.User) (config.User, bool) {
 	return live, ok && live.Pin == hit.Pin
 }
 
-// waitWords gives a wait in whole seconds, rounded up so it never reads 0, in words: the lock shows the error as it
+// waitWords gives a wait in whole seconds and in words, rounded up so it never reads 0. The lock shows the error as it
 // is (wrongFeedback in web/lockrules.js), so a Go duration such as "1m30s" would reach the user.
 func waitWords(d time.Duration) string {
 	n := int(math.Ceil(d.Seconds()))

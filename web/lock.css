@@ -481,7 +481,7 @@
   gap: var(--pb-space-4);
 }
 /* The name list drops out of the popup whole, as it drops over the Lock's pad: while it is open, neither the body nor
-   the popup clips it. The footer keeps the popup's round corners then. */
+   the popup clips it. */
 .sode__pinprompt:has(.sode-namepick__list:not([hidden])),
 .sode__pinprompt:has(.sode-namepick__list:not([hidden])) .pb-modal__body {
   overflow: visible;
@@ -489,9 +489,6 @@
 /* The open list counts in the body's scroll height, but the body does not scroll for it: no bar. */
 .sode__pinprompt:has(.sode-namepick__list:not([hidden])) > .sode-bigscroll {
   display: none;
-}
-.sode__pinprompt .pb-modal__footer {
-  border-radius: 0 0 var(--pb-radius-overlay) var(--pb-radius-overlay);
 }
 .sode__users-list {
   display: flex;
