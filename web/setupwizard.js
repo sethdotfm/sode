@@ -14,6 +14,7 @@ import {
   STEPS,
   DONE,
   PRESET_ROWS,
+  SHEET_CORNER,
   startAnswers,
   pinMax,
   stepProblem,
@@ -157,7 +158,7 @@ function swatches() {
 
 function sheet() {
   const picked = (p) => (d.preset === p.key ? 'is-picked' : '');
-  const head = el('tr', null, el('th', { class: 'sode-setup__corner' }, 'Without sign-in:'));
+  const head = el('tr', null, el('th', { class: 'sode-setup__corner' }, SHEET_CORNER));
   for (const p of presets()) {
     const input = el('input', { type: 'radio', class: 'pb-check__input', name: 'preset', value: p.key });
     input.checked = d.preset === p.key;

@@ -231,6 +231,8 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  /* Whole-pixel rows, so a label and its Yes or No round to one centre line in every row. */
+  line-height: 1.25rem;
 }
 .sode-setup__sheet th,
 .sode-setup__sheet td {
@@ -243,7 +245,7 @@
   text-align: left;
 }
 .sode-setup__sheet thead th {
-  vertical-align: top;
+  vertical-align: middle;
   text-align: left;
   border-bottom-width: var(--pb-border-w);
   cursor: pointer;
@@ -255,12 +257,12 @@
 }
 .sode-setup__sheet thead .sode-setup__corner {
   color: var(--pb-text-strong);
-  font-size: var(--pb-text-md);
+  font-size: var(--pb-text-sm);
   font-weight: var(--pb-weight-bold);
-  vertical-align: bottom;
 }
+/* Left, under the heading's radio: th and td have one padding. */
 .sode-setup__sheet td {
-  text-align: center;
+  text-align: left;
   cursor: pointer;
 }
 /* Stripes help the eye along a row. patchbay 2.2.1 gives odd and even rows one color, so Sode draws them. Raised and
@@ -277,7 +279,7 @@
 }
 .sode-setup__yes,
 .sode-setup__no {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--pb-space-2);
 }

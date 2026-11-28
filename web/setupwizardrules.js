@@ -11,14 +11,16 @@ export const STEPS = [
 ];
 export const DONE = STEPS.length - 1;
 
-// The Access step's rows. The server sends each preset's Yes or No by these keys (setupRows).
+// The Access step's rows, under SHEET_CORNER, in the wizard and in Run setup again. The server sends each preset's Yes or
+// No by these keys (setupRows). A row says only what differs; the corner says it is without sign-in.
+export const SHEET_CORNER = 'A person who is not signed in can:';
 export const PRESET_ROWS = [
-  ['takeNoSignIn', 'Change routes without signing in'],
-  ['sharedNoSignIn', 'Change shared presets and filters without signing in'],
-  ['panelLinks', 'Public panels open without signing in'],
-  ['appsRead', 'Other apps can read names and tally without a key'],
-  ['appsTake', 'Other apps can take without a key'],
-  ['tieNoSignIn', 'Change routes across routers without signing in'],
+  ['takeNoSignIn', 'Change routes'],
+  ['tieNoSignIn', 'Change routes across routers'],
+  ['sharedNoSignIn', 'Change shared presets and filter sets'],
+  ['panelLinks', 'Open public panels'],
+  ['appsRead', 'Read names and tally from another app, without a key'],
+  ['appsTake', 'Take from another app, without a key'],
 ];
 
 const NAME_MAX = 24;

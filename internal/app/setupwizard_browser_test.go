@@ -127,6 +127,36 @@ func TestChromeSetupWizard(t *testing.T) {
 		return rows.length > 2 && rows.every((r) => r.getBoundingClientRect().height < 2 * rem)
 			&& bg(rows[0]) !== bg(rows[1]) && bg(rows[0]) === bg(rows[2]);
 	})()`)
+	b.waitFor("Access words: the corner says who, the rows say what", `(() => {
+		const sheet = document.querySelector('.sode-setup__sheet');
+		return sheet.querySelector('.sode-setup__corner').textContent === 'A person who is not signed in can:'
+			&& [...sheet.querySelectorAll('tbody th')].map((h) => h.textContent).join(' | ') === 'Change routes | Change routes across routers | Change shared presets and filter sets | Open public panels | Read names and tally from another app, without a key | Take from another app, without a key';
+	})()`)
+	for _, p := range []string{"open", "standard", "secured"} {
+		b.sameLeft("the "+p+" heading over its Yes and No", `.sode-setup__sheet th[data-preset="`+p+`"] .pb-check`, `.sode-setup__sheet td[data-preset="`+p+`"] > span`)
+	}
+	// Text middles, since a cell's box is as tall as its row whatever the text does in it.
+	b.waitFor("the corner and the preset names: one size, one centre line", `(() => {
+		const sheet = document.querySelector('.sode-setup__sheet');
+		const corner = sheet.querySelector('.sode-setup__corner');
+		const names = [...sheet.querySelectorAll('thead .pb-check__label')];
+		const r = document.createRange();
+		r.selectNodeContents(corner);
+		const mid = (q) => (q.top + q.bottom) / 2;
+		const m = mid(r.getBoundingClientRect());
+		const size = getComputedStyle(corner).fontSize;
+		return names.length === 3 && names.every((n) => Math.abs(mid(n.getBoundingClientRect()) - m) <= 0.5 && getComputedStyle(n).fontSize === size);
+	})()`)
+	b.waitFor("each row label on the centre line of its Yes and No", `(() => {
+		const rows = [...document.querySelectorAll('.sode-setup__sheet tbody tr')];
+		const mid = (q) => (q.top + q.bottom) / 2;
+		const r = document.createRange();
+		return rows.length === 6 && rows.every((row) => {
+			r.selectNodeContents(row.querySelector('th'));
+			const m = mid(r.getBoundingClientRect());
+			return [...row.querySelectorAll('td > span')].every((s) => Math.abs(mid(s.getBoundingClientRect()) - m) <= 0.5);
+		});
+	})()`)
 	b.waitFor("Finish", next+`.textContent === 'Finish'`)
 	b.eval(`document.querySelector('[data-go="0"]').click(); true`)
 	b.waitFor("a chip goes back and keeps the answers", `document.getElementById('setup-name')?.value === 'Ada'`)
