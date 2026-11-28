@@ -62,7 +62,10 @@
   /* The text box keeps room for a short list of levels. */
   grid-template-columns: minmax(6rem, 1fr) auto;
 }
+/* The box's own gap is the group's: a subgrid with a smaller gap grows its tracks by half the difference, and the text
+   box ran into the space before Take. */
 .sode__group--levels > .sode__box--levels {
+  column-gap: var(--pb-space-6);
   grid-column: 1 / -1;
   grid-row: 1;
   grid-template-columns: subgrid;
