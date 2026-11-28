@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { slots, summary, drops, slotFor, slotText, rangeFor, presetId, presetText, slotLabel, PRESETS, MAX_SLOTS } from '../uptime.js';
+import { slots, summary, drops, slotFor, slotText, rangeFor, presetId, slotLabel, PRESETS, MAX_SLOTS } from '../uptime.js';
 
 const MIN = 60_000,
   HOUR = 60 * MIN,
@@ -116,7 +116,7 @@ test('range: the preset back from now, or the times chosen', () => {
 test('slot text says why, with the time', () => {
   const fmt = (t) => `t${t / MIN}`;
   const [ok, warn] = slots(base({ trans: [{ t: HOUR + 30 * MIN, s: 'down' }], counts: [{ i: 1, bad: 1, slow: 0 }] }));
-  assert.equal(slotText(ok, fmt), 't0 – t60: router up');
+  assert.equal(slotText(ok, fmt), 't0 to t60: router up');
   assert.match(slotText(warn, fmt), /router up 50% of the time, 1 message failed or needed a retry/);
 });
 
@@ -124,13 +124,27 @@ test('slot text names what is up: an instance on the panels page', () => {
   const fmt = (t) => `t${t / MIN}`;
   const words = { up: 'online', down: 'offline' };
   const [ok, part] = slots(base({ trans: [{ t: HOUR + 30 * MIN, s: 'down' }] }));
-  assert.equal(slotText(ok, fmt, words), 't0 – t60: online');
+  assert.equal(slotText(ok, fmt, words), 't0 to t60: online');
   assert.match(slotText(part, fmt, words), /: online 50% of the time$/);
   const [down] = slots(base({ start: 'down' }));
   assert.match(slotText(down, fmt, words), /: offline$/);
 });
 
-test('chip text says how long each bar is', () => {
-  assert.deepEqual(PRESETS.map(presetText), ['1 hour (1 min)', '24 hours (15 min)', '7 days (1 hour)', '30 days (6 hours)']);
+test('slot text says the date once when the slot ends on its start day', () => {
+  const day = (t) => (t < HOUR ? '2026-11-27 23:30' : t < 2 * HOUR ? '2026-11-27 23:45' : '2026-11-28 00:15');
+  const s = { from: 0, to: HOUR + 1, color: 'none' };
+  assert.equal(slotText(s, day), '2026-11-27 23:30 to 23:45: no record');
+  assert.equal(slotText({ ...s, to: 2 * HOUR }, day), '2026-11-27 23:30 to 2026-11-28 00:15: no record');
+  assert.equal(
+    slotText({ ...s, color: 'future' }, (t) => (t ? '21:56' : '21:41')),
+    '21:41 to 21:56: not yet',
+  );
+});
+
+test('a narrow strip gets fewer, longer bars', () => {
+  assert.equal(slotFor(0, DAY), 15 * MIN);
+  assert.equal(slotFor(0, DAY, 41), HOUR);
+  assert.equal(slotFor(0, 30 * DAY, 41), DAY);
+  assert.equal(slotFor(0, 365 * DAY, 41), 9 * DAY);
   assert.equal(slotLabel(30 * MIN), '30 min');
 });

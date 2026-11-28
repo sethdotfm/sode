@@ -2339,7 +2339,7 @@ html:has(.sode__scrim:not([hidden])) > body {
 /* Uptime strip: the router on /log and each instance on /panels (uptimebars.js). */
 .sode-up__bars {
   display: flex;
-  gap: 1px;
+  gap: calc(var(--pb-border-w) / 2);
   height: var(--pb-space-8);
 }
 .sode-up__bar {
@@ -2360,9 +2360,13 @@ button.sode-up__bar:not(:disabled):hover,
 .sode-up__bar:focus-visible {
   box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-text-strong);
 }
+/* The ring is outside the picked bar, so a narrow bar keeps its whole color. */
 .sode-up__bar--sel,
 .sode-up__bar--sel:hover {
-  box-shadow: inset 0 0 0 calc(var(--pb-border-w) * 3) var(--pb-text-strong);
+  outline: var(--pb-border-w) solid var(--pb-text-strong);
+  outline-offset: var(--pb-border-w);
+  position: relative;
+  z-index: 1;
 }
 .sode-up__bar--ok {
   background: var(--pb-text-muted);
@@ -2373,12 +2377,14 @@ button.sode-up__bar:not(:disabled):hover,
 .sode-up__bar--error {
   background: var(--pb-status-error);
 }
+/* No data is an outline that shows on the page; time not come yet is only a base line. */
 .sode-up__bar--none {
-  background: var(--pb-surface-control);
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-edge-soft);
 }
 .sode-up__bar--future {
   background: transparent;
-  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-surface-control);
+  box-shadow: inset 0 calc(var(--pb-border-w) * -1) 0 0 var(--pb-edge-soft);
 }
 .sode-up__key {
   display: inline-block;

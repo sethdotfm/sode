@@ -20,11 +20,10 @@ export function slotLabel(ms) {
   return `${n} ${unit}${unit === 'hour' && n !== 1 ? 's' : ''}`;
 }
 
-export const presetText = (p) => `${p.label} (${slotLabel(slotFor(0, p.span))})`;
-
-export function slotFor(from, to) {
+// max is the most bars the strip has room for (fewer on a narrow strip).
+export function slotFor(from, to, max = MAX_SLOTS) {
   const span = Math.max(to - from, MIN);
-  return SLOTS.find((s) => span / s <= MAX_SLOTS) || Math.ceil(span / MAX_SLOTS / DAY) * DAY;
+  return SLOTS.find((s) => span / s <= max) || Math.ceil(span / max / DAY) * DAY;
 }
 
 // Slot colors are statuses: ok, warn, error; none is no record, future is time not come yet.
@@ -94,7 +93,10 @@ export function summary(data) {
 const ROUTER_WORDS = { up: 'router up', down: 'router down' };
 
 export function slotText(s, fmt, words = ROUTER_WORDS) {
-  const when = `${fmt(s.from)} – ${fmt(s.to)}`;
+  // The end drops its date when it is the start's ("2026-11-27 21:56 to 22:11").
+  const a = fmt(s.from),
+    b = fmt(s.to);
+  const when = `${a} to ${a.length > 11 && a.slice(0, 11) === b.slice(0, 11) ? b.slice(11) : b}`;
   if (s.color === 'future') return `${when}: not yet`;
   if (s.color === 'none') return `${when}: no record`;
   const pct = Math.floor((s.upMs / s.knownMs) * 1000) / 10;

@@ -76,3 +76,24 @@ test('placeTip keeps the tip inside the window', () => {
   assert.ok(tall.top >= 4 && tall.top + h <= 596);
   assert.equal(placeTip({ r: box(400, 10, 100, 560), w, h, vw, vh: 600 }).top, 566);
 });
+
+// A tip does not cover its control's field: a label's tip over a box under it goes over the label (B2-22, A2-15).
+test('placeTip keeps the tip off the field', () => {
+  const vw = 1000,
+    vh = 600,
+    w = 200,
+    h = 30;
+  const box = (left, top, width = 100, height = 40) => ({ left, top, width, height, right: left + width, bottom: top + height });
+  // A label at y 100 to 120 with its box under it at y 124 to 156: the tip goes over the label.
+  const label = box(400, 100, 100, 20),
+    field = box(400, 124, 300, 32);
+  assert.equal(placeTip({ r: label, w, h, vw, vh, avoid: field }).top, 66);
+  // pb-tip--top over a field that is over the control: the tip goes under the control.
+  assert.equal(placeTip({ r: box(400, 200, 100, 20), w, h, vw, vh, up: true, avoid: box(400, 160, 300, 36) }).top, 224);
+  // A field to the side, clear of the tip: the tip keeps its own side.
+  assert.equal(placeTip({ r: label, w, h, vw, vh, avoid: box(800, 124, 100, 32) }).top, 124);
+  // No room over the label: the tip covers the field and stays in the window.
+  assert.equal(placeTip({ r: box(400, 10, 100, 20), w, h, vw, vh, avoid: box(400, 34, 300, 32) }).top, 34);
+  // Fields on both sides: its own side.
+  assert.equal(placeTip({ r: label, w, h, vw, vh, avoid: box(400, 40, 300, 200) }).top, 124);
+});

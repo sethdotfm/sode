@@ -15,7 +15,7 @@ export const LOG_COLS = [
   'destination name',
   'source',
   'source name',
-  'for',
+  'reason',
   'by',
   'result',
   'tries',

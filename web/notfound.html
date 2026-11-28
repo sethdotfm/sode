@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The server sends this page for a page path that does not exist (notFound in internal/app/http.go). It sets the
+     base to the path's depth, so every link here is relative to Sode's root, also behind a proxy path. -->
+<base href="./">
+<title>Sode</title>
+<link rel="icon" type="image/png" href="icon.png?s=192">
+<script src="prepaint.js" data-only="theme"></script>
+<link rel="stylesheet" href="vendor/fonts/plex.css">
+<link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
+<link rel="stylesheet" href="base.css">
+</head>
+<body>
+<main class="pb-empty">
+  <h1 class="pb-empty__title">Sode</h1>
+  <p class="pb-empty__msg">This page does not exist.</p>
+  <div class="pb-empty__actions"><a class="pb-btn sode-btn--primary" href="./">Open Sode</a></div>
+</main>
+</body>
+</html>

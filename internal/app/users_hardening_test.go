@@ -250,7 +250,7 @@ func TestNoInlineScript(t *testing.T) {
 	scripts := regexp.MustCompile(`(?is)<script\b([^>]*)>(.*?)</script>`)
 	handler := regexp.MustCompile(`(?i)\son[a-z]+\s*=`)
 	javascriptURL := regexp.MustCompile(`(?i)(href|src|action)\s*=\s*["']\s*javascript:`)
-	for _, name := range []string{"index.html", "log.html", "panels.html", "paneleditor.html", "panel.html"} {
+	for _, name := range []string{"index.html", "log.html", "panels.html", "paneleditor.html", "panel.html", "notfound.html"} {
 		b, err := web.FS.ReadFile(name)
 		if err != nil {
 			t.Fatal(err)

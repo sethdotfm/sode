@@ -302,7 +302,8 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	}
 	next := `document.getElementById('setup-next')`
-	helpOK := func(where, id string) {
+	// field gives the elements that the tip must not cover: the choices the help is about (A1-14).
+	helpOK := func(where, id, field string) {
 		b.waitFor(where+": a focusable help button with the tip", `(() => {
 			const h = document.getElementById('`+id+`');
 			if (!h || h.tagName !== 'BUTTON' || h.tabIndex < 0 || !h.classList.contains('pb-btn--ghost') || !h.classList.contains('pb-btn--icon')) return false;
@@ -318,7 +319,7 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 			return r.top >= 0 && r.bottom <= innerHeight;
 		})()`)
 		mouseTo(b, "#"+id)
-		b.waitFor(where+": the tip shows whole, wrapped in a column", tipShows("#"+id)+` && document.querySelector('body > .sode__tip').getBoundingClientRect().width < innerWidth / 3`)
+		b.waitFor(where+": the tip shows whole, wrapped in a column, clear of the choices", tipShows("#"+id)+` && document.querySelector('body > .sode__tip').getBoundingClientRect().width < innerWidth / 3 && `+tipClearOf(field))
 	}
 
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
@@ -331,7 +332,7 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 	b.eval(next + `.click(); true`)
 	b.waitFor("Router", `!!document.getElementById('setup-router')`)
 	b.waitFor("the help button sits after the heading", `document.getElementById('setup-fireMode-label').nextElementSibling?.id === 'setup-fireMode-help'`)
-	helpOK("wizard", "setup-fireMode-help")
+	helpOK("wizard", "setup-fireMode-help", `(() => { const h = document.getElementById('setup-fireMode-help'); return [...h.closest('.sode-setup__section').children].filter((c) => !c.contains(h)); })()`)
 	b.shot("setup-firemode-help")
 
 	b.waitFor("Router answers", `!`+next+`.disabled`)
@@ -342,7 +343,7 @@ func TestChromeSetupFireModeHelp(t *testing.T) {
 	b.eval(`document.querySelector('.sode-setup__next a[data-section="routers"]').click(); true`)
 	b.waitFor("Settings > Routers", `document.documentElement.dataset.view === 'settings' && !!document.getElementById('cfg-rt-fireMode')?.offsetParent`)
 	b.waitFor("the help button sits after the Multi destination label", `document.querySelector('label[for="cfg-rt-fireMode"]').nextElementSibling?.id === 'cfg-rt-fireMode-help'`)
-	helpOK("Settings", "cfg-rt-fireMode-help")
+	helpOK("Settings", "cfg-rt-fireMode-help", `[document.getElementById('cfg-rt-fireMode')]`)
 	b.check()
 }
 

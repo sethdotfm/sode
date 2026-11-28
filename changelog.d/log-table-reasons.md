@@ -1,0 +1,3 @@
+- Communication Log: the table fits the page. Only the Reason column wraps, so the Bytes column is never cut, and the other columns keep their width when the rows on show change. Every one-line row has one height, the four filter rows start on one edge, and a drawn line marks Problems only. The heads say Reason and Result, and the download CSV's `for` column is now `reason`.
+- Communication Log: every reason is in words, API rows and refusals too, in place of a code name such as `keyCreate`.
+- A mistyped page path gets a Sode page with an Open Sode link, in place of plain text. `/api/` paths keep the plain reply.
