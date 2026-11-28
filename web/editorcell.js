@@ -144,7 +144,7 @@ export function createCellTab(ed, { picked }) {
     for (const n of [...cellOnly, deflt.node]) n.hidden = true;
     showForm(!!g);
     if (!g) {
-      hint.textContent = 'Select sources or destinations in the lists to set their artwork.';
+      hint.textContent = 'Select a source or destination in a list to set its artwork.';
       return;
     }
     const off = ed.routerNames()?.numberOffset || 0;

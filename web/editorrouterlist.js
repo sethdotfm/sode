@@ -22,7 +22,7 @@ export function createRouterList(o) {
   find.type = 'search';
   find.autocomplete = 'off';
   find.spellcheck = false;
-  find.placeholder = 'Find: name, 12 or 101-140';
+  find.placeholder = 'Name, number or range (101-140)';
   find.setAttribute('role', 'combobox');
   find.setAttribute('aria-expanded', 'true');
   find.setAttribute('aria-controls', `ed-${key}-router`);

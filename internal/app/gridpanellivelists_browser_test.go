@@ -163,6 +163,6 @@ func TestChromeGridPanelLiveLists(t *testing.T) {
 		return Math.abs(r.width - gridW) < 1 && hit.some((n) => n.classList?.contains('sode-gridpanel__xp'));
 	})()`)
 	b.eval(`document.getElementById('ed-live-back').click(); true`)
-	b.waitFor("Back to the editor puts both lists back, with the edits", `[...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-lists-following,ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent && document.querySelector('#ed-sources-list li').dataset.id === '3'`)
+	b.waitFor("Back to the editor puts both lists back, with the edits", `[...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent && document.querySelector('#ed-sources-list li').dataset.id === '3'`)
 	b.check()
 }

@@ -57,11 +57,15 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     paint(true);
   });
   pinsBtn.id = `ed-${key}-pins`;
-  // The tip of what Follow the router turns off. The lists' one note (editorside.js) says the same over both lists.
+  // The tip of what Follow the router turns off. The note under the heading says it in short.
   const FOLLOWING = `Follow the router is on for ${what}s, so the router sets the order. Pin and artwork still apply. Switch it off in the Panel tab.`;
   const clear = btn('pb-btn--outline pb-btn--sm', 'Clear', () => set(clearEdge(edge(), myRights(), rights), 'clear'));
   clear.id = `ed-${key}-clear`;
   clear.dataset.pbTip = `Removes every ${what} from the panel`;
+  // Under the heading, so the heading keeps its place when the note shows.
+  const following = el('p', 'sode__hint sode-edge__note', 'The router sets this list, in router order. Pins and artwork still apply.');
+  following.id = `ed-${key}-following`;
+  following.hidden = true;
   const outside = el('p', 'sode__hint');
   outside.id = `ed-${key}-outside`;
   const list = el('ol', 'sode-pages__list sode-edge__list');
@@ -78,7 +82,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     'div',
     'pb-empty sode-edge__empty',
     el('p', 'pb-empty__title', `No ${what}s yet`),
-    el('p', 'pb-empty__msg', 'Add from the router, or turn on Follow the router.'),
+    el('p', 'pb-empty__msg', `Add names from the list below, or turn on "${Whats} follow the router" in the Panel tab.`),
   );
   empty.id = `ed-${key}-empty`;
   const routerList = createRouterList({
@@ -108,10 +112,8 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     b.id = `ed-${key}-sel-${id}`;
     b.setAttribute('aria-label', tip.replace(/ \(.*\)$/, ''));
     b.dataset.pbTip = tip;
-    tipOf.set(b, tip);
     return b;
   };
-  const tipOf = new WeakMap();
   const pinSel = (on) => set(pinItems(edge(), router(), myRights(), rights, many(), on), on ? 'pin' : 'unpin');
   const removeSel = () => {
     set(removeItems(edge(), many()), 'remove');
@@ -126,6 +128,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     barBtn('down', 'arrow-down', `Move down (${MOVE_KEYS.down})`, () => moveSel('down')),
     barBtn('end', 'arrow-down-to-line', `Move to the end (${MOVE_KEYS.end})`, () => moveSel('end')),
   ];
+  const moveSep = el('span', 'sode-edge__sep');
   const selRemove = barBtn('remove', 'trash-2', 'Remove from the panel', removeSel);
   const acts = el(
     'div',
@@ -136,7 +139,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     el('span', 'sode-edge__sep'),
     moves[0],
     moves[3],
-    el('span', 'sode-edge__sep'),
+    moveSep,
     selUnpin,
     // The last four sit over each row's Pin, Move up, Move down and Remove (panels.css .sode-edge__acts).
     selPin,
@@ -150,7 +153,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
   const head = el('div', 'sode-edge__head', el('h2', 'sode-edge__h', Whats, count), pinsBtn, el('span', 'sode-panels__spacer'), clear);
   const on = el('section', 'sode-edge__part sode-edge__on', acts, outside, list, empty);
   on.setAttribute('aria-label', `${Whats} on the panel`);
-  const node = el('section', 'sode-edge', head, on, routerList.node);
+  const node = el('section', 'sode-edge', head, following, on, routerList.node);
   node.id = `ed-${key}-col`;
 
   let shown = [];
@@ -160,6 +163,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
   const rows = createOrderedList({
     rowClass: 'sode-pages__row sode-edge__row',
     toolsClass: 'sode-pages__tools',
+    bareFixed: true,
     move: (from, to) => {
       const n = shown[from].n;
       if (inMany(n)) return moveSel(to < from ? 'up' : 'down');
@@ -207,11 +211,11 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     const n = many().size;
     selNote.textContent = `${n} selected`;
     for (const b of [selArt, selPin, selUnpin]) b.disabled = ro || !n;
-    // A disabled button can show no tip in some browsers, so the note above the list says it too.
-    for (const b of [selRemove, ...moves]) {
-      b.disabled = ro || !n || fixed;
-      b.dataset.pbTip = fixed ? FOLLOWING : tipOf.get(b);
-    }
+    // While the router sets the order, Move and Remove do nothing, so they hide. Move up, Move down and Remove keep
+    // their place, so Pin stays over the rows' Pin.
+    for (const b of [selRemove, ...moves]) b.disabled = ro || !n || fixed;
+    moves[0].hidden = moves[3].hidden = moveSep.hidden = fixed;
+    for (const b of [selRemove, moves[1], moves[2]]) b.classList.toggle('sode-edge__gone', fixed);
     for (const li of made.values()) markRow(li);
   }
   function markRow(li) {
@@ -240,6 +244,7 @@ export function createEdgeList(ed, { key, rights, what, side, onPick, onArt, cli
     }
     // Before the router list paints, since it reads fixed.
     fixed = !Array.isArray(edge()?.members);
+    following.hidden = !fixed;
     routerList.paint();
     const now = [edge(), router(), myRights(), ro, ed.routerNames(), ed.panel()?.id, ed.art(), pinOnly];
     if (!force && now.every((x, i) => x === drawn[i])) return;

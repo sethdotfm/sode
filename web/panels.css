@@ -1275,21 +1275,10 @@ body {
   grid-template-rows: auto;
   min-width: 0;
 }
-/* The one Follow the router note (editorside.js) sits over both lists, which keep the row under it when it hides. */
-.sode-ed__follow {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-.sode-ed[data-type="grid"] .sode-ed__lists > .sode-edge {
-  grid-row: 2;
-}
 @media (max-width: 64rem) {
   .sode-ed[data-type="grid"] .sode-ed__body,
   .sode-ed[data-type="grid"] .sode-ed__lists {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .sode-ed[data-type="grid"] .sode-ed__lists > .sode-edge {
-    grid-row: auto;
   }
 }
 /* On a desktop the editor is one window high and the page does not scroll: only the sidebar, the Pages list and a
@@ -1355,7 +1344,7 @@ body {
   }
   :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-ed__lists {
     align-items: stretch;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
   :root:not([data-layout="phone"]) .sode-ed[data-type="grid"] .sode-edge__on {
     flex: 3 1 0;
@@ -1405,6 +1394,12 @@ body {
   font-size: var(--pb-text-md);
   font-weight: var(--pb-weight-normal);
 }
+.sode-edge__note {
+  margin: 0;
+}
+.sode-edge__note[hidden] {
+  display: none;
+}
 .sode-edge__part {
   display: flex;
   flex-direction: column;
@@ -1428,6 +1423,13 @@ body {
 }
 :root:not([data-layout="phone"]) .sode-edge__list[data-bigscroll-room] {
   padding-inline-end: var(--sode-littlescroll-w);
+}
+/* Move and Remove while the list follows the router: hidden, in their place, so Pin stays over the rows' Pin. */
+.sode-edge__acts > .sode-edge__gone {
+  visibility: hidden;
+}
+.sode-edge__acts > [hidden] {
+  display: none;
 }
 .sode-edge__sel {
   color: var(--pb-text-muted);
@@ -1681,6 +1683,11 @@ body {
   display: flex;
   flex-wrap: nowrap;
   gap: var(--pb-space-1);
+}
+/* The place of a button the row leaves out (orderedlist.js bareFixed). */
+.sode-pages__blank {
+  flex: 0 0 auto;
+  width: var(--pb-icon-btn-w);
 }
 .sode-pages__on {
   flex: 0 0 auto;

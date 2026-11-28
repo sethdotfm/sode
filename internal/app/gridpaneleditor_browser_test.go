@@ -33,11 +33,11 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	b.waitFor("the Sources list follows the router", src+` !== null && document.getElementById('ed-sources-state').textContent === '200' && document.getElementById('ed-sources-all').checked && document.getElementById('ed-sources-empty').hidden`)
 	b.eval(src + `.querySelector('[data-act="pin"]').click(); true`)
 	b.waitFor("the source is pinned and goes to the top", src+`.querySelector('[data-act="pin"]').getAttribute('aria-pressed') === 'true' && document.getElementById('ed-sources-pins').textContent === '1 pinned' && document.querySelector('#ed-sources-list li').dataset.id === '5'`)
-	b.waitFor("while following, Move, Remove, Clear and Add from the router are off, and the list says why", `(() => {
+	b.waitFor("while following, the rows have no Move or Remove, Clear and Add from the router are off, and each list says why", `(() => {
 		const row = document.querySelector('#ed-sources-list li[data-id="0"]');
-		const off = ['up', 'down', 'delete'].every((a) => row.querySelector('[data-act="' + a + '"]').disabled);
+		const off = ['up', 'down', 'delete'].every((a) => !row.querySelector('[data-act="' + a + '"]'));
 		return off && !row.querySelector('[data-act="pin"]').disabled && document.getElementById('ed-sources-clear').disabled && document.getElementById('ed-sources-find').disabled
-			&& !document.getElementById('ed-lists-following').hidden && /Panel tab/.test(document.getElementById('ed-lists-following').textContent);
+			&& !document.getElementById('ed-sources-following').hidden && !document.getElementById('ed-destinations-following').hidden;
 	})()`)
 	b.shot("sources")
 
@@ -79,7 +79,7 @@ func TestChromeGridPanelEditor(t *testing.T) {
 	b.shot("live")
 	b.eval(`document.getElementById('ed-live-back').click(); true`)
 	b.waitFor("Back to the editor puts the editor back, with both lists in their place", `!!document.querySelector('.sode-ed__bar').offsetParent && !document.getElementById('confirm') && !document.getElementById('panel-levels')
-		&& [...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-lists-following,ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent`)
+		&& [...document.getElementById('ed-lists').children].map((x) => x.id).join() === 'ed-sources-col,ed-destinations-col' && !!document.getElementById('ed-sources-list').offsetParent`)
 
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the panel opens as a Grid panel", `!!document.querySelector('.sode-gridpanel__xp')`)
