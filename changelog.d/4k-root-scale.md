@@ -1,0 +1,1 @@
+- On a big screen with no OS scale, text and controls now grow to 150% at 3840x2160 (the Grid panel page to 135%). Sode stays at 100% up to 2400 px wide. The screen height limits the growth, so an ultrawide grows as a 16:9 screen of its height.
