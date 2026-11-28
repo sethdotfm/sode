@@ -22,9 +22,9 @@ export function pinPrompt({ id, title, go: goText, name, pin: pinProps, extra = 
     });
   }
   const pin = el('input', { class: 'pb-input', type: 'password', inputMode: 'numeric', id: `${id}-pin`, autocomplete: 'off', ...pinProps });
-  const why = el('p', { class: 'sode__hint', hidden: true });
+  const why = el('p', { class: 'sode__pinprompt-why', hidden: true });
   const err = el('div', { class: 'pb-note pb-note--error', role: 'alert', hidden: true });
-  const go = btn('', goText, submit, `${id}-go`);
+  const go = btn('sode-btn--primary', goText, submit, `${id}-go`);
   const m = modal({
     titleId: `${id}-title`,
     title,
@@ -77,7 +77,9 @@ export function pinPrompt({ id, title, go: goText, name, pin: pinProps, extra = 
     });
 
   return {
-    open(text = '') {
+    // label: the button's words for this ask, else the go text.
+    open(text = '', label = goText) {
+      go.textContent = label;
       back ||= document.activeElement;
       open = true;
       why.textContent = text;

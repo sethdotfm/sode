@@ -471,6 +471,10 @@
   flex-direction: column;
   gap: var(--pb-space-4);
 }
+/* Why the prompt asks, in body text: it is the reason, not a hint. */
+.sode__pinprompt-why {
+  margin: 0;
+}
 .sode__users-list {
   display: flex;
   flex-direction: column;

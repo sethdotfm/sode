@@ -60,7 +60,7 @@ func protectsRouters(t *testing.T, withC bool) (b *tab, a *App, uids []string, s
 func TestChromeSettingsProtectsFreeInRow(t *testing.T) {
 	b, _, uids, _ := protectsRouters(t, false)
 	count := `document.getElementById('protects-count').textContent`
-	b.waitFor("the count line", count+` === '6 on 2 routers. Sode set 3.'`)
+	b.waitFor("the count line", count+` === '6 Protects and Router locks on 2 routers. Sode set 3.'`)
 	b.waitFor("a group for each router, in order", `[...document.querySelectorAll('#protects-list .sode__pgroup-prefix')].map((n) => n.textContent).join('|') === 'A|B'`)
 	b.waitFor("another device's Protect: plain words and a magenta shield", `(() => {
 		const by = document.querySelector('#protects-list .sode__prow[data-dst="4"]:not([data-router]) .sode__prow-by');
@@ -76,13 +76,13 @@ func TestChromeSettingsProtectsFreeInRow(t *testing.T) {
 	b.eval(`(() => { const i = document.getElementById('protects-find'); i.focus(); i.value = 'B.8'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	b.waitFor("find B.8", count+` === 'Shows 1 of 6.' && document.querySelectorAll('#protects-list .sode__prow[data-hold]').length === 1`)
 	b.eval(`(() => { const i = document.getElementById('protects-find'); i.value = ''; i.dispatchEvent(new Event('input', {bubbles: true})); i.blur(); return true; })()`)
-	b.waitFor("the find cleared", count+` === '6 on 2 routers. Sode set 3.'`)
+	b.waitFor("the find cleared", count+` === '6 Protects and Router locks on 2 routers. Sode set 3.'`)
 	b.eval(`document.querySelector('#protects-tools [data-act="kind-other"]').click(); true`)
 	b.waitFor("Other devices", count+` === 'Shows 2 of 6.'`)
 	b.eval(`document.querySelector('#protects-tools [data-act="router-` + uids[1] + `"]').click(); true`)
 	b.waitFor("Other devices on router B", count+` === 'Shows 1 of 6.' && document.querySelectorAll('#protects-list .sode__pgroup').length === 1`)
 	b.eval(`document.querySelector('#protects-tools [data-act="kind-all"]').click(); document.querySelector('#protects-tools [data-act="router-all"]').click(); true`)
-	b.waitFor("no filter", count+` === '6 on 2 routers. Sode set 3.'`)
+	b.waitFor("no filter", count+` === '6 Protects and Router locks on 2 routers. Sode set 3.'`)
 
 	// Free on B.3 (dst 2 of router B): the row is the Confirm, and the list stays where it is.
 	row := `document.querySelector('#protects-list .sode__prow[data-router="` + uids[1] + `"][data-dst="2"]')`
@@ -99,7 +99,7 @@ func TestChromeSettingsProtectsFreeInRow(t *testing.T) {
 	if b.eval(`/Protect freed/.test(document.getElementById('result')?.textContent || '')`).(bool) {
 		t.Fatal("the result went to Home's banner")
 	}
-	b.waitFor("the row goes", `!`+row+` && document.getElementById('protects-count').textContent === '5 on 2 routers. Sode set 2.'`)
+	b.waitFor("the row goes", `!`+row+` && document.getElementById('protects-count').textContent === '5 Protects and Router locks on 2 routers. Sode set 2.'`)
 	if !strings.HasPrefix(b.eval(`document.getElementById('protects-status').textContent`).(string), "Protect freed") {
 		t.Fatal("the status line lost the result")
 	}

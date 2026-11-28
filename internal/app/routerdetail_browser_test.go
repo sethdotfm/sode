@@ -94,7 +94,8 @@ func TestChromeSettingsRouterDetail(t *testing.T) {
 	b.check()
 }
 
-// With one router the list hides and the detail view fills the section, with no Prefix. Search names no router.
+// With one router the list hides and the detail view fills the section, with no Prefix. The count line stays, so Add
+// router is not alone on the bar. Search names no router.
 func TestChromeSettingsRouterDetailOne(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -103,10 +104,11 @@ func TestChromeSettingsRouterDetailOne(t *testing.T) {
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	b.waitFor("no list, no Prefix, no count line, the detail view named by its title", `!document.getElementById('routers-list-wrap').offsetParent
-		&& !document.getElementById('cfg-rt-prefix').offsetParent && document.getElementById('routers-count').textContent === ''
+	b.waitFor("no list, no Prefix, a count line, the detail view named by its title", `!document.getElementById('routers-list-wrap').offsetParent
+		&& !document.getElementById('cfg-rt-prefix').offsetParent && document.getElementById('routers-count').textContent === '1 router. 1 connected.'
 		&& document.getElementById('router-detail-name').textContent === 'Studio A' && !document.getElementById('router-ties-group').offsetParent
 		&& !document.querySelector('#settings-toc .sode__toc-router')`)
+	routersShot(b, "B1-15", ".sode__rbar", ".sode__rhead")
 	b.waitFor("Address found once, with no router name", `(() => {
 		const f = document.getElementById('settings-find');
 		f.value = 'address'; f.dispatchEvent(new Event('input'));

@@ -86,7 +86,7 @@ func TestChromeOneSaveReview(t *testing.T) {
 		const n = document.getElementById('settings-unsaved');
 		return !n.hidden && n.textContent.includes('Confirm and results') && n.textContent.includes('Proxy') && !n.textContent.includes('Branding');
 	})()`)
-	if txt, _ := b.eval(`document.getElementById('settings-unsaved').textContent`).(string); !strings.HasPrefix(txt, "Unsaved changes in ") {
+	if txt, _ := b.eval(`document.getElementById('settings-unsaved').textContent`).(string); !strings.Contains(txt, " unsaved changes. Save, or press Discard and exit.") {
 		t.Fatalf("exit warning: %q", txt)
 	}
 	b.check()

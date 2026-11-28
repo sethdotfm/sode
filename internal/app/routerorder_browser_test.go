@@ -58,7 +58,7 @@ func TestChromeSettingsRouterReorder(t *testing.T) {
 		const d = document.getElementById('review');
 		if (!d?.offsetParent) return false;
 		const r = [...d.querySelectorAll('tbody tr')].find((x) => x.cells[0]?.textContent.startsWith('Router order'));
-		return !!r && r.cells[0].textContent === 'Router order. Default router: A Studio A → B Stage 2'
+		return !!r && r.cells[0].textContent === 'Router order. Default router: was A Studio A, now B Stage 2'
 			&& r.textContent.includes('A Studio A, B Stage 2, C MCR') && r.textContent.includes('B Stage 2, A Studio A, C MCR')
 			&& document.getElementById('review-save').textContent === 'Save 1 change';
 	})()`)
@@ -103,7 +103,7 @@ func TestChromeSettingsRemoveFirstRouter(t *testing.T) {
 	b.eval(`document.getElementById('settings-save').click(); true`)
 	b.waitFor("the review says B becomes the default router", `(() => {
 		const d = document.getElementById('review');
-		return !!d?.offsetParent && d.textContent.includes('Remove A Studio A') && d.textContent.includes('B Stage 2 becomes the default router.');
+		return !!d?.offsetParent && d.textContent.includes('Router A Studio A') && d.textContent.includes('Removed. B Stage 2 becomes the default router.');
 	})()`)
 	b.waitFor("PIN recheck asked", `(() => {
 		if (document.getElementById('review')?.offsetParent) document.getElementById('review-save').click();

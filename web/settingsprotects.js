@@ -89,7 +89,7 @@ const sayStatus = (text, bad = false) => {
 function levelsCell(r) {
   const all = allLevels(r.uid);
   const full = all.length === r.hold.levels.length;
-  return el('span', 'sode__prow-lv', full ? '' : levelText(r.hold.levels, r.uid));
+  return el('span', 'sode__prow-lv', full ? 'All' : levelText(r.hold.levels, r.uid));
 }
 
 // The Set by cell: plain words with the shield. Another device's shield is magenta (docs/color-roles.md, Protected).
@@ -112,7 +112,7 @@ function rowNode(r, rt) {
   if (ask?.key === r.key) {
     node.dataset.confirm = '';
     const keyEl = el('kbd', `sode__key${ask.ready ? '' : ' sode__key--locked'}`, ask.letter.toUpperCase());
-    const ok = btn('sode-btn--primary', `Free (${ask.letter.toUpperCase()})`, () => goFree());
+    const ok = btn('sode-btn--primary sode__confirm-ok', `Free (${ask.letter.toUpperCase()})`, () => goFree());
     ok.disabled = !ask.ready;
     ok.dataset.act = 'confirm';
     const no = btn('pb-btn--outline', 'Cancel', () => endAsk(true));
@@ -166,9 +166,9 @@ function groupNode(g, many) {
   if (g.stale) head.append(el('span', 'sode__pgroup-link', icon('circle-x'), el('span', null, rt.link === 'connecting' ? 'Connecting' : 'Not connected')));
   head.append(el('span', 'sode__hint', groupCount(g)));
   head.append(el('span', 'sode__pgroup-gap'));
-  if (rt.device) head.append(el('span', 'sode__hint', `Device ${rt.device}`));
+  if (rt.device) head.append(el('span', 'sode__hint', `Sode is device ${rt.device}`));
   if (many) {
-    const b = btn('pb-btn--outline pb-btn--sm', `Free Sode's on ${rt.prefix}…`, () => openFreeSode(rt.uid));
+    const b = btn('pb-btn--outline pb-btn--sm', `Free Sode's Protects on ${rt.prefix}…`, () => openFreeSode(rt.uid));
     b.dataset.act = `free-router-${rt.uid}`;
     b.dataset.freeRouter = rt.uid;
     const why = freeBlock(rt, linked()) || (g.sode ? '' : 'Sode has no Protect on this router.');
@@ -182,9 +182,9 @@ function groupNode(g, many) {
   if (g.stale) notes.push(el('span', 'sode__hint', `${staleNote(rt)} Sode cannot free a Protect while the router is not connected.`));
   if (!rt.device) {
     // The router's settings are in Settings > Routers (settingsrouterdetail.js shows the router on showRouter).
-    const go = btn('pb-btn--ghost pb-btn--sm', 'Router settings', () => emit('showRouter', rt.id));
+    const go = btn('pb-btn--outline', 'Open router settings', () => emit('showRouter', rt.id));
     go.dataset.act = `router-settings-${rt.uid}`;
-    notes.push(el('span', 'sode__hint', "Protect is off for this router: Sode's device number is 0."), go);
+    notes.push(el('span', 'sode__hint', "Protect is off for this router, because Sode's device number is 0."), go);
   }
   const res = results[rt.uid];
   if (res) notes.push(el('span', `sode__hint sode__pgroup-result${res.ok ? '' : ' sode__pgroup-result--error'}`, res.text));

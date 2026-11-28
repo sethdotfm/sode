@@ -16,7 +16,7 @@ const realTime = (iso) => !!iso && new Date(iso).getFullYear() > 2000;
 
 // The Router names time: a finished read wins over the saved names table (savedAt).
 export function namesTimeText({ at, savedAt }, fmt) {
-  if (realTime(at)) return `Re-read ${fmt(at)}`;
+  if (realTime(at)) return `Last re-read ${fmt(at)}`;
   if (realTime(savedAt)) return `Names from ${fmt(savedAt)}`;
   return 'Not read yet';
 }

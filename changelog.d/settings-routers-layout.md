@@ -1,0 +1,3 @@
+- In Settings > Routers, the router name and its buttons are on one centre line. A long Router title moves the buttons to the next line. The buttons are normal buttons. A cut title in the router list shows whole when you hover over it.
+- In a router's settings, each hint has the same gap under its control. The Multi destination label is on the line of the labels next to it. The level chips have the size of the Level colors slots. The re-read time is a hint after Re-read now.
+- The router count shows for one router, and it counts a new router as not saved. The Remove router note reads as a sentence. A failed Address check says "The router refused the connection." or "No answer from this address.".
