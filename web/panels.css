@@ -1769,7 +1769,6 @@ body {
   font-weight: var(--pb-weight-bold);
   margin: 0;
 }
-.sode-side__kind,
 .sode-side__rights {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-sm);
@@ -1963,9 +1962,6 @@ body {
 .sode-side__ident {
   margin: 0;
   text-align: end;
-}
-.sode-side__kind {
-  text-align: center;
 }
 .sode-side__table {
   width: auto;

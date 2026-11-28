@@ -32,7 +32,7 @@ export function createCellTab(ed, { picked }) {
   const form = el('div', 'sode-side__form');
   let at = '';
 
-  const kindLine = el('p', 'sode-side__kind');
+  const kindLine = el('h3', 'sode-side__h');
   kindLine.id = 'ed-cell-kind';
   const caption = el('input', 'pb-input');
   caption.id = 'ed-cell-caption';
@@ -184,7 +184,7 @@ export function createCellTab(ed, { picked }) {
     const oneKind = kinds.size === 1;
     kindLine.textContent = several
       ? `${cs.length} ${oneKind ? `${kindLabel(first.kind)} ` : ''}cells selected`
-      : `${kindLabel(c.kind)} at row ${c.r}, column ${c.c}`;
+      : `${kindLabel(c.kind)}, row ${c.r}, column ${c.c}`;
     captionField.hidden = sizeRow.hidden = false;
     caption.placeholder = several && same(cs, 'caption') === '' && cs.some((x) => x.caption) ? 'Several values' : '';
     put(caption, same(cs, 'caption'), fresh);
