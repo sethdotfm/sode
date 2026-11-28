@@ -137,6 +137,13 @@ body {
   gap: var(--pb-space-3);
   width: 100%;
 }
+/* A Buttons panel's grid is never higher than the window, so the page does not scroll: its width is capped by the
+   height left under the header (--sode-panel-chrome, measured by panelfull.js) and centred. --sode-cols and --sode-rows
+   are the grid's size (panelview.js). */
+:root:not([data-layout="phone"]) .sode-panels > .sode-panel__grid:not(.sode-gridpanel) {
+  margin-inline: auto;
+  max-width: calc((100dvh - var(--sode-panel-chrome, 6rem)) * var(--sode-cols) / var(--sode-rows));
+}
 .sode-panel__cell {
   flex-direction: column;
   gap: var(--pb-space-1);
@@ -349,6 +356,7 @@ body {
   font-size: calc(var(--pb-text-md) * var(--panel-fs, 1));
 }
 .sode-panel__cell {
+  --sode-grow: 6.5; /* text grows past its font size with the cell: 6.5cqi is 14px in a 215px cell */
   font-size: calc(var(--pb-text-md) * var(--panel-fs, 1) * var(--cell-fs, 1));
   isolation: isolate;
   overflow: hidden;
@@ -356,7 +364,10 @@ body {
 }
 .sode-panel__cell small,
 .sode-panel__staged {
-  font-size: min(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), 14cqi);
+  font-size: min(
+    max(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), calc(var(--sode-grow) * 0.8cqi * var(--panel-fs, 1) * var(--cell-fs, 1))),
+    14cqi
+  );
 }
 /* Text never runs past its square. Each cell and editor square is an inline-size container: text is held to its
    width, breaks anywhere, and shrinks with the square (cqi) when the font size would not fit a word or two. */
@@ -369,11 +380,16 @@ body {
 .sode-ed__sq > :not(.sode-panel__art) {
   max-inline-size: 100%;
 }
-.sode-panel__cell span.sode-panel__text,
 .sode-ed__text {
   font-size: min(1em, 20cqi);
 }
+/* The cell's font size, or more in a big cell; the panel's and the cell's Font size multiply both. cqi here is the
+   cell's width, since the cell is the container. */
+.sode-panel__cell span.sode-panel__text {
+  font-size: min(max(1em, calc(var(--sode-grow) * 1cqi * var(--panel-fs, 1) * var(--cell-fs, 1))), 20cqi);
+}
 .sode-panel__take {
+  --sode-grow: 10; /* the Take word is text-xl, about 1.6 times text-md */
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
 }
 /* Icon A, then Icon B. The row is a size container, so a glyph follows the square's height (cqh). An image fills the row and Icon B is a badge over it. */

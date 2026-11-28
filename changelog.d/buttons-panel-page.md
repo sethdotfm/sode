@@ -1,0 +1,1 @@
+- A Buttons panel page is now full width by default, and the grid is never higher than the window, so the page does not scroll. Kiosk mode and a panel with no title bar are always full width. Cell text grows with the cell, and Font size still multiplies it.
