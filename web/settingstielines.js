@@ -81,7 +81,12 @@ function endCell(e) {
   return el(
     'span',
     'sode__tend',
-    el('span', { class: 'sode__tend-line', 'data-pb-tip': `${e.num}${e.name ? ` ${e.name}` : ''}` }, el('span', 'sode__tend-n', e.num), e.name ? ` ${e.name}` : ''),
+    el(
+      'span',
+      { class: 'sode__tend-line', 'data-pb-tip': `${e.num}${e.name ? ` ${e.name}` : ''}` },
+      el('span', 'sode__tend-n', e.num),
+      e.name ? ` ${e.name}` : '',
+    ),
     el('span', { class: 'sode__tend-title', 'data-pb-tip': title }, title),
   );
 }

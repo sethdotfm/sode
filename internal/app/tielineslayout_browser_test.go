@@ -7,9 +7,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The layout of Settings > Routers > Tie lines at 1920x1080 with three routers: the empty state, the tools rows, the
-// suggestion columns, the table columns, the editor fields and one error for a duplicate name. Then the Swap dialog
-// of a router's detail view.
+// The layout of Settings > Routers > Tie lines at 1920x1080 with three routers. It checks the empty state, the tools
+// rows, the suggestion columns and the table columns. It also checks the editor fields and the duplicate name error.
+// Then it checks the Swap dialog of a router's detail view.
 func TestChromeSettingsTieLinesLayout(t *testing.T) {
 	b := startBrowser(t)
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
