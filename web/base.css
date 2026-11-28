@@ -1034,7 +1034,7 @@ html {
 .sode__swap-list {
   margin-top: var(--pb-space-4);
 }
-/* Settings > Routers > Protects (settingsprotects.js): one list of fixed height with a big scroll bar. The column
+/* Settings > Routers > Protects (settingsprotects.js): one list, as tall as its rows up to a limit, with a big scroll bar. The column
    heads and each router's heading stay in view while the rows scroll. */
 .sode__ptools,
 .sode__pbar {
@@ -1055,6 +1055,11 @@ html {
 .sode__pfind {
   max-width: 20rem;
 }
+/* Over ROUTER_BUTTONS_MAX routers the router filter is a select: the width of the find box, not the row. */
+.sode__ptools > .pb-select-wrap {
+  max-width: 20rem;
+  width: 100%;
+}
 .sode__pseg {
   display: inline-flex;
   flex-wrap: wrap;
@@ -1071,7 +1076,7 @@ html {
 }
 .sode__plist {
   --sode-phead-h: 2rem;
-  height: clamp(16rem, calc(100vh - 31rem), 44rem);
+  max-height: clamp(16rem, calc(100vh - 31rem), 44rem);
   overflow-y: auto;
 }
 .sode__prow {
@@ -1126,7 +1131,7 @@ html {
 .sode__prow[data-confirm] {
   background: var(--pb-surface-raised);
   grid-template-columns: 5rem minmax(7rem, 1fr) minmax(0, 3fr);
-  min-height: 3.5rem;
+  min-height: calc(var(--sode-h-confirm) + var(--pb-space-4) * 2);
 }
 .sode__prow-confirm {
   align-items: center;
@@ -1166,10 +1171,13 @@ html {
 .sode__pgroup-link .pb-icon {
   color: var(--pb-status-error);
 }
+/* The note and its link on one line, the link after the words. */
 .sode__pgroup-notes {
+  align-items: center;
   display: flex;
   flex-basis: 100%;
-  flex-direction: column;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
   padding-left: 2.5rem;
 }
 .sode__pempty {
