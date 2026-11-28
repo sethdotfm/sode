@@ -40,7 +40,7 @@ export function createTieField(ed) {
     mode.disable(ro);
     hint.textContent = on
       ? 'A route across routers always uses the Reserved tie line of its link. A link with no Reserved tie line is refused.'
-      : 'Off: the panel refuses a route across routers.';
+      : 'Off. The panel refuses a route that crosses routers.';
     links.replaceChildren();
     links.hidden = !on;
     if (!on || !list) return;

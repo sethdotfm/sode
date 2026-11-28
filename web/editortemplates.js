@@ -1,7 +1,7 @@
 // Templates in the panel editor: one toolbar button opens a modal to apply a saved layout or save this one. The
 // rules (what a save sends, how an apply fills the grid) are templaterules.js; the server is /api/v1/panel-templates.
 // initTemplates(editor) takes what runEditor returns.
-import { $, el } from './core.js';
+import { $, el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { btn, check } from './formbits.js';
 import { question } from './modal.js';
@@ -13,7 +13,12 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const call = jsonCall(sessionFetch, { down: 'Sode did not answer.', failed: (s) => `The request failed (${s})` });
 
 export function initTemplates(editor) {
-  const open = el('button', { class: 'pb-btn pb-btn--outline pb-btn--sm', type: 'button', id: 'ed-templates', 'aria-haspopup': 'dialog' }, 'Templates');
+  const open = el(
+    'button',
+    { class: 'pb-btn pb-btn--outline pb-btn--sm', type: 'button', id: 'ed-templates', 'aria-haspopup': 'dialog' },
+    icon('layout-template'),
+    'Templates',
+  );
   $('ed-name').closest('.sode-ed__grp').append(open);
   open.addEventListener('click', openDialog);
 

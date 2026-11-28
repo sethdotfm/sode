@@ -11,6 +11,8 @@ import {
   assignOf,
   assignAddress,
   signInText,
+  assignFacts,
+  fromAddr,
   uptimeText,
   clashOf,
   assignNameProblem,
@@ -100,6 +102,12 @@ test('how a target is assigned: its key, its sign-in, or a choice of the two wit
 
 test('sign-in state words', () => {
   assert.equal(signInText({ signIn: 'client' }), "Signed in as the panel's API client");
+  assert.equal(
+    assignFacts({ addr: '::1', state: 'Signed in as Ada', uptime: 'last seen 5 minutes ago' }),
+    'From ::1. Signed in as Ada. Last seen 5 minutes ago.',
+  );
+  assert.equal(assignFacts({ addr: '', state: 'Key ended', uptime: 'up 2 minutes' }), 'Key ended. Up 2 minutes.');
+  assert.equal(fromAddr('::1'), 'from ::1');
   assert.equal(signInText({ signIn: 'user', user: 'Ana' }), 'Signed in as Ana');
   assert.equal(signInText({ signIn: 'ended' }), 'Key ended');
   assert.equal(signInText({ signIn: 'none' }), 'Not signed in');

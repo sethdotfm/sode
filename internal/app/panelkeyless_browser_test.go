@@ -58,7 +58,7 @@ func TestChromeKeylessPageIsAssignedAndRuns(t *testing.T) {
 	b.waitFor("Assign to", `!!document.querySelector('[data-act="assign"]')`)
 	b.eval(`document.querySelector('[data-act="assign"]').click()`)
 	row := `document.querySelector('#assign-list [data-keyless][data-instance="Lobby"]')`
-	b.waitFor("the keyless page in the list", `!!`+row+` && !`+row+`.disabled && `+row+`.closest('.sode-ov__cp').textContent.includes('Studio A') && `+row+`.closest('.sode-ov__cp').textContent.includes('127.0.0.1, Key ended, up ')`)
+	b.waitFor("the keyless page in the list", `!!`+row+` && !`+row+`.disabled && `+row+`.closest('.sode-ov__cp').textContent.includes('Studio A') && `+row+`.closest('.sode-ov__cp').textContent.includes('From 127.0.0.1. Key ended. Up ')`)
 	b.eval(row + `.click()`)
 	b.waitFor("the Assign was sent", `document.querySelector('.sode-ov__share [role="status"]').textContent.includes('Sent Lobby to Studio B')`)
 

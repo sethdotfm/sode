@@ -10,8 +10,8 @@ import { KEY_ENDED, SIGN_IN_ENDED } from './panelrules.js';
 export const PUBLIC_STOPPED = 'Not Public now. Reconnects when Public again.';
 
 export const MODES = [
-  ['key', 'Named link'],
-  ['setup', 'Setup link, 1 hour'],
+  ['key', 'Link for one instance'],
+  ['setup', 'Setup link (1 hour)'],
 ];
 
 // The instance name becomes the device name (the page's ?instance=), so it has the monitor's limits.
@@ -49,7 +49,7 @@ function whenUntil(iso, now) {
 
 export function keyRow(k, now) {
   const state = k.setup ? { kind: 'idle', text: 'Setup link waiting' } : k.online ? { kind: 'ok', text: 'Online' } : { kind: 'idle', text: 'Offline' };
-  const used = k.setup ? `Expires ${whenUntil(k.expires, now)}` : `Last used ${whenText(k.lastUsed, now, 'never')}`;
+  const used = k.setup ? `Expires ${whenUntil(k.expires, now)}` : whenText(k.lastUsed, now, '') ? `Last used ${whenText(k.lastUsed, now, '')}` : 'Never used';
   return { id: k.id, name: k.name, state, created: `Made ${whenText(k.created, now, 'less than a minute ago')}`, used };
 }
 

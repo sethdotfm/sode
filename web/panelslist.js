@@ -11,9 +11,8 @@ import {
   thumbCells,
   gridThumb,
   gridSize,
-  actsLabel,
+  actsText,
   actsShort,
-  launchNote,
   shareLabel,
   launchHref,
   editHref,
@@ -52,10 +51,12 @@ function thumb(p, small) {
   const box = el('div', `sode-ov__thumb${small ? ' sode-ov__thumb--sm' : ''}`);
   box.setAttribute('aria-hidden', 'true');
   const grid = isGridPanel(p);
-  const g = grid ? gridThumb(p) : null;
+  const g = grid ? gridThumb(p, small ? 'medium' : 'large') : null;
   const { rows, cols } = g || p;
-  box.style.gridTemplate = `repeat(${rows}, 1fr) / repeat(${cols}, 1fr)`;
+  box.style.gridTemplate = `repeat(${rows}, minmax(0, 1fr)) / repeat(${cols}, minmax(0, 1fr))`;
   box.style.aspectRatio = `${cols} / ${rows}`;
+  // A list picture is never higher than --sode-ov-thumb-h, so every row has one height.
+  if (small && !grid) box.style.width = `min(6rem, var(--sode-ov-thumb-h) * ${cols} / ${rows})`;
   if (grid) {
     box.classList.add('sode-ov__thumb--grid');
     box.dataset.size = g.size;
@@ -84,7 +85,8 @@ function thumb(p, small) {
 
 const shownIds = () => groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((p) => p.id));
 
-const owner = (p) => (p.owner.toLowerCase() === S.me.toLowerCase() ? 'You' : p.owner);
+const mine = (p) => p.owner.toLowerCase() === S.me.toLowerCase();
+const owner = (p) => (mine(p) ? 'You' : p.owner);
 
 function row(p) {
   const b = el('button', 'sode-ov__item');
@@ -93,7 +95,7 @@ function row(p) {
   b.setAttribute('aria-current', String(p.id === S.cur));
   const online = el('span', 'sode-ov__online');
   online.dataset.online = p.id;
-  const sub = `${owner(p)}, ${actsShort(p)}`;
+  const sub = `${owner(p)} · ${actsShort(p)}`;
   const who = el(
     'span',
     'sode-ov__who',
@@ -113,7 +115,22 @@ function list(groups) {
     nav.append(el('h2', 'sode-ov__group', g.title));
     for (const p of g.panels) nav.append(row(p));
   }
-  if (!groups.length) nav.append(el('p', 'sode-ov__muted sode-ov__empty', emptyText(S.loaded, S.panels.length > 0)));
+  if (groups.length) return;
+  const empty = el('p', 'sode-ov__muted sode-ov__empty', emptyText(S.loaded, S.panels.length > 0, S.filter));
+  if (S.loaded && S.panels.length) {
+    const clear = el('button', 'pb-btn pb-btn--outline', 'Clear');
+    clear.type = 'button';
+    clear.dataset.clearFind = '';
+    clear.addEventListener('click', () => {
+      const find = $('panels-find');
+      find.value = '';
+      S.filter = '';
+      draw();
+      find.focus();
+    });
+    empty.append(clear);
+  }
+  nav.append(empty);
 }
 
 function button(label, ico, cls, act, id) {
@@ -142,8 +159,12 @@ function detail(p) {
   main.append(link('Launch', 'play', 'sode-btn--primary', launchHref(p.id), keyLabel('mod+enter')));
   if (acts.includes('edit')) main.append(link('Edit', 'pencil', '', editHref(p.id), keyLabel('mod+e')));
   if (acts.includes('copy')) main.append(button('Save a copy', 'copy', '', 'copy', p.id));
-  if (acts.includes('delete'))
-    main.append(button(S.armed === p.id ? 'Delete? Press again' : 'Delete', 'trash-2', 'pb-btn--ghost sode-ov__delete', 'delete', p.id));
+  if (acts.includes('delete')) {
+    const armed = S.armed === p.id;
+    main.append(
+      button(armed ? 'Press again to delete' : 'Delete', 'trash-2', `${armed ? 'pb-btn--outline' : 'pb-btn--ghost'} sode-ov__delete`, 'delete', p.id),
+    );
+  }
   const more = el('div', 'sode-ov__acts-more');
   if (acts.includes('push')) more.append(button('Push to panels', 'send', '', 'push', p.id));
   if (!phone && S.me) more.append(button('Send a copy', 'forward', '', 'send', p.id));
@@ -154,11 +175,11 @@ function detail(p) {
     'dl',
     'sode-ov__kv',
     el('dt', '', 'Owner'),
-    el('dd', '', owner(p) + (p.canEdit ? '' : ' (read only)')),
+    el('dd', '', owner(p) + (p.canEdit ? '' : ' (you cannot edit this panel)')),
     el('dt', '', 'Acts as'),
-    el('dd', '', actsLabel(p).replace('Acts as ', '') + launchNote(p)),
+    el('dd', '', actsText(p)),
     el('dt', '', 'Shared with'),
-    el('dd', '', shareLabel(p.share)),
+    el('dd', '', shareLabel(p.share, mine(p))),
   );
   box.append(
     el('h1', 'sode-ov__title', p.name, statusBadge(panelStatus(p)) || ''),

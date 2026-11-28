@@ -12,6 +12,7 @@ import {
   pushSummary,
   checkpointLabel,
   canSaveSet,
+  ownerSections,
 } from '../panelpushrules.js';
 
 const P = (id, name, extra = {}) => ({ id, name, owner: 'Ana', canEdit: true, ...extra });
@@ -103,4 +104,22 @@ test('a Push names each target whose artwork did not all fit', () => {
     pushSummary({ pushed: [{ panel: 'p-1', artSkipped: ['a-1', 'a-2'] }, { panel: 'p-2' }, { panel: 'p-3', artSkipped: ['a-3'] }] }, wall),
     'Pushed to EVS 1, EVS 2 and EVS 3. Checkpoints kept. 2 images of EVS 1 left out: over the 64 MB artwork total. 1 image of EVS 3 left out: over the 64 MB artwork total.',
   );
+});
+
+test('Push lists your panels first, then each other owner under a heading', () => {
+  const list = [P('a', 'EVS 1', { owner: 'Bo' }), P('b', 'Desk', { owner: 'ana' }), P('c', 'Wall'), P('d', 'Gym', { owner: 'Cy' })];
+  assert.deepEqual(
+    ownerSections(list, 'Ana').map((s) => [s.label, s.panels.map((p) => p.id)]),
+    [
+      ['Owner: You', ['b', 'c']],
+      ['Owner: Bo', ['a']],
+      ['Owner: Cy', ['d']],
+    ],
+  );
+  assert.deepEqual(
+    ownerSections([P('b', 'Desk')], 'Ana').map((s) => s.label),
+    [''],
+    'no heading when every panel is yours',
+  );
+  assert.deepEqual(ownerSections([], 'Ana'), []);
 });

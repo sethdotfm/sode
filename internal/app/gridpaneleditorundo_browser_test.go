@@ -65,7 +65,7 @@ func TestChromeGridPanelEditorUndo(t *testing.T) {
 	b.waitFor("the next undoes the cut", `said() === 'Undid cut.' && order('sources') === '0,1,3,2,4,5'`)
 
 	b.eval(`document.getElementById('ed-destinations-all').click(); true`)
-	b.waitFor("Follow the router is on for destinations", `document.getElementById('ed-destinations-all').checked && !document.getElementById('ed-lists-following').hidden`)
+	b.waitFor("Follow the router is on for destinations", `document.getElementById('ed-destinations-all').checked && !document.getElementById('ed-destinations-following').hidden`)
 	b.eval(`pick('destinations', 3); true`)
 	ctrl("x", "KeyX", 88)
 	b.waitFor("cut is refused while the list follows the router", `said().startsWith('Nothing cut: Follow the router is on') && !!li('destinations', 3)`)

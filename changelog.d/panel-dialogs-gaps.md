@@ -1,0 +1,5 @@
+- Panels: the tabs of Share, Push and the editor's sidebar have their space between parts again. The Push list no longer runs into the Push button.
+- Panels: the Push tab says what Push does. The panels of each owner are under an "Owner" heading, in place of the name after each panel.
+- Panels: the rows of Assign to start on the text of the Find box and have room around them. The line at the top says what the instance gets.
+- Panels: in Link with key, the dates of each instance start on one edge. A key that was never used reads "Never used". The count reads "3 instances of 20 at most", and the kinds of link read "Link for one instance" and "Setup link (1 hour)". Allowed networks has a hint, and Save networks is no longer a full-width bar.
+- Panels: the address field reads "Address of Sode for other devices" with a hint, and the QR code has a caption.

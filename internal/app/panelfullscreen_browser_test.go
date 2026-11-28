@@ -11,7 +11,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Enforce landscape orientation keeps asking, since Chrome locks the turn only in fullscreen.
+// Keep the page in landscape keeps asking, since Chrome locks the turn only in fullscreen.
 func TestChromePanelFullscreenFollowsSettings(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

@@ -167,7 +167,7 @@ function makeDoor(seg, ui, embedded, given, run) {
         }
         if (ui.note.textContent === ROUTERS_UNKNOWN) showNote(ui.note, '');
         const panel = panelIn(read, d.places);
-        // Back to editing came before the panel did: nothing after this is allowed to start a timer or a watch.
+        // Back to the editor came before the panel did: nothing after this is allowed to start a timer or a watch.
         // Kept only after it worked, so a mistyped or ended key never replaces a stored one.
         if (d.linked) d.stored = keepLinkKey(seg, d.key);
         if (panel.acts === 'api' && !d.key && !embedded) {

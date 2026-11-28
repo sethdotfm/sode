@@ -1,0 +1,6 @@
+- Panel editor: the Pages column starts on the grid's top line, and the sidebar keeps one width on every tab.
+- Panel editor: the Show label is the size of the other labels, and the Cell tab heading ("Info, row 1, column 1") is on the left. Font size has its own row under Show the title bar.
+- Panel editor: clearer labels, for example "Owner: Ana", "Short name for the link", "Stage more than one destination", "Text on the cell", "Go to full screen at the first press" and "Shared with: Everyone" on one line.
+- Panel editor: the Access tab shows the Rights as label and value pairs with no rules. The toolbar buttons all have icons, and Save stays at the right when the toolbar wraps.
+- Panel editor: an Info cell shows each part on its own line and its text stays in its square.
+- Live Editor: the bar says "Live: takes change the router" in place of Preview, and the button reads "Back to the editor".

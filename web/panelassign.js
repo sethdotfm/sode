@@ -2,7 +2,7 @@
 import { el, icon } from './core.js';
 import { btn, segmented } from './formbits.js';
 import { question } from './modal.js';
-import { assignRows, assignWays, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
+import { assignRows, assignWays, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem, assignFacts } from './panelassignrules.js';
 import { MON_POLL_MS } from './panelsmon.js';
 import { INSTANCE_MAX } from './panelkeyrules.js';
 import { resultStep } from './keys.js';
@@ -85,8 +85,8 @@ export function openAssign(panel, ctx) {
   const sayIntro = () =>
     (intro.textContent =
       way === 'user'
-        ? `The instance you pick opens ${panel.name} immediately and shows its sign-in, where the person there types their own PIN. Its key for the panel it shows now keeps working.`
-        : `The instance you pick opens ${panel.name} immediately, with a key of its own for it. Its key for the panel it shows now keeps working.`);
+        ? `This instance opens ${panel.name} immediately and shows the sign-in. The person there types their PIN. Its key for the panel it shows now stays valid.`
+        : `This instance opens ${panel.name} immediately and gets a new key for it. Its key for the panel it shows now stays valid.`);
   sayIntro();
   const choice =
     ways.length > 1
@@ -128,7 +128,7 @@ export function openAssign(panel, ctx) {
       b.dataset.instance = r.device;
       if (r.keyless) b.dataset.keyless = r.keyless;
       b.disabled = busy || !r.assignable;
-      const facts = [r.addr, r.state, r.uptime].filter(Boolean).join(', ');
+      const facts = assignFacts(r);
       const who = el(
         'span',
         `sode-ov__who${r.assignable ? '' : ' sode-ov__muted'}`,

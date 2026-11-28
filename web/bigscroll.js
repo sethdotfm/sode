@@ -234,6 +234,8 @@ function track(scroller, axis, little, page) {
       else delete document.documentElement.dataset.bigscrollOn;
       return;
     }
+    // The scroller's CSS keeps the bar's room at all times, so it never changes width when the bar shows.
+    if (scroller.hasAttribute('data-bigscroll-room')) return;
     const side = y ? 'paddingRight' : 'paddingBottom';
     if (pad === null) pad = getComputedStyle(scroller)[side];
     scroller.style[side] = on ? `calc(${pad} + ${width})` : '';

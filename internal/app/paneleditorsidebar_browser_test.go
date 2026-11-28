@@ -77,7 +77,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	// Landscape asks for fullscreen on a press too, so the editor says so beside both switches.
 	fsNote := `document.getElementById('ed-fullscreen-note').textContent`
 	b.eval(`document.getElementById('ed-set-landscape').click(); true`)
-	b.waitFor("landscape says a press enters fullscreen", `document.getElementById('ed-set-landscape').closest('.sode__field').textContent.includes('A press also enters fullscreen') && `+fsNote+`.includes('Enforce landscape orientation is on, so a press still enters fullscreen')`)
+	b.waitFor("landscape says a press enters fullscreen", `document.getElementById('ed-set-landscape').closest('.sode__field').textContent.includes('A press also goes to full screen') && `+fsNote+`.includes('Keep the page in landscape is on, so a press still goes to full screen')`)
 	b.eval(`document.getElementById('ed-set-fullscreen').click(); true`)
 	b.waitFor("with fullscreen on the note is gone", fsNote+` === ''`)
 	b.waitFor("Ask users to set an instance name starts on", `document.getElementById('ed-set-askInstanceName').checked`)
@@ -122,7 +122,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 			t.Errorf("the saved panel lacks %s: %s", want, body)
 		}
 	}
-	b.waitFor("Access names the client", `document.getElementById('panel-ed-access').textContent.includes('Client Panel `+id+`')`)
+	b.waitFor("Access names the client", `document.getElementById('panel-ed-access').textContent.includes('API client: Panel `+id+`. Its Rights:')`)
 
 	b.eval(`document.getElementById('ed-acts-both').click(); true`)
 	b.waitFor("API to Both says it keeps the client and keys", `document.getElementById('panel-ed-access').textContent.includes("Both keeps the panel's API client and every instance key") && `+box+`.hidden`)

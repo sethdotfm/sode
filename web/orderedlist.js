@@ -5,6 +5,8 @@ import { btn } from './formbits.js';
 import { dropTo, canMove, edgeStep } from './orderedlistrules.js';
 
 // opts: rowClass, toolsClass, move(from, to), remove(i), removeTip.
+// Opt-in: bareFixed leaves Move and Remove out of a fixed row. Each has an empty place, so the caller's actions keep
+// their place under a bar that ends in the same buttons.
 // Opt-in: drop(from, over, after) places a drop by the pointer's half.
 // Opt-in: grip(i) limits the drag to the grip and the body, and gives the drag chip's text.
 // Opt-in: dragging(i | -1).
@@ -55,6 +57,11 @@ export function createOrderedList(opts) {
         [iconBtn('arrow-down', 'Move down', 'down', () => opts.move(i, i + 1)), !can.down || r.downOff, true],
         [iconBtn('trash-2', opts.removeTip, 'delete', () => opts.remove(i)), r.removeOff, true],
       ].map(([b, off, ours]) => {
+        if (ours && fixed && opts.bareFixed) {
+          const blank = el('span', 'sode-pages__blank');
+          blank.setAttribute('aria-hidden', 'true');
+          return blank;
+        }
         b.dataset.i = String(i);
         b.disabled = !!(readOnly || off || (ours && fixed));
         if (ours && fixed) b.dataset.pbTip = fixed;
@@ -71,7 +78,7 @@ export function createOrderedList(opts) {
     const li = el('li', opts.rowClass, ...(grip ? [grip] : []), ...(r.body || []), tools);
     li.dataset.id = r.id;
     if (!readOnly && !fixed) dragRow(li, i, grip && [grip, ...(r.body || [])]);
-    else if (grip) grip.classList.add('is-off');
+    else if (grip) grip.classList.add(fixed && opts.bareFixed ? 'is-gone' : 'is-off');
     return li;
   }
 

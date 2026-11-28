@@ -158,7 +158,7 @@ test('a refused route among the kept ones refuses the whole Preset', () => {
   assert.equal(pressPreset(fixed([0, 1]), P('Both'), env({ presets, rights: { dsts: [0] } }), T0).staged.length, 0);
 });
 
-test('Stage several Destinations has no effect: a Preset to two fixed destinations stages both either way', () => {
+test('Stage more than one destination has no effect: a Preset to two fixed destinations stages both either way', () => {
   const on = pressPreset(fixed([0, 1], { multi: true }), P('Both'), env({ presets }), T0);
   const off = pressPreset(fixed([0, 1], { multi: false }), P('Both'), env({ presets }), T0);
   assert.deepEqual(plan(off), plan(on));
