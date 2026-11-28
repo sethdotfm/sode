@@ -1,1 +1,1 @@
-- Setup wizard: Name, PIN and Repeat your PIN of the first user are in one row, a third of the width each.
+- Setup wizard: Name, PIN and Repeat PIN of the first user are in one row, a third of the width each.

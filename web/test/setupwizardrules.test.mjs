@@ -5,14 +5,19 @@ import {
   STEPS,
   startAnswers,
   stepProblem,
+  problemIsMistake,
+  pinMistake,
   stopAt,
   chipGoes,
+  chipDone,
+  chipName,
   numberingChoices,
   finishMessage,
   routerLine,
   guideLevels,
   envHint,
   restorePinProblem,
+  restoreFailedText,
   keptAnswers,
   refillAnswers,
   connectionTitle,
@@ -76,6 +81,28 @@ test('Router needs an address and levels; a router salvo needs a group', () => {
   assert.match(stepProblem({ ...d, fireMode: 'native', group: '128' }, 1), /0 to 127/);
 });
 
+test('a problem is a mistake only once its field has text; before that it is a hint', () => {
+  const d = filled();
+  const blank = { ...d, name: '', pin: '', pin2: '' };
+  assert.equal(problemIsMistake(blank, 0, 8), false, 'no name yet');
+  assert.equal(problemIsMistake({ ...blank, name: 'Ada' }, 0, 8), false, 'no PIN yet');
+  assert.equal(problemIsMistake({ ...blank, name: 'Ada', pin: '24' }, 0, 8), false, 'a PIN still being typed');
+  assert.equal(problemIsMistake({ ...blank, name: 'Ada', pin: '24a' }, 0, 8), true, 'a letter in the PIN');
+  assert.equal(problemIsMistake({ ...blank, name: 'Ada', pin: '123456789' }, 0, 8), true, 'too many digits');
+  assert.equal(problemIsMistake({ ...d, pin2: '2469' }, 0, 8), true, 'PINs that differ');
+  assert.equal(problemIsMistake({ ...d, pin2: '2' }, 0, 8), true, 'Repeat PIN has text');
+  assert.equal(problemIsMistake({ ...d, name: 'x'.repeat(25) }, 0, 8), true, 'a name too long');
+  assert.equal(problemIsMistake({ ...d, router: '' }, 1), false, 'no address yet');
+  assert.equal(problemIsMistake({ ...d, levels: '' }, 1), false, 'no levels yet');
+  assert.equal(problemIsMistake({ ...d, levels: '0' }, 1), true);
+  assert.equal(problemIsMistake({ ...d, routerTitle: 'x'.repeat(33) }, 1), true);
+  assert.equal(problemIsMistake({ ...d, fireMode: 'native', group: '' }, 1), false);
+  assert.equal(problemIsMistake({ ...d, fireMode: 'native', group: '128' }, 1), true);
+  assert.equal(problemIsMistake(d, 0, 8), false, 'no problem');
+  assert.equal(pinMistake('', '', 8), false);
+  assert.equal(pinMistake('2468', '2469', 8), true);
+});
+
 test('a jump forward stops at the first step that cannot go on', () => {
   const d = filled();
   assert.equal(stopAt(d, 2), 2);
@@ -92,6 +119,28 @@ test('chips move between visited steps until Finish', () => {
   assert.equal(STEPS.length, 4);
 });
 
+test('a chip is done only when a later step was reached: the furthest visited step keeps its number', () => {
+  // On Access, then back to Style & User: Router is done, Access is not, since Finish was not pressed.
+  assert.deepEqual(
+    [0, 1, 2, 3].map((i) => chipDone(i, 0, 2)),
+    [false, true, false, false],
+  );
+  assert.deepEqual(
+    [0, 1, 2, 3].map((i) => chipDone(i, 2, 2)),
+    [true, true, false, false],
+  );
+  assert.deepEqual(
+    [0, 1, 2, 3].map((i) => chipDone(i, 3, 3)),
+    [true, true, true, false],
+  );
+});
+
+test('Run setup again has no Add a first user, so its first chip says Style', () => {
+  assert.equal(chipName('welcome', 'Style & User', false), 'Style & User');
+  assert.equal(chipName('welcome', 'Style & User', true), 'Style');
+  assert.equal(chipName('router', 'Router', true), 'Router');
+});
+
 test('level numbering reads from the level count', () => {
   assert.deepEqual(numberingChoices('17'), [
     ['1', '1–17'],
@@ -105,7 +154,7 @@ test('level numbering reads from the level count', () => {
   ]);
 });
 
-test('Finish sends the answers once, without Repeat your PIN', () => {
+test('Finish sends the answers once, without Repeat PIN', () => {
   const m = finishMessage({ ...filled(), fireMode: 'native', group: '120' }, 4);
   assert.equal(m.t, 'setupFinish');
   assert.equal(m.id, 4);
@@ -209,4 +258,9 @@ test('Settings > Routers has the same Multi destination help tip as the wizard',
   assert.equal(m[1], FIRE_MODE_TIP);
   assert.ok(FIRE_MODE_TIP.includes('One after another'));
   assert.ok(FIRE_MODE_TIP.includes('Router salvo'));
+});
+
+test('the restore page says how many items were not written', () => {
+  assert.equal(restoreFailedText(1), 'The restore is complete, but 1 item was not written. Check panels and artwork.');
+  assert.equal(restoreFailedText(2), 'The restore is complete, but 2 items were not written. Check panels and artwork.');
 });

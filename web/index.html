@@ -78,7 +78,7 @@
         <button type="button" class="pb-btn pb-btn--outline" id="setup-back">Back</button>
         <button type="button" class="pb-btn pb-btn--outline" id="setup-restore">Restore from a backup</button>
         <span class="pb-grow"></span>
-        <span class="sode-setup__err" id="setup-err" role="alert"></span>
+        <span class="sode-setup__err" id="setup-err" role="status"></span>
         <button type="button" class="pb-btn sode-btn--primary" id="setup-next">Next</button>
       </div>
     </div>
@@ -527,7 +527,7 @@
             <p class="sode__rgroup-head">Takes</p>
             <div class="sode__fields">
               <div class="sode__field">
-                <span class="sode__label-help"><label class="sode__field-label" for="cfg-rt-fireMode">Multi destination</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__help" id="cfg-rt-fireMode-help" aria-label="About Multi destination" data-pb-tip="One after another: Sode sends each route as its own connect, about 16 ms each. Router salvo: the router keeps every route, then switches them all together on one command. Use Router salvo only on a router that has router salvos, with a router salvo group that nothing else uses."><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-circle-help"/></svg></button></span>
+                <span class="sode__label-help"><label class="sode__field-label" for="cfg-rt-fireMode">Multi destination</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__help" id="cfg-rt-fireMode-help" aria-label="About Multi destination" data-pb-tip="One after another: Sode sends each route alone, about 16 ms apart. Router salvo: the router holds all the routes and switches them together. The router must have router salvos, and the router salvo group must be free."><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#pb-i-circle-help"/></svg></button></span>
                 <span class="pb-select-wrap"><select id="cfg-rt-fireMode" class="pb-select"><option value="sequential">One after another</option><option value="native">Router salvo (stage, then Take all)</option></select></span>
               </div>
               <div class="sode__field">

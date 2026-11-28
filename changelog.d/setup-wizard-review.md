@@ -1,0 +1,5 @@
+- Setup wizard: the site name and Theme color stay as picked when the router address changes or the page connects again. Run setup again does the same.
+- Setup wizard, Access step: each preset name is over its Yes and No, and the heading row and each row are on one centre line. The heading says "A person who is not signed in can:", so the rows are short.
+- Setup wizard footer: the text is in line with Next. It tells why Next is off as a grey hint, and it is red only for a real mistake. "Saving…" and "Restoring…" are grey.
+- Setup wizard steps: a step shows a check mark only when a later step was reached. In Run setup again the first step is "Style".
+- Restore from a backup with a new PIN: Back and Restore are in the footer, as on the other steps. The two PIN boxes are on one row.

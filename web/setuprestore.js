@@ -4,7 +4,7 @@
 
 import { $, el, request } from './core.js';
 import { applyBrowser } from './browserapply.js';
-import { restorePinProblem } from './setupwizardrules.js';
+import { restorePinProblem, pinMistake, restoreFailedText } from './setupwizardrules.js';
 import { pinShow } from './pinshow.js';
 
 const KEY_HEADER = 'X-Sode-Setup'; // setupKeyHeader in internal/app/setuprestore.go
@@ -12,7 +12,15 @@ const KEY_HEADER = 'X-Sode-Setup'; // setupKeyHeader in internal/app/setuprestor
 let busy = false; // a restore is sent: its hello comes before its answer, so the wizard must stay
 let hooks = null; // {max(), back()} from setupwizard.js
 
+let page = null; // the restore page while it shows: {next(), back(), check()} for the wizard's footer
+
 export const restoring = () => busy;
+// setupwizard.js sends its Back and Next clicks here while the restore page shows.
+export const restorePage = () => page;
+// The wizard draws a step again (Take control, Run setup again): the old restore handlers must not catch Back and Next.
+export const leaveRestore = () => {
+  page = null;
+};
 
 async function restoreKey() {
   const m = await request('setupRestoreKeyResult', { t: 'setupRestoreKey' });
@@ -20,11 +28,17 @@ async function restoreKey() {
   return m.key;
 }
 
-const say = (text) => ($('setup-err').textContent = text);
+// kind: 'busy' or 'hint' show muted, as the wizard's footer does; '' is an error.
+function say(text, kind = '') {
+  const n = $('setup-err');
+  n.textContent = text;
+  n.classList.toggle('is-hint', kind === 'hint');
+  n.classList.toggle('is-busy', kind === 'busy');
+}
 
 async function send(file, pin = '') {
   busy = true;
-  say('Restoring…');
+  say('Restoring…', 'busy');
   try {
     const key = await restoreKey();
     const body = new FormData();
@@ -38,6 +52,7 @@ async function send(file, pin = '') {
       const text = out?.error?.message || `Sode answered ${res.status}.`;
       if (code === 'pin_needed') return askPin(file, text);
       say(text);
+      page?.check();
       return;
     }
     applyBrowser(out?.browser, true);
@@ -47,22 +62,34 @@ async function send(file, pin = '') {
   } catch (e) {
     busy = false;
     say(e.message);
+    page?.check();
   }
+}
+
+// The restore page uses the wizard's footer: Back on the left, the main action as Next on the right. A step chip would
+// drop the picked file, so the chips go nowhere while it shows.
+function showPage(title, body, next, back = null) {
+  page = { next: next.go, back: back || (() => {}), check: next.check || (() => {}) };
+  $('setup-title').textContent = title;
+  $('setup-body').replaceChildren(...body);
+  $('setup-back').hidden = !back;
+  $('setup-back').textContent = 'Back';
+  $('setup-restore').hidden = true;
+  $('setup-next').hidden = false;
+  $('setup-next').textContent = next.label;
+  $('setup-next').disabled = false;
+  for (const c of $('setup-steps').querySelectorAll('[data-go]')) {
+    c.removeAttribute('data-go');
+    c.tabIndex = -1;
+  }
+  say('');
+  page.check();
 }
 
 // The restore is written but some stores outside the config are not. Setup cannot run again, so say so before opening Sode.
 function showFailed(n) {
-  const open = el('button', 'pb-btn sode-btn--primary', 'Open Sode');
-  open.type = 'button';
-  open.addEventListener('click', () => location.reload());
-  $('setup-title').textContent = 'Restore from a backup';
-  $('setup-body').replaceChildren(
-    el('p', 'sode-setup__lead', `Restored. ${n} ${n === 1 ? 'item' : 'items'} not written: check panels and artwork.`),
-    el('div', 'sode-setup__restore', open),
-  );
-  for (const id of ['setup-back', 'setup-restore', 'setup-next']) $(id).hidden = true;
-  say('');
-  open.focus();
+  showPage('Restore from a backup', [el('p', 'sode-setup__lead', restoreFailedText(n))], { label: 'Open Sode', go: () => location.reload() });
+  $('setup-next').focus();
 }
 
 // The file holds no PINs, so the first Administrator gets a new one here.
@@ -75,39 +102,32 @@ function askPin(file, text) {
     return [el('div', 'sode__field', lab, pinShow(input)), input];
   };
   const [pinBox, pin] = field('setup-restore-pin', 'New PIN');
-  const [pin2Box, pin2] = field('setup-restore-pin2', 'Repeat your PIN');
-  const go = el('button', 'pb-btn sode-btn--primary', 'Restore');
-  const back = el('button', 'pb-btn pb-btn--outline', 'Back');
-  go.type = back.type = 'button';
+  const [pin2Box, pin2] = field('setup-restore-pin2', 'Repeat PIN');
   const problem = () => restorePinProblem(pin.value, pin2.value, hooks.max());
-  const check = () => (go.disabled = busy || !!problem());
-  go.addEventListener('click', () => {
-    if (problem()) return;
-    go.disabled = true;
+  const check = () => ($('setup-next').disabled = busy || !!problem());
+  const go = () => {
+    if (busy || problem()) return;
+    $('setup-next').disabled = true;
     send(file, pin.value);
-  });
-  back.addEventListener('click', () => hooks.back());
+  };
+  const back = () => {
+    page = null;
+    hooks.back();
+  };
+  // #setup-body presses Next on Enter.
   for (const i of [pin, pin2]) {
     i.addEventListener('input', () => {
       check();
-      if (!busy) say(problem());
-    });
-    i.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      // #setup-body would also press the hidden Next.
-      e.preventDefault();
-      e.stopPropagation();
-      if (!go.disabled) go.click();
+      if (!busy) say(problem(), pinMistake(pin.value, pin2.value, hooks.max()) ? '' : 'hint');
     });
   }
-  $('setup-title').textContent = 'Restore from a backup';
-  $('setup-body').replaceChildren(
-    el('p', 'sode-setup__lead', text),
-    el('div', 'sode-setup__section', pinBox, pin2Box, el('div', 'sode-setup__restore', back, go)),
+  showPage(
+    'Restore from a backup',
+    [el('p', 'sode-setup__lead', text), el('div', 'sode-setup__section', el('div', 'sode-setup__row', pinBox, pin2Box))],
+    { label: 'Restore', go, check },
+    back,
   );
-  for (const id of ['setup-back', 'setup-restore', 'setup-next']) $(id).hidden = true;
-  say('');
-  check();
+  say(problem(), 'hint'); // Restore is off, so the page says why
   pin.focus();
 }
 
