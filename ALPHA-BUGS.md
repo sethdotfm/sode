@@ -164,7 +164,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-13: Name box should be a third width, same as the PIN and Repeat boxes
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Style & User step. web/setupwizard.js:195-205 (`field('setup-name', ...)`, `row(...)`), web/setup.css:122-128 (`.sode-setup__row`), web/base.css:1445 (short-value rule).
 - **Reported:** "Make a third width, the same as the PIN and Repeat boxes." (on the Name box of "Add a first user")
 - **Now:** The Name field is outside any row, so it fills the whole width (web/setupwizard.js:199; capture shows it as wide as the dialog). The PIN and Repeat your PIN fields are in `row(...)`, a two-column grid `1fr 1fr` (web/setup.css:123-128), so each is half width, not a third. The row comment says an empty second cell keeps a lone field at half width. The Router step's Levels and Router title also use half width.
@@ -172,7 +172,13 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: Name, PIN and Repeat sit in one row, a third each.
 - **Open questions:** none.
 - **Proof:** Screenshot before and after at 1920x1080. A TestChromeSetupWizard assertion that the widths of `#setup-name`, `#setup-pin` and `#setup-pin2` are equal within a pixel.
+  - Reproduced on 8e9c6761 with swp08sim and a new config: under "Add a first user", Name is as wide as the dialog, and PIN and Repeat your PIN are half width each in the row under it (before-style-user.png).
+  - Given: `TestChromeSetupWizard` (internal/app/setupwizard_browser_test.go): `#setup-name`, `#setup-pin` and `#setup-pin2` have the same width and top within 1px, and each is less than a third of the dialog body. Before the fix: `setupwizard_browser_test.go:80: timed out waiting for Name, PIN and Repeat your PIN are a third each, in one row`. Passes after.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-13/: before-style-user.png, after-style-user.png.
 - **Notes:**
+  - What changed: Name, PIN and Repeat your PIN go in one `row3` (web/setupwizard.js:100 and :213), a `.sode-setup__row--3` grid of three equal columns (web/setup.css:139). The other rows keep two columns.
+  - Checks: `go test -short ./...` all ok; `go vet ./...` ok; `node --test 'web/test/*.test.mjs'` # pass 2001, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChromeSetupWizard$'` ok.
+  - Commit: this commit.
 
 ### AB-14: Connection heading names the first router
 

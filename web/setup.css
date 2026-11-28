@@ -135,6 +135,10 @@
   gap: var(--pb-space-6);
   align-items: end;
 }
+/* Name, PIN and Repeat your PIN: a third each. */
+.sode-setup__row--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
 .sode-setup__h {
   font-size: var(--pb-text-md);
   font-weight: var(--pb-weight-bold);

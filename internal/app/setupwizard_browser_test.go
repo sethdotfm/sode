@@ -77,6 +77,11 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)
 	b.waitFor("the border shows live", `document.querySelector('.sode__brandframe').dataset.brand === 'teal'`)
 	b.waitFor("Teal shows no note", `!document.getElementById('setup-brand-caution').offsetParent`)
+	b.waitFor("Name, PIN and Repeat your PIN are a third each, in one row", `(() => {
+		const r = ['setup-name', 'setup-pin', 'setup-pin2'].map((id) => document.getElementById(id).getBoundingClientRect());
+		const body = document.getElementById('setup-body').getBoundingClientRect();
+		return r.every((x) => Math.abs(x.width - r[0].width) <= 1 && Math.abs(x.top - r[0].top) <= 1) && r[0].width < body.width / 3;
+	})()`)
 	type_("setup-name", "Ada")
 	type_("setup-pin", "2468")
 	type_("setup-pin2", "2469")

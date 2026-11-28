@@ -97,6 +97,7 @@ function sectionAs(id, title, sub, ...inner) {
   return el('div', { class: 'sode-setup__section' }, h, sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
 }
 const row = (...kids) => el('div', { class: 'sode-setup__row' }, ...kids);
+const row3 = (...kids) => el('div', { class: 'sode-setup__row sode-setup__row--3' }, ...kids);
 const strong = (text) => el('span', { class: 'pb-text-strong' }, text);
 
 function statusLine() {
@@ -209,8 +210,8 @@ const VIEW = {
           section(
             'Add a first user',
             'This user will be the administrator.',
-            field('setup-name', 'Name', d.name, { maxlength: '24' }),
-            row(
+            row3(
+              field('setup-name', 'Name', d.name, { maxlength: '24' }),
               field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric', placeholder: `4 to ${max()} digits` }),
               field('setup-pin2', 'Repeat your PIN', d.pin2, { type: 'password', inputmode: 'numeric' }),
             ),
