@@ -1365,13 +1365,14 @@ html {
   color: var(--pb-text-strong);
   font-weight: var(--pb-weight-bold);
 }
+/* Each level indents 8px past the one above: topic 16px (.pb-tab), section 24px, router 32px. */
 .sode__toc .sode__toc-sec {
-  padding-inline-start: var(--pb-space-6);
+  padding-inline-start: var(--pb-space-9);
 }
 /* An entry for each router under Routers > Routers (settingstoc.js setRouters). */
 .sode__toc .sode__toc-router {
   font-size: var(--pb-text-sm);
-  padding-inline-start: var(--pb-space-8);
+  padding-inline-start: var(--pb-space-10);
 }
 .sode__toc .pb-tab[hidden] {
   display: none;
