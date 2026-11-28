@@ -51,6 +51,11 @@
     -webkit-backdrop-filter var(--sode-lock-motion) var(--pb-ease),
     border-width var(--sode-lock-motion) var(--pb-ease);
 }
+/* The lock's site name starts where the page's site name is, so the page's own copy hides while the overlay is on and
+   does not show blurred through it. visibility keeps its box, which lockbrand.js measures for the way out. */
+[data-sode-lock-on] :is(.sode__mark, .sode-m__mark) {
+  visibility: hidden;
+}
 
 /* Offline wins over the Lock's colors, in either order (html[data-conn="down"], set by desktop.js and panelrun.js).
    The border is the offline red and stays still, as the main page's outline does. lock.js shows "Offline, locked". */

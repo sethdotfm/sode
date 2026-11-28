@@ -91,6 +91,10 @@ func TestChromeLockPadLayout(t *testing.T) {
 	if w := b.eval(`(() => { const i = document.getElementById('lock-name'), v = i.value; i.value = 'Maximiliana Rosalind Abe'; const w = [i.scrollWidth, i.clientWidth]; i.value = v; return w; })()`).([]any); w[0].(float64) > w[1].(float64) {
 		t.Errorf("a 24-character name needs %vpx in a Name box of %vpx", w[0], w[1])
 	}
+	// A1-03: the page's own site name does not show through the overlay.
+	if v := b.eval(`getComputedStyle(document.querySelector('.sode__mark')).visibility`); v != "hidden" {
+		t.Errorf("the page's site name under the Lock is %v, want hidden", v)
+	}
 	// The pad still fits 1366x768, with the list open too.
 	size(1366, 768)
 	column("1366x768")
