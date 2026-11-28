@@ -176,6 +176,9 @@ func TestChromeLockPadLayout(t *testing.T) {
 			t.Errorf("%s: the list shows %.1f rows, want %.1f or more", where, shown, rows)
 		}
 		barOnTop(where, "#lock-name-list")
+		if lock := b.eval(`(() => { const l = document.querySelector('.sode-lock'); return [l.scrollHeight - l.clientHeight, l.scrollWidth - l.clientWidth]; })()`).([]any); lock[0].(float64) > 0 || lock[1].(float64) > 0 {
+			t.Errorf("%s: the Lock scrolls by %v with the list open", where, lock)
+		}
 		b.eval(`document.getElementById('lock-name').blur()`)
 		b.waitFor(where+": the list closed", `!`+listOpen)
 	}
@@ -185,6 +188,12 @@ func TestChromeLockPadLayout(t *testing.T) {
 	size(1366, 768)
 	column("1366x768")
 	listDrops("1366x768", 5)
+	// A long wait ("Try again in 4 minutes 30 seconds") sits on the message line and moves nothing.
+	padTop, dotsH := one(".sode-lock__pad").Top, one(".sode-lock__dots").height()
+	b.eval(`(() => { document.querySelector('.sode-lock__dots').textContent = 'Too many wrong PINs'; document.querySelector('.sode-lock__dots').className = 'sode-lock__dots is-text is-bad'; document.querySelector('.sode-lock__msg').textContent = 'Try again in 4 minutes 30 seconds'; })()`)
+	near("1366x768: the pad's top with a wait shown", one(".sode-lock__pad").Top, padTop)
+	near("1366x768: the dots line's height with a wait shown", one(".sode-lock__dots").height(), dotsH)
+	column("1366x768 with a wait")
 
 	// A2-07: the Approval popup's list is not cut by the dialog.
 	size(1920, 1080)
@@ -192,6 +201,13 @@ func TestChromeLockPadLayout(t *testing.T) {
 	b.waitFor("the Lock is gone", `document.querySelector('.sode-lock').hidden`)
 	b.eval(`import('/approval.js').then((m) => m.askApproval('Saving these changes', 'Administrator', () => true))`)
 	b.waitFor("the Approval list is open", `!document.getElementById('approval-name-list')?.hidden && !!document.getElementById('approval-name-list').offsetParent`)
+	nameRight := `document.getElementById('approval-name').getBoundingClientRect().right`
+	open := b.eval(nameRight).(float64)
+	b.eval(`document.getElementById('approval-name').blur()`)
+	b.waitFor("the Approval list closed", `document.getElementById('approval-name-list').hidden`)
+	near("the Approval Name box's right edge, list open against closed", open, b.eval(nameRight).(float64))
+	b.eval(`document.getElementById('approval-name').focus()`)
+	b.waitFor("the Approval list open again", `!document.getElementById('approval-name-list').hidden`)
 	if cut := b.eval(`(() => {
 		const l = document.getElementById('approval-name-list'), r = l.getBoundingClientRect(), out = [];
 		for (let a = l.parentElement; a; a = a.parentElement) {
@@ -214,7 +230,7 @@ func TestChromeLockPadLayout(t *testing.T) {
 	}
 
 	// C1-26: the phone keeps the one width.
-	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": true})
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 375, "height": 812, "deviceScaleFactor": 1, "mobile": true})
 	b.call("Emulation.setTouchEmulationEnabled", map[string]any{"enabled": true, "maxTouchPoints": 5})
 	b.open(srv.URL + "/")
 	b.waitFor("the phone layout", `document.documentElement.dataset.layout === 'phone' && document.documentElement.dataset.conn === 'up'`)
@@ -225,5 +241,6 @@ func TestChromeLockPadLayout(t *testing.T) {
 	if sx := b.eval(`(() => { const l = document.querySelector('.sode-lock'); return l.scrollWidth - l.clientWidth; })()`); sx != float64(0) {
 		t.Errorf("phone: the Lock scrolls sideways by %v", sx)
 	}
+	column("phone 375x812")
 	b.check()
 }

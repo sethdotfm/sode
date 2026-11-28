@@ -88,14 +88,27 @@ func (a *App) livePinMu(hit *config.User) (config.User, bool) {
 	return live, ok && live.Pin == hit.Pin
 }
 
-// waitWords gives a wait in whole seconds and in words, rounded up so it never reads 0. The lock shows the error as it
-// is (wrongFeedback in web/lockrules.js), so a Go duration such as "1m30s" would reach the user.
+// waitWords gives a wait in words, rounded up to whole seconds so it never reads 0. Past 60 seconds it counts minutes
+// ("5 minutes", "1 minute 30 seconds"). The lock shows the error as it is (wrongFeedback in web/lockrules.js), so a Go
+// duration such as "1m30s" would reach the user.
 func waitWords(d time.Duration) string {
 	n := int(math.Ceil(d.Seconds()))
 	if n <= 1 {
 		return "1 second"
 	}
-	return fmt.Sprintf("%d seconds", n)
+	if n <= 60 {
+		return fmt.Sprintf("%d seconds", n)
+	}
+	words := func(n int, unit string) string {
+		if n == 1 {
+			return "1 " + unit
+		}
+		return fmt.Sprintf("%d %ss", n, unit)
+	}
+	if n%60 == 0 {
+		return words(n/60, "minute")
+	}
+	return words(n/60, "minute") + " " + words(n%60, "second")
 }
 
 // check runs with mu free, since hashing is slow; a caller that needs a stable state checks again under its own lock.

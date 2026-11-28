@@ -113,12 +113,14 @@ export const WELCOME_MS = 600;
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// Plain wrong PIN: "Incorrect" for WRONG_MS, then the dots; with a wait ("try again in 30 seconds")
-// the wait is `note` under the field. Any other refusal stays whole in the field (ms 0 = until
-// the next key). Always text, never color alone.
+// Plain wrong PIN: "Incorrect" for WRONG_MS, then the dots. A wait ("try again in 30 seconds") is the `note`
+// under the field. A long wait in the field would wrap and move the pad. "Too many wrong PINs" stays in
+// the field until the next key (ms 0), and so does any other refusal. Always text, never color alone.
 export function wrongFeedback(err) {
   const e = String(err || '').trim();
   const m = /^wrong pin(?:[;.]\s*(.*))?$/i.exec(e);
+  const many = /^too many wrong pins(?:[;.]\s*(.*))?$/i.exec(e);
+  if (many) return { text: 'Too many wrong PINs', ms: 0, note: many[1] ? cap(many[1]) : '' };
   if (!e || m) return { text: 'Incorrect', ms: WRONG_MS, note: m?.[1] ? cap(m[1]) : '' };
   return { text: cap(e), ms: 0, note: '' };
 }

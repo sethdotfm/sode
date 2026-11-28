@@ -53,7 +53,7 @@
 }
 /* The lock's site name starts where the page's site name is, so the page's own copy hides while the overlay is on and
    does not show blurred through it. visibility keeps its box, which lockbrand.js measures for the way out. */
-[data-sode-lock-on] :is(.sode__mark, .sode-m__mark) {
+[data-sode-lock-on] :is(.sode__mark, .sode-m__mark, .sode-bar__site) {
   visibility: hidden;
 }
 
@@ -485,10 +485,6 @@
 .sode__pinprompt:has(.sode-namepick__list:not([hidden])),
 .sode__pinprompt:has(.sode-namepick__list:not([hidden])) .pb-modal__body {
   overflow: visible;
-}
-/* The open list counts in the body's scroll height, but the body does not scroll for it: no bar. */
-.sode__pinprompt:has(.sode-namepick__list:not([hidden])) > .sode-bigscroll {
-  display: none;
 }
 .sode__users-list {
   display: flex;
