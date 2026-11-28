@@ -1,7 +1,7 @@
 // /log downloads. The server sends every Log row for this reader, with the values the reader's Role cannot see taken
 // out (internal/app/logdownload.go). The page makes the file with its own filter, sort and words (logfile.js), so
 // those rules exist only here. A request names parts, so a new part needs no new route.
-import { $, el, S, request, routerData } from './core.js';
+import { $, el, S, on, request, routerData } from './core.js';
 import { logCSV, statesCSV, minutesCSV } from './logfile.js';
 import { zipFiles } from './zipfile.js';
 
@@ -69,14 +69,22 @@ async function filteredRows(pick) {
   save(csvBlob(logCSV(pick(data.log), words())), 'csv');
 }
 
+// A download needs the Server link, so both buttons stay off while it is down and while one file is made.
+let busy = false;
+const paintButtons = () => {
+  for (const x of [$('log-download-full'), $('log-download-rows')]) x.disabled = busy || S.wsState !== 'up';
+};
+
 export function initDownloads(pick) {
   const note = $('log-download-err');
+  on('conn', paintButtons);
+  paintButtons();
   const wire = (id, make) => {
     const b = $(id);
     const label = b.textContent;
     b.addEventListener('click', async () => {
-      const buttons = [$('log-download-full'), $('log-download-rows')];
-      for (const x of buttons) x.disabled = true;
+      busy = true;
+      paintButtons();
       b.textContent = 'Preparing…';
       note.hidden = true;
       try {
@@ -86,7 +94,8 @@ export function initDownloads(pick) {
         note.hidden = false;
       } finally {
         b.textContent = label;
-        for (const x of buttons) x.disabled = false;
+        busy = false;
+        paintButtons();
       }
     });
   };

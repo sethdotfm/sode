@@ -37,6 +37,13 @@ export function routerLink(s, uid, prefix, title, addr, link, err, never = false
   };
 }
 
+// A lost link in one set of words on every page. The Lost link banner's title uses them (lostTitle). So do the panel
+// page's Offline cover (panelrules.js offlineOf) and the editor's line (editorrules.js signInNote).
+export const LINK_WORDS = { server: 'The Server link is down.', router: 'The Router link is down.', every: 'Every Router link is down.' };
+
+// The Lost link banner's title from a LINK_WORDS sentence: "Lost link: the Server link is down".
+export const lostTitle = (s) => `Lost link: ${s[0].toLowerCase()}${s.slice(1).replace(/\.$/, '')}`;
+
 // Compact view hides the status only while this is true.
 export const allUp = (list) => list.length > 0 && list.every((r) => r.state === 'ok');
 

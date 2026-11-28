@@ -142,9 +142,10 @@ func TestChromeEditorFailuresSaySomething(t *testing.T) {
 	b.call("Network.enable", map[string]any{})
 	b.call("Network.setBlockedURLs", map[string]any{"urls": []string{"*/ws*"}})
 	b.eval(`window.sodeSockets.forEach((s) => s.close()); true`)
-	b.waitFor("a lost socket says Sode is not answering", `/Sode is not answering/.test(`+note+`.textContent) && !`+note+`.hidden`)
+	b.waitFor("a lost socket says the Server link is down, in the line and the Lost link banner", `/^The Server link is down\. /.test(`+note+`.textContent) && !`+note+`.hidden
+		&& !document.getElementById('conn-down').hidden && document.querySelector('#conn-down .sode__down-title').textContent === 'Lost link: the Server link is down'`)
 	b.call("Network.setBlockedURLs", map[string]any{"urls": []string{}})
-	b.waitFor("back on the socket, the note goes", note+`.hidden`)
+	b.waitFor("back on the socket, the note and the banner go", note+`.hidden && document.getElementById('conn-down').hidden`)
 	// The 404s are the answers this check asked for, and the blocked socket logs its own failures.
 	for _, e := range b.problems() {
 		if !strings.Contains(e, "status of 404") && !strings.Contains(e, "/ws") && !strings.Contains(e, "WebSocket") {

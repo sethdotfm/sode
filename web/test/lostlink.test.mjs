@@ -7,6 +7,7 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 globalThis.WebSocket = { OPEN: 1 };
 
 const { S, connState, routerData } = await import('../core.js');
+const { LINK_WORDS } = await import('../routerlinkrules.js');
 // set: the Server link fields of S, and link, addr and err of the first router (routerData).
 function set(o) {
   const { link, addr, err, ...ws } = o;
@@ -72,4 +73,9 @@ test('the banner names every router with the Server link down, and each reason o
   assert.equal(title, 'Lost link: every Router link is down');
   assert.match(err, /^Router.*: refused\nRouter B \(studio 2\): refused$/);
   S.routers = [];
+});
+
+test('the banner title and the panel pages say a lost link in the same words', () => {
+  set({ wsLost: true, wsState: 'down', link: 'up' });
+  assert.equal(connState().down.title, `Lost link: ${LINK_WORDS.server.replace(/^The/, 'the').replace(/\.$/, '')}`);
 });

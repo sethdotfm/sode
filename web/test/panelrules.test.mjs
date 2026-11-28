@@ -1,3 +1,4 @@
+import { LINK_WORDS } from '../routerlinkrules.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -142,12 +143,13 @@ test('opening a panel fails with a reason that says what to do with the key', ()
 
 test('the page is offline when Sode does not answer or the router link is down, and says which', () => {
   assert.equal(offlineOf({ failed: false, routerUp: true }), null);
-  assert.match(offlineOf({ failed: true, routerUp: true }).detail, /Sode/);
+  // The Lost link banner's words (routerlinkrules.js), as the editor's line has them.
+  assert.equal(offlineOf({ failed: true, routerUp: true }).detail, `${LINK_WORDS.server} Presses do nothing.`);
   const router = offlineOf({ failed: false, routerUp: false });
-  assert.match(router.detail, /router/);
+  assert.equal(router.detail, `${LINK_WORDS.router} Presses do nothing.`);
   assert.equal(router.title, 'Offline');
-  // Both down: the page cannot see the router, so the text names Sode.
-  assert.match(offlineOf({ failed: true, routerUp: false }).detail, /Sode/);
+  // Both down: the page cannot see the router, so the text names the Server link.
+  assert.equal(offlineOf({ failed: true, routerUp: false }).detail, `${LINK_WORDS.server} Presses do nothing.`);
 });
 
 test('the Current Source cell names the viewed destination, and a caption still wins', () => {

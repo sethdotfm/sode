@@ -1,3 +1,4 @@
+import { LINK_WORDS } from '../routerlinkrules.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -318,7 +319,7 @@ test('each sign-in state says what to do, with Sign in again where signing in is
   const refused = signInNote('refused', 'your PIN changed');
   assert.equal(refused.button, 'Sign in again');
   assert.match(refused.text, /your PIN changed/);
-  assert.match(signInNote('offline').text, /Sode is not answering/);
+  assert.equal(signInNote('offline').text, `${LINK_WORDS.server} Reconnecting…`, "the panel page's Offline words");
   assert.equal(signInNote('offline').button, '');
   assert.deepEqual(signInNote('ready'), { text: '', button: '' });
   assert.deepEqual(signInNote('wait'), { text: '', button: '' }, 'the page lock draws its own pad');
