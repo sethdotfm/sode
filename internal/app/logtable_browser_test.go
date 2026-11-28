@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"net/http/httptest"
 	"strings"
@@ -75,6 +76,12 @@ func TestChromeLogTableLayout(t *testing.T) {
 	}
 	if !b.eval(`[...document.querySelectorAll('#log-rows .sode-log__why-text + .sode-log__why-part')].every((p) => parseFloat(getComputedStyle(p).marginInlineStart) > 0)`).(bool) {
 		t.Error("the by or note text after a reason lost its space")
+	}
+
+	// The problem stripe has the cell padding of air before the time, and every row starts its time there.
+	inset := b.tokenPx(".sode-log__table", "calc(var(--pb-accent-bar-w) + var(--pb-space-3))")
+	if bad := b.eval(`[...document.querySelectorAll('.sode-log__table tr > :first-child')].map((c) => parseFloat(getComputedStyle(c).paddingLeft)).filter((p) => Math.abs(p - ` + fmt.Sprint(inset) + `) > 0.5).join(', ')`).(string); bad != "" {
+		t.Errorf("first cells pad %s px, want %.1f px", bad, inset)
 	}
 
 	// The reason column takes the spare width, so the other columns keep their width when the rows on show change.

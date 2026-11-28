@@ -99,6 +99,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Every row starts its time a cell padding after the problem stripe. */
+.sode-log__table :is(th, td):first-child {
+  padding-inline-start: calc(var(--pb-accent-bar-w) + var(--pb-space-3));
+}
 .sode-log__row--problem > td:first-child {
   box-shadow: inset var(--pb-accent-bar-w) 0 0 0 var(--pb-status-error);
 }
