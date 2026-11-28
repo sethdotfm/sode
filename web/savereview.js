@@ -174,7 +174,7 @@ export function reviewSave({
       if (!confirmed && saves.some(reconnects)) return confirmReconnect();
       if (recheckNeeded && saves.some(critical)) {
         ui.dlg.hide();
-        if (!(await askRecheck('Saving these changes'))) return review();
+        if (!(await askRecheck('Saving these changes', 'Save'))) return review();
       }
       end(true);
     }

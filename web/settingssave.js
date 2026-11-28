@@ -321,7 +321,7 @@ function settled(m, p) {
     if (r.status === 'saved') saved++;
   }
   if (again.length) {
-    askRecheck('Saving these changes').then((ok) => {
+    askRecheck('Saving these changes', 'Save').then((ok) => {
       if (ok) sendFields(again, p.sent, true);
       else done(saved);
     });
