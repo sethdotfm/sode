@@ -55,7 +55,7 @@ A second Fable pass checked the findings against the code (`second-pass.md`). It
 - A1-10's drop-down name list goes ahead, with a check that the pad still fits at 1366x768. Its order is A1-10, A1-11, A1-28.
 - The Grid matches the `prototype/panels` sizes (owner's rule), so C2-44 goes ahead after owner call 1. Check the speed at 2500x750 after it.
 
-## Owner calls, with Fable's recommendation
+## Owner calls (decided 2026-11-28: the owner took both recommendations)
 
 1. **4K scaling: keep scaling by the root font, and make the existing rule steeper.** Do not use B2-27's clamp. The root becomes 150% at 3840x2160 (24px; Grid 21.6px). It stays 16px up to 2400, and ultrawides are bounded by height. Change `web/base.css:13-20` to `clamp(100%, 100% + (min(100vw, 177.78vh) - 2400px) / 180, 150%)` (Grid: `clamp(90%, 90% + (min(100vw, 177.78vh) - 2400px) / 200, 135%)`). Update AGENTS.md, docs/agents/web-layout.md, docs/panels-design.md and `gridpanelscale_browser_test.go`. Check at 2560x1440, 3440x1440 and 3840x2160.
 2. **Buttons panel width: full width by default, fitted to the window height.** A kiosk or a panel with no title bar has no button today, so wall panels are stuck at the 1600px cap. Default `sode-panel-full` to on when it has no value (the key and its values do not change). Force it on in kiosk mode and with no title bar. Cap the grid's width by the window height so it does not scroll. Let cell text grow with the cell, with the panel's Font size as the multiplier. Keep the existing "Normal width" and "Full width" words. Then do C2-36.
