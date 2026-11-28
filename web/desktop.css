@@ -80,9 +80,9 @@
 .sode__group--levels > .sode__box--levels > .sode__picker {
   grid-column: 1 / -1;
 }
-/* The key note shows only in keyboard mode (history.css), so out of it the narrow text box keeps its right pad for
-   the levels, such as "1-17 (All)". */
-html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
+/* The key note shows only in keyboard mode (history.css), so out of it a box keeps no room for it: a long name, or
+   levels such as "1-17 (All)", runs to the box's edge. */
+html:not([data-keys-on]) :is(.sode__keyed, .sode__search-box) > .pb-input {
   padding-right: var(--pb-space-3);
 }
 .sode__group--levels > .sode__box--take {
