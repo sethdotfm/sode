@@ -13,7 +13,12 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const call = jsonCall(sessionFetch, { down: 'Sode did not answer.', failed: (s) => `The request failed (${s})` });
 
 export function initTemplates(editor) {
-  const open = el('button', { class: 'pb-btn pb-btn--outline pb-btn--sm', type: 'button', id: 'ed-templates', 'aria-haspopup': 'dialog' }, icon('layout-template'), 'Templates');
+  const open = el(
+    'button',
+    { class: 'pb-btn pb-btn--outline pb-btn--sm', type: 'button', id: 'ed-templates', 'aria-haspopup': 'dialog' },
+    icon('layout-template'),
+    'Templates',
+  );
   $('ed-name').closest('.sode-ed__grp').append(open);
   open.addEventListener('click', openDialog);
 
