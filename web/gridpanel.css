@@ -974,6 +974,14 @@ html:has(.sode-gridpanel) {
   height: var(--sode-pick);
   min-width: var(--sode-pick);
 }
+/* A disabled pick (an empty panel, gridpanelempty.js) has patchbay's disabled button look (.pb-btn:disabled). */
+.sode-gridpanel__levels .sode__pick:disabled {
+  background-color: var(--pb-surface-control);
+  box-shadow: none;
+  color: var(--pb-text-disabled);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 .sode-gridpanel__levels .pb-btn.sode__all {
   height: var(--sode-picks-h);
   padding: 0 var(--pb-space-3);

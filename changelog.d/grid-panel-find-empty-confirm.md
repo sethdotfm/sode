@@ -1,0 +1,5 @@
+- On the Grid panel page, a search box with matches keeps its width: the step buttons are in the box. In a narrow window the Find and Filter words no longer go over the switch, and below 1024 px only the switch shows.
+- An empty Grid panel says "This panel has no sources or destinations." Its corner words go and the deck's controls are disabled.
+- On a Grid panel, a staged destination says "Staged" in bold.
+- The Grid panel's take confirm asks "Take 2 routes?" and gives one line for each route, in destination number order.
+- The Grid panel's key list reads as plain sentences.

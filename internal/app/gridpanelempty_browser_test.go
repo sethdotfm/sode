@@ -30,7 +30,8 @@ func TestChromeGridPanelEmpty(t *testing.T) {
 		const live = [...document.querySelectorAll('#panel-levels :is(button, input), .sode-gridpanel__finds :is(button, input)')].filter((n) => !n.disabled);
 		const edit = document.querySelector('.sode-gridpanel__empty a');
 		return getComputedStyle(head).visibility === 'hidden' && live.length === 0 && !!document.querySelector('#panel-take:disabled') &&
-			!!document.querySelector('.sode-gridpanel__find-input:disabled') && edit.textContent.trim() === 'Edit panel';
+			!!document.querySelector('.sode-gridpanel__find-input:disabled') && edit.textContent.trim() === 'Edit panel' &&
+			getComputedStyle(document.querySelector('#panel-lvl-pick .sode__pick')).cursor === 'not-allowed';
 	})()`)
 
 	for _, k := range []struct {
