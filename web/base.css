@@ -8,15 +8,17 @@ html {
 :root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel, .sode-ed[data-live="grid"]) {
   font-size: 90%;
 }
-/* A desktop window wider than 2400 px is a big screen with no OS scale, so the root grows by 1px for each 360 px over
-   2400, to 125% at 3840 px. The Grid panel page grows the same way from its 90%, to 112.5%. At 2400 px both stay as
-   above, so the size has no step. Most 4K screens have an OS scale and are not this wide. */
+/* A desktop window wider than 2400 px is a big screen with no OS scale. Above 2400 px the root grows by 1px for each 180
+   px, to 150% (24px) at 3840 by 2160. The Grid panel page grows the same way from its 90%, to 135% (/ 200). The size
+   follows the smaller of the width and 16/9 of the height (177.78vh), so an ultrawide grows as a 16:9 screen of its
+   height: 3440 by 1440 is 2560 by 1440. At 2400 px both stay as above, so the size has no step. Most 4K screens have an
+   OS scale and are not this wide. */
 @media (min-width: 2400px) {
   html:not([data-layout="phone"]) {
-    font-size: min(125%, 100% + (100vw - 2400px) / 360);
+    font-size: clamp(100%, 100% + (min(100vw, 177.78vh) - 2400px) / 180, 150%);
   }
   :root:not([data-layout="phone"]):has(.sode-panels .sode-gridpanel, .sode-ed[data-live="grid"]) {
-    font-size: min(112.5%, 90% + (100vw - 2400px) / 400);
+    font-size: clamp(90%, 90% + (min(100vw, 177.78vh) - 2400px) / 200, 135%);
   }
 }
 :root {
@@ -894,7 +896,7 @@ html {
 .sode__settings > :is(.sode__group, .sode__topic) {
   scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px));
 }
-/* Media rems are 16px, not the 125% root. Below about 1380px the centered form leaves no room on its left, so it moves right of the sidebar. */
+/* Media rems are 16px, not the root size. Below about 1380px the centered form leaves no room on its left, so it moves right of the sidebar. */
 @media (min-width: 73.75rem) {
   .sode__settings {
     margin-inline: max(var(--pb-space-4) + 12.5rem + var(--pb-space-8), calc((100% - 40rem) / 2)) auto;
