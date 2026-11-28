@@ -1761,13 +1761,14 @@ html {
   gap: var(--pb-space-3);
   justify-content: flex-end;
 }
-/* On the desktop Last and Next are compact chips with the full edge of every other chip: they take the free width of
-   the row (a long name is cut only when the row is full), and both boxes end them at the box's right edge. */
+/* On the desktop Last and Next are pressed live, so they are action chips with body text and the full edge of every
+   other chip: they take the free width of the row (a long name is cut only when the row is full), and both boxes end
+   them at the box's right edge. The box heads keep their height (desktop.css). */
 :root:not([data-layout="phone"]) .pb-chip.sode__last {
   background: transparent;
   border-color: var(--pb-edge);
-  font-size: var(--pb-text-sm);
-  height: var(--sode-h-compact);
+  font-size: var(--pb-text-md);
+  height: var(--sode-h-action);
   line-height: var(--pb-leading-tight);
   padding: 0 var(--pb-space-3);
 }
