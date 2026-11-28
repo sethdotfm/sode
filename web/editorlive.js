@@ -1,6 +1,6 @@
 // The Live Editor: the saved panel runs in place of the grid and sidebar (panelrun.js, embedded), over the editor's own
-// session. It is not an instance of the panel, so it sends no keepalive. Both panel types get one bar that marks the
-// run as a preview and holds Back to editing. The editor's toolbar hides while it runs (panels.css). A Grid panel's bar
+// session. It is not an instance of the panel, so it sends no keepalive. Both panel types get one bar that says takes
+// there change the router and holds Back to the editor. The editor's toolbar hides while it runs (panels.css). A Grid panel's bar
 // also holds Save and Edit lists. A Grid panel also gets a drawer for the editor's own lists (editorgridlist.js), moved
 // in for the run.
 import { el, icon } from './core.js';
@@ -60,12 +60,12 @@ export function createLive(host, body, button, ed) {
   return api;
 }
 
-// The bar over a run: "Panel Live Editor", Preview, then end, all from the left. liveUi (panelmount.js) adds
-// Back to editing.
+// The bar over a run: "Live Editor", the badge that says takes change the router, then end, all from the left.
+// liveUi (panelmount.js) adds Back to the editor.
 function liveBar(...end) {
-  const title = el('h2', 'sode-live__title', 'Panel Live Editor');
+  const title = el('h2', 'sode-live__title', 'Live Editor');
   title.id = 'ed-live-title';
-  const bar = el('div', 'pb-banner sode-live__bar', title, el('span', 'pb-badge', 'Preview'), ...end);
+  const bar = el('div', 'pb-banner sode-live__bar', title, el('span', 'pb-badge pb-badge--warn', 'Live: takes change the router'), ...end);
   bar.id = 'ed-live-bar';
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-labelledby', title.id);
@@ -87,7 +87,7 @@ function gridParts(ed) {
     paint(err);
   });
   save.id = 'ed-live-save';
-  // Back to editing goes to its left (panelmount.js).
+  // Back to the editor goes to its left (panelmount.js).
   const open = btn('pb-btn--outline pb-btn--lg', '', () => setOpen(!opened));
   open.id = 'ed-live-lists';
   let openIcon = icon('panel-right-open');
