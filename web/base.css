@@ -60,7 +60,8 @@ html {
   transform: translateX(calc(var(--sode-switch-w, 2rem) - 2 * var(--pb-border-w) - 0.75rem - 2 * var(--sode-knob-gap)));
 }
 /* A field is a sunken well with a bright edge. A button is a filled control (an outline button too) whose edge shows
-   on hover. Text has no edge and no fill. Only the resting edge changes: focus, invalid and disabled keep patchbay's. */
+   on hover. Text has no edge and no fill. Only the resting edge changes: focus and invalid keep patchbay's, and an off
+   button has patchbay's disabled look (below). */
 :is(.pb-input, .pb-select, .pb-textarea, .pb-chip-input) {
   --pb-edge: var(--pb-text-muted);
 }
@@ -71,6 +72,12 @@ html {
 .pb-btn--outline:hover {
   background-color: var(--pb-surface-hover);
   border-color: var(--pb-text-muted);
+}
+/* Sode's outline button is filled, so off it takes patchbay's disabled look for a filled button, as Take does.
+   Patchbay's own outline look (an edge and no fill) drew an off button brighter than an on one. */
+.pb-btn--outline:is(:disabled, .disabled) {
+  background-color: var(--pb-surface-control);
+  border-color: transparent;
 }
 /* Patchbay's chip edge is a dark overlay, which shows nothing on a dark page: a chip gets the full edge of a field. */
 .pb-chip:not(.pb-chip--selected, [aria-pressed="true"]) {

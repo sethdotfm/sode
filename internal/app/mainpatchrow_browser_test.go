@@ -78,6 +78,7 @@ func TestChromeMainPatchRow(t *testing.T) {
 	// A2-22: a disabled Clear and a disabled Take have patchbay's disabled look.
 	look := `((n) => { const c = getComputedStyle(n); return [c.backgroundColor, c.borderTopColor, c.color, c.opacity].join(' '); })`
 	b.eval(`(() => { const p = Object.assign(document.createElement('button'), { className: 'pb-btn', disabled: true, id: 'probe-off' }); document.getElementById('patch').after(p); document.getElementById('patch').disabled = true; return true; })()`)
+	b.waitFor("Take's color change ends", `document.getElementById('patch').getAnimations().length === 0`)
 	if probe, clear, take := b.eval(look+`(document.getElementById('probe-off'))`), b.eval(look+`(document.getElementById('clear-all'))`), b.eval(look+`(document.getElementById('patch'))`); clear != probe || take != probe {
 		t.Errorf("disabled looks: Clear %v, Take %v, want patchbay's %v", clear, take, probe)
 	}
