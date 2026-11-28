@@ -36,9 +36,12 @@ function table(groups, { label, show, notes, by }) {
     head.colSpan = cols;
     tbody.append(el('tr', null, head));
     for (const s of t.sections) {
-      const sec = el('th', 'sode__label', s.section);
-      sec.colSpan = cols;
-      tbody.append(el('tr', null, sec));
+      // A section with the topic's name (Routers in Routers) shows once.
+      if (s.section.toLowerCase() !== t.topic.toLowerCase()) {
+        const sec = el('th', 'sode__label', s.section);
+        sec.colSpan = cols;
+        tbody.append(el('tr', null, sec));
+      }
       for (const r of s.rows) {
         const row = el(
           'tr',

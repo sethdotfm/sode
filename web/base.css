@@ -999,10 +999,23 @@ html {
   margin: var(--pb-space-8) 0 0;
   padding: var(--pb-space-4) var(--pb-space-5);
 }
+/* The topic and section rows and the blocks under the table start on the text edge of the table's cells
+   (.pb-table--compact). */
 .sode__review-topic {
   border-top: var(--pb-accent-bar-w) solid var(--pb-accent);
   color: var(--pb-text-strong);
   font-weight: var(--pb-weight-bold);
+}
+#review tbody th {
+  padding-inline: var(--pb-space-3);
+  text-align: left;
+}
+#review .pb-modal__body > :is(h3, .sode__review-backup, #review-backup-note) {
+  padding-inline: var(--pb-space-3);
+}
+.pb-modal__body > h3.sode__label {
+  line-height: var(--pb-leading-tight);
+  margin: var(--pb-space-5) 0 var(--pb-space-2);
 }
 .sode__review-was {
   color: var(--pb-text-muted);
