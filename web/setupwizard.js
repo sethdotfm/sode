@@ -208,7 +208,7 @@ const VIEW = {
           el('hr', { class: 'pb-divider pb-divider--hard sode-setup__hr' }),
           section(
             'Add a first user',
-            'Administrator',
+            'This user will be the administrator.',
             field('setup-name', 'Name', d.name, { maxlength: '24' }),
             row(
               field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric', placeholder: `4 to ${max()} digits` }),

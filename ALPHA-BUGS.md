@@ -146,7 +146,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-12: Administrator line: wording, and it shows on more than one step
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Style & User step, "Add a first user" section. web/setupwizard.js:195-205 (`section('Add a first user', 'Administrator', ...)`), `sectionAs` :81-84, web/setup.css:135-139 (`.sode-setup__sub`).
 - **Reported:** Text: "Administrator" → "This user will be the administrator." And: "This is duplicated across pages for some reason."
 - **Now:** The word "Administrator" is the `sub` text of the "Add a first user" section, once, on the Style & User step only (web/setupwizard.js:197). No other step passes it. The Router step's sub is "Some routers support staging changes for taking many routes simultaneously." (web/setupwizard.js:232). Annotation 15's capture shows the new sentence under "Multi destination take behavior" on the Router step. That is most likely the annotation tool's in-place copy edit being applied again, by its selector (`p.sode-setup__sub`), to another `p` after the step changed. Annotation 14 (the Connection heading) came from the same page in the same state. So this is probably not a Sode bug. Not confirmed in a browser. Also in this edit, annotation 10's context text reads "This use will be the administrator" (a typo mid-edit); the wanted text has "user".
@@ -154,7 +154,13 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: Text becomes "This user will be the administrator." The second copy on the Router step is the annotation tool putting the copy edit on the same selector again; Sode shows the line once. Check the Router step after a clean reload with annotations off; if it is clean, no change for duplication.
 - **Open questions:** none.
 - **Proof:** Node or TestChromeSetupWizard check that the sentence appears once on the Style & User step and on no other step. Screenshot of the Router step after a clean reload.
+  - Reproduced on 8e9c6761 with swp08sim and a new config, after a clean reload with no annotation tool: "Administrator" shows once, under "Add a first user" on Style & User (before-style-user.png). The Router step shows only its own line under "Multi destination take behavior" (before-router-clean-reload.png). The code has one copy of the line (web/setupwizard.js:211, the `sub` of `section('Add a first user', ...)`); no other step passes it. So the second copy in annotation 15 was the annotation tool putting its copy edit on the same selector (`p.sode-setup__sub`) again, as the entry says.
+  - Given: `TestChromeSetupWizard` (internal/app/setupwizard_browser_test.go), new `adminLine`: the sentence "This user will be the administrator." shows once on Style & User and not on Router or Access. Before the fix: `setupwizard_browser_test.go:36: timed out waiting for Style & User: the administrator line`. Passes after.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-12/: before-style-user.png, before-router-clean-reload.png, after-style-user.png, after-router-clean-reload.png.
 - **Notes:**
+  - What changed: the text only, "Administrator" becomes "This user will be the administrator." (web/setupwizard.js:211). No change for the duplication: Sode draws the line once.
+  - Checks: `go test -short ./...` all ok; `go vet ./...` ok; staticcheck ok; `node --test 'web/test/*.test.mjs'` # pass 2001, # fail 0; prettier and eslint clean; `go test ./internal/app -run '^TestChromeSetupWizard$'` ok.
+  - Commit: this commit.
 
 ### AB-13: Name box should be a third width, same as the PIN and Repeat boxes
 
