@@ -14,7 +14,21 @@ import { rereadNames } from './rereadnames.js';
 import { everyHold } from './protects.js';
 import { levelColor } from './levelbox.js';
 import { tryRouterAddress } from './routertry.js';
-import { LIST_KEY, ORDER_KEY, addKey, freePrefix, keyAttr, keyRouter, linkState, listKey, removeKey, routerDisplay, usesNote } from './routerlistrules.js';
+import {
+  LIST_KEY,
+  ORDER_KEY,
+  addKey,
+  freePrefix,
+  keyAttr,
+  keyRouter,
+  linkState,
+  listKey,
+  orderLabel,
+  removeKey,
+  removedText,
+  routerDisplay,
+  usesNote,
+} from './routerlistrules.js';
 import {
   ATTR_LABELS,
   DETAIL_ATTRS,
@@ -26,6 +40,7 @@ import {
   levelLabel,
   numberingRange,
   offsetNote,
+  problemText,
   protectsText,
   readValues,
   renumberDefault,
@@ -299,7 +314,7 @@ function paintNote(x) {
       el(
         'div',
         'pb-note pb-note--warn',
-        el('p', null, `Router ${prefix} goes when you save. The save asks for your PIN again.`),
+        el('p', null, `Router ${prefix} is removed when you save. Save asks for your PIN again.`),
         el('p', null, head),
         ...(lines.length ? [el('ul', 'sode__routers-uses', ...lines.map((t) => el('li', null, t)))] : []),
         el('div', 'sode__racts', keep),
@@ -307,12 +322,12 @@ function paintNote(x) {
     );
     return;
   }
-  if (x.note === 'asking') return void box.replaceChildren(el('p', 'sode__hint', `Looking for what names router ${prefix}…`));
+  if (x.note === 'asking') return void box.replaceChildren(el('p', 'sode__hint', `Looking for items that use router ${prefix}…`));
   if (x.note === 'error') return void box.replaceChildren(el('div', 'pb-note pb-note--warn', x.err || 'The list did not load.'));
   if (x.note === 'list') {
     const { head, lines } = usesNote(prefix, x.uses || []);
     const go = button(`Remove router ${prefix}`, 'pb-btn--outline', () => setRemoved(x, true));
-    const keep = button('Keep', 'pb-btn--ghost', () => {
+    const keep = button(`Keep router ${prefix}`, 'pb-btn--outline', () => {
       const now = itemOf(x.uid);
       if (!now) return;
       now.note = '';
@@ -560,12 +575,12 @@ addSaveSource({
   label(r) {
     if (r.key === ORDER_KEY) {
       const [was, now] = [r.was?.[0], r.now?.[0]];
-      return was !== now ? `Router order. Default router: ${loadedName(was)} → ${nameOfUid(now)}` : 'Router order';
+      return was !== now ? orderLabel(loadedName(was), nameOfUid(now)) : 'Router order';
     }
     const attr = attrOf(r.key);
     const uid = keyRouter(r.key);
     if (attr === 'add') return `New router ${now()[r.key]?.prefix || ''}`.trim();
-    if (attr === 'remove') return `Remove ${loadedName(uid)}`;
+    if (attr === 'remove') return /^Router\b/.test(loadedName(uid)) ? loadedName(uid) : `Router ${loadedName(uid)}`;
     // With one router a row needs no router name.
     return S.routers.length + items.filter((x) => x.isNew).length > 1 ? `${loadedName(uid)}: ${ATTR_LABELS[attr]}` : ATTR_LABELS[attr];
   },
@@ -575,11 +590,10 @@ addSaveSource({
     const x = itemOf(keyRouter(r.key));
     if (attr === 'add') return v ? addText(v) : 'Blank';
     if (attr === 'remove') {
-      if (!v) return 'Kept';
-      const head = usesNote(x ? valuesOf(x).prefix : '', x?.uses || []).head;
+      if (!v) return 'In use';
       const next = defaultAfter();
       // The first router goes: the next router that stays is the default router.
-      return x && isFirst(x) && next ? `${head} ${nameOfUid(next.uid)} becomes the default router.` : head;
+      return removedText(x?.uses || [], x && isFirst(x) && next ? nameOfUid(next.uid) : '');
     }
     return valueText(attr, v, x ? valuesOf(x) : {});
   },
@@ -608,8 +622,7 @@ addSaveSource({
     else paintErrors(first.x);
     const f = first.a === 'levelNumbering' ? radio(first.x.text.levelNumbering) : inputOf(first.a);
     requestAnimationFrame(() => f?.focus());
-    const lines = bad.map((b) => `${nameOf(b.x)}: ${ATTR_LABELS[b.a]}. ${b.text}`);
-    return `${bad.length === 1 ? 'A setting has an error' : `${bad.length} settings have an error`}. ${lines.join(' ')}`;
+    return problemText(bad.map((b) => ({ name: nameOf(b.x), label: ATTR_LABELS[b.a], text: b.text })));
   },
   saved(key, value, r) {
     const attr = attrOf(key);

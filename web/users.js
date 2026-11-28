@@ -41,12 +41,12 @@ const roleSelect = (roles, value, label) => {
   s.setAttribute('aria-label', label);
   return s;
 };
-const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows);
+const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN'), el('span', null, 'Role')), rows);
 // A removed user's panels need a new owner in the same save (the server refuses it otherwise).
 const owners = el('div', 'sode__users-opts');
 owners.hidden = true;
 
-const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
+const addBtn = btn('pb-btn--outline', 'Add user', () => {
   addRow().focus();
   touched();
 });
@@ -176,7 +176,7 @@ function addRow(u = { name: '', len: 0 }) {
     rm.textContent = 'Remove';
     rm.classList.replace('pb-btn--outline', 'pb-btn--ghost');
   };
-  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {
+  const rm = btn('pb-btn--ghost pb-btn--sm sode__users-rm', 'Remove', () => {
     if (!row.dataset.was) {
       row.remove();
       touched();
@@ -186,7 +186,7 @@ function addRow(u = { name: '', len: 0 }) {
       rm.dataset.armed = '1';
       rm.textContent = 'Confirm remove';
       rm.classList.replace('pb-btn--ghost', 'pb-btn--outline');
-      setNote(`Remove "${row.dataset.was}": Save deletes their PIN and Profile.`);
+      setNote(`Save removes "${row.dataset.was}", their PIN and their Profile.`);
       return;
     }
     setNote('');
@@ -195,7 +195,7 @@ function addRow(u = { name: '', len: 0 }) {
   });
   rm.addEventListener('blur', disarm);
   const out = saved
-    ? btn('pb-btn--outline pb-btn--sm', 'Sign out everywhere', () => {
+    ? btn('pb-btn--outline pb-btn--sm', 'Sign out all', () => {
         err.hidden = true;
         setNote('');
         const id = ++outSeq;
@@ -204,14 +204,15 @@ function addRow(u = { name: '', len: 0 }) {
         signing.set(id, { out, name: u.name });
       })
     : el('span'); // a new row has none; the span keeps the columns in line
-  const prof = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: row.dataset.was }));
+  if (saved) out.dataset.pbTip = 'Signs this user out of every browser';
+  const prof = btn('pb-btn--outline pb-btn--sm', 'Edit profile', () => emit('openProfile', { name: row.dataset.was }));
   prof.setAttribute('aria-haspopup', 'dialog');
   const paintProf = () => {
     prof.disabled = profileButtonOff(row.dataset.was, name.value);
     if (prof.disabled) prof.dataset.pbTip = 'Save the user first';
     else delete prof.dataset.pbTip;
   };
-  const rights = btn('pb-btn--outline pb-btn--sm', 'Edit Rights', () => {
+  const rights = btn('pb-btn--outline pb-btn--sm', 'Edit rights', () => {
     const t = rightsTab(rid);
     tabs.select(t.tab);
     rightsPanel.show(t.pick);
@@ -283,10 +284,10 @@ function paintPeople() {
   if (!show) return people.replaceChildren();
   people.replaceChildren(
     ...names.map((n) => {
-      const b = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: n }));
+      const b = btn('pb-btn--outline', 'Edit profile', () => emit('openProfile', { name: n }));
       b.setAttribute('aria-haspopup', 'dialog');
-      b.setAttribute('aria-label', `Edit Profile of ${n}`);
-      return el('div', 'sode__names', el('span', 'sode__label', n), b);
+      b.setAttribute('aria-label', `Edit profile of ${n}`);
+      return el('div', 'sode__names', el('span', null, n), b);
     }),
   );
 }

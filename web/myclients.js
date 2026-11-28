@@ -12,7 +12,7 @@ const input = (id, type, auto) => el('input', { class: 'pb-input', id, type, aut
 
 const nameIn = input('myclient-name', 'text', 'off');
 nameIn.placeholder = 'Desk app';
-const scopeBox = el('div', 'sode__scopes');
+const scopeBox = el('div', { class: 'sode__scopes', role: 'group', 'aria-labelledby': 'myclient-scopes-label' });
 for (const s of OWN_SCOPES) {
   const box = el('input', 'pb-check__input');
   box.type = 'checkbox';
@@ -28,7 +28,18 @@ keyName.placeholder = 'Wall';
 const keyExp = input('myclient-key-expires', 'date', 'off');
 const pinIn = input('myclient-pin', 'password', 'current-password');
 pinIn.inputMode = 'numeric';
-const keyBtn = btn('pb-btn--outline', 'Make key');
+const keyBtn = btn('sode-btn--primary', 'Make key');
+// A key needs a client: the key fields wait until there is one.
+const keyFirst = el('p', 'sode__hint sode__keys-first', 'Make an API client first.');
+const keyBox = el(
+  'div',
+  { class: 'sode__keys-new', hidden: true },
+  field('myclient-key-for', 'For', el('span', 'pb-select-wrap', who)),
+  field('myclient-key-name', 'Key name', keyName),
+  field('myclient-key-expires', 'Expires (optional)', keyExp),
+  field('myclient-pin', 'Your PIN', pinShow(pinIn)),
+  el('div', null, keyBtn),
+);
 
 const list = el('div', 'sode__key-list');
 const shown = el('div');
@@ -42,18 +53,16 @@ const dlg = modal({
     list,
     shown,
     el('h3', 'sode__profiles-h', 'Make an API client'),
-    el('div', 'sode__keys-new', field('myclient-name', 'Name', nameIn), el('div', null, addBtn)),
-    scopeBox,
-    el('h3', 'sode__profiles-h', 'Make a key'),
     el(
       'div',
       'sode__keys-new',
-      field('myclient-key-for', 'For', el('span', 'pb-select-wrap', who)),
-      field('myclient-key-name', 'Key name', keyName),
-      field('myclient-key-expires', 'Expires (optional)', keyExp),
-      field('myclient-pin', 'Your PIN', pinShow(pinIn)),
-      el('div', null, keyBtn),
+      field('myclient-name', 'Name', nameIn),
+      el('div', 'sode__field', el('span', { class: 'sode__field-label', id: 'myclient-scopes-label' }, 'API scopes'), scopeBox),
+      el('div', null, addBtn),
     ),
+    el('h3', 'sode__profiles-h', 'Make a key'),
+    keyFirst,
+    keyBox,
     note,
     ,
   ],
@@ -100,8 +109,8 @@ onMsg('myClientsResult', (m) => {
   who.replaceChildren(...mine.map((n) => opt(n, n)));
   if (mine.includes(keep)) who.value = keep;
   keyBtn.disabled = !mine.length;
-  if (mine.length) delete keyBtn.dataset.pbTip;
-  else keyBtn.dataset.pbTip = 'Make an API client first';
+  keyBox.hidden = !mine.length;
+  keyFirst.hidden = !!mine.length;
   const now = Date.now();
   list.replaceChildren(
     ...(m.clients.length

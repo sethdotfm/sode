@@ -34,7 +34,7 @@ test('listProblem: a name for each, unique ignoring case, and two ends used once
   const uids = ['a1', 'b2'];
   assert.equal(listProblem([tie('TIE 1', 1, 1), tie('TIE 2', 2, 2)], uids), '');
   assert.equal(listProblem([tie(' ', 1, 1)], uids), 'every tie line needs a name');
-  assert.equal(listProblem([tie('TIE 1', 1, 1), tie('tie 1', 2, 2)], uids), 'two tie lines are named "tie 1"');
+  assert.equal(listProblem([tie('TIE 1', 1, 1), tie('tie 1', 2, 2)], uids), 'another tie line has the name "tie 1"');
   assert.equal(listProblem([tie('TIE 1', 1, 1), tie('TIE 2', 1, 1)], uids), 'a1.1 already feeds b2.1 as TIE 1');
   assert.match(listProblem([tie('X'.repeat(33), 1, 1)], uids), /at most 32 characters/);
   assert.equal(listProblem([{ ...tie('TIE 1', 1, 1), to: { router: 'a1', n: 1 } }], uids), 'a tie line goes from one router to a different router');

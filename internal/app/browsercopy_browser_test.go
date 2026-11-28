@@ -36,6 +36,12 @@ func TestChromeCopyThisBrowserToMyUser(t *testing.T) {
 	b.waitFor("signed in", `!document.getElementById('account-copy').hidden`)
 
 	b.eval(`document.getElementById('account-copy').click()`)
+	b.waitFor("the review copies by default", `(() => {
+		const d = document.querySelector('.sode__rv');
+		return !!d?.offsetParent && document.getElementById('rv-keep')?.checked
+			&& [...d.querySelectorAll('.pb-modal__footer button')].some((x) => x.textContent === 'Copy');
+	})()`)
+	b.eval(`(() => { const k = document.getElementById('rv-keep'); k.checked = false; k.dispatchEvent(new Event('change')); return true; })()`)
 	b.waitFor("the review with Me only and Move", `(() => {
 		const d = document.querySelector('.sode__rv');
 		const go = [...d.querySelectorAll('.pb-modal__footer button')].find((x) => x.textContent === 'Move');

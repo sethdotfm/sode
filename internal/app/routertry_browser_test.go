@@ -8,7 +8,7 @@ import (
 
 // Settings > Routers: the Address field of a new router tries the typed address before Save. The address of a second
 // simulator shows the wizard's Connected line with the counts of its names, and nothing is saved. A closed port shows
-// "No answer yet" and why.
+// "No answer yet" and why, in operator words, with the error text in the title.
 func TestChromeSettingsRouterAddressTry(t *testing.T) {
 	b := startBrowser(t)
 	simA, simB := startSim(t), startSim(t)
@@ -28,7 +28,9 @@ func TestChromeSettingsRouterAddressTry(t *testing.T) {
 		t.Fatalf("the try saved a router: %d routers", n)
 	}
 	typeField(b, "cfg-rt-address", closedAddr(t))
-	b.waitFor("the failure and why", try+`.textContent.startsWith('No answer yet. Sode keeps trying.') && `+try+`.textContent.includes('refused')`)
+	b.waitFor("the failure and why, in operator words", try+`.textContent === 'No answer yet. Sode keeps trying.The router refused the connection.'
+		&& `+try+`.querySelector('[data-pb-tip*="connection refused"]')?.textContent === 'The router refused the connection.'`)
+	routersShot(b, "B1-19", `[data-group="connection"]`, "")
 	if rc := a.r().cfg.DefaultRouter(); rc.Address != simA {
 		t.Fatalf("router A moved to %q", rc.Address)
 	}

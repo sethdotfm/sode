@@ -192,8 +192,12 @@ function build() {
     cls: 'sode__filters sode__swap',
     body: [
       el('div', 'sode__fields', routerField, sideField, from.field, to.field),
-      btn('pb-btn--outline', 'Find items', find, 'swap-find'),
-      el('label', 'pb-check', broken, el('span', 'pb-check__label', 'Only Broken')),
+      el(
+        'div',
+        'sode__ptools sode__swap-find',
+        btn('pb-btn--outline', 'Find items', find, 'swap-find'),
+        el('label', 'pb-check', broken, el('span', 'pb-check__label', 'Only Broken')),
+      ),
       list,
       err,
     ],

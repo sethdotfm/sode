@@ -116,3 +116,8 @@ test('a Down router icon is red, and each router mark has its text', () => {
   assert.match(src.get('connview.js'), /el\('span', 'pb-status', dot, text\)/);
   assert.match(src.get('index.html'), /id="conn-routers"><span class="pb-status"><span class="sode__state"><\/span><span>Router<\/span>/);
 });
+
+test('Make key is one primary button in all three places', () => {
+  for (const f of ['mykeys.js', 'myclients.js', 'usersclients.js'])
+    assert.match(src.get(f), /btn\('sode-btn--primary', 'Make key'/, `${f} draws Make key another way`);
+});

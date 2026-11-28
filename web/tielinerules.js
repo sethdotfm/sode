@@ -50,7 +50,7 @@ export function listProblem(list, uids, { shown = (e) => `${e.router}.${e.n}`, c
     const name = String(t.name || '').trim();
     if (!name) return 'every tie line needs a name';
     if ([...name].length > MAX_TIE_NAME) return `tie line name "${name}" must be at most ${MAX_TIE_NAME} characters`;
-    if (names.has(fold(name))) return `two tie lines are named "${name}"`;
+    if (names.has(fold(name))) return `another tie line has the name "${name}"`;
     names.add(fold(name));
   }
   return '';

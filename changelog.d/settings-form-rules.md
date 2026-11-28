@@ -1,0 +1,3 @@
+- Settings has one set of layout rules. Checks that wrap start on the left edge, with one gap. Sections in the Settings list are indented under their topic. Half-width fields end on the edge of the column above. Section buttons are as wide as their text and have the normal text size, and Make key looks the same in every dialog.
+- In Settings, the My user buttons have one gap on each row, and the This browser labels no longer touch their menus.
+- On a wide window, Routers, Tie lines and Protects in Settings are wider than the other sections.

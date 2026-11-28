@@ -74,13 +74,20 @@ const rowOf = (t) => ({
 });
 
 // The cell of one end: the number and the name, and the Router title under them.
+// A long name ends in an ellipsis, so its tip gives the whole text.
 function endCell(e) {
   const rd = routerData(e.router);
+  const title = rd.title || `Router ${rd.prefix}`;
   return el(
     'span',
     'sode__tend',
-    el('span', 'sode__tend-line', el('span', 'sode__tend-n', e.num), e.name ? ` ${e.name}` : ''),
-    el('span', 'sode__tend-title', rd.title || `Router ${rd.prefix}`),
+    el(
+      'span',
+      { class: 'sode__tend-line', 'data-pb-tip': `${e.num}${e.name ? ` ${e.name}` : ''}` },
+      el('span', 'sode__tend-n', e.num),
+      e.name ? ` ${e.name}` : '',
+    ),
+    el('span', { class: 'sode__tend-title', 'data-pb-tip': title }, title),
   );
 }
 
@@ -93,15 +100,16 @@ function stateCell(r) {
     parts.push(el('span', 'sode__tstate-lost', icon('circle-x'), el('span', null, words)));
   } else {
     const c = carries(routerData(r.from.router).tally.get(r.from.n));
+    // The carried number and name wrap as one unit below "Carries", never one character alone.
     const text =
       c.kind === 'one'
-        ? `Carries ${tallyText(c.src, r.from.router)}`
+        ? ['Carries ', el('span', 'sode__tstate-src', tallyText(c.src, r.from.router))]
         : c.kind === 'nothing'
           ? 'Carries nothing'
           : c.kind === 'mixed'
             ? 'Carries mixed sources'
             : 'Not known';
-    parts.push(el('span', 'sode__tstate-carries', text));
+    parts.push(el('span', 'sode__tstate-carries', ...[text].flat()));
   }
   // Name moved: the tie line works on. Edit and Save tie line store the names now.
   const moved = movedLines(r.t, shownEnd);
@@ -173,7 +181,7 @@ async function askRemove(t) {
   // The row before it in the drawn table: the result shows where the row was.
   const drawn = [...list.querySelectorAll('.sode__trow[data-id]')].map((n) => n.dataset.id);
   const at = drawn.indexOf(t.id);
-  if (!(await save(without(tieLines(), t.id), text))) return draw();
+  if (await save(without(tieLines(), t.id), text)) return draw();
   // The removed row's place: after the next row, which takes its place, else as the last row of its group.
   removed = { after: drawn[at + 1] || '', text };
   draw();
@@ -274,17 +282,20 @@ function showSuggestions(found) {
   suggestMore.textContent = `${found.more} more ${found.more === 1 ? 'suggestion' : 'suggestions'}. Accept or dismiss a suggestion to show the next one.`;
 }
 
-// Saves the whole list. Gives '' when it saved, else why not (also in the status line).
-async function save(next, done, changed = '') {
+// Saves the whole list. Gives '' when it saved, else why not, also in the status line. own: the caller shows why not
+// (the open editor), so the status line stays blank and the error shows once.
+async function save(next, done, { changed = '', own = false } = {}) {
+  const fail = (why) => {
+    status.textContent = own ? '' : `Not saved: ${why}.`;
+    return `Not saved: ${why}.`;
+  };
   const why = listProblem(next, uids(), { shown: shownEnd, changed });
-  if (why) {
-    status.textContent = `Not saved: ${why}.`;
-    return false;
-  }
+  if (why) return fail(why);
   status.textContent = 'Saving…';
   const r = await request('tieLinesResult', { t: 'tieLines', tieLines: next });
-  status.textContent = r.ok ? done : `Not saved: ${r.err}.`;
-  return r.ok;
+  if (!r.ok) return fail(r.err);
+  status.textContent = done;
+  return '';
 }
 
 // The editor: Add tie line (id '') at the top, or Edit in the row of t.
@@ -300,8 +311,8 @@ function openEditor(t) {
     defRouter: F.router === ALL_ROUTERS ? '' : F.router,
     onSave: async (next) => {
       const name = next.name;
-      const ok = await save(upsert(tieLines(), next), id ? `Saved ${name}.` : `Added ${name}.`, id);
-      if (!ok) return status.textContent;
+      const why = await save(upsert(tieLines(), next), id ? `Saved ${name}.` : `Added ${name}.`, { changed: id, own: true });
+      if (why) return why;
       closeEditor(true);
       const saved = id || tieLines().find((x) => x.name === name)?.id;
       if (saved) list.querySelector(`[data-id="${CSS.escape(saved)}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -364,10 +375,11 @@ function drawTools(rows, rts) {
     sel.addEventListener('change', () => pick(sel.value)());
     filter = el('span', 'pb-select-wrap', sel);
   }
-  tools.replaceChildren(find, filter);
+  tools.replaceChildren(filter);
 }
 
-// While the find box has focus, its row of tools stays; only the counts and the pressed buttons change.
+// The find box is not in this row (the router filter). A key in it keeps the row: only the counts and the pressed
+// buttons change.
 function updateCounts(rows, rts) {
   const rc = routerCounts(rows, rts, F);
   for (const b of tools.querySelectorAll('[data-act^="router-"]')) {
@@ -388,6 +400,8 @@ const find = el('input', {
   'aria-label': 'Find a tie line',
 });
 find.autocomplete = 'off';
+// The find box is on the row of Add tie line; the router filter is on the next row, with the count.
+newBtn.after(find);
 find.addEventListener('input', () => {
   F.q = find.value;
   draw();
@@ -444,7 +458,7 @@ function draw() {
   const focusId = focusAct ? focus.closest('[data-id]')?.dataset.id : null;
   const top = list.scrollTop;
   const nodes = groups.map(groupNode);
-  if (!nodes.length) nodes.push(el('div', 'sode__pempty', rows.length ? 'No tie line matches.' : 'No tie lines. Add tie line adds one.'));
+  if (!nodes.length) nodes.push(el('div', 'sode__pempty', rows.length ? 'No tie line matches.' : 'No tie lines. To add one, use Add tie line.'));
   // The result of a Remove whose next row is not drawn goes last.
   if (removed && !groups.some((g) => g.rows.some((r) => r.id === removed.after))) nodes.push(removedNode());
   if (asking && !rows.some((r) => r.id === asking)) {

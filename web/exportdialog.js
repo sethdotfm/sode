@@ -7,7 +7,8 @@ import { transferDialog } from './transferdialog.js';
 import { tick, caret, catHead } from './transfertree.js';
 
 const pinsBox = el('input', { class: 'pb-switch__input', type: 'checkbox', id: 'xi-pins', role: 'switch' });
-const sectionLabel = (id) => document.querySelector(`fieldset[data-section="${id}"] > legend`)?.textContent || id;
+// The legend's own text: its badges (Role, Approval) are not part of the name.
+const sectionLabel = (id) => document.querySelector(`fieldset[data-section="${id}"] > legend`)?.firstChild.textContent.trim() || id;
 const roleLabel = (v) => ROLES.find((r) => r.value === v)?.label || v;
 const browserBytes = () => new TextEncoder().encode(JSON.stringify(browserValues())).length;
 

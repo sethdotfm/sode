@@ -71,12 +71,16 @@ export function makeRightsTab({ users, clients, touched }) {
       if (l.area) text.rows = 3;
       text.value = d.text;
       text.spellcheck = false;
-      if (l.example) text.placeholder = l.example();
-      text.disabled = d.all;
+      // The example only where a list is typed: under All it would read as a value.
+      const paint = () => {
+        text.disabled = d.all;
+        text.placeholder = l.example && !d.all ? l.example() : '';
+      };
+      paint();
       text.setAttribute('aria-label', `${l.title} allowed`);
       mode.addEventListener('change', () => {
         d.all = mode.value === 'all';
-        text.disabled = d.all;
+        paint();
         dirty('rights');
         if (!d.all) text.focus();
       });
@@ -119,7 +123,7 @@ export function makeRightsTab({ users, clients, touched }) {
     });
     parts.push(selectField('rights-tie-lines', 'Use tie lines', ties, 'Send routes across routers'));
     if (kind === 'user') parts.push(flagBox(e, dirty));
-    body.replaceChildren(el('h3', 'sode__profiles-h', titleOf(pick)), ...parts);
+    body.replaceChildren(el('div', 'sode__rights-body', ...parts));
   }
 
   const flagBox = (e, dirty) =>

@@ -78,7 +78,7 @@ func TestChromeSettingsAddRemoveRouter(t *testing.T) {
 		&& n.textContent.includes('removes 1 tie line') && n.textContent.includes('Tie line TIE 3'); })()`)
 	b.eval(`[...document.querySelectorAll('#router-remove-note .pb-btn')].find((x) => x.textContent === 'Remove router B').click(); true`)
 	b.waitFor("router B staged", `document.querySelector('#routers-list [data-router="`+uid+`"]').textContent.includes('Remove on Save')`)
-	save("Remove B Stage 2")
+	save("Removed. Makes 1 preset Broken and removes 1 tie line.")
 	for deadline := time.Now().Add(10 * time.Second); (len(a.r().cfg.Routers) - 1) > 0; time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("router B was not removed")
