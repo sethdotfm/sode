@@ -154,17 +154,23 @@
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
 }
+/* The name takes the width of its words, so a long Router title moves the buttons to the next line and does not wrap
+   beside them. */
 .sode__rhead-name {
   display: flex;
-  flex: 1 1 12rem;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--pb-space-2);
   min-width: 0;
 }
+/* The name line is a control high, so the name and the buttons share a centre line. */
 .sode__rname {
+  align-items: center;
   color: var(--pb-text-strong);
+  display: flex;
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
+  min-height: var(--pb-control-h);
   overflow-wrap: anywhere;
 }
 .sode__rlink {
