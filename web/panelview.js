@@ -138,8 +138,13 @@ function paintDestination(b, cell, { st, env, names, now }) {
   b.classList.toggle('pb-xpt--protected', env.protectedDsts.has(cell.n));
   const name = el('span', '', el('span', 'sode-panel__text', names.of(cell)));
   const shown = resultShown(st, cell.n, now);
-  if (shown) {
-    const mark = icon(RESULT_ICON[shown.result]);
+  const mark = shown && icon(RESULT_ICON[shown.result]);
+  // A failure is a line of its own with its words, so the name does not move. Other Results sit after the name.
+  let failed = null;
+  if (shown?.result === 'failed') {
+    failed = el('small', 'sode-panel__result sode-panel__result--failed sode-panel__text', mark, ' ', shown.text);
+  } else if (shown) {
+    mark.removeAttribute('aria-hidden');
     mark.setAttribute('role', 'img');
     mark.setAttribute('aria-label', shown.word);
     name.append(' ', mark);
@@ -151,6 +156,7 @@ function paintDestination(b, cell, { st, env, names, now }) {
   const kids = [name, el('small', 'sode-panel__text', under)];
   const staged = st.staged.find((x) => x.dst === cell.n);
   if (staged) kids.push(el('span', 'sode-panel__staged sode-panel__text', `→ ${names.source(staged.src)}`));
+  if (failed) kids.push(failed);
   fill(b, ...kids);
 }
 

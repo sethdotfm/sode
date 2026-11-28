@@ -231,7 +231,7 @@ body {
 .sode-panel__cell[data-s="staged"] {
   background-color: color-mix(in oklab, var(--pb-view) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-view-idle));
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-view);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 .sode-panel__cell[data-s="pending"] {
   background-color: color-mix(
@@ -240,7 +240,7 @@ body {
     var(--pb-current-idle)
   );
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-ok);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 .sode-panel__cell[data-v="1"] {
   outline: var(--pb-state-border-w) solid var(--pb-text-strong);
@@ -252,8 +252,15 @@ body {
 .sode-panel__cell[data-result="already"] {
   box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-idle);
 }
+/* A base-colored line inside the red ring keeps the red apart from an orange cell. */
 .sode-panel__cell[data-result="failed"] {
-  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error);
+  box-shadow:
+    inset 0 0 0 var(--pb-space-2) var(--pb-status-error),
+    inset 0 0 0 calc(var(--pb-space-2) + var(--pb-border-w)) var(--pb-surface-base);
+}
+.sode-panel__cell .sode-panel__result--failed {
+  font-weight: var(--pb-weight-bold);
+  opacity: 1;
 }
 .sode-panel__cell--current:disabled,
 .sode-panel__cell--panelName:disabled,
@@ -279,7 +286,7 @@ body {
     var(--pb-surface-control)
   );
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
-  color: var(--pb-text-strong);
+  color: var(--pb-text-on-accent);
 }
 
 /* No staged route: the Take cell is solid, not faded like a disabled control. */

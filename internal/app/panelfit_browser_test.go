@@ -124,3 +124,86 @@ func TestChromePanelTitleLine(t *testing.T) {
 	b.sameLeft("the title, the instance name and the grid start on one edge", "#panel-title", "#panel-device", "#panel-grid")
 	b.check()
 }
+
+// contrastJS gives the contrast of a cell's text on its fill. The canvas turns any CSS color (oklab from color-mix)
+// into sRGB.
+const contrastJS = `((sel) => {
+	const c = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+	const rgb = (v) => { c.clearRect(0, 0, 1, 1); c.fillStyle = v; c.fillRect(0, 0, 1, 1); return [...c.getImageData(0, 0, 1, 1).data].slice(0, 3); };
+	const lum = (p) => { const [r, g, b] = p.map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+	const cell = document.querySelector(sel);
+	const a = lum(rgb(getComputedStyle(cell.querySelector('.sode-panel__text')).color)), b = lum(rgb(getComputedStyle(cell).backgroundColor));
+	return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+})`
+
+// The armed Take, a staged destination and a pending source read through the pulse, in light and dark (C2-34).
+// A failed take keeps its mark and words on their own line until the next press on that destination (C2-35).
+func TestChromePanelArmedContrastAndFailedTake(t *testing.T) {
+	const dead = 7 // the simulator ACKs a connect here and does nothing
+	t.Setenv("SIM_IGNORE_DSTS", fmt.Sprint(dead))
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim)
+	srv := seamServer(t, a)
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"State panel","rows":2,"cols":4,"cells":[
+		{"r":1,"c":1,"kind":"destination","n":%d},{"r":1,"c":2,"kind":"destination","n":%d},
+		{"r":1,"c":3,"kind":"source","n":%d},{"r":1,"c":4,"kind":"take"}]}`, simDst, dead, simSrc))
+	waitNamesAndTally(t, a, ana)
+
+	sizeTo(b, 1920, 1080)
+	b.open(srv.URL + "/panels/" + id)
+	signInOnPad(b)
+	b.waitFor("the lock screen goes", `!document.documentElement.dataset.sodeLock`)
+	b.waitFor("the grid is drawn", `document.querySelector('.sode-panel__cell--destination span')?.textContent === 'DSM1'`)
+
+	dst := `.sode-panel__cell--destination:nth-child(1)`
+	deadCell := `.sode-panel__cell--destination:nth-child(2)`
+	b.eval(`document.querySelector('` + dst + `').click(); document.querySelector('.sode-panel__cell--source').click(); true`)
+	b.waitFor("staged and armed", `document.querySelector('.sode-panel__take--armed') && document.querySelector('`+dst+`').dataset.s === 'staged' && document.querySelector('.sode-panel__cell--source').dataset.s === 'pending'`)
+	for _, theme := range []string{"light", "dark"} {
+		b.eval(`document.documentElement.dataset.theme = '` + theme + `'; true`)
+		for _, pulse := range []string{"0", "1"} {
+			b.eval(`{ const g = document.getElementById('panel-grid'); g.style.animation = 'none'; g.style.setProperty('--pulse', '` + pulse + `'); } true`)
+			b.waitFor("colors settled", `document.getAnimations().every((a) => a.playState !== 'running')`)
+			if theme == "light" && pulse == "1" {
+				b.shot("armed-light")
+			}
+			for _, c := range []struct{ what, sel string }{{"armed Take", ".sode-panel__take"}, {"staged destination", dst}, {"pending source", ".sode-panel__cell--source"}} {
+				r, _ := b.eval(contrastJS + `('` + c.sel + `')`).(float64)
+				// The fill swells from a 72% floor of the state color to all of it. The peak is where the second-pass
+				// measured its fail; the floor is held to the 3:1 of large text and of state against surface.
+				want := 4.5
+				if pulse == "0" {
+					want = 3
+				}
+				if r < want {
+					t.Errorf("%s, %s theme, pulse %s: contrast %.2f:1, want at least %g:1", c.what, theme, pulse, r, want)
+				}
+			}
+		}
+	}
+	b.eval(`{ const g = document.getElementById('panel-grid'); g.style.animation = ''; g.style.removeProperty('--pulse'); document.documentElement.dataset.theme = 'light'; } true`)
+
+	// Unstage the first route, then stage one to the destination that never changes.
+	b.eval(`document.querySelector('` + dst + `').click(); true`)
+	b.waitFor("unstaged", `document.querySelector('`+dst+`').dataset.s !== 'staged'`)
+	b.eval(`document.querySelector('` + deadCell + `').click(); document.querySelector('.sode-panel__cell--source').click(); true`)
+	b.waitFor("armed", `!!document.querySelector('.sode-panel__take--armed')`)
+	b.eval(`document.querySelector('.sode-panel__take').click(); true`)
+	failed := `document.querySelector('` + deadCell + `').dataset.result === 'failed'`
+	b.waitFor("the take fails", failed)
+	b.waitFor("the failure has words on a line of its own", `(() => {
+		const r = document.querySelector('`+deadCell+` .sode-panel__result--failed');
+		return !!r && r.parentElement.matches('.sode-panel__cell') && r.textContent.trim().startsWith('Failed') && !document.querySelector('`+deadCell+` span > .pb-icon');
+	})()`)
+	b.eval(`window.failedAt = performance.now(); true`)
+	b.waitFor("3 s later", `performance.now() - window.failedAt > 3000`)
+	b.shot("failed")
+	b.waitFor("the failure stays", failed+` && !!document.querySelector('`+deadCell+` .sode-panel__result--failed')`)
+	b.eval(`document.querySelector('` + dst + `').click(); true`)
+	b.waitFor("a press on another destination keeps it", `document.querySelector('`+dst+`').dataset.s === 'view' && `+failed)
+	b.eval(`document.querySelector('` + deadCell + `').click(); true`)
+	b.waitFor("a press on it clears it", `document.querySelector('`+deadCell+`').dataset.result === '' && !document.querySelector('.sode-panel__result--failed')`)
+	b.check()
+}

@@ -50,12 +50,12 @@ test('a Preset outside the Rights, or holding a route outside them, is refused w
   assert.equal(run({ presets: ['id-a'] }).staged.length, 2);
 });
 
-test('a Result shows as an icon, with its word only when the panel asks for text', () => {
+test('a Result shows as an icon, with its word only when the panel asks for text or it failed', () => {
   const done = finishTake(createState(), { results: [{ dst: 0, result: 'already' }] }, T0);
   assert.deepEqual(resultShown(done, 0, T0), { result: 'already', word: 'Already', text: '' });
   const texted = finishTake(createState({ resultText: true }), { results: [{ dst: 0, result: 'failed' }] }, T0);
   assert.deepEqual(resultShown(texted, 0, T0), { result: 'failed', word: 'Failed', text: 'Failed' });
-  assert.equal(resultShown(texted, 0, T0 + RESULT_MS + 1), null);
+  assert.equal(resultShown(done, 0, T0 + RESULT_MS + 1), null);
 });
 
 test('the outside-rights error names the cell, and nothing of numbers when quiet', () => {
