@@ -1,0 +1,1 @@
+- Settings > Routers: the level chips of a router are all the same width, so one-digit and two-digit levels line up in columns.

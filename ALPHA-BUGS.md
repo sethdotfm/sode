@@ -249,7 +249,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-21: Level chips: same spacing for one- and two-digit levels
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Level chips of the router detail (`web/settingsrouterdetail.js:194-199`, `#router-chips`), `web/routers.css:214-223` (`.sode__rchips > .sode__slot`), `web/base.css:492-509` (`.sode__slot`). The same `.sode__slot` chip is in the History level bar and the Grid panel.
 - **Reported:** "Ensure the same spacing between two-digit and single-digit number levels." (annotation 23; the screenshot shows the chip 15 wider than the single-digit chips above it.)
 - **Now:** Each chip has `min-width: 1.5rem` and `padding: 0 var(--pb-space-1)` (`routers.css:219-223`), so a one-digit chip is exactly 1.5rem and a two-digit chip grows past it (25.2 px against 24 px in the annotation). The row of chips wraps, so the columns do not line up.
@@ -257,7 +257,14 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: Fix only `.sode__rchips > .sode__slot` (web/routers.css:219-223): drop the side padding and give the row one chip width from its widest label. The other slots are already fixed width (base.css:787-793). Levels go to 256, so the width comes from the labels, not a two-digit guess.
 - **Open questions:** none.
 - **Proof:** Screenshot before and after at 1920×1080 with 17 levels. A browser check (new `TestChrome*` name) that reads the widths of `#router-chips > .sode__slot` for levels 1 and 15 and expects them equal.
+  - Given: `TestChromeSettingsLevelChipsOneWidth` (internal/app/routerchips_browser_test.go), one simulator. It reads the widths of chip 1 and chip 15 of `#router-chips` with 17 levels, then of chip 1 and chip 64 with 64 levels (the most chips, `CHIPS_MAX`), and checks that each label fits. Before the fix it fails: `last exception "Uncaught Error: chip widths 24 and 25.203125"`. After: `--- PASS: TestChromeSettingsLevelChipsOneWidth (5.19s)`.
+  - Screenshots, 1920×1080, in docs/research/alpha-proof/AB-21/: before-17-levels.png and before-17-levels-clip.png (10 to 17 wider than 1 to 9, so the second row does not line up), after-17-levels.png and after-17-levels-clip.png (one width, the columns line up).
 - **Notes:**
+  - Reproduced on r2-routers 8e9c6761 (binary built before the change) with simulators on :8930 and :8931 and Sode on :8280 (no config file, router B added through the one Save): the chips 10 to 17 were wider than 1 to 9.
+  - What changed: `.sode__rchips > .sode__slot` (web/routers.css:220) has no side padding and `min-width: 0`, and its width is `max(1.5rem, var(--sode-rchip-ch) * 1ch + var(--pb-space-2))`. `paintLevels` (web/settingsrouterdetail.js:201) sets `--sode-rchip-ch` on `#router-chips` to the character count of the widest label. The other `.sode__slot` rows are not changed. The row shows at most 64 chips, so the widest label today has two digits, but the width comes from the labels.
+  - Docs: docs/agents/settings-saves.md (Level colors), docs/agents/browser-checks.md, changelog.d/router-level-chips-width.md.
+  - Found on the way: `TestPageTieTakeActsAsThePage/user=false` (tiepage_test.go:161, "1 sent take rows, want one for each take") failed one time in `go test -short ./...` and passed on the rerun. It does not touch Settings.
+  - Checks: `go test -short ./...` ok (internal/app 67.9s); `go vet ./...` clean; staticcheck clean (run with `GOTOOLCHAIN=go1.27.0`, since the local go is 1.24); `node --test 'web/test/*.test.mjs'`: tests 1996, pass 1996, fail 0; gofmt -l empty; prettier "All matched files use Prettier code style!"; eslint web clean. Browser check: `--- PASS: TestChromeSettingsLevelChipsOneWidth (5.19s)`.
 
 ### AB-22: Routers list squeezes the router detail; put the A/B router selector at the top and give settings full width
 

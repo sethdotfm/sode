@@ -216,11 +216,13 @@ fieldset[data-section="routers"] {
   flex-wrap: wrap;
   gap: var(--pb-space-1);
 }
+/* Every chip of the row has the width of its widest label (--sode-rchip-ch, its characters), so the columns line up. */
 .sode__rchips > .sode__slot {
   height: 1.5rem;
   justify-content: center;
-  min-width: 1.5rem;
-  padding: 0 var(--pb-space-1);
+  min-width: 0;
+  padding: 0;
+  width: max(1.5rem, calc(var(--sode-rchip-ch, 1) * 1ch + var(--pb-space-2)));
 }
 .sode__rfacts {
   align-items: center;

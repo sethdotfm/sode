@@ -197,6 +197,8 @@ function paintLevels(x) {
     return levelColor(chip, { swatch: ui === 1 ? 'video' : String(((ui - 2) % 16) + 1).padStart(2, '0'), color: c });
   });
   const box = $('router-chips');
+  // One chip width for the row, from its widest label (routers.css): levels go to 256.
+  box.style.setProperty('--sode-rchip-ch', String(Math.max(1, ...chips.map((c) => c.textContent.length))));
   box.replaceChildren(...chips);
   box.setAttribute('aria-label', `Levels of this router: ${numberingRange(v.levels, v.levelNumbering)}`);
 }
