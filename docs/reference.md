@@ -187,7 +187,7 @@ With users set up, each user has a **profile**. It holds their own This browser 
 
 Someone who is not signed in is a guest. A guest gets this browser's and everyone's settings and sees no Me options. With no users configured, none of this appears. To sign in with no locks on, use **Sign in** under Settings > This browser. That sign-in lasts until the tab closes, unless the user has Never sign out.
 
-A profile belongs to its user, but admins and trusted users can see and edit every profile. Each row of Manage users has an **Edit Profile** button, and trusted users get the same buttons in Settings > Users. Everyone signed in has **My profile** and **Import & Export** under Settings > This browser. On the Lock, **Sign in as…** switches user.
+A profile belongs to its user, but admins and trusted users can see and edit every profile. Each row of Manage users has an **Edit profile** button, and trusted users get the same buttons in Settings > Users. Everyone signed in has **My profile** and **Import & Export** under Settings > This browser. On the Lock, **Sign in as…** switches user.
 
 **Share and export.** A preset's or filter set's **Share** gives a link you can paste in chat. Opening the link shows what it holds next to what you have now, and you choose where to save it. It never applies itself unreviewed.
 
