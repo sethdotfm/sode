@@ -1,5 +1,5 @@
 /* Settings > Routers > Routers (settingsrouterlist.js, settingsrouterdetail.js): the router list and the detail view
-   of the selected router. Two panes side by side where the section is wide, else the list above the detail view. */
+   of the selected router: a row of chips above the detail view. */
 .sode__rbar {
   align-items: center;
   display: flex;
@@ -20,9 +20,6 @@
 .sode__rbar-tools > [hidden] {
   display: none;
 }
-fieldset[data-section="routers"] {
-  container-type: inline-size;
-}
 .sode__rt {
   display: flex;
   flex-direction: column;
@@ -31,49 +28,69 @@ fieldset[data-section="routers"] {
 .sode__rt > [hidden] {
   display: none;
 }
+/* The router list: a row of chips across the top of the section, wrapping as needed, with the find box and the filter
+   at its end, and the detail view below it at the full width. A chip shows the prefix, the Router title and the marks,
+   and the link state only when the router is not connected (data-link). The address is there for find and words only.
+   The phone shows no Routers settings. */
 .sode__rwrap {
-  border: var(--pb-border-w) solid var(--pb-edge);
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-4);
+}
+.sode__rwrap[hidden] {
+  display: none;
 }
 .sode__rlist {
-  max-height: clamp(9rem, calc(100vh - 24rem), 26rem);
-  overflow-y: auto;
+  display: flex;
+  flex: 1 1 24rem;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  min-width: 0;
 }
 .sode__rrow {
   align-items: center;
-  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
-  border-left: var(--pb-accent-bar-w) solid transparent;
+  border: var(--pb-border-w) solid var(--pb-edge);
   cursor: pointer;
-  display: grid;
-  gap: 0 var(--pb-space-3);
-  grid-template-columns: 2.25rem minmax(0, 1fr);
-  height: 3.25rem;
-  padding: 0 var(--pb-space-3) 0 var(--pb-space-2);
+  display: inline-flex;
+  gap: var(--pb-space-2);
+  height: 2.25rem;
+  max-width: 100%;
+  padding: 0 var(--pb-space-3);
+}
+.sode__rrow[draggable="true"] {
+  cursor: grab;
 }
 .sode__rrow:hover {
   background: var(--pb-overlay-hover);
 }
 .sode__rrow[aria-selected="true"] {
   background: var(--pb-accent-wash);
-  border-left-color: var(--pb-accent);
+  border-color: var(--pb-accent);
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-accent);
 }
 .sode__rrow:focus-visible {
   outline: 2px solid var(--pb-accent);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
 .sode__rrow[data-removed] .sode__rrow-title {
   text-decoration: line-through;
 }
+.sode__rrow[data-drop="before"] {
+  box-shadow: inset 3px 0 0 var(--pb-accent);
+}
+.sode__rrow[data-drop="after"] {
+  box-shadow: inset -3px 0 0 var(--pb-accent);
+}
 .sode__rrow-prefix {
   color: var(--pb-text-strong);
   font-family: var(--pb-font-num);
-  font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
-  text-align: center;
 }
 .sode__rrow-text {
+  align-items: center;
   display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-1);
+  gap: var(--pb-space-3);
   min-width: 0;
 }
 .sode__rrow-line {
@@ -86,6 +103,7 @@ fieldset[data-section="routers"] {
 .sode__rrow-title {
   color: var(--pb-text-strong);
   font-weight: var(--pb-weight-medium);
+  max-width: 14rem;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -94,18 +112,12 @@ fieldset[data-section="routers"] {
   flex: none;
 }
 .sode__rrow-sub {
-  color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
 }
-.sode__rrow-addr {
-  font-family: var(--pb-font-num);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sode__rrow-sub .sode__rstate {
-  flex: none;
-  margin-left: auto;
+.sode__rrow-addr,
+.sode__rrow[data-link="connected"] .sode__rrow-sub,
+.sode__rrow[data-link="new"] .sode__rrow-sub {
+  display: none;
 }
 .sode__rlist-empty {
   align-items: center;
@@ -113,7 +125,7 @@ fieldset[data-section="routers"] {
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3);
-  padding: var(--pb-space-4);
+  padding: var(--pb-space-2) 0;
 }
 /* The link state: an icon and words. Connected has no color (docs/color-roles.md). */
 .sode__rstate {
@@ -216,11 +228,13 @@ fieldset[data-section="routers"] {
   flex-wrap: wrap;
   gap: var(--pb-space-1);
 }
+/* Every chip of the row has the width of its widest label (--sode-rchip-ch, its characters), so the columns line up. */
 .sode__rchips > .sode__slot {
   height: 1.5rem;
   justify-content: center;
-  min-width: 1.5rem;
-  padding: 0 var(--pb-space-1);
+  min-width: 0;
+  padding: 0;
+  width: max(1.5rem, calc(var(--sode-rchip-ch, 1) * 1ch + var(--pb-space-2)));
 }
 .sode__rfacts {
   align-items: center;
@@ -240,21 +254,6 @@ fieldset[data-section="routers"] {
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-2);
   margin: 0;
-}
-/* Side by side where the section is wide. */
-@container (min-width: 36rem) {
-  .sode__rt:not(.sode__rt--one) {
-    align-items: flex-start;
-    display: grid;
-    grid-template-columns: 16rem minmax(0, 1fr);
-  }
-  .sode__rt:not(.sode__rt--one) .sode__rwrap {
-    position: sticky;
-    top: calc(var(--pb-space-10) + var(--sode-down-h, 0px));
-  }
-  .sode__rt:not(.sode__rt--one) .sode__rlist {
-    max-height: clamp(9rem, calc(100vh - 12rem), 40rem);
-  }
 }
 /* The fields of a group line up by row: label, control, hint and error. A label of two lines does not push its control
    below the control beside it. */
@@ -278,15 +277,20 @@ fieldset[data-section="routers"] {
 .sode__rgroup .sode__fields > .sode__field > :is(.sode__hint, .sode__field-err) {
   margin-top: var(--pb-space-1);
 }
-.sode__rlink .sode__code {
+.sode__rlink .sode__code,
+.sode__rtry .sode__code {
   overflow-wrap: anywhere;
 }
-.sode__rrow[draggable="true"] {
-  cursor: grab;
+/* The Address field's try (routertry.js): the wizard's words, then why a try failed. */
+.sode__rtry {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1) var(--pb-space-3);
+  min-width: 0;
 }
-.sode__rrow[data-drop="before"] {
-  box-shadow: inset 0 3px 0 var(--pb-accent);
-}
-.sode__rrow[data-drop="after"] {
-  box-shadow: inset 0 -3px 0 var(--pb-accent);
+/* The words wrap in the column of the field, so a long line does not widen the Address field. */
+.sode__rtry > .pb-status {
+  min-width: 0;
+  white-space: normal;
 }

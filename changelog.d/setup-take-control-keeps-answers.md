@@ -1,0 +1,1 @@
+- Setup wizard: when another browser takes control, this browser keeps your answers (not the PIN). Take control again to get them back. The wait page now says "Setup is running in another browser".

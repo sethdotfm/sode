@@ -3,7 +3,22 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { accentFor, accentTokens, brandCaution, brandHex, contrast, pickerColors, oklch, passes, reservedBy, toHex, THEMES, MIN_CONTRAST } from '../accent.js';
+import {
+  accentFor,
+  accentTokens,
+  brandCaution,
+  brandHex,
+  contrast,
+  distance,
+  pickerColors,
+  oklch,
+  passes,
+  reservedBy,
+  toHex,
+  THEMES,
+  MIN_APART,
+  MIN_CONTRAST,
+} from '../accent.js';
 
 const web = join(dirname(fileURLToPath(import.meta.url)), '..');
 const tokensCss = readFileSync(join(web, 'vendor/patchbay/css/patchbay.tokens.css'), 'utf8');
@@ -12,14 +27,15 @@ const tokensCss = readFileSync(join(web, 'vendor/patchbay/css/patchbay.tokens.cs
 const NAMED = {
   blue: '#5fb2e8',
   teal: '#5ccfc9',
+  violet: '#a67ef0',
+  lilac: '#c4a3d4',
   sky: '#4dc3dd',
   slate: '#a3b4d4',
-  violet: '#a67ef0',
   green: '#5fd09a',
   amber: '#e8a35e',
   pink: '#e87bb3',
 };
-const OFFERED = ['blue', 'teal', 'sky', 'slate', 'violet'];
+const OFFERED = ['blue', 'teal', 'violet', 'lilac'];
 
 test('NAMED is config.BrandColors', () => {
   const src = readFileSync(join(web, '../internal/config/config.go'), 'utf8');
@@ -107,6 +123,46 @@ test('no offered color is in the reserved zone; the retired ones are', () => {
   assert.deepEqual(reservedBy(NAMED.green), ['routed']);
   assert.deepEqual(reservedBy(NAMED.amber), ['caution']);
   assert.deepEqual(reservedBy(NAMED.pink), ['protected']);
+});
+
+// Each theme's color of a named color, as web/base.css draws it: [light, dark].
+function drawn(name) {
+  const css = readFileSync(join(web, 'base.css'), 'utf8');
+  const m = css.match(new RegExp(`\\[data-brand="${name}"\\] \\{\\s*--brand-color: ([^;]+);`));
+  assert.ok(m, name);
+  const v = m[1].trim();
+  const token = v.match(/^var\((--pb-signal-\d+)\)$/);
+  if (token) return tokenPair(token[1]);
+  const pair = v.match(/^light-dark\((#[0-9a-f]{6}), (#[0-9a-f]{6})\)$/);
+  assert.ok(pair, `${name}: ${v}`);
+  return [pair[1], pair[2]];
+}
+
+test('base.css draws each named color with its hex in dark mode', () => {
+  for (const [name, hex] of Object.entries(NAMED)) assert.equal(drawn(name)[1], hex, name);
+});
+
+test('the offered colors are far apart from each other and from the state hues, in both themes', () => {
+  const near = [];
+  for (const [i, theme] of ['light', 'dark'].entries()) {
+    for (const a of OFFERED) {
+      const ha = drawn(a)[i];
+      if (reservedBy(ha).length) near.push(`${theme} ${a} is near ${reservedBy(ha)}`);
+      for (const b of OFFERED) {
+        if (a >= b) continue;
+        const d = distance(ha, drawn(b)[i]);
+        if (d < MIN_APART) near.push(`${theme} ${a} and ${b}: ${d.toFixed(3)}`);
+      }
+    }
+  }
+  assert.deepEqual(near, []);
+});
+
+test('distance is the OKLab distance', () => {
+  assert.equal(distance('#5fb2e8', '#5fb2e8'), 0);
+  assert.ok(Math.abs(distance('#000000', '#ffffff') - 1) < 1e-3);
+  // Sky was retired as too near Blue.
+  assert.ok(distance(NAMED.blue, NAMED.sky) < MIN_APART);
 });
 
 test('the reserved zone covers each state hue, tie lines and Step in', () => {

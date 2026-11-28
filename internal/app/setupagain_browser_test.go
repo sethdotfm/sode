@@ -44,6 +44,7 @@ func TestChromeRunSetupAgain(t *testing.T) {
 	b.eval(`(() => { const i = document.getElementById('setup-brandText'); i.value = 'Studio C'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	b.eval(next + `.click(); true`)
 	b.waitFor("Router with the current values", `document.getElementById('setup-router')?.value === '`+sim+`' && document.getElementById('setup-levelNumbering-va').checked`)
+	b.waitFor("Connection, with no first router", `[...document.querySelectorAll('#setup-body .sode-setup__h')].some((h) => h.textContent === 'Connection')`)
 	b.eval(next + `.click(); true`)
 	b.waitFor("Access with the matching preset picked", `document.querySelector('.sode-setup__sheet thead th.is-picked')?.dataset.preset === 'standard' && `+next+`.textContent === 'Finish'`)
 	b.eval(`document.querySelector('.sode-setup__sheet thead th[data-preset="secured"] input').click(); true`)

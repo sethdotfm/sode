@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LIST_KEY, addKey, freePrefix, linkState, listKey, removeKey, routerDisplay, usesNote } from '../routerlistrules.js';
+import { LIST_KEY, addKey, freePrefix, linkState, listKey, orderStep, removeKey, routerDisplay, rowStep, usesNote } from '../routerlistrules.js';
 import { critical, reconnects, sectionOfKey } from '../savereviewrules.js';
 
 test('freePrefix: the first letter no router has, then two letters', () => {
@@ -63,4 +63,25 @@ test('linkState: the link in words; only Down and Never connected are red, and C
   assert.deepEqual(linkState({ link: 'down', err: 'refused' }, true), { key: 'down', word: 'Down', glyph: 'circle-x', state: 'error' });
   assert.deepEqual(linkState({ link: 'down', err: 'refused' }, false), { key: 'never', word: 'Never connected', glyph: 'circle-x', state: 'error' });
   assert.deepEqual(linkState({ link: 'connecting', err: 'refused' }, false).word, 'Never connected');
+});
+
+test('rowStep: Left and Right move along the row of chips, Up and Down too, and the ends stop', () => {
+  assert.equal(rowStep('ArrowRight', 0, 3), 1);
+  assert.equal(rowStep('ArrowLeft', 2, 3), 1);
+  assert.equal(rowStep('ArrowDown', 0, 3), 1);
+  assert.equal(rowStep('ArrowUp', 1, 3), 0);
+  assert.equal(rowStep('ArrowLeft', 0, 3), 0);
+  assert.equal(rowStep('ArrowRight', 2, 3), 2);
+  assert.equal(rowStep('Home', 2, 3), 0);
+  assert.equal(rowStep('End', 0, 3), 2);
+  assert.equal(rowStep('Enter', 0, 3), -1);
+  assert.equal(rowStep('ArrowRight', 0, 0), -1);
+});
+
+test('orderStep: Alt and an arrow move a router one place', () => {
+  assert.equal(orderStep('ArrowLeft'), -1);
+  assert.equal(orderStep('ArrowUp'), -1);
+  assert.equal(orderStep('ArrowRight'), 1);
+  assert.equal(orderStep('ArrowDown'), 1);
+  assert.equal(orderStep('Home'), 0);
 });

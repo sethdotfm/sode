@@ -1,0 +1,1 @@
+- Multi destination take behavior has a help button in the setup wizard and in Settings > Routers. Its tip tells the difference between One after another and Router salvo.

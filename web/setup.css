@@ -1,18 +1,26 @@
+/* Setup shows the bar of Settings and /log with only the site name and the status: no user exists yet, so no links
+   and no Lock. */
 [data-sode-setup] .sode > :not(#setup, #home-bar),
-[data-sode-setup] .sode-home-bar > :not(.sode__conn) {
+[data-sode-setup] .sode-home-bar > :not(.sode-panels__title, .sode-panels__spacer, .sode__conn),
+[data-sode-setup] .sode-lock__who {
   display: none !important;
+}
+:root[data-sode-setup] .sode-home-bar > .sode-panels__title {
+  display: flex;
+}
+:root[data-sode-setup] .sode-home-bar {
+  padding-inline-start: 0;
 }
 [data-sode-setup] .sode {
   max-width: none;
+  padding-inline: 0;
 }
-/* .sode centres its children, so without a width the dialog shrinks to its title. */
+/* The steps and the dialog have the bar's edges. Keep the edge in step with .sode-home-bar in bar.css. .sode centres
+   its children, so the stretch keeps the dialog from shrinking to its title. */
 .sode-setup {
-  width: min(100%, 76rem);
-  margin: 2.5rem auto 4rem;
-}
-.sode-setup .sode__mark {
-  text-align: center;
-  margin-bottom: var(--pb-space-6);
+  align-self: stretch;
+  --sode-head-edge: calc(max(0px, (100vw - var(--sode-page-bar) - var(--sode-head-max)) / 2) + var(--sode-head-x));
+  margin: 0 var(--sode-head-edge) 4rem;
 }
 .sode-setup .pb-modal {
   position: static;
@@ -24,6 +32,10 @@
 }
 .sode-setup .pb-modal__body {
   padding-top: var(--pb-space-5);
+}
+/* The Access step: a smaller gap above its table. */
+.sode-setup .pb-modal__body:has(> .sode-setup__sheet:first-child) {
+  padding-top: var(--pb-space-3);
 }
 
 .sode-setup__steps {
@@ -49,7 +61,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--pb-space-2);
-  width: 5rem;
+  min-width: 5rem;
   cursor: default;
 }
 .sode-setup__chip[data-go] {
@@ -84,6 +96,7 @@
 }
 .sode-setup__label {
   font-size: var(--pb-text-sm);
+  white-space: nowrap;
   color: var(--pb-text-muted);
 }
 .sode-setup__steps .is-now .sode-setup__label {
@@ -126,11 +139,21 @@
   gap: var(--pb-space-6);
   align-items: end;
 }
+/* Name, PIN and Repeat your PIN: a third each. */
+.sode-setup__row--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
 .sode-setup__h {
   font-size: var(--pb-text-md);
   font-weight: var(--pb-weight-bold);
   color: var(--pb-text-strong);
   margin: 0;
+}
+/* A heading with a help button after it. */
+.sode-setup__head {
+  display: flex;
+  align-items: center;
+  gap: var(--pb-space-2);
 }
 .sode-setup__sub {
   color: var(--pb-text-muted);
@@ -163,7 +186,7 @@
   color: var(--pb-text-muted);
   cursor: pointer;
 }
-.sode-setup__chip {
+.sode-setup__swatch-box {
   position: relative;
   box-sizing: border-box;
   display: grid;
@@ -182,8 +205,8 @@
 .sode-setup__swatch.is-picked {
   color: var(--pb-text);
 }
-.sode-setup__swatch:has(input:checked) .sode-setup__chip,
-.sode-setup__swatch.is-picked .sode-setup__chip {
+.sode-setup__swatch:has(input:checked) .sode-setup__swatch-box,
+.sode-setup__swatch.is-picked .sode-setup__swatch-box {
   outline: 2px solid var(--pb-text-strong);
   outline-offset: 2px;
 }
@@ -199,7 +222,7 @@
   background: none;
   cursor: pointer;
 }
-.sode-setup__swatch:has(input:focus-visible) .sode-setup__chip {
+.sode-setup__swatch:has(input:focus-visible) .sode-setup__swatch-box {
   outline: 2px solid var(--pb-accent);
   outline-offset: 2px;
 }
@@ -211,7 +234,7 @@
 }
 .sode-setup__sheet th,
 .sode-setup__sheet td {
-  padding: var(--pb-space-3) var(--pb-space-4);
+  padding: var(--pb-space-1) var(--pb-space-4);
   border-bottom: 1px solid var(--pb-edge);
   vertical-align: middle;
 }
@@ -239,6 +262,12 @@
 .sode-setup__sheet td {
   text-align: center;
   cursor: pointer;
+}
+/* Stripes help the eye along a row. patchbay 2.2.1 gives odd and even rows one color, so Sode draws them. Raised and
+   high are too near the modal's own surface in dark mode, so the stripe is the control surface. The picked column's
+   wash is on the cells, so it stays on top of the stripe. */
+.sode-setup__sheet tbody tr:nth-child(even) {
+  background: var(--pb-surface-control);
 }
 .sode-setup__sheet .is-picked {
   background: var(--pb-accent-wash);

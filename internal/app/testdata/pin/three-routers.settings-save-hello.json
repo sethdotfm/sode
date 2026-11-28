@@ -11,19 +11,26 @@
       "name": "teal"
     },
     {
+      "hex": "#a67ef0",
+      "label": "Violet",
+      "name": "violet"
+    },
+    {
+      "hex": "#c4a3d4",
+      "label": "Lilac",
+      "name": "lilac"
+    },
+    {
       "hex": "#4dc3dd",
       "label": "Sky",
-      "name": "sky"
+      "name": "sky",
+      "retired": true
     },
     {
       "hex": "#a3b4d4",
       "label": "Slate",
-      "name": "slate"
-    },
-    {
-      "hex": "#a67ef0",
-      "label": "Violet",
-      "name": "violet"
+      "name": "slate",
+      "retired": true
     },
     {
       "hex": "#5fd09a",

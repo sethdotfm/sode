@@ -484,10 +484,6 @@
   flex: none;
   white-space: nowrap;
 }
-/* Tooltips here are placed by tooltip.js: the scrolling run would clip a CSS one. */
-.sode__sets [data-pb-tip]::after {
-  display: none;
-}
 .sode__recent-tools {
   align-items: flex-start;
   display: flex;

@@ -24,7 +24,14 @@ import {
   routerLine,
   guideLevels,
   envHint,
+  KEPT_KEY,
+  keptAnswers,
+  refillAnswers,
+  connectionTitle,
+  doneParts,
+  FIRE_MODE_TIP,
 } from './setupwizardrules.js';
+import { readTab, writeTab } from './store.js';
 
 const root = document.documentElement;
 let d = null; // the answers; null while the wizard is closed
@@ -44,6 +51,16 @@ let free = false; // the browser that ran setup closed.
 let again = null; // Run setup again (mode 'again'): {finish(d), cancel()} from setupagain.js
 
 const max = () => pinMax(S.cfg || {});
+// Run setup again keeps nothing: Cancel drops its answers.
+const keep = () => d && !d.again && writeTab(KEPT_KEY, JSON.stringify(keptAnswers(d)));
+const dropKept = () => writeTab(KEPT_KEY, null);
+function readKept() {
+  try {
+    return JSON.parse(readTab(KEPT_KEY));
+  } catch {
+    return null;
+  }
+}
 const hint = (key, ...more) => [...more, envHint(filled, key)].filter(Boolean).join(' ');
 
 // h: el with attributes; a false or null attribute is left out.
@@ -78,11 +95,23 @@ function choice(name, label, opts, hint = '') {
 }
 
 const section = (title, sub, ...inner) => sectionAs(null, title, sub, ...inner);
+// title is the heading text, or [text, a node after the heading] such as a help button.
 function sectionAs(id, title, sub, ...inner) {
-  const h = el('h3', { class: 'sode-setup__h', id }, title);
-  return el('div', { class: 'sode-setup__section' }, h, sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
+  const [text, after] = Array.isArray(title) ? title : [title, null];
+  const h = el('h3', { class: 'sode-setup__h', id }, text);
+  const head = after ? el('div', { class: 'sode-setup__head' }, h, after) : h;
+  return el('div', { class: 'sode-setup__section' }, head, sub ? el('p', { class: 'sode-setup__sub' }, sub) : null, ...inner);
 }
+
+// A help button: it takes focus, so its tip shows from the keyboard too.
+const helpButton = (id, label, tip) =>
+  el(
+    'button',
+    { type: 'button', class: 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__help', id, 'aria-label': label, 'data-pb-tip': tip },
+    icon('circle-help'),
+  );
 const row = (...kids) => el('div', { class: 'sode-setup__row' }, ...kids);
+const row3 = (...kids) => el('div', { class: 'sode-setup__row sode-setup__row--3' }, ...kids);
 const strong = (text) => el('span', { class: 'pb-text-strong' }, text);
 
 function statusLine() {
@@ -106,7 +135,7 @@ function swatches() {
     const input = el('input', { type: 'radio', name: 'brandBorder', value: c.name, 'aria-label': c.label });
     input.checked = d.brandBorder === c.name;
     box.append(
-      item('sode-setup__swatch', el('span', { class: 'sode-setup__chip', 'data-brand': c.name || null }, input, c.name ? null : icon('ban')), c.label),
+      item('sode-setup__swatch', el('span', { class: 'sode-setup__swatch-box', 'data-brand': c.name || null }, input, c.name ? null : icon('ban')), c.label),
     );
   }
   // A custom color is #rrggbb, the form the native picker gives. Run setup again leaves the swatch out: it writes
@@ -115,7 +144,7 @@ function swatches() {
   if (!d.again) {
     const pick = el('input', { type: 'color', name: 'brandBorder', 'aria-label': 'Custom color' });
     pick.value = own ? d.brandBorder : '#5fb2e8';
-    box.append(item(`sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, el('span', { class: 'sode-setup__chip' }, pick), 'Custom'));
+    box.append(item(`sode-setup__swatch sode-setup__swatch--own${own ? ' is-picked' : ''}`, el('span', { class: 'sode-setup__swatch-box' }, pick), 'Custom'));
   }
   const note = el(
     'p',
@@ -123,7 +152,7 @@ function swatches() {
     icon('triangle-alert'),
     el('span', null, CAUTION_NOTE),
   );
-  return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Border color'), box, note);
+  return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Theme color'), box, note);
 }
 
 function sheet() {
@@ -153,16 +182,12 @@ function sheet() {
 }
 
 function doneText() {
-  const addr = () => el('span', { class: 'pb-text-mono' }, d.router.trim());
-  const linked = routerLine(d.router, routerData('').link, routerData('').srcs.length, routerData('').dsts.length)?.ok;
-  return [
-    'You are signed in as ',
-    strong(d.name.trim()),
-    ...(linked ? [' and connected to the router at ', addr(), '.'] : ['. The router at ', addr(), ' has not answered yet, and Sode keeps trying.']),
-    ' You chose ',
-    strong(presetName()),
-    '.',
-  ];
+  const linked = !!routerLine(d.router, routerData('').link, routerData('').srcs.length, routerData('').dsts.length)?.ok;
+  return doneParts(d.name.trim(), d.router.trim(), presetName(), linked).map((p) => {
+    if (typeof p === 'string') return p;
+    if (p.br) return el('br');
+    return p.mono != null ? el('span', { class: 'pb-text-mono' }, p.mono) : strong(p.strong);
+  });
 }
 
 // The Level numbering guide: the main page's level chips for the typed count, display only.
@@ -186,7 +211,7 @@ const nextLink = (text, section, href = '#settings') => el('li', null, el('a', {
 const VIEW = {
   welcome: () => [
     d.again ? 'Run setup again' : 'Set up Sode',
-    section('Server Name and Color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
+    section('Sode Server Name and Theme Color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
     // replaceChildren draws a null as text, so Run setup again leaves the section out.
     ...(d.again
       ? []
@@ -194,9 +219,9 @@ const VIEW = {
           el('hr', { class: 'pb-divider pb-divider--hard sode-setup__hr' }),
           section(
             'Add a first user',
-            'Administrator',
-            field('setup-name', 'Name', d.name, { maxlength: '24' }),
-            row(
+            'This user will be the administrator.',
+            row3(
+              field('setup-name', 'Name', d.name, { maxlength: '24' }),
               field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric', placeholder: `4 to ${max()} digits` }),
               field('setup-pin2', 'Repeat your PIN', d.pin2, { type: 'password', inputmode: 'numeric' }),
             ),
@@ -207,7 +232,7 @@ const VIEW = {
     'Router setup',
     section('Router', '', row(field('setup-routerTitle', 'Router title', d.routerTitle, { maxlength: '32' }), el('div'))),
     section(
-      'Connection',
+      connectionTitle(d.again),
       '',
       field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router')),
       el('div', { id: 'setup-router-status' }, ...statusLine()),
@@ -229,7 +254,7 @@ const VIEW = {
     ),
     sectionAs(
       'setup-fireMode-label',
-      'Multi destination take behavior',
+      ['Multi destination take behavior', helpButton('setup-fireMode-help', 'About Multi destination take behavior', FIRE_MODE_TIP)],
       'Some routers support staging changes for taking many routes simultaneously.',
       row(
         choice(
@@ -266,10 +291,11 @@ const VIEW = {
         el(
           'ul',
           null,
+          // Add another router only goes to Routers: Add router there would start a router that is not saved.
+          nextLink('Add another router', 'routers'),
+          nextLink('Adjust level colors', 'level-colors'),
           nextLink('Add more users', 'users'),
           nextLink('Create your first panel', null, 'panels/editor'),
-          nextLink('Connect a tablet or another app', 'api'),
-          nextLink('Download a backup', 'export-import'),
         ),
       ),
     ),
@@ -367,6 +393,7 @@ $('setup-body').addEventListener('input', (e) => {
   if (!d || !k) return;
   if (t.type === 'radio' && !t.checked) return;
   d[k] = t.value;
+  keep();
   if (k === 'brandText' || k === 'brandBorder') showBrand(d.brandText, d.brandBorder);
   // The color input keeps its picker open, so the note changes in place and not by a render.
   if (k === 'brandBorder' && $('setup-brand-caution')) $('setup-brand-caution').hidden = !brandCaution(d.brandBorder, S.brandColors);
@@ -388,6 +415,7 @@ $('setup-body').addEventListener('click', (e) => {
   const cell = e.target.closest('[data-preset]');
   if (cell && d && d.preset !== cell.dataset.preset) {
     d.preset = cell.dataset.preset;
+    keep();
     render();
     return;
   }
@@ -444,6 +472,7 @@ onMsg('setupFinishResult', (m) => {
     return;
   }
   keepSignInToken(m);
+  dropKept();
   finished = true;
   at = reached = DONE;
   render();
@@ -478,9 +507,12 @@ function startWizard() {
     levelNumbering: r0.levelNumbering,
     numberOffset: r0.numberOffset,
   };
-  d = startAnswers({ ...S.cfg, ...router, fireMode: r0.fireMode, salvoGroup: r0.salvoGroup }, S.setup);
+  d = refillAnswers(startAnswers({ ...S.cfg, ...router, fireMode: r0.fireMode, salvoGroup: r0.salvoGroup }, S.setup), readKept());
   filled = S.setup;
-  sentRouter = d.router.trim();
+  sentRouter = (r0.address || '').trim();
+  // A kept address the server does not try now: move the link to it, as typing it would.
+  if (d.router.trim() !== sentRouter) tryRouter();
+  showBrand(d.brandText, d.brandBorder);
   at = reached = 0;
   finished = finishing = false;
   render();
@@ -488,18 +520,17 @@ function startWizard() {
 
 function waitPage() {
   const phone = layout() === 'phone';
-  $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup runs in another browser';
+  $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup is running in another browser';
   const kids = [];
-  if (taken && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers are lost.'));
+  if (taken && !phone)
+    kids.push(
+      el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers stay in this browser until you take control again.'),
+    );
   else if (free && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
   if (phone) kids.push(desktopOnly('set it up'));
   else {
     kids.push(
-      el(
-        'button',
-        { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take', 'data-pb-tip': "Discards the other browser's answers" },
-        'Take control',
-      ),
+      el('button', { type: 'button', class: 'pb-btn pb-btn--outline', id: 'setup-take', 'data-pb-tip': 'The other browser keeps its answers' }, 'Take control'),
     );
   }
   $('setup-wait-body').replaceChildren(...kids);
@@ -570,6 +601,7 @@ on('hello', () => {
     return;
   }
   // Another browser finished setup: this one has nothing to save any more.
+  dropKept();
   if (mode && !finished && !finishing && !restoring()) openSode();
   paintDone();
 });

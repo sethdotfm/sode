@@ -1,10 +1,10 @@
-// Settings > Routers: the router list beside the detail view (settingsrouterdetail.js holds the routers and the
-// selection). Each row has two lines of fixed height: the prefix, the Router title and the marks, then the address and
-// the link state. A count line above the list gives the link states. With one router the list hides and the detail
-// view fills the section. From FIND_FROM routers a find box and "Only routers with a problem" show. The list has a
-// bounded height and a big scroll bar (.sode__rlist in SCROLLERS). Up and Down on the list move the selection. A drag
-// of a row, or Alt+Up and Alt+Down, change the order; the first router is the default router. A filtered list does
-// not reorder, since a row would land next to rows that it does not show.
+// Settings > Routers: the router list above the detail view (settingsrouterdetail.js holds the routers and the
+// selection). It is a row of chips that wraps. A chip has the prefix, the Router title and the marks, then the address
+// and the link state. The CSS shows the link state only when the router is not connected (data-link). A count line
+// above gives the link states. With one router the list hides and the detail view fills the section. From FIND_FROM
+// routers a find box and "Only routers with a problem" show at the end of the row. Left, Right, Up and Down move the
+// selection. A drag of a chip, or Alt and an arrow, change the order; the first router is the default router. A
+// filtered list does not reorder, since a router would land next to routers that it does not show.
 
 import { $, el, on } from './core.js';
 import {
@@ -20,6 +20,7 @@ import {
   moveRouterTo,
 } from './settingsrouterdetail.js';
 import { readValues, countLine, findMatch, hasProblem, rowMarks, FIND_FROM } from './routerdetailrules.js';
+import { rowStep, orderStep } from './routerlistrules.js';
 
 const list = $('routers-list');
 const find = $('routers-find');
@@ -43,6 +44,7 @@ function row(x, many) {
     el('span', 'sode__rrow-text', line1, line2),
   );
   n.dataset.router = x.uid;
+  n.dataset.link = x.isNew ? 'new' : s?.key || '';
   n.setAttribute('aria-selected', String(on));
   n.draggable = canDrag && !x.isNew;
   if (x.removed) n.dataset.removed = '';
@@ -98,7 +100,7 @@ list.addEventListener('keydown', (e) => {
   const r = e.target.closest('.sode__rrow');
   if (!r || e.ctrlKey || e.metaKey) return;
   if (e.altKey) {
-    const step = { ArrowUp: -1, ArrowDown: 1 }[e.key];
+    const step = orderStep(e.key);
     if (!step) return;
     e.preventDefault();
     const uid = r.dataset.router;
@@ -107,11 +109,10 @@ list.addEventListener('keydown', (e) => {
     return;
   }
   const rows = [...list.querySelectorAll('.sode__rrow')];
-  const i = rows.indexOf(r);
-  const to = { ArrowUp: i - 1, ArrowDown: i + 1, Home: 0, End: rows.length - 1 }[e.key];
-  if (to !== undefined) {
+  const to = rowStep(e.key, rows.indexOf(r), rows.length);
+  if (to >= 0) {
     e.preventDefault();
-    if (rows[to]) pick(rows[to].dataset.router, true);
+    pick(rows[to].dataset.router, true);
   } else if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
     pick(r.dataset.router, false);
@@ -119,7 +120,7 @@ list.addEventListener('keydown', (e) => {
   }
 });
 
-// A drag of a row puts it before or after the row under the pointer.
+// A drag of a router puts it before or after the router under the pointer.
 let dragUid = '';
 const clearDrop = () => {
   for (const x of list.querySelectorAll('[data-drop]')) delete x.dataset.drop;
@@ -136,7 +137,7 @@ list.addEventListener('dragover', (e) => {
   e.preventDefault();
   clearDrop();
   const box = r.getBoundingClientRect();
-  r.dataset.drop = e.clientY < box.top + box.height / 2 ? 'before' : 'after';
+  r.dataset.drop = e.clientX < box.left + box.width / 2 ? 'before' : 'after';
 });
 list.addEventListener('drop', (e) => {
   const r = e.target.closest('.sode__rrow');

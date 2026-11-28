@@ -1,0 +1,1 @@
+- Settings > Routers: while you type a router address, Sode tries it before you save. It shows if the router answers and how many sources and destinations it has. Sode does not change the router connection for the try. Only an Administrator can do this.

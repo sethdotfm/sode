@@ -49,3 +49,47 @@ func TestChromeSetupWaitPage(t *testing.T) {
 	first.until("setupTaken")
 	b.check()
 }
+
+// Take control moves setup to the other browser, and the first one keeps its answers in its own tab
+// (sessionStorage, never the PINs). When it takes control again, the answers come back.
+func TestChromeSetupTakeControlKeepsAnswers(t *testing.T) {
+	a := startBrowser(t)
+	b := startBrowser(t)
+	app := setupApp(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { app.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(app.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	type_ := func(tab *tab, id, text string) {
+		tab.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	}
+	wizard := `!!document.getElementById('setup-dialog').offsetParent && document.getElementById('setup-title').textContent === 'Set up Sode'`
+
+	a.open(srv.URL + "/")
+	a.waitFor("A runs setup", wizard)
+	type_(a, "setup-brandText", "Studio B")
+	type_(a, "setup-name", "Ada")
+	type_(a, "setup-pin", "2468")
+	type_(a, "setup-pin2", "2468")
+	a.waitFor("A keeps its answers in this tab, with no PIN", `(() => {
+		const k = JSON.parse(sessionStorage.getItem('sode-setup-answers') || 'null');
+		return k?.name === 'Ada' && k.brandText === 'Studio B' && !('pin' in k) && !('pin2' in k);
+	})()`)
+
+	b.open(srv.URL + "/")
+	b.waitFor("B waits", `document.getElementById('setup-wait-title').textContent === 'Setup is running in another browser' && !!document.getElementById('setup-take')?.offsetParent`)
+	b.waitFor("the Take control tip says nothing is lost", `document.getElementById('setup-take').dataset.pbTip === 'The other browser keeps its answers'`)
+	b.eval(`document.getElementById('setup-take').click(); true`)
+	b.waitFor("B runs setup with its own answers", wizard+` && document.getElementById('setup-name').value === ''`)
+
+	a.waitFor("A says its answers stay", `document.getElementById('setup-taken')?.textContent === 'Another browser took control. Your answers stay in this browser until you take control again.'
+		&& document.getElementById('setup-wait-title').textContent === 'Setup is running in another browser'`)
+	a.eval(`document.getElementById('setup-take').click(); true`)
+	a.waitFor("A gets its answers back, and no PIN", wizard+` && document.getElementById('setup-name').value === 'Ada'
+		&& document.getElementById('setup-brandText').value === 'Studio B' && document.getElementById('setup-pin').value === ''`)
+	a.check()
+	b.check()
+}

@@ -1,0 +1,1 @@
+- Setup wizard: the page header is the one of Settings and /log. It shows the server name as you type it, and the status. The big name above the steps is gone, and the dialog has the edges of the header.

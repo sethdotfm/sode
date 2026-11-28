@@ -1,0 +1,1 @@
+- Setup wizard: each step name in the steps row shows on one line again, and the dialog starts below the row.

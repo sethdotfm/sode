@@ -82,7 +82,8 @@ type tab struct {
 }
 
 // startBrowser skips the test when no Chrome is installed.
-func startBrowser(t *testing.T) *tab {
+// flags are more Chrome flags, such as mouseFlags.
+func startBrowser(t *testing.T, flags ...string) *tab {
 	t.Helper()
 	browserTest(t)
 	bin := chromePath()
@@ -99,8 +100,9 @@ func startBrowser(t *testing.T) *tab {
 		// t.TempDir's single RemoveAll fail with "directory not empty" on a slow runner.
 		dir := settledTempDir(t)
 		ctx, cancel = context.WithCancel(context.Background())
-		cmd := exec.CommandContext(ctx, bin, "--headless=new", "--remote-debugging-port=0", "--user-data-dir="+dir,
-			"--no-first-run", "--no-default-browser-check", "--disable-gpu", "--window-size=1280,800", "about:blank")
+		args := append([]string{"--headless=new", "--remote-debugging-port=0", "--user-data-dir=" + dir,
+			"--no-first-run", "--no-default-browser-check", "--disable-gpu", "--window-size=1280,800"}, flags...)
+		cmd := exec.CommandContext(ctx, bin, append(args, "about:blank")...)
 		if err := cmd.Start(); err != nil {
 			cancel()
 			browserSkip(t, fmt.Sprintf("browser checks skipped: cannot start %s: %v", bin, err))

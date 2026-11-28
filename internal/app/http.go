@@ -37,6 +37,8 @@ type client struct {
 	forPage *client
 
 	u connUser // page type, signed-in user, session token (users.go)
+
+	try tryHold // the Address field's try of Settings > Routers (routertry.go)
 }
 
 // wsReadLimit: see TestMessageSizes (largest are a Settings save and a presets save).
@@ -200,6 +202,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		a.cardsSyncMu() // a page close cancels its request
 		a.mu.Unlock()
 		a.setupLeft(c)
+		c.try.stop()
 		log.Printf("ws %s: disconnected", c.ip)
 		e := event(kindBrowser, "disconnect", c.ip, "disconnected")
 		e.Note = "connected " + time.Since(connected).Round(time.Second).String()
@@ -398,6 +401,7 @@ type inMsg struct {
 	Swap         *swapReq           `json:"swap"`    // swapList, swapMine (swap.go)
 	Mine         bool               `json:"mine"`    // brokenCount: only the user's own items
 	Protect      *protectReq        `json:"protect"` // protectSet, protectClear
+	Try          *routerTryReq      `json:"try"`     // routerTry (routertry.go)
 }
 
 func plural(n int, one, many string) string {

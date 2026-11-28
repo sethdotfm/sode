@@ -47,6 +47,45 @@ export function startAnswers(cfg = {}, setup = {}) {
   };
 }
 
+// Each tab keeps its answers in sessionStorage, so a tab that lost setup to Take control gets them back when it takes
+// control again. sessionStorage, not localStorage: two tabs of one browser share localStorage, and a shared machine
+// would keep a name and a router address. Never the PINs.
+export const KEPT_KEY = 'sode-setup-answers';
+const KEPT = ['brandText', 'brandBorder', 'name', 'routerTitle', 'router', 'levels', 'levelNumbering', 'numberOffset', 'fireMode', 'group', 'preset'];
+
+export const keptAnswers = (d) => Object.fromEntries(KEPT.map((k) => [k, d[k]]));
+
+// The start answers with each kept answer put back; anything that is not a kept string is left out.
+export function refillAnswers(d, kept) {
+  const out = { ...d };
+  if (!kept || typeof kept !== 'object') return out;
+  for (const k of KEPT) if (typeof kept[k] === 'string') out[k] = kept[k];
+  return out;
+}
+
+// The Router step's Connection heading. Run setup again edits the router that is there, so it adds no first router.
+export const connectionTitle = (again) => (again ? 'Connection' : 'Connection: Add your first router');
+
+// The Done step's text, as parts for setupwizard.js to draw: a plain string, {strong} (the name), {mono} (the address)
+// or {br}. preset is the full preset name, as "Open access".
+export function doneParts(name, address, preset, linked) {
+  const who = [{ strong: name }];
+  const addr = { mono: address };
+  const rights = ` with ${preset} permissions.`;
+  return [
+    'Congratulations!',
+    { br: true },
+    'You are signed in as ',
+    ...who,
+    ...(linked ? [' and connected to the router at ', addr, rights] : [rights, ' The router at ', addr, ' has not answered yet, and Sode keeps trying.']),
+  ];
+}
+
+// The help tip of Multi destination take behavior, in the wizard and in Settings > Routers (web/index.html,
+// cfg-rt-fireMode-help, which a node test keeps the same). Facts: docs/reference.md (SODE_FIRE_MODE), docs/agents/salvos.md.
+export const FIRE_MODE_TIP =
+  'One after another: Sode sends each route as its own connect, about 16 ms each. Router salvo: the router keeps every route, then switches them all together on one command. Use Router salvo only on a router that has router salvos, with a router salvo group that nothing else uses.';
+
 // '' when SODE_* did not fill it.
 export function envHint(setup, key) {
   const name = setup?.env?.[key];

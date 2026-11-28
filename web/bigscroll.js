@@ -15,7 +15,6 @@ export const SCROLLERS = [
   ['.sode__found', 'y'],
   ['.sode__scroll', 'y'],
   ['.sode__plist', 'y'],
-  ['.sode__rlist', 'y'],
   ['.sode__tlist', 'y'],
   ['#settings-toc', 'y'],
   ['.sode-inbox__list', 'y'],

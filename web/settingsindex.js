@@ -314,7 +314,7 @@ export const DICT = {
 
   // ---- Branding
   'cfg-brandtext': ['brand', 'logo', 'name', 'title', 'text', 'page title', 'tab title', 'rename'],
-  'cfg-brandborder': ['border', 'colour', 'color', 'frame', 'outline', 'identify', 'brand', 'multiple servers', 'edge'],
+  'cfg-brandborder': ['theme color', 'border', 'colour', 'color', 'accent', 'frame', 'outline', 'identify', 'brand', 'multiple servers', 'edge'],
 
   // ---- Router
   'cfg-rt-address': ['router', 'ip', 'address', 'host', 'hostname', 'port', 'tcp', 'connect', 'ultrix', 'host:port'],

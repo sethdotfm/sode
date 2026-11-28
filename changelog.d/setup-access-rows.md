@@ -1,0 +1,1 @@
+- Setup wizard: the Access table has less space in its rows and above it. Every second row has a stripe, so each row is easier to follow.

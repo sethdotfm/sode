@@ -62,6 +62,7 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"automation"}, Re: wordRe(`(?i)automation`)},
 	{Terms: []string{"operator"}, Re: wordRe(`(?i)operators?`)},
 	{Terms: []string{"account"}, Re: wordRe(`(?i)accounts?`)},
+	{Terms: []string{"page border color", "border color"}, Re: wordRe(`(?i)(?:page )?border colou?rs?`)},
 	{Terms: []string{"PIN-less user"}, Re: wordRe(`(?i)pin-?less users?`)},
 	{Terms: []string{"security preset", "access position"}, Re: wordRe(`(?i)security presets?|access positions?`)},
 	{Terms: []string{"log in", "log out"}, Re: wordRe(`(?i)log(?:s|ged|ging)? (?:in|out)|log-?(?:in|out)s?`)},

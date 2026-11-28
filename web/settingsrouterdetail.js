@@ -13,6 +13,7 @@ import { namesTimeText } from './settingsrules.js';
 import { rereadNames } from './rereadnames.js';
 import { everyHold } from './protects.js';
 import { levelColor } from './levelbox.js';
+import { tryRouterAddress } from './routertry.js';
 import { LIST_KEY, ORDER_KEY, addKey, freePrefix, keyAttr, keyRouter, linkState, listKey, removeKey, routerDisplay, usesNote } from './routerlistrules.js';
 import {
   ATTR_LABELS,
@@ -197,6 +198,8 @@ function paintLevels(x) {
     return levelColor(chip, { swatch: ui === 1 ? 'video' : String(((ui - 2) % 16) + 1).padStart(2, '0'), color: c });
   });
   const box = $('router-chips');
+  // One chip width for the row, from its widest label (routers.css): levels go to 256.
+  box.style.setProperty('--sode-rchip-ch', String(Math.max(1, ...chips.map((c) => c.textContent.length))));
   box.replaceChildren(...chips);
   box.setAttribute('aria-label', `Levels of this router: ${numberingRange(v.levels, v.levelNumbering)}`);
 }
@@ -233,6 +236,7 @@ function paintHead(x) {
   $('router-down').disabled = at < 0 || at >= loaded.length - 1;
   rm.textContent = x.isNew ? 'Cancel' : 'Remove…';
   $('router-detail').classList.toggle('sode__rdetail--removed', !!x.removed);
+  tryRouterAddress(x.uid, valuesOf(x), x.isNew ? '' : base[listKey(x.uid, 'address')] || '', admin && !x.removed);
   for (const f of $('router-detail').querySelectorAll('.sode__rgroup input, .sode__rgroup select')) f.disabled = !!x.removed;
   paintNote(x);
 }

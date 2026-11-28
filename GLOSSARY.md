@@ -498,6 +498,10 @@ The Settings topic for a person's own choices, saved to This browser or Me. It h
 **Look and feel**:
 The Settings topic for how Sode looks and acts on every browser: Everyone's defaults, Branding, History, Level colors and Confirm and results.
 
+**Theme color**:
+The server's own color, set in Branding and in the setup wizard. Sode draws the border round the page in it and makes the accent from it, so each server looks different. It is not Theme, which is the light or dark setting of a browser.
+_Avoid_: page border color, border color
+
 **Routers** / **Access** / **Server**:
 The other three Settings topics. Routers holds the Routers list and one block of sections for each router. Access holds the locks, users, API and panel sign-in. Server holds the proxy, Export & Import and the setup wizard.
 
@@ -511,7 +515,7 @@ The connection between the Sode server and one router. Each router has its own.
 The state of Sode as a whole. Healthy means that every Router link is up. Degraded means that one or more Router links are down and one or more are up. Down means that every Router link is down. Keep Down apart from Offline, which is the page state when the Sode server cannot be reached.
 
 **Server run time**:
-How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The router list of the status bar shows it above the routers.
+How long the Sode server has run since it last started. It is not the time of the Server link: a browser can connect long after the start. The hover box and the router list of the status bar show it above the routers.
 _Avoid_: server uptime
 
 **Lost link**:

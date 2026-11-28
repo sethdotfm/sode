@@ -233,6 +233,8 @@ var policy = map[string]rule{
 	"swapMine": {crit: critNever, role: config.RoleStandard, op: "swapMine", write: true, handle: func(a *App, c *client, m *inMsg) { go a.serveSwapMine(c, m) }},
 	// Remove router (routeradd.go): the items a router delete breaks, everyone's, so Administrator only.
 	"routerUses": {crit: critNever, role: config.RoleAdministrator, op: "routerUses", handle: func(a *App, c *client, m *inMsg) { go a.serveRouterUses(c, m) }},
+	// The Address field's try (routertry.go): it dials a typed address, so Administrator only, as the Routers topic is.
+	"routerTry": {crit: critNever, role: config.RoleAdministrator, op: "routerTry", handle: func(a *App, c *client, m *inMsg) { go a.serveRouterTry(c, m) }},
 	// Broken and Name moved counts (brokencount.go): everyone's is Administrator only, checked in the handler.
 	"brokenCount": {crit: critNever, role: config.RoleStandard, handle: func(a *App, c *client, m *inMsg) { go a.serveBrokenCount(c, m) }},
 	// The Palette's Panels rows (palette.go): the reach of the browser's own sign-in, never a panel key.

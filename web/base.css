@@ -404,22 +404,25 @@ html {
 [data-brand="teal"] {
   --brand-color: var(--pb-signal-06);
 }
-/* Sky sits between teal and blue (OKLCH hue 215); patchbay has no signal token there. */
+[data-brand="violet"] {
+  --brand-color: var(--pb-signal-09);
+}
+[data-brand="lilac"] {
+  --brand-color: var(--pb-signal-16);
+}
+/* Retired (config.BrandColors): not offered, but a saved config still draws them. Sky sits between teal and blue
+   (OKLCH hue 215); patchbay has no signal token there. */
 [data-brand="sky"] {
   --brand-color: light-dark(#008ca4, #4dc3dd);
 }
 [data-brand="slate"] {
   --brand-color: var(--pb-signal-14);
 }
-/* Retired (config.BrandColors): not offered, but a saved config still draws them. */
 [data-brand="green"] {
   --brand-color: var(--pb-signal-05);
 }
 [data-brand="amber"] {
   --brand-color: var(--pb-signal-02);
-}
-[data-brand="violet"] {
-  --brand-color: var(--pb-signal-09);
 }
 [data-brand="pink"] {
   --brand-color: var(--pb-signal-11);
@@ -449,34 +452,17 @@ html {
 .sode__brand-caution[hidden] {
   display: none;
 }
-/* tooltip.js moves a tip that would be cut off by the window or a box that clips: sideways by --sode-tip-x, and to the
-   other side with data-sode-tip-flip. It measures the tip's text in .sode__tip-measure, so that copy has the tip's font
-   and padding. */
+/* tooltip.js draws every data-pb-tip in a fixed element on the body (.sode__tip), so no modal or scroller cuts it off.
+   So patchbay's ::after makes no box. Its rules stay, since tooltip.js reads the tip's side, edge and wrap from them,
+   and a rule with display: none on the ::after hides the tip. The .sode__tip copies the font of the patchbay tip. */
 [data-pb-tip]::after {
-  translate: var(--sode-tip-x, 0px) 0;
+  content: none;
 }
-[data-pb-tip][data-sode-tip-flip]:not(.pb-tip--top)::after {
-  bottom: calc(100% + var(--pb-space-2));
-  top: auto;
-}
-.pb-tip--top[data-pb-tip][data-sode-tip-flip]::after {
-  bottom: auto;
-  top: calc(100% + var(--pb-space-2));
-}
-/* No room on either side: the floating tip shows it. */
-[data-pb-tip][data-sode-tip-float]::after {
-  display: none;
-}
-.pb-tip.sode__tip-measure {
+.pb-tip.sode__tip {
   font-family: var(--pb-font);
   font-weight: var(--pb-weight-normal);
-  left: 0;
   letter-spacing: normal;
-  max-width: none;
   text-transform: none;
-  top: 0;
-  visibility: hidden;
-  white-space: nowrap;
 }
 /* A tip set from a value that came out blank draws no empty bubble (web/test/tips.test.mjs keeps blank literals out). */
 [data-pb-tip=""]::after {
@@ -1436,6 +1422,21 @@ html {
   color: var(--pb-text);
   font-weight: var(--pb-weight-medium);
 }
+/* A field label with a help button after it (Multi destination in Settings > Routers). */
+.sode__label-help {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+/* A help button keeps the line height of the label or heading it follows. */
+.sode__help {
+  margin-block: calc(-1 * var(--pb-space-3));
+}
+/* A help button's tip is a few sentences: it wraps in a column, as Export & Import's help does. */
+.sode__help[data-pb-tip]::after {
+  white-space: normal;
+  width: 22rem;
+}
 .sode__field .pb-input,
 .sode__field .pb-select,
 .sode__field .pb-number-wrap,
@@ -1728,21 +1729,17 @@ html {
   min-height: var(--pb-control-h-sm);
   min-width: 0;
 }
-/* The default router of a patch box (boxrouter.js), only with two or more routers. */
-.sode__box-router {
-  flex: none;
+/* The default router of a patch box (boxrouter.js), only with two or more routers. It is on a line under the left
+   side of its box, level with Show all at the right (compact, as Show all is). So the box head keeps its room for
+   the label and Last and Next, and the heads of the row keep one height. */
+.pb-btn.sode__box-router {
+  align-self: flex-start;
+  height: var(--sode-h-compact);
+  margin-top: calc(var(--pb-space-1) - var(--pb-space-2));
+  min-height: 0;
 }
 .sode__box-router[hidden] {
   display: none;
-}
-/* The router of the Levels box: text, not a button, since it follows the destination. It has the look of the router
-   buttons beside it. */
-.sode__lvl-router {
-  align-items: center;
-  display: inline-flex;
-  font-size: var(--pb-text-xs);
-  font-weight: var(--pb-weight-medium);
-  padding: 0 var(--pb-space-3);
 }
 .sode__box-head > [data-last] {
   display: flex;

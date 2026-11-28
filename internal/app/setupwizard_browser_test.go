@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -29,20 +30,58 @@ func TestChromeSetupWizard(t *testing.T) {
 		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
 	}
 	next := `document.getElementById('setup-next')`
+	// Each step name shows on one line inside the steps row, and the dialog starts below the row.
+	// The administrator line shows once, on Style & User only.
+	adminLine := func(step string, want int) {
+		b.waitFor(step+": the administrator line", `[...document.querySelectorAll('#setup-body *')].filter((n) => n.children.length === 0 && n.textContent === 'This user will be the administrator.').length === `+strconv.Itoa(want))
+	}
+	stepsFit := func(step string) {
+		b.waitFor(step+": the step names fit the steps row", `(() => {
+			const row = document.getElementById('setup-steps').getBoundingClientRect();
+			const dialog = document.getElementById('setup-dialog').getBoundingClientRect();
+			const labels = [...document.querySelectorAll('#setup-steps .sode-setup__label')];
+			return labels.length === 4 && labels.every((l) => {
+				const r = l.getBoundingClientRect();
+				const line = parseFloat(getComputedStyle(l).lineHeight) || r.height;
+				return r.left >= row.left - 0.5 && r.right <= row.right + 0.5 && r.top >= row.top - 0.5 && r.bottom <= row.bottom + 0.5
+					&& l.getClientRects().length === 1 && r.height <= line * 1.5;
+			}) && row.bottom < dialog.top;
+		})()`)
+	}
 
 	b.open(srv.URL + "/")
 	b.waitFor("the wizard", `!document.getElementById('setup').hidden && document.documentElement.hasAttribute('data-sode-setup')`)
 	b.waitFor("the patch page is hidden", `getComputedStyle(document.getElementById('patch-view')).display === 'none'`)
 	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Set up Sode'`)
+	stepsFit("Style & User")
+	adminLine("Style & User", 1)
 
 	type_("setup-brandText", "Studio B")
-	b.waitFor("the name shows live", `document.querySelector('#setup .sode__mark').textContent === 'Studio B'`)
-	b.waitFor("each color has its name, and no retired color shows", `[...document.querySelectorAll('.sode-setup__swatch-name')].map((n) => n.offsetParent && n.textContent).join(' ') === 'Off Blue Teal Sky Slate Violet Custom'`)
+	b.waitFor("the name shows live in the bar", `(() => { const t = document.querySelector('#home-bar .sode-panels__title'); return !!t.offsetParent && t.textContent.trim() === 'Studio B'; })()`)
+	b.waitFor("the bar of Settings and /log: site name and status, no links, no Lock, no big name", `(() => {
+		const bar = document.getElementById('home-bar');
+		const shown = (n) => !!n && getComputedStyle(n).display !== 'none';
+		return shown(bar.querySelector('.sode__conn')) && !shown(bar.querySelector('.sode-bar__tools'))
+			&& ![...document.querySelectorAll('.sode-lock__who')].some(shown) && !document.querySelector('#setup .sode__mark');
+	})()`)
+	b.waitFor("the dialog has the bar's edges", `(() => {
+		const bar = document.getElementById('home-bar').getBoundingClientRect();
+		const dialog = document.getElementById('setup-dialog').getBoundingClientRect();
+		return Math.abs(bar.left - dialog.left) <= 1 && Math.abs(bar.right - dialog.right) <= 1;
+	})()`)
+	b.waitFor("each color has its name, and no retired color shows", `[...document.querySelectorAll('.sode-setup__swatch-name')].map((n) => n.offsetParent && n.textContent).join(' ') === 'Off Blue Teal Violet Lilac Custom'`)
+	b.waitFor("the heading and the label say Theme Color", `[...document.querySelectorAll('#setup-body .sode-setup__h')].some((h) => h.textContent === 'Sode Server Name and Theme Color')
+		&& document.getElementById('setup-brand-label').textContent === 'Theme color'`)
 	b.eval(`(() => { const c = document.querySelector('input[name="brandBorder"][type="color"]'); c.value = '#e05050'; c.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`)
 	b.waitFor("a custom color near a state color shows the caution note", `!!document.getElementById('setup-brand-caution')?.offsetParent`)
 	b.eval(`document.querySelector('input[name="brandBorder"][value="teal"]').click(); true`)
 	b.waitFor("the border shows live", `document.querySelector('.sode__brandframe').dataset.brand === 'teal'`)
 	b.waitFor("Teal shows no note", `!document.getElementById('setup-brand-caution').offsetParent`)
+	b.waitFor("Name, PIN and Repeat your PIN are a third each, in one row", `(() => {
+		const r = ['setup-name', 'setup-pin', 'setup-pin2'].map((id) => document.getElementById(id).getBoundingClientRect());
+		const body = document.getElementById('setup-body').getBoundingClientRect();
+		return r.every((x) => Math.abs(x.width - r[0].width) <= 1 && Math.abs(x.top - r[0].top) <= 1) && r[0].width < body.width / 3;
+	})()`)
 	type_("setup-name", "Ada")
 	type_("setup-pin", "2468")
 	type_("setup-pin2", "2469")
@@ -53,6 +92,9 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(next + `.click(); true`)
 
 	b.waitFor("Router, filled from the config", `document.getElementById('setup-router')?.value === '`+sim+`'`)
+	stepsFit("Router")
+	adminLine("Router", 0)
+	b.waitFor("the Connection heading names the first router", `[...document.querySelectorAll('#setup-body .sode-setup__h')].some((h) => h.textContent === 'Connection: Add your first router')`)
 	b.waitFor("Router title, with the default title of Add router", `document.getElementById('setup-routerTitle')?.value === 'Router A'
 		&& document.querySelector('label[for="setup-routerTitle"]').textContent === 'Router title'`)
 	b.waitFor("Level numbering shows the real ranges, as the detail view does", `(() => { const n = +document.getElementById('setup-levels').value;
@@ -75,6 +117,15 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(next + `.click(); true`)
 
 	b.waitFor("Access, Standard preselected", `document.querySelector('.sode-setup__sheet thead th.is-picked')?.dataset.preset === 'standard'`)
+	stepsFit("Access")
+	adminLine("Access", 0)
+	b.waitFor("Access rows are tight and striped", `(() => {
+		const rows = [...document.querySelectorAll('.sode-setup__sheet tbody tr')];
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		const bg = (r) => getComputedStyle(r).backgroundColor;
+		return rows.length > 2 && rows.every((r) => r.getBoundingClientRect().height < 2 * rem)
+			&& bg(rows[0]) !== bg(rows[1]) && bg(rows[0]) === bg(rows[2]);
+	})()`)
 	b.waitFor("Finish", next+`.textContent === 'Finish'`)
 	b.eval(`document.querySelector('[data-go="0"]').click(); true`)
 	b.waitFor("a chip goes back and keeps the answers", `document.getElementById('setup-name')?.value === 'Ada'`)
@@ -83,18 +134,127 @@ func TestChromeSetupWizard(t *testing.T) {
 	b.eval(next + `.click(); true`)
 
 	b.waitFor("Done", `document.getElementById('setup-title').textContent === 'Sode is set up'`)
-	b.waitFor("the paragraph names user, router and preset", `(() => { const t = document.getElementById('setup-done-text').textContent;
-		return t.includes('signed in as Ada') && t.includes('connected to the router at `+sim+`') && t.includes('Standard access'); })()`)
+	b.waitFor("Congratulations, then a line that names user, router and preset", `(() => { const p = document.getElementById('setup-done-text');
+		return p.innerText === 'Congratulations!\nYou are signed in as Ada and connected to the router at `+sim+` with Standard access permissions.'
+			&& p.querySelector('.pb-text-strong')?.textContent === 'Ada' && p.querySelector('.pb-text-mono')?.textContent === '`+sim+`'; })()`)
 	b.waitFor("earlier steps lock", `!document.querySelector('#setup-steps [data-go]')`)
+	b.waitFor("Finish drops the kept answers", `sessionStorage.getItem('sode-setup-answers') === null`)
 	c := loadFile(t, a.cfgPath)
 	if ada, ok := c.FindUserByName("Ada"); !ok || ada.Role != config.RoleAdministrator || c.Routers[0].Address != sim || c.Routers[0].Title != "Studio Ultrix" || !c.PinWaits || c.BrandBorder != "teal" {
 		t.Fatalf("after Finish: %+v", c)
 	}
 	b.waitFor("signed in", `!!localStorage.getItem('sode-session')`)
+	b.waitFor("the next steps, with no backup or tablet link", `[...document.querySelectorAll('.sode-setup__next a')].map((a) => a.textContent + '>' + (a.dataset.section || a.getAttribute('href'))).join(' | ')
+		=== 'Add another router>routers | Adjust level colors>level-colors | Add more users>users | Create your first panel>panels/editor'`)
 
 	b.eval(`document.getElementById('setup-open').click(); true`)
 	b.waitFor("Open Sode shows the patch page", `document.getElementById('setup').hidden && getComputedStyle(document.getElementById('patch-view')).display !== 'none'`)
 	b.open(srv.URL + "/")
 	b.waitFor("no wizard after a reload", `!!document.getElementById('src') && document.getElementById('setup').hidden`)
+	b.check()
+}
+
+// Each next step on Done opens Settings at its section.
+func TestChromeSetupDoneNextSteps(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	for _, section := range []string{"routers", "level-colors"} {
+		a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = sim })
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { a.Run(ctx); close(done) }()
+		srv := httptest.NewServer(a.Handler(web.FS))
+
+		type_ := func(id, text string) {
+			b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+		}
+		next := `document.getElementById('setup-next')`
+		b.open(srv.URL + "/")
+		b.waitFor(section+": Welcome", `document.getElementById('setup-title')?.textContent === 'Set up Sode'`)
+		b.eval(`sessionStorage.clear(); true`)
+		type_("setup-name", "Ada")
+		type_("setup-pin", "2468")
+		type_("setup-pin2", "2468")
+		b.waitFor(section+": Next", `!`+next+`.disabled`)
+		b.eval(next + `.click(); true`)
+		b.waitFor(section+": Router", `!!document.getElementById('setup-router') && !`+next+`.disabled`)
+		b.eval(next + `.click(); true`)
+		b.waitFor(section+": Access", next+`.textContent === 'Finish' && !`+next+`.disabled`)
+		b.eval(next + `.click(); true`)
+		b.waitFor(section+": Done", `document.getElementById('setup-title').textContent === 'Sode is set up'`)
+		b.eval(`document.querySelector('.sode-setup__next a[data-section="` + section + `"]').click(); true`)
+		b.waitFor(section+": Settings open at the section", `(() => {
+			const f = document.querySelector('fieldset[data-section="`+section+`"]');
+			const r = f.getBoundingClientRect();
+			return document.getElementById('setup').hidden && document.documentElement.dataset.view === 'settings'
+				&& !!f.offsetParent && r.top >= -1 && r.top < innerHeight / 2;
+		})()`)
+		b.check()
+		srv.CloseClientConnections()
+		srv.Close()
+		cancel()
+		<-done
+	}
+}
+
+// Multi destination take behavior has a help button in the wizard and next to the setting in Settings > Routers. Its
+// tip says what each choice does. The button takes focus, and its tip shows whole inside the window (tipShows,
+// tooltip_browser_test.go).
+func TestChromeSetupFireModeHelp(t *testing.T) {
+	b := startBrowser(t, mouseFlags...)
+	sim := startSim(t)
+	a := setupApp(t, func(c *config.Config) { c.Routers[0].Address = sim })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	type_ := func(id, text string) {
+		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	}
+	next := `document.getElementById('setup-next')`
+	helpOK := func(where, id string) {
+		b.waitFor(where+": a focusable help button with the tip", `(() => {
+			const h = document.getElementById('`+id+`');
+			if (!h || h.tagName !== 'BUTTON' || h.tabIndex < 0 || !h.classList.contains('pb-btn--ghost') || !h.classList.contains('pb-btn--icon')) return false;
+			if (!h.querySelector('use[href$="circle-help"]') || !/One after another/.test(h.dataset.pbTip) || !/Router salvo/.test(h.dataset.pbTip)) return false;
+			h.focus();
+			return document.activeElement === h;
+		})()`)
+		b.waitFor(where+": the help button in the window", `(() => {
+			const h = document.getElementById('`+id+`');
+			h.blur();
+			h.scrollIntoView({ block: 'center', behavior: 'instant' });
+			const r = h.getBoundingClientRect();
+			return r.top >= 0 && r.bottom <= innerHeight;
+		})()`)
+		mouseTo(b, "#"+id)
+		b.waitFor(where+": the tip shows whole, wrapped in a column", tipShows("#"+id)+` && document.querySelector('body > .sode__tip').getBoundingClientRect().width < innerWidth / 3`)
+	}
+
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("Welcome", `document.getElementById('setup-title')?.textContent === 'Set up Sode'`)
+	type_("setup-name", "Ada")
+	type_("setup-pin", "2468")
+	type_("setup-pin2", "2468")
+	b.waitFor("Next", `!`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("Router", `!!document.getElementById('setup-router')`)
+	b.waitFor("the help button sits after the heading", `document.getElementById('setup-fireMode-label').nextElementSibling?.id === 'setup-fireMode-help'`)
+	helpOK("wizard", "setup-fireMode-help")
+	b.shot("setup-firemode-help")
+
+	b.waitFor("Router answers", `!`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("Access", next+`.textContent === 'Finish' && !`+next+`.disabled`)
+	b.eval(next + `.click(); true`)
+	b.waitFor("Done", `!!document.getElementById('setup-open')?.offsetParent`)
+	b.eval(`document.querySelector('.sode-setup__next a[data-section="routers"]').click(); true`)
+	b.waitFor("Settings > Routers", `document.documentElement.dataset.view === 'settings' && !!document.getElementById('cfg-rt-fireMode')?.offsetParent`)
+	b.waitFor("the help button sits after the Multi destination label", `document.querySelector('label[for="cfg-rt-fireMode"]').nextElementSibling?.id === 'cfg-rt-fireMode-help'`)
+	helpOK("Settings", "cfg-rt-fireMode-help")
 	b.check()
 }

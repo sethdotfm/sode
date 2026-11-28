@@ -1,0 +1,1 @@
+- Setup wizard: under "Add a first user", the line now reads "This user will be the administrator."

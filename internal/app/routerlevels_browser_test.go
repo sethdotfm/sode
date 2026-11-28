@@ -173,11 +173,14 @@ func TestChromeSaveReviewLevelsNumbering(t *testing.T) {
 		}
 	}
 
-	b.eval(`document.getElementById('settings-exit').click(); true`)
-	b.waitFor("the main page", `document.documentElement.dataset.view !== 'settings' && !!document.getElementById('dst')`)
-	b.waitFor("the Levels box names router A", `(() => { const r = document.getElementById('lvl-router'); return !r.hidden && r.textContent === 'Router A'; })()`)
+	// Exit can come too soon after the save to act, so press it again until the main page shows.
+	b.waitFor("the main page", `(() => {
+		if (document.documentElement.dataset.view === 'settings') document.getElementById('settings-exit').click();
+		return document.documentElement.dataset.view !== 'settings' && !!document.getElementById('dst');
+	})()`)
+	b.waitFor("the Levels box has router A's levels and names no router", `!document.getElementById('lvl-router')
+		&& document.querySelectorAll('#lvl-pick .sode__pick').length === 17`)
 	b.eval(`(() => { const t = document.getElementById('dst'); t.focus(); t.value = 'B.4'; t.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
-	b.waitFor("the Levels box names router B", `document.getElementById('lvl-router').textContent === 'Router B'
-		&& document.querySelectorAll('#lvl-pick .sode__pick').length === 4`)
+	b.waitFor("the Levels box follows the destination to router B", `document.querySelectorAll('#lvl-pick .sode__pick').length === 4`)
 	b.check()
 }

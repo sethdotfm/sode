@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   STEPS,
   startAnswers,
@@ -12,6 +13,11 @@ import {
   guideLevels,
   envHint,
   restorePinProblem,
+  keptAnswers,
+  refillAnswers,
+  connectionTitle,
+  doneParts,
+  FIRE_MODE_TIP,
 } from '../setupwizardrules.js';
 
 const filled = () => ({
@@ -149,4 +155,58 @@ test('the Router step refuses a Router title longer than 32 characters', () => {
   const at = STEPS.findIndex(([k]) => k === 'router');
   assert.equal(stepProblem({ ...filled(), routerTitle: 'x'.repeat(33) }, at), 'A Router title has at most 32 characters.');
   assert.equal(stepProblem({ ...filled(), routerTitle: '' }, at), '');
+});
+
+test('a tab keeps its answers but never the PINs, and gets them back after Take control', () => {
+  const d = { ...filled(), pin2: '2468', routerTitle: 'Studio Ultrix', brandText: 'Studio B' };
+  const kept = keptAnswers(d);
+  assert.equal('pin' in kept, false);
+  assert.equal('pin2' in kept, false);
+  assert.equal(kept.name, ' Ada ');
+  const back = refillAnswers(startAnswers({ router: '10.0.0.9:8910' }), JSON.parse(JSON.stringify(kept)));
+  assert.equal(back.name, ' Ada ');
+  assert.equal(back.routerTitle, 'Studio Ultrix');
+  assert.equal(back.router, '10.0.0.5:8910');
+  assert.equal(back.pin, '');
+  assert.equal(back.pin2, '');
+});
+
+test('kept answers that are missing or not strings change nothing', () => {
+  const start = startAnswers({ router: '10.0.0.9:8910', levels: 4 });
+  assert.deepEqual(refillAnswers(start, null), start);
+  assert.deepEqual(refillAnswers(start, 'x'), start);
+  assert.deepEqual(refillAnswers(start, { levels: 9, pin: '1111', again: true, router: '10.0.0.1:1' }), { ...start, router: '10.0.0.1:1' });
+});
+
+test('the Connection heading names the first router on first run only', () => {
+  assert.equal(connectionTitle(false), 'Connection: Add your first router');
+  assert.equal(connectionTitle(undefined), 'Connection: Add your first router');
+  assert.equal(connectionTitle(true), 'Connection');
+});
+
+const plain = (parts) => parts.map((p) => (typeof p === 'string' ? p : p.br ? '\n' : (p.strong ?? p.mono))).join('');
+
+test('Done says Congratulations, then who, which router and which preset', () => {
+  const parts = doneParts('Seth', '127.0.0.1:8910', 'Open access', true);
+  assert.equal(plain(parts), 'Congratulations!\nYou are signed in as Seth and connected to the router at 127.0.0.1:8910 with Open access permissions.');
+  assert.deepEqual(
+    parts.filter((p) => typeof p !== 'string'),
+    [{ br: true }, { strong: 'Seth' }, { mono: '127.0.0.1:8910' }],
+  );
+});
+
+test('Done before the router answers says Sode keeps trying', () => {
+  assert.equal(
+    plain(doneParts('Seth', '10.0.0.5:8910', 'Secured access', false)),
+    'Congratulations!\nYou are signed in as Seth with Secured access permissions. The router at 10.0.0.5:8910 has not answered yet, and Sode keeps trying.',
+  );
+});
+
+test('Settings > Routers has the same Multi destination help tip as the wizard', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const m = html.match(/id="cfg-rt-fireMode-help"[^>]*data-pb-tip="([^"]*)"/);
+  assert.ok(m, 'no help button by Multi destination');
+  assert.equal(m[1], FIRE_MODE_TIP);
+  assert.ok(FIRE_MODE_TIP.includes('One after another'));
+  assert.ok(FIRE_MODE_TIP.includes('Router salvo'));
 });
