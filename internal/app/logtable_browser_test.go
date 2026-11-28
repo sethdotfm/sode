@@ -13,8 +13,8 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// logTablePage opens /log at 1920x1080 with two routers, on a log with the rows that set the table's shape: router messages with a
-// level chip, short command rows, a row with no reason, and one problem row with a long note.
+// logTablePage opens /log at 1920x1080 with two routers. The log holds the rows that set the table's shape. These
+// are router messages with a level chip, short command rows, a row with no reason and a problem row with a long note.
 func logTablePage(t *testing.T) *tab {
 	b := startBrowser(t)
 	// Two routers, so the Routers filter row shows.
@@ -26,7 +26,10 @@ func logTablePage(t *testing.T) *tab {
 	srv := httptest.NewServer(a.Handler(web.FS))
 	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
-	want := a.sent.Total() + 13
+	want := a.sent.Total() + 14
+	key := event(kindAPI, "keyCreate", "Ana", "ok")
+	key.Note = `key "Desk 4" made for Ana`
+	a.logEvent(key)
 	for i := range 6 {
 		a.txq <- swp08.TxEvent{Msg: swp08.ExtConnect(0, 0, i, 10+i), Why: swp08.Why{Reason: swp08.ReasonTake, By: "Ana"},
 			At: time.Now(), Tries: 1, Result: swp08.TxAck}
@@ -43,7 +46,7 @@ func logTablePage(t *testing.T) *tab {
 
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
 	b.open(srv.URL + "/log")
-	b.waitFor("the seeded rows", `document.querySelectorAll('#log-rows tr').length >= 13 && !!document.querySelector('#log-rows .sode-log__lvl')`)
+	b.waitFor("the seeded rows", `document.querySelectorAll('#log-rows tr').length >= 14 && !!document.querySelector('#log-rows .sode-log__lvl')`)
 	b.eval(`document.fonts.ready.then(() => true)`)
 	return b
 }
@@ -96,6 +99,11 @@ func TestChromeLogTableLayout(t *testing.T) {
 	// The heads name what the columns hold: the reason, and the result (not a router).
 	if heads := b.eval(`[...document.querySelectorAll('.sode-log__table th')].map((h) => h.textContent).join(',')`).(string); heads != "Time,Message,Level,Destination,Source,Reason,Result,Bytes" {
 		t.Errorf("table heads %q", heads)
+	}
+
+	// An API row's reason is in words, not its code name (TestEveryLogReasonHasWords covers every why).
+	if !b.eval(`[...document.querySelectorAll('#log-rows .sode-log__why-text')].some((x) => x.textContent === 'API key made')`).(bool) {
+		t.Error("the keyCreate row does not say API key made")
 	}
 
 	// The filter rows share one label column: each row's first control starts on one edge.
