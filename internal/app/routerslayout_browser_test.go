@@ -63,7 +63,7 @@ func TestChromeSettingsRoutersLayout(t *testing.T) {
 		return new Set([...r.getClientRects()].filter((q) => q.width > 0).map((q) => Math.round(q.top))).size; })()`); n != 1.0 {
 		t.Errorf("the long title is %v lines", n)
 	}
-	want("chip title tip", `document.querySelector('#routers-list [data-router="`+u[0]+`"] .sode__rrow-title').title`, "Studio A Core Main Production XY")
+	want("chip title tip", `document.querySelector('#routers-list [data-router="`+u[0]+`"] .sode__rrow-title').dataset.pbTip`, "Studio A Core Main Production XY")
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
 	typeField(b, "cfg-rt-title", "Studio A")
 	b.waitFor("the title back", `document.getElementById('router-detail-name').textContent === 'A Studio A'`)

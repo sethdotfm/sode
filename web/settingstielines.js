@@ -378,7 +378,8 @@ function drawTools(rows, rts) {
   tools.replaceChildren(filter);
 }
 
-// While the find box has focus, its row of tools stays; only the counts and the pressed buttons change.
+// The find box is not in this row (the router filter). A key in it keeps the row: only the counts and the pressed
+// buttons change.
 function updateCounts(rows, rts) {
   const rc = routerCounts(rows, rts, F);
   for (const b of tools.querySelectorAll('[data-act^="router-"]')) {

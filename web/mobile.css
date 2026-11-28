@@ -590,8 +590,9 @@
   flex: 1 1 auto;
 }
 
-/* The Save bar's server path: the phone has no room for it, and a person cannot act on it there. */
-[data-layout="phone"] #settings-path {
+/* The Save bar's server path: the phone has no room for it, and a person cannot act on it there. The hint without the
+   path (Unsaved changes, Not saved) stays. */
+[data-layout="phone"] #settings-path.sode__path-shown {
   display: none;
 }
 /* Back's icon starts on the page edge: the margin takes back the button's padding and border. */

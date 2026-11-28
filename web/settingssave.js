@@ -237,6 +237,7 @@ function renderSaveState() {
   // The bdi keeps the path in its own order inside the code's right-to-left cut (base.css #settings-path).
   const path = S.configPath ? el('code', { 'data-pb-tip': S.configPath }, el('bdi', { dir: 'ltr' }, S.configPath)) : null;
   // The hint stays while the Exit warning shows, so the bar keeps its shape.
+  $('settings-path').classList.toggle('sode__path-shown', !dirty() && !!path);
   $('settings-path').replaceChildren(
     ...(dirty()
       ? ['Unsaved changes']
