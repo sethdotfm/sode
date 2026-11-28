@@ -171,7 +171,7 @@ function build() {
     ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => key(d, d)),
     key('Clear', 'clear', 'sode-lock__key--word'),
     key('0', '0'),
-    key('Del', 'back', 'sode-lock__key--word'),
+    key('Delete', 'back', 'sode-lock__key--word'),
     cancelBtn,
     checkKey,
   );

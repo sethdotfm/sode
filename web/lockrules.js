@@ -113,7 +113,7 @@ export const WELCOME_MS = 600;
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// Plain wrong PIN: "Incorrect" for WRONG_MS, then the dots; with a wait ("try again in 30s")
+// Plain wrong PIN: "Incorrect" for WRONG_MS, then the dots; with a wait ("try again in 30 seconds")
 // the wait is `note` under the field. Any other refusal stays whole in the field (ms 0 = until
 // the next key). Always text, never color alone.
 export function wrongFeedback(err) {

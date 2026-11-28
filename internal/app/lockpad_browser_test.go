@@ -137,6 +137,12 @@ func TestChromeLockPadLayout(t *testing.T) {
 	})()`); got != want {
 		t.Errorf("the Sign in key off is %v, want patchbay's disabled outline button %v", got, want)
 	}
+	// A1-18: words in full, and no key cuts its word.
+	if got := b.eval(`document.querySelector('.sode-lock__key[data-key="back"]').textContent`); got != "Delete" {
+		t.Errorf("the back key says %v, want Delete", got)
+	}
+	b.noClip("no key cuts its word", ".sode-lock__key")
+
 	// A1-10: the list drops over the pad and moves nothing. A1-28: six and a half rows of twelve.
 	listDrops := func(where string, rows float64) {
 		t.Helper()
