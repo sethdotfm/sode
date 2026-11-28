@@ -240,7 +240,8 @@ function track(scroller, axis, little, page) {
   }
 
   function decide(shown) {
-    part.want = shown && content() - view() > 1;
+    // The page scrolls with overflow visible on its root, so only an element scroller is tested. overflow: visible is a scroller that lets its content out whole (the Approval body while its name list is open): no bar, no gutter.
+    part.want = shown && content() - view() > 1 && (page || getComputedStyle(scroller)[y ? 'overflowY' : 'overflowX'] !== 'visible');
     gutter(part.want);
     if (bar.hidden !== !part.want) bar.hidden = !part.want;
     if (!part.want) geo = null;
