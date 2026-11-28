@@ -160,8 +160,8 @@ func TestChromeTipsClearOfTheirControl(t *testing.T) {
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
-	label := `label[for="cfg-lockout"]`
-	b.waitFor("the Confirm lockout label in the window", `(() => {
+	label := `label[for="cfg-proxies"]`
+	b.waitFor("the Trusted proxies label in the window", `(() => {
 		const l = document.querySelector('`+label+`');
 		if (!l?.offsetParent || !l.dataset.pbTip) return false;
 		l.scrollIntoView({ block: 'center', behavior: 'instant' });
@@ -170,7 +170,7 @@ func TestChromeTipsClearOfTheirControl(t *testing.T) {
 	})()`)
 	mouseTo(b, label)
 	b.waitFor("the label's tip over the label, clear of its box", tipShows(label)+` && `+tipBox+`.bottom <= document.querySelector('`+label+`').getBoundingClientRect().top && `+
-		tipClearOf(`[document.getElementById('cfg-lockout')]`))
+		tipClearOf(`[document.getElementById('cfg-proxies')]`))
 	b.shot("tip-label")
 	b.check()
 }
