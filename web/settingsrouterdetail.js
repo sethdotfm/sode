@@ -40,6 +40,7 @@ import {
   levelLabel,
   numberingRange,
   offsetNote,
+  problemText,
   protectsText,
   readValues,
   renumberDefault,
@@ -621,8 +622,7 @@ addSaveSource({
     else paintErrors(first.x);
     const f = first.a === 'levelNumbering' ? radio(first.x.text.levelNumbering) : inputOf(first.a);
     requestAnimationFrame(() => f?.focus());
-    const lines = bad.map((b) => `${nameOf(b.x)}: ${ATTR_LABELS[b.a]}. ${b.text}`);
-    return `${bad.length === 1 ? 'A setting has an error' : `${bad.length} settings have an error`}. ${lines.join(' ')}`;
+    return problemText(bad.map((b) => ({ name: nameOf(b.x), label: ATTR_LABELS[b.a], text: b.text })));
   },
   saved(key, value, r) {
     const attr = attrOf(key);

@@ -2063,11 +2063,21 @@ html[data-shift] .sode__next > .sode__next-open {
   gap: var(--pb-space-2) var(--pb-space-5);
 }
 #settings-path {
+  align-items: baseline;
+  column-gap: var(--pb-space-2);
+  display: flex;
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* A long path is cut at its start, so the file name shows. The bdi inside keeps the path's own order. */
+#settings-path > code {
+  direction: rtl;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
 }
 .sode__group > legend:has(+ .sode__hint) {
   margin-bottom: var(--pb-space-1);

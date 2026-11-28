@@ -147,7 +147,8 @@ func TestChromeSettingsRoutersLayout(t *testing.T) {
 }
 
 // routersShot saves a 1920x1080-page crop from the top of sel to the bottom of until (sel when blank), with a margin,
-// when SODE_BROWSER_SHOTS is set. Each finding gets its own file.
+// when SODE_BROWSER_SHOTS is set. Each finding gets its own file. The shot is of the viewport as it is. A capture
+// beyond the viewport lays the page out again at full height, so a fixed dialog or a sticky bar moves.
 func routersShot(b *tab, id, sel, until string) {
 	b.t.Helper()
 	dir := os.Getenv("SODE_BROWSER_SHOTS")
@@ -160,7 +161,8 @@ func routersShot(b *tab, id, sel, until string) {
 	s, _ := json.Marshal(sel)
 	e, _ := json.Marshal(until)
 	b.eval(`document.querySelector(` + string(s) + `).scrollIntoView({ block: 'center', behavior: 'instant' }); true`)
-	b.eval(`new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))`)
+	// A dialog that slides in is measured where it stops. A spinner never stops, so it is not waited for.
+	b.eval(`Promise.all(document.getAnimations().filter((x) => x.effect?.getTiming().iterations !== Infinity).map((x) => x.finished.catch(() => {}))).then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))`)
 	raw, _ := json.Marshal(b.eval(`(() => {
 		const a = document.querySelector(` + string(s) + `).getBoundingClientRect(), z = document.querySelector(` + string(e) + `).getBoundingClientRect();
 		const top = Math.min(a.top, z.top) - 16, bottom = Math.max(a.bottom, z.bottom) + 16;
@@ -170,7 +172,7 @@ func routersShot(b *tab, id, sel, until string) {
 	var clip map[string]any
 	_ = json.Unmarshal(raw, &clip)
 	var r struct{ Data []byte }
-	_ = json.Unmarshal(b.call("Page.captureScreenshot", map[string]any{"format": "png", "clip": clip}), &r)
+	_ = json.Unmarshal(b.call("Page.captureScreenshot", map[string]any{"format": "png", "clip": clip, "captureBeyondViewport": false}), &r)
 	_ = os.MkdirAll(dir, 0o755)
 	_ = os.WriteFile(filepath.Join(dir, id+".png"), r.Data, 0o644)
 }

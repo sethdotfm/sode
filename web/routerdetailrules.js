@@ -224,6 +224,18 @@ export function addText(v) {
 // The list shows a find box and the problem filter from this many routers.
 export const FIND_FROM = 8;
 
+// problemText: the Save error line for router settings with an error. bad: [{name, label, text}], name as
+// routerDisplay gives it ("A Studio A", or "Router B" with no title), text the field's error sentence. One sentence for
+// each error: the router and the setting, then what to do.
+export function problemText(bad) {
+  if (!bad.length) return '';
+  const lines = bad.map((b) => {
+    const who = /^Router /.test(b.name) ? b.name : `Router ${b.name}`;
+    return `${who}, ${b.label}: ${b.text.charAt(0).toLowerCase()}${b.text.slice(1)}`;
+  });
+  return [...(bad.length > 1 ? [`${bad.length} settings have an error.`] : []), ...lines].join(' ');
+}
+
 // The line above the list: "4 routers. 3 connected, 1 down." keys: the linkState key of each saved router. A key is
 // null when Sode does not know the state (no server link). added: the routers to add, which the line counts as not
 // saved. One router has the line too, so Add router is not alone on the bar.

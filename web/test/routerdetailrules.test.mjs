@@ -15,6 +15,7 @@ import {
   valueText,
   addText,
   countLine,
+  problemText,
   tryWhy,
   findMatch,
   hasProblem,
@@ -174,4 +175,16 @@ test('tryWhy: operator words for a failed Address try', () => {
   assert.equal(tryWhy('dial tcp 10.0.0.50:8910: i/o timeout'), 'No answer from this address.');
   assert.equal(tryWhy('no answer from the router: check the address and the port'), '');
   assert.equal(tryWhy(''), '');
+});
+
+test('problemText: the Save error names the router and the setting, then says what to do, in one sentence each', () => {
+  const addr = { name: 'A Studio A Core', label: 'Address', text: 'Enter the address as host:port, for example 10.0.0.50:8910.' };
+  assert.equal(problemText([]), '');
+  assert.equal(problemText([addr]), 'Router A Studio A Core, Address: enter the address as host:port, for example 10.0.0.50:8910.');
+  assert.equal(
+    problemText([addr, { name: 'B Stage', label: 'Matrix', text: 'Enter a number from 1 to 16.' }]),
+    '2 settings have an error. Router A Studio A Core, Address: enter the address as host:port, for example 10.0.0.50:8910. Router B Stage, Matrix: enter a number from 1 to 16.',
+  );
+  // A router with no title shows "Router B": no doubled word.
+  assert.ok(problemText([{ ...addr, name: 'Router B' }]).startsWith('Router B, Address: enter'));
 });

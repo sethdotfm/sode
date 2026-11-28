@@ -11,7 +11,18 @@ import { requesting, cancelRequest } from './approvalcards.js';
 import { toGlobal } from './prefs.js';
 import { reviewSave } from './savereview.js';
 import { askInterruptions, initInterruptions } from './interruptions.js';
-import { SAVE_FIELDS, diffRows, showValue, refusalNote, reconnects, reconnectTargets, reconnectQuestion, critical, sectionOfKey } from './savereviewrules.js';
+import {
+  SAVE_FIELDS,
+  diffRows,
+  showValue,
+  refusalNote,
+  reconnects,
+  reconnectTargets,
+  reconnectQuestion,
+  critical,
+  sectionOfKey,
+  unsavedWords,
+} from './savereviewrules.js';
 import { routerDisplay, listKey } from './routerlistrules.js';
 import { saveSources, sourceOf } from './savesources.js';
 import { noteAuthors, rowId, splitSeen, sentKeys, unseenNotes, namesAuthors } from './stagedrules.js';
@@ -188,7 +199,7 @@ function unsavedText() {
   const names = sections()
     .filter((fs) => slugs.has(fs.dataset.section))
     .map(sectionName);
-  return [...(names.length ? [`Unsaved changes in ${names.join(', ')}`] : []), ...unseenNotes(unseen, by)].join('. ');
+  return [unsavedWords(names), ...unseenNotes(unseen, by).map((t) => `${t}.`)].filter(Boolean).join(' ');
 }
 
 export function markClean(saved) {
@@ -220,14 +231,14 @@ export function unwarn() {
 }
 
 function renderSaveState() {
-  const path = S.configPath ? el('code', null, S.configPath) : null;
+  // The bdi keeps the path in its own order inside the code's right-to-left cut (base.css #settings-path).
+  const path = S.configPath ? el('code', { 'data-pb-tip': S.configPath }, el('bdi', { dir: 'ltr' }, S.configPath)) : null;
+  // The hint stays while the Exit warning shows, so the bar keeps its shape.
   $('settings-path').replaceChildren(
     ...(dirty()
-      ? warned()
-        ? []
-        : ['Unsaved changes']
+      ? ['Unsaved changes']
       : !path
-        ? [savedAt ? `Applied ${fmtTime(savedAt)}; not saved: ` : 'Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']
+        ? [savedAt ? `Applied ${fmtTime(savedAt)}. Not saved to the file: ` : 'Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']
         : savedAt
           ? [`Saved ${fmtTime(savedAt)} to `, path]
           : ['Saved to ', path]),

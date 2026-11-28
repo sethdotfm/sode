@@ -104,8 +104,8 @@ func TestChromeReviewNamesEveryRouter(t *testing.T) {
 	b.waitFor("the error line names both routers, and A's field shows its error", `(() => {
 		const e = document.getElementById('settings-err');
 		const t = e.textContent;
-		return !e.hidden && t.startsWith('2 settings have an error.') && t.includes('A Studio A: Address. Enter the address as host:port')
-			&& t.includes('B Stage 2: Address.') && !document.getElementById('review')?.offsetParent
+		return !e.hidden && t.startsWith('2 settings have an error.') && t.includes('Router A Studio A, Address: enter the address as host:port')
+			&& t.includes('Router B Stage 2, Address: enter') && !document.getElementById('review')?.offsetParent
 			&& document.querySelector('#routers-list [aria-selected="true"]')?.dataset.router === '`+routerUIDs(a)[0]+`'
 			&& document.querySelector('.sode__field-err')?.textContent.startsWith('Enter the address');
 	})()`)
