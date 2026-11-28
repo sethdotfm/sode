@@ -131,7 +131,9 @@ html {
 :where(:root:not([data-layout="phone"]) #patch-view) .pb-btn--icon:where(:not(#history *)) {
   width: var(--sode-h-action);
 }
-:where(:root:not([data-layout="phone"]) #patch-view) .sode__search-box {
+/* The History filter boxes and their clear button are an action high, as Filters is. Not in :where(), so the touch
+   screen height (touch.css) does not take them below the row's buttons. */
+:root:not([data-layout="phone"]) #patch-view .sode__search {
   --sode-search-h: var(--sode-h-action);
 }
 @media (prefers-reduced-motion: reduce) {

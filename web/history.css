@@ -603,8 +603,10 @@
 .sode__search > .sode__hint:empty {
   display: none;
 }
+/* --sode-search-h is the height of the filter boxes and their clear button. It is set on .sode__search, so the clear
+   button gets it too: an action on the desktop patch page (base.css), patchbay's control height on a touch screen
+   (touch.css). With no value the boxes are small. */
 .sode__search-box {
-  --sode-search-h: var(--pb-control-h-sm);
   display: flex;
   flex: 0 1 15em;
   min-width: 0;
@@ -615,7 +617,7 @@
   border-color: transparent transparent var(--pb-edge-soft);
   flex: 1;
   font-size: var(--pb-text-sm);
-  height: var(--sode-search-h);
+  height: var(--sode-search-h, var(--pb-control-h-sm));
   min-width: 0;
 }
 .sode__search-box > .pb-input:hover,
@@ -628,7 +630,7 @@
   border-color: var(--pb-status-error);
 }
 .sode__search-box > .sode__menu {
-  top: var(--sode-search-h);
+  top: var(--sode-search-h, var(--pb-control-h-sm));
   z-index: var(--pb-z-dropdown);
 }
 @media (max-width: 599.98px) {
@@ -712,7 +714,7 @@ html[data-alt] .sode__chip-key {
   display: none;
 }
 .sode__search-box > .sode__key-note {
-  top: calc(var(--sode-search-h) / 2);
+  top: calc(var(--sode-search-h, var(--pb-control-h-sm)) / 2);
 }
 .pb-chip.sode__search-chip {
   font-size: var(--pb-text-xs);
