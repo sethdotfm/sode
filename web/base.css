@@ -1612,6 +1612,10 @@ html {
 .sode__fields > .sode__refused {
   grid-column: 1 / -1;
 }
+#cfg-colors-err {
+  color: var(--pb-status-error);
+  margin: 0;
+}
 .sode__preset-mark {
   margin-inline-start: var(--pb-space-3);
   vertical-align: middle;

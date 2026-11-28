@@ -108,7 +108,7 @@ export function formProblem(c) {
   const badColor = [...$('cfg-colors').querySelectorAll('input.pb-input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) return { text: `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`, node: badColor };
   const hidden = parseFilter(c.hiddenDsts);
-  if (hidden.error) return { text: `Globally hidden destinations: ${hidden.error}.`, node: $('cfg-hidden') };
+  if (hidden.error) return { text: `Hidden destinations in History: ${hidden.error}.`, node: $('cfg-hidden') };
   const bad = [...fields()].find((f) => intProblem([{ key: f.dataset.key, type: f.dataset.type, value: f.value }]));
   if (bad) return { text: `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`, node: bad };
   return null;
@@ -178,11 +178,20 @@ function renderColors(vals) {
     f.addEventListener('input', () => {
       preview(slot, ui, f.value);
       f.classList.toggle('pb-input--invalid', f.value.trim() !== '' && !HEX.test(f.value.trim()));
+      renderColorsError();
     });
     preview(slot, ui, f.value);
     rows.push(el('div', 'sode__color', slot, f, colorPick(f)));
   }
   $('cfg-colors').replaceChildren(...rows);
+  renderColorsError();
+}
+
+// The focus ring hides the invalid outline and the swatch falls back to the default, so a bad color says so at once.
+function renderColorsError() {
+  const bad = $('cfg-colors').querySelector('input.pb-input--invalid');
+  $('cfg-colors-err').hidden = !bad;
+  $('cfg-colors-err').textContent = bad ? `${bad.getAttribute('aria-label')} must be hex, like #3a7bd5.` : '';
 }
 
 export function renderHiddenNote() {
