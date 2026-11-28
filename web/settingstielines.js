@@ -74,13 +74,15 @@ const rowOf = (t) => ({
 });
 
 // The cell of one end: the number and the name, and the Router title under them.
+// A long name ends in an ellipsis, so its tip gives the whole text.
 function endCell(e) {
   const rd = routerData(e.router);
+  const title = rd.title || `Router ${rd.prefix}`;
   return el(
     'span',
     'sode__tend',
-    el('span', 'sode__tend-line', el('span', 'sode__tend-n', e.num), e.name ? ` ${e.name}` : ''),
-    el('span', 'sode__tend-title', rd.title || `Router ${rd.prefix}`),
+    el('span', { class: 'sode__tend-line', 'data-pb-tip': `${e.num}${e.name ? ` ${e.name}` : ''}` }, el('span', 'sode__tend-n', e.num), e.name ? ` ${e.name}` : ''),
+    el('span', { class: 'sode__tend-title', 'data-pb-tip': title }, title),
   );
 }
 
@@ -93,15 +95,16 @@ function stateCell(r) {
     parts.push(el('span', 'sode__tstate-lost', icon('circle-x'), el('span', null, words)));
   } else {
     const c = carries(routerData(r.from.router).tally.get(r.from.n));
+    // The carried number and name wrap as one unit below "Carries", never one character alone.
     const text =
       c.kind === 'one'
-        ? `Carries ${tallyText(c.src, r.from.router)}`
+        ? ['Carries ', el('span', 'sode__tstate-src', tallyText(c.src, r.from.router))]
         : c.kind === 'nothing'
           ? 'Carries nothing'
           : c.kind === 'mixed'
             ? 'Carries mixed sources'
             : 'Not known';
-    parts.push(el('span', 'sode__tstate-carries', text));
+    parts.push(el('span', 'sode__tstate-carries', ...[text].flat()));
   }
   // Name moved: the tie line works on. Edit and Save tie line store the names now.
   const moved = movedLines(r.t, shownEnd);

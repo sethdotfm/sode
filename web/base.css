@@ -1069,7 +1069,8 @@ html {
   border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
   display: grid;
   gap: 0 var(--pb-space-4);
-  grid-template-columns: 5rem minmax(7rem, 1.2fr) 6rem minmax(10rem, 1.6fr) minmax(5rem, auto);
+  /* A fixed last track, so a wider last cell (Try again after a failed Free) moves no column of its row. */
+  grid-template-columns: 5rem minmax(7rem, 1.2fr) 6rem minmax(10rem, 1.6fr) 6rem;
   min-height: 2.5rem;
   padding: var(--pb-space-1) var(--pb-space-3);
 }
@@ -1240,7 +1241,8 @@ html {
   border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
   display: grid;
   gap: var(--pb-space-1) var(--pb-space-4);
-  grid-template-columns: minmax(6rem, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  /* A fixed last track: the head's empty cell and a row's Edit and Remove give every row the same columns. */
+  grid-template-columns: minmax(6rem, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 7rem;
   min-height: 3rem;
   padding: var(--pb-space-2) var(--pb-space-3);
 }
@@ -1279,6 +1281,15 @@ html {
 .sode__tend-title {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-sm);
+}
+.sode__tend-line,
+.sode__tend-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode__tstate-src {
+  white-space: nowrap;
 }
 .sode__tstate-lost {
   align-items: center;
