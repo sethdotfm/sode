@@ -14,10 +14,10 @@
   column-gap: var(--pb-space-6);
   display: grid;
   /* Three groups of one width: Source, Destination with +, and Levels with Take and Clear. The arrow is between the
-     first two. An empty track makes the space between the last two space-8; a margin would make Levels narrower. The
-     last group is never narrower than its controls, so on a narrow window (below about 1100 px) it is wider than the
-     other two. */
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) calc(var(--pb-space-8) - var(--pb-space-6)) minmax(min-content, 1fr);
+     first two. An empty track as wide as the arrow makes the space between the last two the same; a margin would make
+     Levels narrower. The last group is never narrower than its controls, so on a narrow window (below about 1100 px)
+     it is wider than the other two. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) var(--sode-h-action) minmax(min-content, 1fr);
   /* No row gap, so an empty row of routes under the boxes adds no height (.sode__under has the gap). */
   row-gap: 0;
   width: 100%;
