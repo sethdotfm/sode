@@ -367,7 +367,7 @@ function drawTools(rows, rts) {
     sel.addEventListener('change', () => pick(sel.value)());
     filter = el('span', 'pb-select-wrap', sel);
   }
-  tools.replaceChildren(find, filter);
+  tools.replaceChildren(filter);
 }
 
 // While the find box has focus, its row of tools stays; only the counts and the pressed buttons change.
@@ -391,6 +391,8 @@ const find = el('input', {
   'aria-label': 'Find a tie line',
 });
 find.autocomplete = 'off';
+// The find box is on the row of Add tie line; the router filter is on the next row, with the count.
+newBtn.after(find);
 find.addEventListener('input', () => {
   F.q = find.value;
   draw();

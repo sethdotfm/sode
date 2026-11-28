@@ -1042,6 +1042,11 @@ html {
   justify-content: space-between;
   margin: var(--pb-space-3) 0;
 }
+/* Add tie line and the find box: one row above the .sode__pbar row of the router filter. */
+.sode__ptools--top {
+  align-items: flex-start;
+  margin-top: var(--pb-space-3);
+}
 .sode__pfind {
   max-width: 20rem;
 }
