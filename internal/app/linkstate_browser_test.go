@@ -32,7 +32,7 @@ func TestChromeDegradedRouter(t *testing.T) {
 	b.waitFor("Degraded: the Routers icon is amber and counts router B", states+` === 'warn' && document.querySelector('#conn-routers .sode__conn-open').textContent === '1 of 2 down'`)
 	b.waitFor("the note names router B and its destinations", `(() => {
 		const n = document.getElementById('conn-degraded');
-		return !n.hidden && n.classList.contains('pb-note--warn') && /Router B .*is down\. You cannot patch its \d+ destinations now: B\.1 /.test(n.textContent);
+		return !n.hidden && n.classList.contains('pb-alert--warn') && /Router B .*is down\. You cannot patch its \d+ destinations now: B\.1 /.test(n.textContent);
 	})()`)
 	if b.eval(`!document.getElementById('conn-down').hidden || document.documentElement.dataset.conn !== 'up'`).(bool) {
 		t.Fatal("the Lost link banner shows while Sode is Degraded")

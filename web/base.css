@@ -909,7 +909,7 @@ html {
     left: max(var(--pb-space-4), calc(50% - var(--sode-page-bar) / 2 - 20rem - 12.5rem - var(--pb-space-8)));
     overflow-x: hidden;
     position: fixed;
-    top: calc(10vh + var(--sode-down-h, 0px));
+    top: calc(10vh + var(--sode-down-h, 0px) + var(--sode-notsaved-h, 0px));
     width: 12.5rem;
   }
   .sode__toc .pb-tab {
@@ -1710,11 +1710,10 @@ html {
   display: inline-flex;
   gap: var(--pb-space-1);
 }
-.sode__notsaved .pb-chip {
-  background: color-mix(in srgb, var(--pb-status-warn-fill) 70%, black);
-  border-color: transparent;
-  color: white;
-  text-decoration: none;
+/* The banner's own dark text on its warn fill, in both themes. */
+.sode__notsaved .pb-btn {
+  border-color: currentColor;
+  color: inherit;
   white-space: nowrap;
 }
 .sode__lock-help > p {
