@@ -7,7 +7,7 @@ import { statusText } from './statustext.js';
 import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
 import { layout, onLayout } from './layout.js';
-import { restoring, restorePage, wireRestore } from './setuprestore.js';
+import { restoring, restorePage, leaveRestore, wireRestore } from './setuprestore.js';
 import { pinShow } from './pinshow.js';
 import { levelPicks } from './levelbox.js';
 import {
@@ -372,6 +372,7 @@ const KEYS = {
 };
 
 function render(focus) {
+  leaveRestore();
   const step = STEPS[at][0];
   renderSteps();
   const [title, ...body] = VIEW[step]();

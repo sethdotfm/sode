@@ -76,3 +76,49 @@ func TestChromeSetupRestore(t *testing.T) {
 	}
 	signInToken(t, a, "Ada", "97531")
 }
+
+// The wizard draws again while the restore PIN page shows (another browser took control, then this one takes it
+// back). Back and Next must then belong to the wizard, not to the old restore page.
+func TestChromeSetupRestoreLeftByRedraw(t *testing.T) {
+	b := startBrowser(t)
+	_, file := backupOf(t, false)
+	a := setupApp(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	b.open(srv.URL + "/")
+	b.waitFor("Welcome", `document.getElementById('setup-title').textContent === 'Set up Sode'`)
+	b.waitFor("Restore from a backup", `!document.getElementById('setup-restore').hidden && !document.getElementById('setup-restore').disabled`)
+	b.eval(fmt.Sprintf(`(() => {
+		const u8 = Uint8Array.from(atob('%s'), (c) => c.charCodeAt(0));
+		const dt = new DataTransfer();
+		dt.items.add(new File([u8], 'backup.zip', { type: 'application/zip' }));
+		const inp = document.getElementById('setup-restore-file');
+		inp.files = dt.files;
+		inp.dispatchEvent(new Event('change'));
+		return true;
+	})()`, base64.StdEncoding.EncodeToString(file)))
+	b.waitFor("the PIN page", `!!document.getElementById('setup-restore-pin')`)
+	b.waitFor("a muted reason while Restore is off", `document.getElementById('setup-next').disabled
+		&& document.getElementById('setup-err').textContent !== '' && document.getElementById('setup-err').classList.contains('is-hint')`)
+
+	other := dialPeer(t, a)
+	if r := other.ask("setupClaim", 1, map[string]any{"take": true}); r["ok"] != true {
+		t.Fatalf("the other browser's claim: %v", r)
+	}
+	b.waitFor("Take control", `!!document.getElementById('setup-take')?.offsetParent`)
+	b.eval(`document.getElementById('setup-take').click(); true`)
+	b.waitFor("the wizard on Welcome", `!!document.getElementById('setup-dialog').offsetParent && document.getElementById('setup-title').textContent === 'Set up Sode' && !document.getElementById('setup-restore-pin')`)
+	for id, text := range map[string]string{"setup-name": "Ada", "setup-pin": "2468", "setup-pin2": "2468"} {
+		b.eval(`(() => { const i = document.getElementById('` + id + `'); i.focus(); i.value = '` + text + `'; i.dispatchEvent(new Event('input', {bubbles: true})); return true; })()`)
+	}
+	b.waitFor("Next is on", `!document.getElementById('setup-next').disabled`)
+	b.eval(`document.getElementById('setup-next').click(); true`)
+	b.waitFor("Next goes to the Router step", `!document.getElementById('setup-back').hidden && !document.getElementById('setup-restore-pin')`)
+	b.eval(`document.getElementById('setup-back').click(); true`)
+	b.waitFor("Back goes to Welcome", `document.getElementById('setup-title').textContent === 'Set up Sode'`)
+}

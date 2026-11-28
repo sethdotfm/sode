@@ -17,6 +17,10 @@ let page = null; // the restore page while it shows: {next(), back(), check()} f
 export const restoring = () => busy;
 // setupwizard.js sends its Back and Next clicks here while the restore page shows.
 export const restorePage = () => page;
+// The wizard draws a step again (Take control, Run setup again): the old restore handlers must not catch Back and Next.
+export const leaveRestore = () => {
+  page = null;
+};
 
 async function restoreKey() {
   const m = await request('setupRestoreKeyResult', { t: 'setupRestoreKey' });
@@ -123,6 +127,7 @@ function askPin(file, text) {
     { label: 'Restore', go, check },
     back,
   );
+  say(problem(), 'hint'); // Restore is off, so the page says why
   pin.focus();
 }
 
