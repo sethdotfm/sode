@@ -1648,3 +1648,10 @@ html:has(.sode-gridpanel) {
 .sode-gridpanel__head[data-empty] {
   visibility: hidden;
 }
+/* A take confirm's route line (gridpanelconfirm.js takeRows): words, led by a level bar only when the lines' levels
+   differ. */
+.sode-gridpanel__plan-row {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-4);
+}
