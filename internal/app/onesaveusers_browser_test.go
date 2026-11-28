@@ -38,8 +38,8 @@ func TestChromeOneSaveOfUsersAndAPI(t *testing.T) {
 	})()`); got != true {
 		t.Fatal("Ana's own PIN can be edited in Manage users")
 	}
-	if got := b.eval(`[...document.querySelectorAll('.sode__users-dlg .pb-modal__footer button')].map((x) => x.textContent).join(',')`); got != "Done" {
-		t.Fatalf("dialog footer buttons %q, want only Done", got)
+	if got := b.eval(`[...document.querySelectorAll('.sode__users-dlg .pb-modal__footer button')].map((x) => x.textContent).join(',')`); got != "Close" {
+		t.Fatalf("dialog footer buttons %q, want only Close", got)
 	}
 	b.eval(`(() => {
 		const d = document.querySelector('.sode__users-dlg');
@@ -49,7 +49,7 @@ func TestChromeOneSaveOfUsersAndAPI(t *testing.T) {
 		const set = (sel, v) => { const f = row.querySelector(sel); f.value = v; f.dispatchEvent(new Event('input', { bubbles: true })); };
 		set('input[data-field="name"]', 'Cy');
 		set('input[data-field="pin"]', '5678');
-		[...d.querySelectorAll('button')].find((x) => x.textContent === 'Done').click();
+		[...d.querySelectorAll('button')].find((x) => x.textContent === 'Close').click();
 		return true;
 	})()`)
 	b.waitFor("dialog closed, change kept", `!document.querySelector('.sode__users-dlg')?.offsetParent && document.getElementById('settings-path').textContent.includes('Unsaved changes')`)

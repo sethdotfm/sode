@@ -185,7 +185,7 @@ tName.setAttribute('aria-label', 'Set name');
 const tNote = el('span', 'sode__hint');
 tNote.setAttribute('role', 'status');
 tNote.setAttribute('aria-live', 'polite');
-const tSave = el('button', 'pb-btn pb-btn--commit', 'Save');
+const tSave = el('button', 'pb-btn sode-btn--primary', 'Save');
 tSave.type = 'button';
 const tBar = el('div', 'sode__filters-set', labeled('Name', tName), tNote);
 tBar.hidden = true;

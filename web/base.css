@@ -655,6 +655,17 @@ html {
 #confirm .pb-modal__footer {
   align-items: center;
 }
+/* Dialog footers (modal.js) follow patchbay: Cancel left, confirm right. patchbay's space-between puts a lone button on
+   the left, so a lone Close or confirm goes to the right here, in every dialog, with no empty span before it. */
+.pb-modal__footer > :only-child {
+  margin-inline-start: auto;
+}
+/* :only-child counts hidden siblings. A footer whose buttons show by state puts its note first and Close with the
+   other buttons in this group, so Close is on the right alone and left of the confirm. */
+.sode__foot-end {
+  display: flex;
+  gap: var(--pb-space-3);
+}
 /* The main action of a form or dialog: a pb-btn filled with the accent, as patchbay's selected button, so its text
    passes contrast. Green is for routed only (docs/color-roles.md). Meant to move into patchbay. */
 .pb-btn.sode-btn--primary {

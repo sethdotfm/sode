@@ -90,7 +90,7 @@ function build() {
   clear.type = 'button';
   clear.id = 'tiepick-clear';
   clear.textContent = 'Clear this route';
-  const cancel = el('button', 'pb-btn pb-btn--outline');
+  const cancel = el('button', 'pb-btn pb-btn--outline sode-tiepick__cancel');
   cancel.type = 'button';
   cancel.id = 'tiepick-cancel';
   cancel.textContent = 'Cancel';

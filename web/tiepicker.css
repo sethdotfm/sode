@@ -178,6 +178,10 @@
   height: var(--sode-h-action);
   min-width: 8rem;
 }
+/* Cancel has the height of Take beside it, so the footer has one button height. */
+.pb-btn.sode-tiepick__cancel {
+  height: var(--sode-h-action);
+}
 /* The place of the route in a take with more than one route across routers (tieflow.js). */
 .sode-tiepick__count {
   color: var(--pb-text-muted);

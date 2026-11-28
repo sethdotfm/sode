@@ -84,7 +84,7 @@ export function openShare(panel, ctx) {
     title: `Share ${panel.name}`,
     cls: 'sode-ov__share',
     body: [tabs.node, ...items.map((i) => i.panel)],
-    foot: [note, btn('pb-btn--outline', 'Cancel', () => close()), saveBtn],
+    foot: [btn('pb-btn--outline', 'Cancel', () => close()), note, saveBtn],
   });
   const { root } = q;
   const close = () => q.close(null);

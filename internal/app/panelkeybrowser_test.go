@@ -116,7 +116,8 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	shownKey := func() string {
 		b.waitFor("the key dialog", `document.querySelector('.sode-ov__keyshow .sode__secret-key')?.value.startsWith('`+keyPrefix+`') && !!document.querySelector('.sode-ov__keyshow .sode__qr')`)
 		k, _ := b.eval(`document.querySelector('.sode-ov__keyshow .sode__secret-key').value`).(string)
-		b.eval(`[...document.querySelectorAll('.sode-ov__keyshow button')].find(x => x.textContent.trim() === 'Done').click()`)
+		footAt(b, "API key", ".sode-ov__keyshow", ".pb-btn--outline", true)
+		b.eval(`[...document.querySelectorAll('.sode-ov__keyshow button')].find(x => x.textContent.trim() === 'Close').click()`)
 		b.waitFor("the key dialog is gone", `!document.querySelector('.sode-ov__keyshow')`)
 		return k
 	}

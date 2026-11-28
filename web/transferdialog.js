@@ -59,7 +59,8 @@ export function transferDialog({ id, cls, own = false, api, newPick, bodyOf, dra
     title: TITLE,
     cls: `pb-modal--md ${cls}`,
     body: [tabs.node, exportPanel, importer.panel, phone],
-    foot: [btn('pb-btn--outline', 'Close', close, `${id}-close`), note, exportActs, importer.acts],
+    // The note holds the left, so a lone Close is on the right, and Close stays left of the confirm.
+    foot: [note, btn('pb-btn--outline', 'Close', close, `${id}-close`), exportActs, importer.acts],
     onEsc: close,
   });
 

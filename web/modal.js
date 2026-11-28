@@ -13,6 +13,7 @@ export function modal({ titleId, title, cls = '', rootCls = '', rootId, dialogId
     { class: `pb-modal ${cls}`.trim(), id: dialogId, ...dialogAttrs(titleId), 'aria-describedby': describedBy },
     el('div', `pb-modal__header ${headCls}`.trim(), titleEl, ...head),
     ...(Array.isArray(body) ? (body.length ? [el('div', 'pb-modal__body', ...body)] : []) : [body]),
+    // Cancel first, the confirm last; a lone button goes right (base.css .pb-modal__footer > :only-child).
     el('div', 'pb-modal__footer', ...foot),
   );
   const root = el('div', { class: `pb-modal-backdrop sode__scrim ${rootCls}`.trim(), id: rootId, hidden: true }, dialog);

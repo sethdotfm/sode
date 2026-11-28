@@ -449,7 +449,7 @@
   gap: var(--pb-space-3);
   justify-content: flex-end;
 }
-.sode__filters .pb-modal__footer > :first-child {
+.sode__filters .pb-modal__footer > :first-child:not(:only-child) {
   margin-right: auto;
 }
 
@@ -791,9 +791,6 @@ html[data-alt] .sode__chip-key {
 .sode__preset-pop {
   display: flex;
   flex-direction: column;
-}
-.sode__preset-pop > .pb-modal__footer {
-  justify-content: flex-end;
 }
 .sode__preset-list {
   display: flex;
