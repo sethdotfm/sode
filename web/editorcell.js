@@ -38,7 +38,9 @@ export function createCellTab(ed, { picked }) {
   caption.id = 'ed-cell-caption';
   caption.maxLength = CAPTION_MAX;
   caption.autocomplete = 'off';
-  const captionField = field('ed-cell-caption', 'Text override', caption);
+  const captionField = field('ed-cell-caption', 'Text on the cell', caption);
+  const captionHint = el('span', 'sode__hint');
+  captionField.append(captionHint);
   const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => patch({ levels: v }, null, LEVEL_KINDS) });
   const levelNote = el('span', 'sode__hint');
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Levels'), levelBoxes.node, levelNote);
@@ -186,6 +188,7 @@ export function createCellTab(ed, { picked }) {
       ? `${cs.length} ${oneKind ? `${kindLabel(first.kind)} ` : ''}cells selected`
       : `${kindLabel(c.kind)}, row ${c.r}, column ${c.c}`;
     captionField.hidden = sizeRow.hidden = false;
+    captionHint.textContent = cs.every((x) => x.kind === 'source' || x.kind === 'destination') ? 'Empty shows the router name.' : '';
     caption.placeholder = several && same(cs, 'caption') === '' && cs.some((x) => x.caption) ? 'Several values' : '';
     put(caption, same(cs, 'caption'), fresh);
     put(size, String(same(cs, 'fontSize') || 100), fresh); // shown, so the arrows step from the default

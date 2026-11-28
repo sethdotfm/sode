@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// The Buttons panel editor at 1920x1080: the Pages column and the grid start on one line, the sidebar keeps one width
-// between tabs, its labels are one size and its words follow the glossary, and an Info cell's text stays in its
-// square at 960 px.
+// The Buttons panel editor at 1920x1080. The Pages column and the grid start on one line. The sidebar keeps one
+// width between tabs, and its labels are one size. At 960 px an Info cell's text stays in its square.
 func TestChromePanelEditorButtonsLayout(t *testing.T) {
 	b, _, _, id := editorTab(t, `{"name":"Studio A","acts":"both","pages":[{"id":"p1","name":"Main","enabled":true,"cells":[
 		{"r":1,"c":1,"rs":1,"cs":1,"kind":"info"},
@@ -94,7 +93,7 @@ func TestChromePanelEditorButtonsLayout(t *testing.T) {
 	b.eval(`document.activeElement.blur(); true`)
 	b.shotOf("access", "#ed-side")
 	accessText := text(`document.getElementById('panel-ed-access').textContent`)
-	for _, want := range []string{"API client: Panel " + id + ". Its Rights:", "Limit the Rights of this panel", "Shared with: Only me"} {
+	for _, want := range []string{"API client: Panel " + id + ". Its Rights:", "Limit the Rights of this panel", "Shared with: Only the owner"} {
 		if !strings.Contains(accessText, want) {
 			t.Errorf("the Access tab lacks %q in %q", want, accessText)
 		}

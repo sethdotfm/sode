@@ -69,7 +69,7 @@ export function createFixedField(ed) {
     hi = Math.max(0, Math.min(hi, results.length - 1));
     found.hidden = !open;
     input.setAttribute('aria-expanded', String(open));
-    note.textContent = full ? `At most ${FIXED_MAX} fixed destinations.` : chosen().length ? '' : 'Off';
+    note.textContent = full ? `At most ${FIXED_MAX} fixed destinations.` : chosen().length ? '' : 'None. The panel shows the destination that a person presses.';
     if (!open) return;
     const rows = results.slice(0, SHOWN).map((e, i) => {
       const li = el(
