@@ -2051,12 +2051,6 @@ html[data-shift] .sode__next > .sode__next-open {
   display: flex;
   gap: var(--pb-space-3);
 }
-.sode__chipbox {
-  border: var(--pb-border-w) solid var(--pb-edge);
-  color: var(--pb-text-muted);
-  font-size: var(--pb-text-xs);
-  padding: var(--pb-space-2) var(--pb-space-3);
-}
 
 /* Label, select and the my-default buttons line up in three columns; a subgrid keeps each .sode__field one box. */
 :root:not([data-layout="phone"]) .sode__prefgrid {
