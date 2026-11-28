@@ -29,7 +29,7 @@ func TestChromeSettingsRouterAddressTry(t *testing.T) {
 	}
 	typeField(b, "cfg-rt-address", closedAddr(t))
 	b.waitFor("the failure and why, in operator words", try+`.textContent === 'No answer yet. Sode keeps trying.The router refused the connection.'
-		&& `+try+`.querySelector('[title*="connection refused"]')?.textContent === 'The router refused the connection.'`)
+		&& `+try+`.querySelector('[data-pb-tip*="connection refused"]')?.textContent === 'The router refused the connection.'`)
 	routersShot(b, "B1-19", `[data-group="connection"]`, "")
 	if rc := a.r().cfg.DefaultRouter(); rc.Address != simA {
 		t.Fatalf("router A moved to %q", rc.Address)

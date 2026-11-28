@@ -1,6 +1,8 @@
 package app
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -92,13 +94,13 @@ func TestChromeSettingsPathKeepsFileName(t *testing.T) {
 	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Role = config.RoleAdministrator })
+	// A real long path: the field only shows it, and nothing writes to it before Save.
+	a.cfgPath = filepath.Join(settledTempDir(t), strings.Repeat("long-folder-name/", 25), "config.yaml")
 	srv := seamServer(t, a)
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
 	signInSettings(b)
 	b.waitFor("the path", `!!document.querySelector('#settings-path code')`)
-	// Narrow the slot until the path does not fit.
-	b.eval(`document.getElementById('settings-path').style.maxWidth = '14rem'; true`)
 	routersShot(b, "B1-31", ".sode__savebar-row", "")
 	ends := b.eval(`(() => {
 		const code = document.querySelector('#settings-path code');
@@ -151,6 +153,11 @@ func TestChromeSettingsPhoneFoot(t *testing.T) {
 	routersShot(b, "C1-24", ".sode__settings-head", ".sode__savebar")
 	if shown := b.eval(`!!document.getElementById('settings-path').offsetParent`); shown != false {
 		t.Error("the phone shows the cut server path")
+	}
+	typeField(b, "cfg-brandtext", "Truck 4")
+	b.waitFor("unsaved", `document.getElementById('settings-path').textContent === 'Unsaved changes'`)
+	if shown := b.eval(`!!document.getElementById('settings-path').offsetParent`); shown != true {
+		t.Error("the phone hides Unsaved changes after an edit")
 	}
 	edge := b.eval(`(() => {
 		const icon = document.querySelector('#settings-back .pb-icon').getBoundingClientRect().left;

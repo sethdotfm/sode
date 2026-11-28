@@ -240,7 +240,7 @@ export function problemText(bad) {
 // null when Sode does not know the state (no server link). added: the routers to add, which the line counts as not
 // saved. One router has the line too, so Add router is not alone on the bar.
 export function countLine(keys, added = 0) {
-  if (!keys.length) return '';
+  if (!keys.length) return added ? `${added} not saved.` : '';
   const n = (k) => keys.filter((x) => x === k).length;
   const head = `${keys.length} ${keys.length === 1 ? 'router' : 'routers'}.`;
   const more = added ? ` ${added} not saved.` : '';
@@ -252,12 +252,24 @@ export function countLine(keys, added = 0) {
 }
 
 // tryWhy: the operator words for why an Address try failed, from the server's error text. It is '' when Sode has no
-// words for it; the page then shows the error text. The Go dial errors are not operator words.
+// words for it. The Go dial errors are not operator words.
 export function tryWhy(err) {
   const e = String(err || '');
   if (/connection refused/i.test(e)) return 'The router refused the connection.';
   if (/i\/o timeout|timed out|deadline exceeded/i.test(e)) return 'No answer from this address.';
   return '';
+}
+
+// tryNote: how the page shows a failed try, {text, tip, code}. Operator words keep the server's text as a tip. A Go dial
+// error with no words shows as it is, in code. Sode's own errors are already for the operator: they show as a sentence
+// (core.js sentence(), which a pure module cannot import).
+export function tryNote(err) {
+  const e = String(err || '').trim();
+  if (!e) return { text: '', tip: '', code: false };
+  const words = tryWhy(e);
+  if (words) return { text: words, tip: e, code: false };
+  if (/^dial /.test(e)) return { text: e, tip: '', code: true };
+  return { text: e[0].toUpperCase() + e.slice(1) + (/[.!?…]$/.test(e) ? '' : '.'), tip: '', code: false };
 }
 
 // findMatch: the find box matches the prefix, the Router title or the address.

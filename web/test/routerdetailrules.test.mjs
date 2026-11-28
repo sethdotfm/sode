@@ -17,6 +17,7 @@ import {
   countLine,
   problemText,
   tryWhy,
+  tryNote,
   findMatch,
   hasProblem,
   rowMarks,
@@ -117,6 +118,7 @@ test('the count line, find and the problem filter of the list', () => {
   assert.equal(countLine(['connected']), '1 router. 1 connected.');
   assert.equal(countLine(['connected', 'connected', 'connected'], 1), '3 routers. 3 connected. 1 not saved.');
   assert.equal(countLine([null], 2), '1 router. 2 not saved.');
+  assert.equal(countLine([], 1), '1 not saved.');
   assert.equal(countLine(['connected', 'connected', 'down', 'never']), '4 routers. 2 connected, 2 down.');
   assert.equal(countLine(['connected', 'connecting']), '2 routers. 1 connected, 1 connecting.');
   assert.equal(countLine([null, null]), '2 routers.');
@@ -175,6 +177,24 @@ test('tryWhy: operator words for a failed Address try', () => {
   assert.equal(tryWhy('dial tcp 10.0.0.50:8910: i/o timeout'), 'No answer from this address.');
   assert.equal(tryWhy('no answer from the router: check the address and the port'), '');
   assert.equal(tryWhy(''), '');
+});
+
+test("tryNote: operator words, a dial error in code, and Sode's own errors as a sentence", () => {
+  assert.deepEqual(tryNote('dial tcp 127.0.0.1:1: connect: connection refused'), {
+    text: 'The router refused the connection.',
+    tip: 'dial tcp 127.0.0.1:1: connect: connection refused',
+    code: false,
+  });
+  assert.deepEqual(tryNote('dial tcp: lookup nohost: no such host'), { text: 'dial tcp: lookup nohost: no such host', tip: '', code: true });
+  assert.deepEqual(tryNote('no answer from the router: check the address and the port'), {
+    text: 'No answer from the router: check the address and the port.',
+    tip: '',
+    code: false,
+  });
+  assert.equal(
+    tryNote('the router answers but sent no names: check Matrix and Name requests').text,
+    'The router answers but sent no names: check Matrix and Name requests.',
+  );
 });
 
 test('problemText: the Save error names the router and the setting, then says what to do, in one sentence each', () => {

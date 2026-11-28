@@ -1,0 +1,1 @@
+- On the phone, the Save bar shows "Unsaved changes" and "Not saved" again. Settings help buttons keep the touch size on the phone, and an Address try error from Sode shows as a plain sentence.

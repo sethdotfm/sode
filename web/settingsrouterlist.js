@@ -32,9 +32,9 @@ function row(x, many) {
   const v = readValues(x.text);
   const s = x.isNew ? null : linkOfRouter(x);
   const marks = rowMarks({ first: x.first, many, isNew: x.isNew, removed: x.removed, edited: routerEdited(x) });
-  // A long title is cut with an ellipsis; its title attribute shows it whole.
+  // A long title is cut with an ellipsis; its tip shows it whole.
   const name = v.title || `Router ${v.prefix}`;
-  const title = el('span', { class: 'sode__rrow-title', title: name }, name);
+  const title = el('span', { class: 'sode__rrow-title', 'data-pb-tip': name }, name);
   const line1 = el('span', 'sode__rrow-line', title, ...marks.map((m) => el('span', `${m.cls} sode__rrow-mark`, m.text)));
   const state = x.isNew ? el('span', 'sode__hint', 'Not saved') : s ? stateNode(s) : el('span');
   const line2 = el('span', 'sode__rrow-line sode__rrow-sub', el('span', 'sode__rrow-addr', v.address || 'No address'), state);

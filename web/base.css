@@ -1507,8 +1507,8 @@ html {
   gap: var(--pb-space-2);
 }
 /* A help button is one line high, so it keeps the line height of the label or heading it follows and does not reach
-   into the control under the label. */
-.sode__help {
+   into the control under the label. The phone keeps the touch size. */
+:root:not([data-layout="phone"]) .sode__help {
   height: 1.5em;
   margin-block: 0;
   min-height: 0;
