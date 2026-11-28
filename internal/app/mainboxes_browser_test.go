@@ -17,7 +17,8 @@ import (
 // pick two rows high. 17 levels fit with no scroll from 850 to 1600 px. More columns than fit scroll inside the picks,
 // and Select All stays in its place. A click from All selects only that level. No router with more than one level
 // gives no Levels box. The arrow, +, Levels, Take and Clear line up with the Source and Destination boxes. They also
-// line up with a second router, whose router buttons make the heads an action high.
+// line up with a second router. Its router buttons are under the left side of the Source and Destination boxes, level
+// with Show all. The Levels box names no router.
 func TestChromeMainBoxesLayout(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -255,7 +256,7 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	b.waitFor("Last shows", `!!document.querySelector('[data-last="dst"] .sode__last')`)
 	lined("one router, Last showing")
 
-	// A second router shows the router button in the Source and Destination heads, which is an action high.
+	// A second router shows the router button under the Source and Destination boxes.
 	if err := a.applyConfig(func(c *config.Config) error {
 		rc := c.DefaultRouter()
 		rc.UID, rc.Prefix, rc.Title, rc.Address = "", "B", "Router B", simB
@@ -266,6 +267,29 @@ func TestChromeMainBoxesLayout(t *testing.T) {
 	}
 	b.waitFor("the router buttons show", `!document.getElementById('dst-router').hidden && !!document.getElementById('dst-router').offsetParent`)
 	lined("two routers, Last showing")
+
+	// Each router button is under the left side of its own box, level with Show all at the right. The Levels box names
+	// no router.
+	for _, k := range []string{"src", "dst"} {
+		b.waitFor("Show all "+k+" shown", `(() => { const t = document.getElementById('`+k+`'); t.blur(); t.focus(); return !!document.querySelector('#`+k+`-all button').offsetParent; })()`)
+		if got := b.eval(`(() => {
+			const r = (s) => document.querySelector(s).getBoundingClientRect();
+			const btn = r('#` + k + `-router'), input = r('#` + k + `'), box = r('.sode__box--` + k + `'), all = r('#` + k + `-all button');
+			const bad = [];
+			if (btn.top < input.bottom - 0.5) bad.push('top ' + btn.top + ' is above the input bottom ' + input.bottom);
+			if (Math.abs(btn.left - box.left) > 0.5) bad.push('left ' + btn.left + ', box left ' + box.left);
+			if (Math.abs(btn.top - all.top) > 0.5 || Math.abs(btn.bottom - all.bottom) > 0.5) bad.push(btn.top + '-' + btn.bottom + ' against Show all ' + all.top + '-' + all.bottom);
+			if (btn.right > all.left) bad.push('it overlaps Show all');
+			if (document.querySelector('.sode__box--` + k + ` > .sode__box-head #` + k + `-router')) bad.push('it is in the box head');
+			return bad.length === 0 || bad.join('; ');
+		})()`); got != true {
+			t.Fatalf("the %s router button is not under the left side of its box: %v", k, got)
+		}
+		b.eval(`document.getElementById('` + k + `').blur(); true`)
+	}
+	if b.eval(`!!document.getElementById('lvl-router')`) == true {
+		t.Fatal("the Levels box still names its router")
+	}
 	b.check()
 }
 

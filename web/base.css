@@ -1711,21 +1711,17 @@ html {
   min-height: var(--pb-control-h-sm);
   min-width: 0;
 }
-/* The default router of a patch box (boxrouter.js), only with two or more routers. */
-.sode__box-router {
-  flex: none;
+/* The default router of a patch box (boxrouter.js), only with two or more routers. It is on a line under the left
+   side of its box, level with Show all at the right (compact, as Show all is). So the box head keeps its room for
+   the label and Last and Next, and the heads of the row keep one height. */
+.pb-btn.sode__box-router {
+  align-self: flex-start;
+  height: var(--sode-h-compact);
+  margin-top: calc(var(--pb-space-1) - var(--pb-space-2));
+  min-height: 0;
 }
 .sode__box-router[hidden] {
   display: none;
-}
-/* The router of the Levels box: text, not a button, since it follows the destination. It has the look of the router
-   buttons beside it. */
-.sode__lvl-router {
-  align-items: center;
-  display: inline-flex;
-  font-size: var(--pb-text-xs);
-  font-weight: var(--pb-weight-medium);
-  padding: 0 var(--pb-space-3);
 }
 .sode__box-head > [data-last] {
   display: flex;

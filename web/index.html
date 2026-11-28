@@ -90,7 +90,7 @@
 
     <form class="sode__boxes" autocomplete="off">
       <div class="sode__box sode__box--src">
-        <div class="sode__box-head"><label class="sode__label" for="src">Source</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="src-router" tabindex="-1" hidden></button><span data-last="src"></span></div>
+        <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
         <div class="sode__entry">
           <span class="sode__keyed">
             <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
@@ -99,6 +99,7 @@
           <div class="sode__menu-pop"><ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul><div class="sode__menu-count" id="src-count" aria-hidden="true" hidden></div></div>
           <div class="sode__menu-all" id="src-all"><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all sources</button></div>
         </div>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="src-router" tabindex="-1" hidden></button>
       </div>
       <div class="sode__box sode__box--to">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
@@ -107,7 +108,7 @@
       <!-- The three groups (Source, Destination with +, Levels with Take and Clear) share one width (desktop.css). -->
       <div class="sode__group sode__group--dst">
         <div class="sode__box sode__box--dst">
-          <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="dst-router" tabindex="-1" hidden></button><span data-last="dst"></span></div>
+          <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
           <div class="sode__entry">
             <span class="sode__keyed">
               <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
@@ -117,6 +118,7 @@
             <div class="sode__menu-pop"><ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul><div class="sode__menu-count" id="dst-count" aria-hidden="true" hidden></div></div>
             <div class="sode__menu-all" id="dst-all"><button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" tabindex="-1">Show all destinations</button></div>
           </div>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__box-router" id="dst-router" tabindex="-1" hidden></button>
           <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations of this plan" hidden></div>
         </div>
         <div class="sode__box sode__box--add">
@@ -127,7 +129,7 @@
       </div>
       <div class="sode__group sode__group--levels">
         <div class="sode__box sode__box--levels">
-          <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span class="sode__box-router sode__lvl-router" id="lvl-router" hidden></span><span data-last="lvl"></span></div>
+          <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
           <span class="sode__keyed">
             <input id="lvl" class="pb-input sode__input" spellcheck="false">
             <kbd class="sode__key-note" aria-hidden="true">f</kbd>
