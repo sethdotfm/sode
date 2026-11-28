@@ -9,8 +9,9 @@ import (
 )
 
 // Layout checks for browser checks: shared edges, centre lines, heights, token gaps and clipped text, each within
-// layoutTol. Every selector takes all the elements it matches, in document order. An element with no box (hidden)
-// is left out. A check that finds too few elements fails, so it never passes on nothing.
+// layoutTol. Every selector takes all the elements it matches, in document order. An element that does not show is
+// left out: one with no box (display: none, hidden) and one with visibility: hidden. A selector that finds no shown
+// element fails, and so does a check that finds too few in all, so it never passes on nothing.
 // docs/agents/browser-checks.md says how to call them.
 
 // layoutTol is half a CSS pixel: less than that is rounding, more is a step a person can see at 2x.
@@ -37,9 +38,12 @@ const layoutJS = `((sels, clip) => {
 		const n = (p) => parseFloat(c[p]) || 0;
 		return { l: r.left + n('borderLeftWidth'), r: r.right - n('borderRightWidth'), t: r.top + n('borderTopWidth'), b: r.bottom - n('borderBottomWidth') };
 	};
-	const out = [];
-	for (const sel of sels) for (const e of document.querySelectorAll(sel)) {
-		if (!e.getClientRects().length) continue;
+	const out = [], empty = [];
+	for (const sel of sels) {
+	let shown = 0;
+	for (const e of document.querySelectorAll(sel)) {
+		if (!e.getClientRects().length || !e.checkVisibility({ visibilityProperty: true })) continue;
+		shown++;
 		const r = e.getBoundingClientRect();
 		const x = { name: name(e), left: r.left, top: r.top, right: r.right, bottom: r.bottom };
 		if (clip) {
@@ -66,7 +70,9 @@ const layoutJS = `((sels, clip) => {
 		}
 		out.push(x);
 	}
-	return out;
+	if (!shown) empty.push(sel);
+	}
+	return { boxes: out, empty };
 })`
 
 type clipBox struct {
@@ -74,49 +80,98 @@ type clipBox struct {
 	Clip string
 }
 
-func (b *tab) layoutBoxes(sels []string, clip bool) []clipBox {
+// layoutBoxes gives the boxes and, as the second value, a failure that names each selector with no shown element.
+// One selector that finds nothing must fail even when the others find enough, else a check passes on a typo.
+func (b *tab) layoutBoxes(sels []string, clip bool) ([]clipBox, string) {
 	b.t.Helper()
 	arg, _ := json.Marshal(sels)
 	raw, _ := json.Marshal(b.eval(fmt.Sprintf(layoutJS, layoutTol) + `(` + string(arg) + `, ` + fmt.Sprint(clip) + `)`))
-	var out []clipBox
+	var out struct {
+		Boxes []clipBox
+		Empty []string
+	}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		b.t.Fatalf("layout boxes %v: %v", sels, err)
 	}
-	return out
+	if len(out.Empty) > 0 {
+		return out.Boxes, "no shown element for " + strings.Join(out.Empty, ", ")
+	}
+	return out.Boxes, ""
 }
 
-// boxes gives the border box of every shown element that the selectors match, in selector then document order.
+// shown gives the border box of every shown element that the selectors match, in selector then document order,
+// and the failure from layoutBoxes.
+func (b *tab) shown(sels ...string) ([]box, string) {
+	b.t.Helper()
+	xs, msg := b.layoutBoxes(sels, false)
+	var out []box
+	for _, x := range xs {
+		out = append(out, x.box)
+	}
+	return out, msg
+}
+
+// boxes is shown, and stops the test when a selector has no shown element.
 func (b *tab) boxes(sels ...string) []box {
 	b.t.Helper()
-	var out []box
-	for _, x := range b.layoutBoxes(sels, false) {
-		out = append(out, x.box)
+	out, msg := b.shown(sels...)
+	if msg != "" {
+		b.shot("layout")
+		b.t.Fatalf("boxes %v: %s", sels, msg)
 	}
 	return out
 }
 
 // tokenPx resolves a length in the page: a custom property name ("--pb-space-3") or any CSS length ("2rem"). It
 // measures a probe in the parent of the first element sel finds, so em and a token set on a subtree resolve there.
+// It stops the test when sel finds nothing or the property is not set there. An unset property gives a width of 0,
+// and then a gap check passes on elements that touch.
 func (b *tab) tokenPx(sel, token string) float64 {
 	b.t.Helper()
-	if strings.HasPrefix(token, "--") {
-		token = "var(" + token + ")"
+	msg, px := b.tokenPxErr(sel, token)
+	if msg != "" {
+		b.t.Fatal(msg)
 	}
+	return px
+}
+
+// tokenPxErr is tokenPx with the failure as a value.
+func (b *tab) tokenPxErr(sel, token string) (string, float64) {
+	b.t.Helper()
 	s, _ := json.Marshal(sel)
-	v, _ := json.Marshal(token)
-	px, ok := b.eval(`(() => {
-		const host = document.querySelector(` + string(s) + `)?.parentElement || document.body;
+	n, _ := json.Marshal(token)
+	v := token
+	if strings.HasPrefix(token, "--") {
+		v = "var(" + token + ")"
+	}
+	vj, _ := json.Marshal(v)
+	raw, _ := json.Marshal(b.eval(`(() => {
+		const e = document.querySelector(` + string(s) + `);
+		if (!e) return { why: 'no element' };
+		const host = e.parentElement || document.body;
+		const name = ` + string(n) + `;
+		if (name.startsWith('--') && getComputedStyle(host).getPropertyValue(name).trim() === '') return { why: 'not set' };
 		const p = document.createElement('div');
-		p.style.cssText = 'position:absolute;visibility:hidden;height:0;padding:0;border:0;width:' + ` + string(v) + `;
+		p.style.cssText = 'position:absolute;visibility:hidden;height:0;padding:0;border:0;width:' + ` + string(vj) + `;
 		host.append(p);
 		const w = p.getBoundingClientRect().width;
 		p.remove();
-		return w;
-	})()`).(float64)
-	if !ok {
-		b.t.Fatalf("token %s did not resolve", token)
+		return { px: w };
+	})()`))
+	var out struct {
+		Why string
+		Px  float64
 	}
-	return px
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return fmt.Sprintf("token %s at %s did not resolve: %v", token, sel, err), 0
+	}
+	switch out.Why {
+	case "no element":
+		return fmt.Sprintf("token %s: no element for %s", token, sel), 0
+	case "not set":
+		return fmt.Sprintf("token %s is not set at %s", token, sel), 0
+	}
+	return "", out.Px
 }
 
 // spread fails when fewer than two boxes are shown or when the measure of any box is more than layoutTol from the
@@ -197,42 +252,56 @@ func (b *tab) layoutFail(msg string) bool {
 	return false
 }
 
+// boxCheck runs check on the boxes of sels, or fails with the name of a selector that has no shown element.
+func (b *tab) boxCheck(what string, sels []string, check func([]box) string) bool {
+	b.t.Helper()
+	xs, msg := b.shown(sels...)
+	if msg != "" {
+		return b.layoutFail(what + ": " + msg)
+	}
+	return b.layoutFail(check(xs))
+}
+
 // sameLeft fails the test unless every element the selectors match has one left edge.
 func (b *tab) sameLeft(what string, sels ...string) bool {
 	b.t.Helper()
-	return b.layoutFail(sameLeftErr(what, b.boxes(sels...)))
+	return b.boxCheck(what, sels, func(xs []box) string { return sameLeftErr(what, xs) })
 }
 
 // sameMiddle fails the test unless every element the selectors match has one horizontal centre line (one row).
 func (b *tab) sameMiddle(what string, sels ...string) bool {
 	b.t.Helper()
-	return b.layoutFail(sameMiddleErr(what, b.boxes(sels...)))
+	return b.boxCheck(what, sels, func(xs []box) string { return sameMiddleErr(what, xs) })
 }
 
 // sameHeight fails the test unless every element the selectors match has one height.
 func (b *tab) sameHeight(what string, sels ...string) bool {
 	b.t.Helper()
-	return b.layoutFail(sameHeightErr(what, b.boxes(sels...)))
+	return b.boxCheck(what, sels, func(xs []box) string { return sameHeightErr(what, xs) })
 }
 
 // gapX fails the test unless the space from each element to the next, left to right in match order, is token.
 // The token is a custom property name such as "--pb-space-3", or a CSS length.
 func (b *tab) gapX(what, token string, sels ...string) bool {
 	b.t.Helper()
-	return b.layoutFail(gapErr(what, b.boxes(sels...), 'x', b.tokenPx(sels[0], token)))
+	return b.boxCheck(what, sels, func(xs []box) string { return gapErr(what, xs, 'x', b.tokenPx(sels[0], token)) })
 }
 
 // gapY is gapX from top to bottom.
 func (b *tab) gapY(what, token string, sels ...string) bool {
 	b.t.Helper()
-	return b.layoutFail(gapErr(what, b.boxes(sels...), 'y', b.tokenPx(sels[0], token)))
+	return b.boxCheck(what, sels, func(xs []box) string { return gapErr(what, xs, 'y', b.tokenPx(sels[0], token)) })
 }
 
 // noClip fails the test when an element's text overflows its box. It also fails when the box or an ancestor that
 // clips cuts the text.
 func (b *tab) noClip(what string, sels ...string) bool {
 	b.t.Helper()
-	return b.layoutFail(clipErr(what, b.layoutBoxes(sels, true)))
+	xs, msg := b.layoutBoxes(sels, true)
+	if msg != "" {
+		return b.layoutFail(what + ": " + msg)
+	}
+	return b.layoutFail(clipErr(what, xs))
 }
 
 // The helper on a fixed page: each check passes on the good elements and names the bad one.
@@ -249,7 +318,8 @@ func TestChromeLayoutHelper(t *testing.T) {
 	</style>
 	<div class="row"><span class="a">One</span><span class="b">Two</span><span class="c">Three</span></div>
 	<div class="row"><span class="a">Left</span></div>
-	<p class="cut">A long name that does not fit</p><p class="fits">Short</p><p hidden class="a">Hidden</p>`)
+	<p class="cut">A long name that does not fit</p><p class="fits">Short</p><p hidden class="a">Hidden</p>
+	<p class="ghost" style="visibility: hidden">Ghost</p>`)
 	b.waitFor("the page", `document.querySelector('.fits') !== null`)
 
 	ok := func(msg string) {
@@ -275,8 +345,27 @@ func TestChromeLayoutHelper(t *testing.T) {
 	if px := b.tokenPx("p", "2rem"); px != 32 {
 		t.Errorf("2rem resolves to %v px, want 32", px)
 	}
-	ok(clipErr("short text", b.layoutBoxes([]string{".fits", ".row > *"}, true)))
-	bad(clipErr("long text", b.layoutBoxes([]string{".cut"}, true)), `p.cut "A long name`)
-	bad(sameLeftErr("hidden is left out", b.boxes("[hidden]", ".fits")), "1 shown elements")
+	clipped := func(sels ...string) []clipBox {
+		t.Helper()
+		xs, msg := b.layoutBoxes(sels, true)
+		ok(msg)
+		return xs
+	}
+	ok(clipErr("short text", clipped(".fits", ".row > *")))
+	bad(clipErr("long text", clipped(".cut")), `p.cut "A long name`)
+	// One selector that finds nothing fails, also when the others find two or more. A hidden element is not shown.
+	_, msg := b.shown(".nothing", ".row > .a")
+	bad(msg, "no shown element for .nothing")
+	_, msg = b.shown(".fits", "[hidden]")
+	bad(msg, "no shown element for [hidden]")
+	_, msg = b.shown(".fits", ".ghost")
+	bad(msg, "no shown element for .ghost")
+	_, msg = b.layoutBoxes([]string{".fits", ".nothing"}, true)
+	bad(msg, ".nothing")
+	// An unset property and a selector that finds nothing do not resolve to 0 px.
+	msg, _ = b.tokenPxErr(".row > .a", "--unset")
+	bad(msg, "--unset is not set")
+	msg, _ = b.tokenPxErr(".nothing", "--gap")
+	bad(msg, "no element for .nothing")
 	b.check()
 }
