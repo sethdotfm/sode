@@ -75,6 +75,12 @@
 .sode-log__table td {
   white-space: nowrap;
 }
+/* Only the reason wraps, so one long note does not push the Bytes column off the page. */
+.sode-log__table td.sode-log__why {
+  min-width: 16rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
 .sode-log__time,
 .sode-log__hex {
   font-family: var(--pb-font-mono);

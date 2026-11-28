@@ -363,7 +363,7 @@ function row(e, fresh = false) {
     el('td', 'sode-log__name', side(e.src, e.srcName, e.router)),
     el(
       'td',
-      null,
+      'sode-log__why',
       why,
       e.by ? el('span', 'pb-text-muted sode-log__why-part', e.by) : '',
       e.note ? el('span', 'pb-text-muted sode-log__why-part', e.note) : '',
