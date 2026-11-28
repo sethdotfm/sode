@@ -59,3 +59,42 @@ func TestChromeProtectUnderDestination(t *testing.T) {
 	b.noClip("Free", `#dst-under [data-protect="clear"]`)
 	b.check()
 }
+
+// The Protect picker at 1920x1080 with every destination listed: the list shows whole rows, so its last row is not
+// cut in half over the key hint line.
+func TestChromeProtectPickerWholeRows(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) {
+		c.Users[0].Role = config.RoleAdministrator
+		c.Routers[0].ProtectDevice = 126
+	})
+	srv := seamServer(t, a)
+	waitNamesAndTally(t, a, userKey(t, a, "Ana"))
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("Settings button", `!!document.getElementById('settings-open')`)
+	b.eval(`document.getElementById('settings-open').click(); true`)
+	signInSettings(b)
+	b.eval(`document.getElementById('settings-exit').click(); true`)
+	b.waitFor("main page", `document.documentElement.dataset.view !== 'settings'`)
+	b.eval(`document.activeElement.blur(); true`)
+	b.eval(ctrlShiftP)
+	b.waitFor("the Palette", paletteShown)
+	paletteFind(b, "Protect", "action:protect")
+	paletteKey(b, "Enter", false)
+	b.waitFor("the picker with every destination", `!document.getElementById('protpick').hidden && document.querySelectorAll('#protpick-list [role=option]').length === 120`)
+	b.waitFor("fonts loaded", `document.fonts.status === 'loaded'`)
+	b.shot("picker")
+	if got := b.eval(`(() => {
+		const l = document.getElementById('protpick-list');
+		const rows = [...l.querySelectorAll('[role=option]')];
+		const h = rows[0].getBoundingClientRect().height;
+		const odd = rows.filter((r) => Math.abs(r.getBoundingClientRect().height - h) > 0.5).length;
+		const n = l.clientHeight / h;
+		return (odd === 0 && Math.abs(n - Math.round(n)) * h <= 0.5) || [odd, l.clientHeight, h].join(' ');
+	})()`); got != true {
+		t.Errorf("the list holds part of a row (odd rows, list height, row height): %v", got)
+	}
+	b.check()
+}
