@@ -165,11 +165,6 @@
   font-size: var(--pb-text-sm);
   margin: calc(-1 * var(--pb-space-3)) 0 0;
 }
-.sode-setup__restore {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--pb-space-3);
-}
 .sode-setup__err {
   align-self: center;
   color: var(--pb-status-error);

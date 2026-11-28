@@ -7,7 +7,7 @@ import { statusText } from './statustext.js';
 import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
 import { layout, onLayout } from './layout.js';
-import { restoring, wireRestore } from './setuprestore.js';
+import { restoring, restorePage, wireRestore } from './setuprestore.js';
 import { pinShow } from './pinshow.js';
 import { levelPicks } from './levelbox.js';
 import {
@@ -456,9 +456,14 @@ $('setup-steps').addEventListener('click', (e) => {
   if (b) go(+b.dataset.go);
 });
 
-$('setup-back').addEventListener('click', () => (d?.again && at === 0 ? closeAgain(false) : go(Math.max(0, at - 1))));
+$('setup-back').addEventListener('click', () => {
+  if (restorePage()) return restorePage().back();
+  if (d?.again && at === 0) closeAgain(false);
+  else go(Math.max(0, at - 1));
+});
 
 $('setup-next').addEventListener('click', () => {
+  if (restorePage()) return restorePage().next();
   if (stepProblem(d, at, max())) return;
   if (STEPS[at][0] !== 'access') {
     at++;

@@ -17,6 +17,7 @@ import {
   guideLevels,
   envHint,
   restorePinProblem,
+  restoreFailedText,
   keptAnswers,
   refillAnswers,
   connectionTitle,
@@ -257,4 +258,9 @@ test('Settings > Routers has the same Multi destination help tip as the wizard',
   assert.equal(m[1], FIRE_MODE_TIP);
   assert.ok(FIRE_MODE_TIP.includes('One after another'));
   assert.ok(FIRE_MODE_TIP.includes('Router salvo'));
+});
+
+test('the restore page says how many items were not written', () => {
+  assert.equal(restoreFailedText(1), 'The restore is complete, but 1 item was not written. Check panels and artwork.');
+  assert.equal(restoreFailedText(2), 'The restore is complete, but 2 items were not written. Check panels and artwork.');
 });

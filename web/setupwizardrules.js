@@ -148,6 +148,9 @@ export function problemIsMistake(d, i, max = 8) {
 // A PIN problem is a mistake once Repeat your PIN has text, or the PIN has a letter or too many digits.
 export const pinMistake = (pin, pin2, max = 8) => !!restorePinProblem(pin, pin2, max) && (pin2 !== '' || !/^\d*$/.test(pin) || pin.length > max);
 
+// The restore page when some stores outside the config were not written.
+export const restoreFailedText = (n) => `The restore is complete, but ${n === 1 ? '1 item was' : `${n} items were`} not written. Check panels and artwork.`;
+
 // The furthest step at or before want that every earlier step lets through.
 export function stopAt(d, want, max) {
   for (let i = 0; i < want; i++) if (stepProblem(d, i, max)) return i;
