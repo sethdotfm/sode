@@ -42,7 +42,7 @@ function routesOf(plan) {
       // stored: a preset's tie lines (plans.js presetPlan), so its picker is the tie confirm page. last: the tie lines
       // of a take that this Redo repeats (plans.js tieAgainItem).
       const stored = g.ties?.length ? g.ties : null;
-      out.push({ src, dst, levels: g.levels, tie: src.router !== dst.router, item, label: `${g.src.label} to ${item.dst.label}`, stored, last: !!g.last });
+      out.push({ src, dst, levels: g.levels, tie: src.router !== dst.router, item, label: `${g.src.label} → ${item.dst.label}`, stored, last: !!g.last });
     }
   }
   return out;

@@ -44,7 +44,7 @@ func TestChromeTiePickerTakesByMouse(t *testing.T) {
 
 	press()
 	b.waitFor("the picker shows the route, its step and the Affected destinations",
-		`(() => { const t = document.getElementById('tiepick').textContent; return t.includes('Step 1: router A to router B') && t.includes('Affected destinations') && t.includes('Will carry A.11 `+simSrcName+`'); })()`)
+		`(() => { const t = document.getElementById('tiepick').textContent; return t.includes('Step 1: Router A to Router B') && t.includes('Affected destinations') && t.includes('Will carry A.11 `+simSrcName+`'); })()`)
 	b.waitFor("the confirm with the letter stays closed", `document.getElementById('confirm').hidden`)
 	b.eval(`document.getElementById('tiepick-dialog').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true, cancelable: true})); true`)
 	b.waitFor("Esc closes the picker", `document.getElementById('tiepick').hidden`)

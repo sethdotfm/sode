@@ -183,7 +183,7 @@ onMsg('approvalCard', (m) => {
   const card = toast(
     'warn',
     'Approval requested',
-    el('div', 'pb-toast__msg', `${m.from} asks from ${m.browser}: ${m.what}. `, left),
+    el('div', 'pb-toast__msg', `${m.from}, from ${m.browser}: ${m.what}. `, left),
     ...(list.childElementCount ? [list] : []),
     ...stops,
     pinShow(pin),

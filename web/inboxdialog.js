@@ -123,7 +123,7 @@ function sentRow(c) {
 function drawLists() {
   if (!open || reviewing) return;
   const cards = inbox.cards.map(cardRow);
-  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'Inbox empty')]));
+  cardList.replaceChildren(...(cards.length ? cards : [el('p', 'sode__hint', 'Inbox is empty')]));
   // Newest first, as the server sends them oldest first.
   const sent = [...inbox.sent].reverse().map(sentRow);
   sentList.replaceChildren(...(sent.length ? sent : [el('p', 'sode__hint', 'None sent (30 days)')]));

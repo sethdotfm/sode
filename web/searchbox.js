@@ -12,15 +12,13 @@ export function emptyNote(rows, fetching) {
   if (!S.hist.length) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'History is empty'));
   const searching = searchActive();
   if (searching && fetching) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Searching…'));
-  const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', searching ? 'Clear search' : 'Clear filters');
+  // A search says it all in one sentence: the clear button beside the boxes clears it, and the note stays empty.
+  if (searching)
+    return el('div', 'sode__filters-empty', el('span', 'sode__hint', searchRespectsFilters() ? 'No matches.' : 'No matches (filter sets not applied).'));
+  const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Clear filters');
   clear.type = 'button';
-  clear.addEventListener('click', () => (searching ? clearSearch() : pickSet('all', 'All')));
-  return el(
-    'div',
-    'sode__filters-empty',
-    el('span', 'sode__hint', !searching && activeStack().length ? 'No matches in the stacked sets.' : 'No matches.'),
-    clear,
-  );
+  clear.addEventListener('click', () => pickSet('all', 'All'));
+  return el('div', 'sode__filters-empty', el('span', 'sode__hint', activeStack().length ? 'No matches in the stacked sets.' : 'No matches.'), clear);
 }
 
 // Names in History count too, so a renamed source is still found. Text that is a filter expression applies as typed.
@@ -147,7 +145,7 @@ for (const b of searchBoxes) {
 function renderSearch() {
   const on = searchActive();
   const n = on ? histRows(S.hist).length : 0;
-  const note = !on ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ', filters ignored'}`;
+  const note = !on || !n ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ', filters ignored'}`;
   for (const b of searchBoxes) {
     for (const k of ['src', 'dst']) {
       const st = sb[k];

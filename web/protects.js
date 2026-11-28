@@ -154,7 +154,7 @@ const sourceWord = (groups) => (groups.length > 1 ? 'Sources' : 'Source');
 // stands where the source is, and its detail lists the sources on the destination when it ran (prev).
 export const PROTECT_ENTRY = {
   route: (e) => ({ lead: chipOf(e), src: null, dst: entryDst(e), many: null, notes: [] }),
-  disc: (e, groups) => sourceWord(groups),
+  disc: () => 'Before',
   detail: (e, dst, groups) => `${sourceWord(groups)} on ${dst.label}`,
   actions(e) {
     const dst = entryDst(e);
@@ -363,8 +363,8 @@ function onResult(m) {
   const n = rest.length - failed.length;
   if (dsts.length === 1)
     return failed.length ? say('error', fail, failed[0]) : say('done', on ? 'Protected' : 'Protect freed', `${dsts[0].dst.label}, every level`);
-  const head = on ? `${n} Protected` : `${n} Protects freed`;
-  if (!failed.length) return say('done', head, 'Every level.');
+  const head = on ? `${n} ${n === 1 ? 'destination' : 'destinations'} Protected` : `${n} Protects freed`;
+  if (!failed.length) return say('done', head, 'On every level.');
   say(n ? 'warn' : 'error', `${head}, ${failed.length} failed`, failed.join(' '));
 }
 

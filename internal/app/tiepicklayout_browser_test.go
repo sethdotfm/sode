@@ -53,5 +53,7 @@ func TestChromeTiePickerLayout(t *testing.T) {
 	if got := b.eval(`document.querySelector('.sode-tiepick__choice .sode-tiepick__wire').dataset.pbTip || ''`); got == "" {
 		t.Error("the wire has no tip")
 	}
+	// A2-20: the step and the ends name their routers as the buttons do.
+	b.waitFor("routers named as on the buttons", `(() => { const t = document.getElementById('tiepick').textContent; return t.includes('Step 1: Router A to Router B') && t.includes('Source on Router A'); })()`)
 	b.check()
 }

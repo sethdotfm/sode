@@ -110,7 +110,7 @@ export function renderStrips() {
       icon('list'),
       'All presets',
     );
-    if (document.documentElement.dataset.pbLayout !== 'phone') more.dataset.pbTip = `All Presets (${keyLabel('mod+g')})`;
+    if (document.documentElement.dataset.pbLayout !== 'phone') more.dataset.pbTip = `All presets (${keyLabel('mod+g')})`;
     more.addEventListener('click', () => emit('presetPopup'));
     const sep = el('span', { class: 'sode__sets-sep', 'aria-hidden': 'true' }, '|');
     const chips = list.map((b, i) => chip(b, i, rows));

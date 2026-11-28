@@ -59,7 +59,7 @@ export function buildChip(api) {
   // what Ctrl+Shift+L's Confirm says.
   const out = item('lock-chip-signout', () => api.signOut());
   out.ico.append(icon('log-out'));
-  out.label.append('Sign out', el('span', 'sode-lock__menu-note', 'Every tab that shares this sign-in'));
+  out.label.append('Sign out', el('span', 'sode-lock__menu-note', 'Signs out every tab that shares this sign-in'));
   out.hint.textContent = keyLabel('ctrl+shift+l');
   const step = item('lock-chip-stepin', () => (api.stepped() ? api.stepOut() : api.stepIn()));
   const group = el('div', 'sode-lock__who-lock', slot, menu);
