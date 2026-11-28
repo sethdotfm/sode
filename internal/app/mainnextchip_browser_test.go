@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
 )
 
@@ -122,6 +123,56 @@ func TestChromeMainNextChipHoldsOpen(t *testing.T) {
 		return q('.sode__next-open') && q('button.sode__last:not(.sode__next)');
 	})()`); got != true {
 		t.Fatal("with reduced motion, the Next chip or Last still has a transition")
+	}
+	b.check()
+}
+
+// The Last chip of the Levels box shows "Last 0–10" whole with two routers, also on a narrow window. There it runs on
+// past the text box over the blank head of Take and Clear, never over the Levels label. A press on that part still
+// reaches the chip.
+func TestChromeMainLevelsLastFits(t *testing.T) {
+	b := startBrowser(t)
+	a := simRoutersApp(t, []string{startSim(t), startSim(t)}, func(c *config.Config) { c.Routers[0].LevelNumbering = "0" })
+	srv := seamServer(t, a)
+	ana := userKey(t, a, "Ana")
+	waitRouterRead(t, a, ana, routerUIDs(a)[0], "DSM1")
+
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1920, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+	b.open(srv.URL + "/")
+	b.waitFor("Source box", `!!document.getElementById('src')`)
+	pick := func(id, text string) {
+		b.waitFor(id+" match list", `(() => { const t = document.getElementById('`+id+`'); t.focus(); t.value = '`+text+`'; t.dispatchEvent(new Event('input', {bubbles: true})); return !!document.getElementById('`+id+`-opt-0'); })()`)
+		b.eval(`document.getElementById('` + id + `').dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab', code: 'Tab', bubbles: true, cancelable: true})); true`)
+		b.waitFor(id+" picked", `document.activeElement.id !== '`+id+`'`)
+	}
+	pick("src", simSrcName)
+	pick("dst", "DSM1")
+	b.eval(`(() => { const t = document.getElementById('lvl'); t.focus(); t.value = '0-10'; t.dispatchEvent(new Event('input', {bubbles: true})); t.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true})); return true; })()`)
+	b.waitFor("confirm unlocks", `!document.getElementById('confirm').hidden && !document.getElementById('confirm-ok').disabled`)
+	b.eval(`document.getElementById('confirm-ok').click(); true`)
+	b.waitFor("the Levels box's Last chip says 0–10", `document.querySelector('[data-last="lvl"] .sode__last-text')?.textContent === '0–10'`)
+	b.waitFor("fonts loaded", `document.fonts.status === 'loaded'`)
+	b.eval(`document.activeElement.blur(); true`)
+
+	for _, w := range []int{1920, 1100, 900} {
+		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": w, "height": 1080, "deviceScaleFactor": 1, "mobile": false})
+		b.eval(`new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))`)
+		if got := b.eval(`(() => {
+			const chip = document.querySelector('[data-last="lvl"] > .sode__last:not(.sode__next)');
+			const text = chip.querySelector('.sode__last-text');
+			const c = chip.getBoundingClientRect();
+			const label = document.querySelector('.sode__box--levels .sode__label').getBoundingClientRect();
+			const clear = document.getElementById('clear-all').getBoundingClientRect();
+			const bad = [];
+			if (text.scrollWidth > text.clientWidth) bad.push('the text is cut: ' + text.clientWidth + ' of ' + text.scrollWidth + ' px');
+			if (c.left < label.right) bad.push('the chip is over the Levels label');
+			if (c.right > clear.right + 0.5) bad.push('the chip runs past Clear');
+			const at = document.elementFromPoint(c.right - 4, (c.top + c.bottom) / 2);
+			if (!chip.contains(at)) bad.push('a press at its right end reaches ' + (at?.className || at?.tagName));
+			return bad.length === 0 || bad.join('; ');
+		})()`); got != true {
+			t.Fatalf("at %d px the Levels box's Last chip does not fit: %v", w, got)
+		}
 	}
 	b.check()
 }

@@ -283,6 +283,17 @@ html:not([data-keys-on]) .sode__group--levels .sode__keyed > .pb-input {
   min-width: 100%;
   width: 0;
 }
+/* The Levels box's Last chip is never narrower than "Last 0–10". A longer list is cut with an ellipsis, and its tip
+   shows all of it (cutOff, tooltip.js). On a narrow window the chip runs on past the text box, over the blank head of
+   Take and Clear. The head stacks over the Take box, so a press there still reaches the chip. */
+.sode__box--levels > .sode__box-head {
+  position: relative;
+  z-index: 1;
+}
+.sode__box--levels > .sode__box-head > [data-last],
+.sode__box--levels > .sode__box-head > [data-last] > .pb-chip.sode__last:not(.sode__next) {
+  min-width: 5rem;
+}
 .sode__box--levels > .sode__keyed {
   grid-column: 1 / -1;
   min-width: 100%;

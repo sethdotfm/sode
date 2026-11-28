@@ -1,0 +1,1 @@
+- The Last chip of the Levels box is wide enough to show "Last 0–10" whole, also on a narrow window. A longer list is cut with an ellipsis, and its tip shows all of it.

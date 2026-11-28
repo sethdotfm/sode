@@ -267,7 +267,7 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 
 ### AB-24: Last chip too small to show its text
 
-- **Status:** ready
+- **Status:** done
 - **Area:** Last and Next chips in a box head: `web/desktop.js:267-282` (chips), `web/base.css:1754-1783` (`.pb-chip.sode__last`, `.sode__last-text`), `web/base.css:1723-1745` (`.sode__box-head`, `[data-last]`), `web/index.html:130` (Levels head).
 - **Reported:** "This box is currently too small to be useful as it can't even display the text that it holds." (annotation 27; the Last chip of the Levels box, text "Last 0–10", shows "Last C".)
 - **Now:** The Levels head is one flex row of the label "Levels", the "Router A" text (`.sode__lvl-router`, `index.html:130`) and the `[data-last]` slot. The chip may shrink to nothing: `min-width: 0`, `max-width: 100%` on `.pb-chip.sode__last`, and `.sode__last-text` clips with an ellipsis (`base.css:1780-1785`). The Levels box is the narrow box of its group, so the chip shrinks to 50.5 px. The Router A text and the label take the room first (`base.css:1732-1745`, `.sode__box-router { flex: none }`).
@@ -275,7 +275,13 @@ Taken on 2026-11-27 from 28 browser annotations on the Settings redesign. Four a
 - **Decisions:** Owner, 2026-11-27, after a Fable review: Give the Last chip a minimum width that fits "Last 0–10"; hiding the Levels head's router label (AB-25) gives the room. A longer value is cut with an ellipsis; `cutOff` in web/tooltip.js:23-36 already shows the full text in a tip.
 - **Open questions:** none.
 - **Proof:** Screenshot before and after at 1920×1080 with two routers. A browser check (new `TestChrome*`, or an extension of `TestChromeMainNextChipNoKeys`) that `scrollWidth <= clientWidth` for `.sode__last-text` in the Levels head.
+  - Reproduced with two swp08sim routers (A on :8950 with 17 levels numbered from 0, B on :8951 with 4) and Sode built before AB-25: after a take of levels 0-10 the Levels head shows "Router A" and a Last chip that says "Last C" (text 5 of 31 px). With AB-25 alone, the chip fits at 1920 px (the page is never wider than at 1280 px), but at 1100 px it is still cut to 24 of 31 px and at 900 px to 10 of 31 px.
+  - Test: new `TestChromeMainLevelsLastFits` (internal/app/mainnextchip_browser_test.go:133). Two routers, router A numbered from 0, a take of levels 0-10. At 1920, 1100 and 900 px, `.sode__last-text` of the Levels head has `scrollWidth <= clientWidth`, the chip does not cover the Levels label or run past Clear, and a press at its right end reaches the chip. On the AB-25 commit it fails: "at 1100 px the Levels box's Last chip does not fit: the text is cut: 24 of 31 px".
+  - Screenshots, two routers with Last showing: `docs/research/alpha-proof/AB-24/before-two-routers-last.png` and `after-two-routers-last.png` at 1920×1080, and `before-1100px-two-routers-last.png` and `after-1100px-two-routers-last.png` at 1100 px wide (each with a `-clip.png` of the patch row).
 - **Notes:**
+  - Change: web/desktop.css:285-296. The Levels head's Last slot and Last chip get `min-width: 5rem` (the chip with "Last 0–10" is 4.8rem). A longer list is cut with an ellipsis, and `cutOff` (web/tooltip.js) shows it all in the tip. AB-25 removed the Levels router label, which gives the room on a desktop-wide window. On a narrow window the Levels text box column is only about 6rem, so the chip runs on past it to the right, over the blank head of Take and Clear. The Levels head gets `position: relative; z-index: 1` so the Take box does not take a press on that part. The `min-width` is on the Levels box only; Source and Destination keep their rules (AB-03).
+  - docs/agents/web-layout.md (Chips) and docs/agents/browser-checks.md name the rule and the check. Fragment: changelog.d/levels-last-fits.md.
+  - Checks: `go test -short ./...` ok; `go vet ./...` and staticcheck clean; `node --test 'web/test/*.test.mjs'` pass 1996, fail 0; gofmt, Prettier and ESLint clean. `--- PASS: TestChromeMainLevelsLastFits (3.85s)`, `--- PASS: TestChromeMainBoxesLayout (4.90s)`, `--- PASS: TestChromeMainChips (3.76s)`, `--- PASS: TestChromeMainNextChipNoKeys (3.70s)`, `--- PASS: TestChromeMainNextChipHoldsOpen (5.31s)`. Commit: this commit.
 
 ### AB-25: Router button goes under the left side of each Source and Destination box, out of Levels; Levels follow the Source box
 
