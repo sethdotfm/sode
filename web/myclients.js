@@ -28,7 +28,7 @@ keyName.placeholder = 'Wall';
 const keyExp = input('myclient-key-expires', 'date', 'off');
 const pinIn = input('myclient-pin', 'password', 'current-password');
 pinIn.inputMode = 'numeric';
-const keyBtn = btn('pb-btn--outline', 'Make key');
+const keyBtn = btn('sode-btn--primary', 'Make key');
 
 const list = el('div', 'sode__key-list');
 const shown = el('div');

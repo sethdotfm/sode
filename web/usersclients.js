@@ -129,7 +129,7 @@ export function makeClientsTab({ users, touched, adopt }) {
   const kexp = el('input', 'pb-input');
   kexp.id = 'clients-key-expires';
   kexp.type = 'date';
-  const make = btn('pb-btn--outline pb-btn--sm', 'Make key', () => {
+  const make = btn('sode-btn--primary', 'Make key', () => {
     say('');
     syncOwners();
     const o = owners[who.selectedIndex];
@@ -192,7 +192,7 @@ export function makeClientsTab({ users, touched, adopt }) {
     el(
       'div',
       'sode__users-acts',
-      btn('pb-btn--outline pb-btn--sm', 'Add API client', () => {
+      btn('pb-btn--outline', 'Add API client', () => {
         if (rows.querySelectorAll(':scope > :not([data-kept])').length >= MAX_CLIENTS) return say(`At most ${MAX_CLIENTS} API clients.`);
         addRow().focus();
         touched();

@@ -108,7 +108,8 @@ html {
 }
 /* Patchbay's control sizes on the desktop layout: plain and small controls are compact, large ones are actions, and an
    icon button is square. A page part used live lifts its controls to the action height (below). The phone keeps
-   patchbay's own sizes (mobile.css sets its touch sizes). */
+   patchbay's own sizes (mobile.css sets its touch sizes). A small button is full height with small text, so use
+   pb-btn--sm only in dense rows (table and list rows), never on a standalone button. */
 :root:not([data-layout="phone"]) {
   --pb-control-h: var(--sode-h-compact);
   --pb-control-h-sm: var(--sode-h-compact);
