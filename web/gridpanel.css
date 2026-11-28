@@ -1606,3 +1606,7 @@ html:has(.sode-gridpanel) {
 [data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-gridpanel__whorule ~ .sode-panels__head[hidden] + .sode-gridpanel__tools {
   margin-inline-start: 0;
 }
+/* The key list (panel.html): one long key row wraps, so the short rows keep their words near their keys. */
+#keys-dialog .sode__keys {
+  grid-template-columns: fit-content(12rem) 1fr;
+}

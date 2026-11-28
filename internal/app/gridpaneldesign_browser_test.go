@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"testing"
 )
 
@@ -124,6 +125,28 @@ func TestChromeGridPanelDesign(t *testing.T) {
 		return x.getAttribute('aria-disabled') === 'true' && c.backgroundColor !== page && c.backgroundColor !== open && c.backgroundColor !== 'rgba(0, 0, 0, 0)' &&
 			(c.backgroundImage.match(/linear-gradient/g) || []).length === 2;
 	})()`)
+
+	// The key list (C2-53) reads as plain sentences. Its key column is at most 12rem, so a long key wraps and the
+	// short rows keep their words near their keys.
+	realKeyMods(b, "?", "Slash", 191, modShift)
+	b.waitFor("the key list", `!document.getElementById('keys').hidden`)
+	b.shot("keys")
+	words := `[...document.querySelectorAll('#keys dd')].map((n) => n.textContent)`
+	for _, w := range []string{
+		"Go to the first source and destination",
+		"Stage the route (or the Diagonal of the picks). Press again to take.",
+		"Remove the Drawn line. Press again to remove the picks, then the staged routes.",
+		"Go to Home (not on a Kiosk panel)",
+	} {
+		if b.eval(words+`.includes(`+strconv.Quote(w)+`)`) != true {
+			t.Errorf("the key list has no row %q", w)
+		}
+	}
+	keyCol := b.boxes("#keys dt")
+	near("the key column", keyCol[0].Right-keyCol[0].Left, 12*rem)
+	b.noClip("the keys are whole", "#keys dt")
+	realKey(b, "Escape", "Escape", 27)
+	b.waitFor("Esc closes the key list", `document.getElementById('keys').hidden`)
 
 	b.check()
 }
