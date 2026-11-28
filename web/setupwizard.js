@@ -7,18 +7,22 @@ import { statusText } from './statustext.js';
 import { keepSignInToken } from './signin.js';
 import { desktopOnly } from './desktoponly.js';
 import { layout, onLayout } from './layout.js';
-import { restoring, wireRestore } from './setuprestore.js';
+import { restoring, restorePage, leaveRestore, wireRestore } from './setuprestore.js';
 import { pinShow } from './pinshow.js';
 import { levelPicks } from './levelbox.js';
 import {
   STEPS,
   DONE,
   PRESET_ROWS,
+  SHEET_CORNER,
   startAnswers,
   pinMax,
   stepProblem,
+  problemIsMistake,
   stopAt,
   chipGoes,
+  chipDone,
+  chipName,
   numberingChoices,
   finishMessage,
   routerLine,
@@ -61,6 +65,17 @@ function readKept() {
     return null;
   }
 }
+// The footer's note: kind 'hint' (why Next is off, no mistake yet) and 'busy' (Saving…) are muted; '' is an error.
+function footNote(text, kind = '') {
+  const n = $('setup-err');
+  n.textContent = text;
+  n.classList.toggle('is-hint', kind === 'hint');
+  n.classList.toggle('is-busy', kind === 'busy');
+}
+const showProblem = () => {
+  const text = stepProblem(d, at, max());
+  footNote(text, text && !problemIsMistake(d, at, max()) ? 'hint' : '');
+};
 const hint = (key, ...more) => [...more, envHint(filled, key)].filter(Boolean).join(' ');
 
 // h: el with attributes; a false or null attribute is left out.
@@ -124,8 +139,18 @@ function statusLine() {
   return [statusText(line.ok ? 'ok' : 'warn', el('span', null, line.text))];
 }
 
+// The link state is the field's last line, under its hint.
+function addressField() {
+  const box = field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router'));
+  box.append(el('div', { id: 'setup-router-status' }, ...statusLine()));
+  return box;
+}
+
 const presets = () => sheetPresets;
 const presetName = () => presets().find((p) => p.key === d.preset)?.name || d.preset;
+
+// Hidden, the caution keeps its place, so the fields under it do not move while the native color picker is open.
+const showCaution = (note) => (note.style.visibility = brandCaution(d.brandBorder, S.brandColors) ? '' : 'hidden');
 
 // Each color has its name under the swatch, so the colors are told apart by name as well.
 function swatches() {
@@ -148,16 +173,17 @@ function swatches() {
   }
   const note = el(
     'p',
-    { class: 'pb-note pb-note--warn sode__brand-caution', id: 'setup-brand-caution', role: 'status', hidden: !brandCaution(d.brandBorder, S.brandColors) },
+    { class: 'pb-note pb-note--warn sode__brand-caution', id: 'setup-brand-caution', role: 'status' },
     icon('triangle-alert'),
     el('span', null, CAUTION_NOTE),
   );
+  showCaution(note);
   return el('div', { class: 'sode__field' }, el('span', { class: 'sode__field-label', id: 'setup-brand-label' }, 'Theme color'), box, note);
 }
 
 function sheet() {
   const picked = (p) => (d.preset === p.key ? 'is-picked' : '');
-  const head = el('tr', null, el('th', { class: 'sode-setup__corner' }, 'Without sign-in:'));
+  const head = el('tr', null, el('th', { class: 'sode-setup__corner' }, SHEET_CORNER));
   for (const p of presets()) {
     const input = el('input', { type: 'radio', class: 'pb-check__input', name: 'preset', value: p.key });
     input.checked = d.preset === p.key;
@@ -211,7 +237,12 @@ const nextLink = (text, section, href = '#settings') => el('li', null, el('a', {
 const VIEW = {
   welcome: () => [
     d.again ? 'Run setup again' : 'Set up Sode',
-    section('Sode Server Name and Theme Color', '', field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), swatches()),
+    section(
+      'Sode Server Name and Theme Color',
+      '',
+      row(field('setup-brandText', 'Name', d.brandText, { placeholder: 'Sode', maxlength: '24' }), el('div')),
+      swatches(),
+    ),
     // replaceChildren draws a null as text, so Run setup again leaves the section out.
     ...(d.again
       ? []
@@ -223,7 +254,7 @@ const VIEW = {
             row3(
               field('setup-name', 'Name', d.name, { maxlength: '24' }),
               field('setup-pin', 'PIN', d.pin, { type: 'password', inputmode: 'numeric', placeholder: `4 to ${max()} digits` }),
-              field('setup-pin2', 'Repeat your PIN', d.pin2, { type: 'password', inputmode: 'numeric' }),
+              field('setup-pin2', 'Repeat PIN', d.pin2, { type: 'password', inputmode: 'numeric' }),
             ),
           ),
         ]),
@@ -231,12 +262,7 @@ const VIEW = {
   router: () => [
     'Router setup',
     section('Router', '', row(field('setup-routerTitle', 'Router title', d.routerTitle, { maxlength: '32' }), el('div'))),
-    section(
-      connectionTitle(d.again),
-      '',
-      field('setup-router', 'Address', d.router, { placeholder: '10.0.0.5:8910' }, hint('router')),
-      el('div', { id: 'setup-router-status' }, ...statusLine()),
-    ),
+    section(connectionTitle(d.again), '', row(addressField(), el('div'))),
     section(
       'Levels and numbers',
       '',
@@ -255,21 +281,31 @@ const VIEW = {
     sectionAs(
       'setup-fireMode-label',
       ['Multi destination take behavior', helpButton('setup-fireMode-help', 'About Multi destination take behavior', FIRE_MODE_TIP)],
-      'Some routers support staging changes for taking many routes simultaneously.',
-      row(
-        choice(
-          'fireMode',
-          null,
-          [
-            ['sequential', 'One after another'],
-            ['native', 'Router salvo'],
-          ],
-          hint('fireMode'),
-        ),
-        d.fireMode === 'native'
-          ? field('setup-group', 'Router salvo group', d.group, { type: 'number', min: '0', max: '127' }, hint('group'), 'Must be unused on the router')
-          : el('div'),
+      'How Sode sends a take with many destinations.',
+      choice(
+        'fireMode',
+        null,
+        [
+          ['sequential', 'One after another'],
+          ['native', 'Router salvo'],
+        ],
+        hint('fireMode'),
       ),
+      // Its own row under the choice, so the buttons do not move when it shows.
+      ...(d.fireMode === 'native'
+        ? [
+            row(
+              field(
+                'setup-group',
+                'Router salvo group',
+                d.group,
+                { type: 'number', min: '0', max: '127' },
+                hint('group', 'Use a group that nothing else on the router uses.'),
+              ),
+              el('div'),
+            ),
+          ]
+        : []),
     ),
   ],
   access: () => ['Access', ...(hint('preset') ? [el('p', { class: 'sode__hint', id: 'setup-preset-hint' }, hint('preset'))] : []), sheet()],
@@ -308,15 +344,15 @@ const steps = () => (d?.again ? STEPS.slice(0, DONE) : STEPS);
 function renderSteps() {
   const list = [];
   const all = steps();
-  all.forEach(([, name], i) => {
+  all.forEach(([key, name], i) => {
     const now = i === at;
-    const done = !now && (i < at || i <= reached);
+    const done = chipDone(i, at, reached);
     const go = chipGoes(i, at, reached, finished);
     const chip = el(
       'button',
       { type: 'button', class: 'sode-setup__chip', 'data-go': go ? String(i) : null, tabindex: go ? null : '-1', 'aria-current': now ? 'step' : null },
       el('span', { class: 'sode-setup__dot' }, done ? icon('check') : String(i + 1)),
-      el('span', { class: 'sode-setup__label' }, name),
+      el('span', { class: 'sode-setup__label' }, chipName(key, name, d.again)),
     );
     list.push(el('li', { class: now ? 'is-now' : done ? 'is-done' : '' }, chip));
     if (i < all.length - 1) list.push(el('span', { class: `sode-setup__line ${i < Math.max(at, reached) ? 'is-done' : ''}` }));
@@ -336,6 +372,7 @@ const KEYS = {
 };
 
 function render(focus) {
+  leaveRestore();
   const step = STEPS[at][0];
   renderSteps();
   const [title, ...body] = VIEW[step]();
@@ -347,7 +384,7 @@ function render(focus) {
   $('setup-restore').hidden = step !== 'welcome' || !!d.again;
   $('setup-next').hidden = false;
   $('setup-next').textContent = { access: 'Finish' }[step] || 'Next';
-  $('setup-err').textContent = '';
+  showProblem();
   check();
   const f = focus ? $(focus) : $('setup-body').querySelector('input:not([type="radio"])');
   if (f) {
@@ -396,7 +433,7 @@ $('setup-body').addEventListener('input', (e) => {
   keep();
   if (k === 'brandText' || k === 'brandBorder') showBrand(d.brandText, d.brandBorder);
   // The color input keeps its picker open, so the note changes in place and not by a render.
-  if (k === 'brandBorder' && $('setup-brand-caution')) $('setup-brand-caution').hidden = !brandCaution(d.brandBorder, S.brandColors);
+  if (k === 'brandBorder' && $('setup-brand-caution')) showCaution($('setup-brand-caution'));
   // No render: it would close the open color picker.
   if (t.type === 'color') {
     for (const r of $('setup-body').querySelectorAll('input[name="brandBorder"][type="radio"]')) r.checked = false;
@@ -408,7 +445,7 @@ $('setup-body').addEventListener('input', (e) => {
   }
   if (t.type === 'radio' || k === 'levels') render(t.type === 'radio' ? null : t.id);
   else check();
-  if (!finishing) $('setup-err').textContent = stepProblem(d, at, max());
+  if (!finishing) showProblem();
 });
 
 $('setup-body').addEventListener('click', (e) => {
@@ -441,9 +478,14 @@ $('setup-steps').addEventListener('click', (e) => {
   if (b) go(+b.dataset.go);
 });
 
-$('setup-back').addEventListener('click', () => (d?.again && at === 0 ? closeAgain(false) : go(Math.max(0, at - 1))));
+$('setup-back').addEventListener('click', () => {
+  if (restorePage()) return restorePage().back();
+  if (d?.again && at === 0) closeAgain(false);
+  else go(Math.max(0, at - 1));
+});
 
 $('setup-next').addEventListener('click', () => {
+  if (restorePage()) return restorePage().next();
   if (stepProblem(d, at, max())) return;
   if (STEPS[at][0] !== 'access') {
     at++;
@@ -454,12 +496,12 @@ $('setup-next').addEventListener('click', () => {
   if (d.again) return closeAgain(true);
   // Finish sends every answer at once, so a wizard left half done leaves nothing behind.
   if (!wsSend(finishMessage(d, ++seq))) {
-    $('setup-err').textContent = LINK_DOWN;
+    footNote(LINK_DOWN);
     return;
   }
   finishing = true;
   check();
-  $('setup-err').textContent = 'Saving…';
+  footNote('Saving…', 'busy');
 });
 
 onMsg('setupFinishResult', (m) => {
@@ -467,7 +509,7 @@ onMsg('setupFinishResult', (m) => {
   finishing = false;
   if (!m.ok && !S.setup) return openSode(); // another browser finished first
   if (!m.ok) {
-    $('setup-err').textContent = m.err || 'Setup was refused.';
+    footNote(m.err || 'Setup was refused.');
     check();
     return;
   }
@@ -522,10 +564,7 @@ function waitPage() {
   const phone = layout() === 'phone';
   $('setup-wait-title').textContent = phone ? 'Sode is not set up yet' : 'Setup is running in another browser';
   const kids = [];
-  if (taken && !phone)
-    kids.push(
-      el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. Your answers stay in this browser until you take control again.'),
-    );
+  if (taken && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-taken' }, 'Another browser took control. This browser keeps your answers.'));
   else if (free && !phone) kids.push(el('p', { class: 'pb-text-strong', id: 'setup-free' }, 'The other browser closed or lost its connection.'));
   if (phone) kids.push(desktopOnly('set it up'));
   else {
@@ -584,9 +623,13 @@ onMsg('setupFree', () => {
   show();
 });
 
+// brand.js paints the hello's saved brand on helloCfg, before this. The answers are not saved yet, so paint them again.
+const keepBrand = () => d && showBrand(d.brandText, d.brandBorder);
+
 on('hello', () => {
-  if (mode === 'again') return;
+  if (mode === 'again') return keepBrand();
   if (S.setup) {
+    keepBrand();
     if (!mode) {
       sheetPresets = S.setup.presets || [];
       // Desktop shows nothing until the claim answers, so the first browser never sees the wait page.
@@ -626,6 +669,8 @@ onLayout(() => {
 export function openAgain(answers, presets, hooks) {
   if (mode || layout() === 'phone') return;
   d = answers;
+  // The first run's SODE_* hints are not true of the saved values.
+  filled = {};
   again = hooks;
   sheetPresets = presets;
   at = reached = 0;

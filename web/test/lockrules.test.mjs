@@ -216,9 +216,9 @@ test('dots', () => {
 test('wrongFeedback: Incorrect for a plain wrong PIN, server waits kept as text', () => {
   assert.deepEqual(wrongFeedback('wrong PIN'), { text: 'Incorrect', ms: WRONG_MS, note: '' });
   assert.deepEqual(wrongFeedback(''), { text: 'Incorrect', ms: WRONG_MS, note: '' });
-  assert.deepEqual(wrongFeedback('wrong PIN; try again in 30s'), { text: 'Incorrect', ms: WRONG_MS, note: 'Try again in 30s' });
-  const w = wrongFeedback('too many wrong PINs; try again in 25s');
-  assert.equal(w.text, 'Too many wrong PINs; try again in 25s');
+  assert.deepEqual(wrongFeedback('wrong PIN; try again in 30 seconds'), { text: 'Incorrect', ms: WRONG_MS, note: 'Try again in 30 seconds' });
+  const w = wrongFeedback('too many wrong PINs; try again in 25 seconds');
+  assert.equal(w.text, 'Too many wrong PINs; try again in 25 seconds');
   assert.equal(w.ms, 0);
   assert.equal(wrongFeedback('another PIN is being checked; try again').ms, 0);
 });

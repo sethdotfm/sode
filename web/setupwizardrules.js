@@ -11,14 +11,16 @@ export const STEPS = [
 ];
 export const DONE = STEPS.length - 1;
 
-// The Access step's rows. The server sends each preset's Yes or No by these keys (setupRows).
+// The Access step's rows, under SHEET_CORNER, in the wizard and in Run setup again. The server sends each preset's Yes or
+// No by these keys (setupRows). A row says only what differs; the corner says it is without sign-in.
+export const SHEET_CORNER = 'A person who is not signed in can:';
 export const PRESET_ROWS = [
-  ['takeNoSignIn', 'Change routes without signing in'],
-  ['sharedNoSignIn', 'Change shared presets and filters without signing in'],
-  ['panelLinks', 'Public panels open without signing in'],
-  ['appsRead', 'Other apps can read names and tally without a key'],
-  ['appsTake', 'Other apps can take without a key'],
-  ['tieNoSignIn', 'Change routes across routers without signing in'],
+  ['takeNoSignIn', 'Change routes'],
+  ['tieNoSignIn', 'Change routes across routers'],
+  ['sharedNoSignIn', 'Change shared presets and filter sets'],
+  ['panelLinks', 'Open public panels'],
+  ['appsRead', 'Read names and tally from another app, without a key'],
+  ['appsTake', 'Take from another app, without a key'],
 ];
 
 const NAME_MAX = 24;
@@ -84,7 +86,7 @@ export function doneParts(name, address, preset, linked) {
 // The help tip of Multi destination take behavior, in the wizard and in Settings > Routers (web/index.html,
 // cfg-rt-fireMode-help, which a node test keeps the same). Facts: docs/reference.md (SODE_FIRE_MODE), docs/agents/salvos.md.
 export const FIRE_MODE_TIP =
-  'One after another: Sode sends each route as its own connect, about 16 ms each. Router salvo: the router keeps every route, then switches them all together on one command. Use Router salvo only on a router that has router salvos, with a router salvo group that nothing else uses.';
+  'One after another: Sode sends each route alone, about 16 ms apart. Router salvo: the router holds all the routes and switches them together. The router must have router salvos, and the router salvo group must be free.';
 
 // '' when SODE_* did not fill it.
 export function envHint(setup, key) {
@@ -122,6 +124,33 @@ export function restorePinProblem(pin, pin2, max = 8) {
   return '';
 }
 
+// The footer shows a problem as a muted hint until it is a mistake: its field has text that is wrong. A field
+// still empty, or a PIN still being typed, is no mistake yet.
+export function problemIsMistake(d, i, max = 8) {
+  if (!stepProblem(d, i, max)) return false;
+  const has = (s) => String(s ?? '').trim() !== '';
+  switch (STEPS[i]?.[0]) {
+    case 'welcome': {
+      const name = d.name.trim();
+      if (!name) return false;
+      if ([...name].length > NAME_MAX) return true;
+      return pinMistake(d.pin, d.pin2, max);
+    }
+    case 'router':
+      if ([...(d.routerTitle || '').trim()].length > TITLE_MAX) return true;
+      if (!d.router.trim()) return false;
+      if (!wholeIn(d.levels, 1, 256)) return has(d.levels);
+      return has(d.group);
+  }
+  return false;
+}
+
+// A PIN problem is a mistake once Repeat PIN has text, or the PIN has a letter or too many digits.
+export const pinMistake = (pin, pin2, max = 8) => !!restorePinProblem(pin, pin2, max) && (pin2 !== '' || !/^\d*$/.test(pin) || pin.length > max);
+
+// The restore page when some stores outside the config were not written.
+export const restoreFailedText = (n) => `The restore is complete, but ${n === 1 ? '1 item was' : `${n} items were`} not written. Check panels and artwork.`;
+
 // The furthest step at or before want that every earlier step lets through.
 export function stopAt(d, want, max) {
   for (let i = 0; i < want; i++) if (stepProblem(d, i, max)) return i;
@@ -131,6 +160,12 @@ export function stopAt(d, want, max) {
 // A chip moves to a visited step until Finish; after it every step is locked.
 export const chipGoes = (i, at, reached, finished) => !finished && i !== at && i <= reached;
 
+// A visited step is not a finished one: a chip shows its check only when a later step was reached.
+export const chipDone = (i, at, reached) => i !== at && i < Math.max(at, reached);
+
+// Run setup again has no Add a first user, so its first step is the style part of the owner's "Style & User" only.
+export const chipName = (key, name, again) => (again && key === 'welcome' ? 'Style' : name);
+
 // The three Level numbering buttons show the real range of the router, as its detail view in Settings > Routers does:
 // "1–17", "0–16" and "V, 1–16".
 export function numberingChoices(n) {
@@ -138,7 +173,7 @@ export function numberingChoices(n) {
   return ['1', '0', 'va'].map((mode) => [mode, numberingRange(top, mode)]);
 }
 
-// Repeat your PIN stays on the page.
+// Repeat PIN stays on the page.
 export function finishMessage(d, id) {
   return {
     t: 'setupFinish',
