@@ -96,6 +96,8 @@ func TestChromeSettingsFormRules(t *testing.T) {
 		}
 	}
 	checkLines("Page locks", `[data-find="lock-pages"] [role="group"]`)
+	view(`[data-section="api"]`)
+	checkLines("Keyless scopes", "#api-scopes")
 
 	// B2-09: a half-width control ends on the edge of the grid's first column above it.
 	half := b.boxes("#cfg-guest-role")

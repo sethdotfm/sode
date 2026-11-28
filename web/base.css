@@ -1968,8 +1968,12 @@ html[data-shift] .sode__next > .sode__next-open {
     justify-self: center;
   }
 }
-.sode__field [role="group"] .pb-check + .pb-check {
-  margin-left: var(--pb-space-5);
+/* One rule for check groups: a wrapped line starts on the group's edge. Only groups of checks, since other groups in a
+   field (tie line editor, Show segments) have their own layout. */
+.sode__field [role="group"]:has(> .pb-check) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-5);
 }
 #settings-path {
   flex: 1;
