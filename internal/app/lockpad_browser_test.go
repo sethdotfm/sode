@@ -95,6 +95,23 @@ func TestChromeLockPadLayout(t *testing.T) {
 	if v := b.eval(`getComputedStyle(document.querySelector('.sode__mark')).visibility`); v != "hidden" {
 		t.Errorf("the page's site name under the Lock is %v, want hidden", v)
 	}
+	// A1-09: the dots and the site name are centred on the pad.
+	// The glyphs' own centre: letter-spacing also follows the last glyph, and it is not part of the text.
+	glyphMiddle := func(sel string) float64 {
+		t.Helper()
+		return b.eval(fmt.Sprintf(`(() => {
+			const e = document.querySelector(%q), n = e.firstChild, r = document.createRange();
+			r.setStart(n, 0); r.setEnd(n, 1);
+			const left = r.getBoundingClientRect().left;
+			r.setStart(n, n.length - 1); r.setEnd(n, n.length);
+			const right = r.getBoundingClientRect().right - (parseFloat(getComputedStyle(e).letterSpacing) || 0);
+			return (left + right) / 2;
+		})()`, sel)).(float64)
+	}
+	pad := one(".sode-lock__pad")
+	padMiddle := (pad.Left + pad.Right) / 2
+	near("the dots' centre", glyphMiddle(".sode-lock__dots"), padMiddle)
+	near("the site name's centre", glyphMiddle(".sode-lock__brand"), padMiddle)
 	// The pad still fits 1366x768, with the list open too.
 	size(1366, 768)
 	column("1366x768")
